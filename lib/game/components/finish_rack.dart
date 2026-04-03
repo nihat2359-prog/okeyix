@@ -1,0 +1,135 @@
+import 'dart:ui';
+
+import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
+import 'package:okeyix/game/okey_game.dart';
+import 'package:okeyix/game/rack/tile_component.dart';
+
+class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
+  final List<Map<String, dynamic>> slots;
+  final String winnerName;
+  FinishRack(this.slots, this.winnerName);
+  Future<void> onLoad() async {
+    position = Vector2(
+      gameRef.size.x / 2,
+      gameRef.size.y / 2 + 100, // 🔥 aşağı kaydır
+    );
+    anchor = Anchor.center;
+    priority = 999999;
+    final bgWidth = gameRef.size.x * 1.5;
+    final bgHeight = gameRef.size.y * 1; // 🔥 sabit yükseklik
+
+    add(
+      RoundedBackground(Vector2(bgWidth, bgHeight))
+        ..position = Vector2(-160, -240)
+        ..anchor = Anchor.center
+        ..priority = -1,
+    );
+
+    add(
+      TextComponent(
+        text: "KAZANDIN",
+        position: Vector2(380, -170),
+        anchor: Anchor.center,
+        textRenderer: TextPaint(
+          style: TextStyle(
+            fontSize: 62,
+            fontWeight: FontWeight.w900,
+            foreground: Paint()
+              ..shader = const LinearGradient(
+                colors: [
+                  Color(0xFFFFE082),
+                  Color(0xFFFFC107),
+                  Color(0xFFFFA000),
+                ],
+              ).createShader(const Rect.fromLTWH(0, 0, 200, 50)),
+            shadows: [
+              Shadow(color: Colors.amber.withOpacity(0.8), blurRadius: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    add(
+      TextComponent(
+        text: winnerName,
+        position: Vector2(0, -90),
+        anchor: Anchor.center,
+        textRenderer: TextPaint(
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 18,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+    );
+
+    final tileWidth = 75.0;
+    final spacing = 9.0;
+
+    // 🔥 GERÇEK GENİŞLİK
+    final totalWidth = tileWidth - 10 * spacing;
+
+    for (final s in slots) {
+      final tile = s['tile'];
+      final i = s['i'];
+
+      if (tile == null) continue;
+
+      final isTop = i <= 12;
+      final col = isTop ? i : i - 13;
+
+      // 🔥 SOL BAŞLANGIÇ → ORTALAMA
+      final startX = -totalWidth / 2;
+
+      final x = startX + col * (tileWidth + spacing);
+      final y = isTop ? 60.0 : -60.0;
+
+      add(
+        TileComponent(
+          position: Vector2(x, y),
+          colorType: _stringToTileColor(tile['color']),
+          value: tile['number'],
+          isJoker: tile['joker'] ?? false,
+          isFakeJoker: tile['fake_joker'] ?? false,
+        ),
+      );
+    }
+  }
+
+  TileColorType _stringToTileColor(String c) {
+    switch (c) {
+      case 'red':
+        return TileColorType.red;
+      case 'blue':
+        return TileColorType.blue;
+      case 'black':
+        return TileColorType.black;
+      case 'yellow':
+        return TileColorType.yellow;
+      default:
+        return TileColorType.red;
+    }
+  }
+}
+
+class RoundedBackground extends PositionComponent {
+  final Vector2 sizeRect;
+
+  RoundedBackground(this.sizeRect);
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, sizeRect.x, sizeRect.y);
+
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      const Radius.circular(30), // 🔥 radius burada
+    );
+
+    final paint = Paint()..color = Colors.black.withOpacity(0.65);
+    canvas.drawRRect(rrect, paint);
+  }
+}

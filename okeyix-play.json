@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "okeyix",
+  "private_key_id": "05b6aa598271521113dd662f46d72de7f30d7571",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC/VXIRJXaCn4lP\nw/eGTkUM9L10m6usdu1L6BET/YHyMBGxMsCPBzxg0fRgCwytp87iqRQPUt/NG1Dn\nKeR+gJmwHWBB2JOP/hLsoAfcg50ALJQ66F+J+32pF+YMMVmB5j2XR4gEnTcs7Int\n6SIjvDfDwMfpgk76pslsC4K4cASj8aEYs8FzbkAIzEVEc8DtycpxO7SBG0dNqIKc\ntIwTPaleAe+XO8GBH+EkFfJCgfHThHgWvAdmLxAgU/YEqRh5VTRJdlCAjY2I04fk\ndMH6fL4+tQlsnIIuXm3qYUp94pbaCdDZ5XNalLCm/Y50AioUkdTS90nxEdM+tM7v\n8BKFUEVTAgMBAAECggEAD97qZsyzj13kucFDcMMLoZRS0MTcO8048sZtquRTg+ou\ngC3PC4N/TngBQXmOftXAE0y7ar1Q7huuyCCmoO2m5z+7N8sGC814oWMcM9OWUX42\neh/DU607klahUO/uVkLpvKOE1Kkme1X6556ieSddfXcqE07+oSD2QpLpMBuumYXx\nCD+IKqpVz5by9gL7xBnsNdw0SZNAxg1cfvd70lamz64opVvLXb5eaMDFquttqM06\n9dapTsV4lltM2NMCigBhpYfGMCYIYl+03mEsJpCBy03pNGpKHMmi41lwm8DPxiZP\niMWolmju93ueup2fJ1GQD9jl5kdYtIrJtpw4dxpRFQKBgQD3qOzxvZXTAR+L/Xt2\nVI4S8U5ZdOypr24cD2Ydjn2roxQzZiVhEM0MTKl3eVUKVr6+YH1JZ9j83rPHnixR\nrGLk00jhNc5qJIQlCpGJbB1Nb7hUDJ/TTmFw8PnDo4dBPx4M/AuZOd4NapHpksvn\nuJ5eIhTPPGzu3GPxCEqkA8PVtQKBgQDFxu7b+fK+XIWyoZnf4lOuB1wl+jjxnagb\nZLTHzDSbgRHW3ll86XTpNf3dPwbHkFolqMNgtRhUHDNhm2bqpxqfPVlYeMDC6Z2O\nJ/DOOBXBlIlLHLdkza5oKgbzbiCeAs1Ltx3YBWgsJvFD+A8A0VlcVN5o8ZHQEa/U\n3jUXEoYT5wKBgErq1ep20EjJMTLW1i9Aes3uIyZagXD/OY7RdbGBNjDinyzBPJN1\nUqHi2uziTkBXZ1INvDilanVsJPRAu+VlAXF5HLXL4gony7Ws0cPBacfQAPGj9AEm\n18EjlFqDMFojbsK8yAFtCOgEEemXV4lcRsPxCVx7SfSjxLPYL0QYQ3h1AoGAEoXx\nNRUR0RZlRzeva7KM183EqaHn12lGp1olPFk5zB6ohxFIHFTZKEZwQlp2zhYM+130\n/oe3gZkqjse5Odzwt11NkuWsWBT9NqUy/n1uPDUnLqu/2WcSIJtfD0mPMH1esOqz\nltnaydfT3OPMs+zni6g/NGD7oRsm9q7hFgocGJ0CgYEAjpHuCKSiV5fcRTeKzt+O\np2yu9ixsNXiIab+ewKRHlRKWS3jCs+9EYVF62Kltd1N7MGmCJAVaEQXnvjVtJ4+F\nilA3PAaV6YJeVUs+re1G+nl8jccxFJcSXkYwemWdyccIX2kY5cZ6Nrs6HsmkIIzT\nAuQZ1+GcMPglZHIer01XY5o=\n-----END PRIVATE KEY-----\n",
+  "client_email": "okeyix-play-api@okeyix.iam.gserviceaccount.com",
+  "client_id": "107696954344832597623",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/okeyix-play-api%40okeyix.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

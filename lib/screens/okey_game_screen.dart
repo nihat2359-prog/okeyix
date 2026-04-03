@@ -1,0 +1,2130 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui';
+import 'package:audioplayers/audioplayers.dart' as jo;
+import 'package:flame/game.dart';
+import 'package:flutter/material.dart';
+import 'package:okeyix/game/components/radial_quick_chat.dart';
+import 'package:okeyix/game/okey_game.dart';
+import 'package:okeyix/screens/lobby_screen.dart';
+import 'package:okeyix/ui/game_avatar_overlay.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+import 'store_screen.dart';
+import 'package:just_audio/just_audio.dart' as ja;
+
+class OkeyGameScreen extends StatefulWidget {
+  final String tableId;
+  final bool isCreator;
+
+  const OkeyGameScreen({
+    super.key,
+    required this.tableId,
+    required this.isCreator,
+  });
+
+  @override
+  State<OkeyGameScreen> createState() => _OkeyGameScreenState();
+}
+
+class _OkeyGameScreenState extends State<OkeyGameScreen>
+    with WidgetsBindingObserver {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  late final OkeyGame _game;
+  final TextEditingController _chatController = TextEditingController();
+
+  RealtimeChannel? _tableChannel;
+  RealtimeChannel? _playersChannel;
+  RealtimeChannel? _chatChannel;
+  RealtimeChannel? _discardChannel;
+
+  Timer? _ticker;
+  Timer? _tablePoll;
+  Timer? _playersPoll;
+
+  bool _menuOpen = false;
+  bool _chatOpen = false;
+  bool _doubleMode = false;
+  bool _chatLoading = false;
+
+  String _tableStatus = 'waiting';
+  int _maxPlayers = 2;
+  int _playerCount = 0;
+
+  DateTime? _readySince;
+  DateTime? _lastFinishAt;
+
+  int? _mySeatIndex;
+  String? _myUserId;
+
+  final Map<String, String> _userNames = {};
+  List<Map<String, dynamic>> _chatMessages = [];
+  List<Map<String, dynamic>> _discardRows = [];
+
+  bool _showFinishFx = false;
+  String _finishFxText = '';
+  Map<String, dynamic>? _lastIncomingMessage;
+  OverlayEntry? _quickChatOverlay;
+  bool _showMessageBanner = false;
+  final _player = jo.AudioPlayer();
+  final ScrollController _chatScroll = ScrollController();
+  final _quickChatBtnKey = GlobalKey();
+
+  bool _isPressing = false;
+  bool _isRecording = false;
+  bool _showPreview = false;
+  bool _previewPlaying = false;
+
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
+  Timer? _safetyTimer;
+  DateTime? _recordStartTime;
+  bool _longPressActive = false;
+  String? _recordPath;
+  bool _canStop = false;
+  DateTime? _pressStartTime;
+  String? _playingMessageId;
+  String? _previewPath;
+  String _recordDuration = "0:00";
+  final _recorder = AudioRecorder();
+  final ja.AudioPlayer _audioPlayer = ja.AudioPlayer();
+  bool _showFinish = false;
+  List? _finishSlots;
+  String? _winnerId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _game = OkeyGame(tableId: widget.tableId, isCreator: widget.isCreator);
+    _myUserId = _supabase.auth.currentUser?.id;
+    _bootstrap();
+    _loadChatMessages();
+    _subscribeRealtime();
+    _ticker = Timer.periodic(const Duration(milliseconds: 150), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    _tablePoll = Timer.periodic(const Duration(seconds: 1), (_) {
+      _loadTable();
+    });
+    _playersPoll = Timer.periodic(const Duration(seconds: 1), (_) {
+      _loadPlayers();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _tableChannel?.unsubscribe();
+    _playersChannel?.unsubscribe();
+    _chatChannel?.unsubscribe();
+    _discardChannel?.unsubscribe();
+    _tablePoll?.cancel();
+    _playersPoll?.cancel();
+    _chatController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    await _loadTable();
+    await _loadPlayers();
+    await _loadDiscardHistory();
+  }
+
+  void _subscribeRealtime() {
+    _tableChannel?.unsubscribe();
+    _tableChannel = _supabase
+        .channel('okey_screen_table_${widget.tableId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'tables',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.tableId,
+          ),
+          callback: (_) => _loadTable(),
+        )
+        .subscribe();
+
+    _playersChannel?.unsubscribe();
+    _playersChannel = _supabase
+        .channel('okey_screen_players_${widget.tableId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'table_players',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'table_id',
+            value: widget.tableId,
+          ),
+          callback: (_) => _loadPlayers(),
+        )
+        .subscribe();
+
+    _discardChannel?.unsubscribe();
+    _discardChannel = _supabase
+        .channel('okey_screen_discards_${widget.tableId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'table_discards',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'table_id',
+            value: widget.tableId,
+          ),
+          callback: (_) => _loadDiscardHistory(),
+        )
+        .subscribe();
+
+    _chatChannel = _supabase
+        .channel('okey_screen_chat_${widget.tableId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert, // 🔥 EN ÖNEMLİ FIX
+          schema: 'public',
+          table: 'table_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'table_id',
+            value: widget.tableId,
+          ),
+          callback: (payload) async {
+            final raw = payload.newRecord;
+
+            final msg = Map<String, dynamic>.from(raw);
+
+            final senderId = msg['sender_id']?.toString();
+            await _ensureUserLoaded(senderId);
+
+            _handleIncomingRealtimeMessage(msg);
+          },
+        )
+        .subscribe((status, err) {
+          if (err != null) {
+            print("CHAT ERROR: $err");
+          }
+        });
+  }
+
+  void _showIncomingMessage(Map<String, dynamic> msg) {
+    final senderId = msg['sender_id']?.toString();
+
+    // kendi mesajınsa gösterme
+    if (senderId == _myUserId) return;
+
+    setState(() {
+      _lastIncomingMessage = msg;
+      _showMessageBanner = true;
+    });
+
+    _playMessageSound();
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        _showMessageBanner = false;
+      });
+    });
+  }
+
+  void _playMessageSound() {
+    _player.play(jo.AssetSource('sounds/message.mp3'));
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (_chatScroll.hasClients) {
+        _chatScroll.animateTo(
+          _chatScroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  String _shortText(String text, {int max = 40}) {
+    if (text.length <= max) return text;
+    return '${text.substring(0, max)}...';
+  }
+
+  Widget _buildMessageBanner() {
+    final msg = _lastIncomingMessage!;
+
+    final name = msg['users']?['username'] ?? '';
+    final type = msg['type'] ?? 'text';
+
+    String text;
+    IconData icon;
+
+    if (type == 'voice') {
+      text = "Sesli mesaj";
+      icon = Icons.mic;
+    } else {
+      text = _shortText(msg['content'] ?? '');
+      icon = Icons.chat_bubble;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xEE1A222A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x44FFFFFF)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.4),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.amber, size: 18),
+
+          const SizedBox(width: 8),
+
+          Expanded(
+            child: Text(
+              "$name: $text",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _loadFinishSnapshot() async {
+    final res = await _supabase
+        .from('table_finish_snapshots')
+        .select()
+        .eq('table_id', widget.tableId)
+        .order('finished_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    return res;
+  }
+
+  void _openFinishScreen(Map<String, dynamic> snapshot, winnerName) {
+    final playersWrapper = snapshot['players'];
+
+    if (playersWrapper == null) return;
+
+    final players = playersWrapper['players'];
+
+    if (players == null || players is! List) return;
+
+    final winner = players.firstWhere(
+      (p) => p['is_winner'] == true,
+      orElse: () => null,
+    );
+
+    if (winner == null) return;
+
+    final rawSlots = winner['slots'];
+
+    if (rawSlots == null || rawSlots is! List) return;
+
+    final slots = List<Map<String, dynamic>>.from(rawSlots);
+
+    // 🔥 BURASI ASIL NOKTA
+    _game.showFinish(slots, winnerName);
+
+    setState(() {
+      _finishSlots = slots;
+      _showFinish = true;
+    });
+
+    _autoCloseFinish();
+  }
+
+  Future<void> _autoCloseFinish() async {
+    await Future.delayed(const Duration(milliseconds: 4000));
+
+    if (!mounted) return;
+    _game.hideFinish();
+    _showFinish = false;
+    setState(() {});
+  }
+
+  Future<void> _loadTable() async {
+    try {
+      final row = await _supabase
+          .from('tables')
+          .select('status,max_players,last_finish_at,last_winner_user_id')
+          .eq('id', widget.tableId)
+          .maybeSingle();
+
+      if (row == null) return;
+
+      final status = row['status']?.toString() ?? 'waiting';
+      final maxPlayers = (row['max_players'] as int?) ?? 2;
+      final winner = row['last_winner_user_id']?.toString();
+      final finishAt = _parseServerTime(row['last_finish_at']);
+
+      final shouldShowFinishFx =
+          finishAt != null &&
+          (_lastFinishAt == null || finishAt.isAfter(_lastFinishAt!));
+
+      _tableStatus = status;
+      _maxPlayers = maxPlayers;
+      _lastFinishAt = finishAt;
+
+      if (_tableStatus == 'playing') {
+        _readySince = null;
+      }
+
+      if (shouldShowFinishFx) {
+        final winnerName = winner == null
+            ? 'Kazanan belli değil'
+            : (_userNames[winner] ?? 'Bir oyuncu');
+
+        if (winner == null) {
+          _showFinishMessage('$winnerName kazandı!');
+        } else {
+          final snapshot = await _loadFinishSnapshot();
+
+          if (snapshot != null) {
+            _openFinishScreen(snapshot, winnerName);
+          }
+        }
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('TABLE LOAD ERROR: $e');
+    }
+  }
+
+  Future<void> _loadPlayers() async {
+    try {
+      dynamic rows;
+      try {
+        rows = await _supabase
+            .from('table_players')
+            .select('seat_index,user_id,is_double_mode')
+            .eq('table_id', widget.tableId)
+            .order('seat_index', ascending: true);
+      } catch (_) {
+        rows = await _supabase
+            .from('table_players')
+            .select('seat_index,user_id')
+            .eq('table_id', widget.tableId)
+            .order('seat_index', ascending: true);
+      }
+
+      final players = (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      final currentUserId = _myUserId;
+      if (currentUserId != null &&
+          !players.any((p) => p['user_id']?.toString() == currentUserId)) {
+        if (mounted) {
+          _showSnack('Süre aşımı nedeniyle masadan çıkarıldın.');
+          _leaveTable();
+        }
+        return;
+      }
+
+      _playerCount = players.length;
+      final mySeat = players
+          .where((p) => p['user_id']?.toString() == _myUserId)
+          .map((p) => p['seat_index'] as int?)
+          .cast<int?>()
+          .firstWhere((v) => v != null, orElse: () => null);
+      _mySeatIndex = mySeat;
+      final myRow = players.cast<Map<String, dynamic>?>().firstWhere(
+        (p) => p != null && p['user_id']?.toString() == _myUserId,
+        orElse: () => null,
+      );
+      _doubleMode = myRow?['is_double_mode'] == true;
+
+      if (_tableStatus == 'waiting' && _playerCount >= _maxPlayers) {
+        _readySince ??= DateTime.now();
+      } else {
+        _readySince = null;
+      }
+
+      final ids = players
+          .map((e) => e['user_id']?.toString())
+          .whereType<String>()
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (ids.isNotEmpty) {
+        final rows = await _supabase
+            .from('users')
+            .select('id,username,email')
+            .inFilter('id', ids);
+        for (final raw in (rows as List)) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final id = row['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          final username = row['username']?.toString().trim();
+          final email = row['email']?.toString().trim();
+          _userNames[id] = (username != null && username.isNotEmpty)
+              ? username
+              : (email ?? 'Oyuncu');
+        }
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('PLAYER LOAD ERROR: $e');
+    }
+  }
+
+  Future<void> _loadDiscardHistory() async {
+    try {
+      final rows = await _supabase
+          .from('table_discards')
+          .select('seat_index,tile,created_at')
+          .eq('table_id', widget.tableId)
+          .order('created_at', ascending: true);
+
+      _discardRows = (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('DISCARD HISTORY ERROR: $e');
+    }
+  }
+
+  Future<void> _loadChatMessages() async {
+    if (_chatLoading) return;
+
+    _chatLoading = true;
+
+    try {
+      final rows = await _supabase
+          .from('table_messages')
+          .select('*,users(username)')
+          .eq('table_id', widget.tableId)
+          .order('created_at', ascending: true)
+          .limit(200);
+
+      _chatMessages = (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      if (mounted) setState(() {});
+
+      _scrollToBottom(); // 🔥 ilk açılışta en alta
+    } catch (e) {
+      _showSnack('Chat yüklenemedi: $e');
+    } finally {
+      _chatLoading = false;
+    }
+  }
+
+  Future<void> _handleIncomingRealtimeMessage(Map<String, dynamic> msg) async {
+    final senderId = msg['sender_id'];
+
+    /// 🔥 DUPLICATE ENGELLE (KRİTİK)
+    if (_chatMessages.any((m) => m['id'] == msg['id'])) {
+      return;
+    }
+
+    // 🔥 username cache
+    String username = _userNames[senderId] ?? "";
+
+    if (username.isEmpty) {
+      final user = await _supabase
+          .from('users')
+          .select('username')
+          .eq('id', senderId)
+          .single();
+
+      username = user['username'] ?? "Oyuncu";
+      _userNames[senderId] = username;
+    }
+
+    final enriched = {
+      ...msg,
+      'users': {'username': username},
+    };
+
+    _chatMessages.add(enriched);
+
+    if (mounted) setState(() {});
+
+    _scrollToBottom();
+
+    if (senderId != _myUserId) {
+      _showIncomingMessage(enriched);
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final message = _chatController.text.trim();
+    final senderId = _myUserId;
+
+    if (message.isEmpty || senderId == null) return;
+
+    _chatController.clear();
+
+    /// 🔥 ANINDA GÖSTER
+    final newMsg = {
+      'sender_id': senderId,
+      'content': message,
+      'role': 'player',
+    };
+
+    setState(() {
+      // _chatMessages.add(newMsg);
+    });
+
+    _scrollToBottom();
+
+    await _supabase.from('table_messages').insert({
+      'table_id': widget.tableId,
+      'sender_id': senderId,
+      'content': message,
+      'role': 'player',
+      'type': 'text',
+    });
+  }
+
+  void _showSnack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _confirmLeaveTable() async {
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return Center(
+          child: Container(
+            width: 340,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1A2328), Color(0xFF12181C)],
+              ),
+              border: Border.all(color: const Color(0x55E7C06A)),
+              boxShadow: [
+                BoxShadow(color: const Color(0x26E7C06A), blurRadius: 20),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.logout_rounded,
+                    size: 42,
+                    color: Color(0xFFE7C06A),
+                  ),
+                  const SizedBox(height: 10),
+
+                  const Text(
+                    "Masadan Ayrıl",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const Text(
+                    "Masadan ayrılmak istediğine emin misin?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0x33E7C06A)),
+                          ),
+                          child: const Text(
+                            "Vazgeç",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE7C06A),
+                            foregroundColor: Colors.black,
+                          ),
+                          child: const Text("Ayrıl"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldLeave != true) return;
+
+    await _leaveTable();
+  }
+
+  Future<void> _leaveTable() async {
+    final userId = _myUserId;
+    if (userId == null) return;
+
+    try {
+      // ⭐ realtime kapat
+      _tableChannel?.unsubscribe();
+      _playersChannel?.unsubscribe();
+      _discardChannel?.unsubscribe();
+
+      await _supabase.rpc(
+        'leave_table',
+        params: {'p_table_id': widget.tableId, 'p_user_id': userId},
+      );
+
+      _game.resetGameState();
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LobbyScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      _showSnack('Masadan ayrılınamadı: $e');
+    }
+  }
+
+  Future<void> _toggleDoubleMode() async {
+    if (_doubleMode) {
+      _showSnack('Çifte git seçimi geri alınamaz.');
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Çifte Git'),
+        content: const Text(
+          'Çifte gidersen bu kararı geri alamazsın ve elde çiftten bitmek zorundasın. Onaylıyor musun?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hayır'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Evet'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    setState(() => _doubleMode = true);
+
+    final userId = _myUserId;
+    if (userId == null) return;
+    try {
+      await _supabase
+          .from('table_players')
+          .update({'is_double_mode': true})
+          .eq('table_id', widget.tableId)
+          .eq('user_id', userId);
+    } catch (_) {
+      // optional column, ignore
+    }
+  }
+
+  void _showFinishMessage(String text) {
+    _finishFxText = text;
+    _showFinishFx = true;
+    if (mounted) setState(() {});
+    Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _showFinishFx = false);
+    });
+  }
+
+  DateTime? _parseServerTime(dynamic raw) {
+    if (raw == null) return null;
+    final parsed = DateTime.tryParse(raw.toString());
+    if (parsed == null) return null;
+    return parsed.toLocal();
+  }
+
+  int get _joinCountdown {
+    if (_tableStatus != 'waiting' || _playerCount < _maxPlayers) return 0;
+    if (_readySince == null) return 5;
+    final elapsed = DateTime.now().difference(_readySince!).inSeconds;
+    final remain = 5 - elapsed;
+    if (remain <= 0) return 0;
+    return remain;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showWaitingOverlay = _tableStatus == 'waiting' && !_game.gameStarted;
+
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          /// 🔥 1. BACKGROUND (FULL SCREEN)
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/lobby/lobby.png', // 👉 yeni oluşturduğun blur background
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          /// 🎮 2. GAME STAGE (SABİT ORAN)
+          Center(
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                children: [
+                  /// Masa (artık bozulmaz)
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/table.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+
+                  /// Flame game
+                  Positioned.fill(child: GameWidget(game: _game)),
+
+                  if (!_showFinish)
+                    /// Avatar overlay
+                    Positioned.fill(
+                      child: GameAvatarOverlay(tableId: widget.tableId),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          /// UI (üst katmanlar)
+          _buildTopButtons(),
+          _buildTopRightLeague(),
+
+          if (showWaitingOverlay) _buildWaitingOverlay(),
+          if (_menuOpen) _buildMenuPanel(),
+          if (_chatOpen) _buildChatPanel(),
+          if (_showFinishFx) _buildFinishFx(),
+
+          if (_showMessageBanner && _lastIncomingMessage != null)
+            Positioned(
+              top: 60,
+              right: 12,
+              width: MediaQuery.of(context).size.width * 0.28,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 300),
+                offset: _showMessageBanner ? Offset.zero : const Offset(1, 0),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _showMessageBanner ? 1 : 0,
+                  child: _buildMessageBanner(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinishOverlay() {
+    final top = _finishSlots!
+        .where((s) => s['i'] <= 12 && s['tile'] != null)
+        .toList();
+
+    final bottom = _finishSlots!
+        .where((s) => s['i'] > 12 && s['tile'] != null)
+        .toList();
+
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(.85),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "KAZANDIN",
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tileWidget(Map s) {
+    final tile = s['tile'];
+
+    return Container(
+      width: 42,
+      height: 62,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        "${tile['number']}",
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+    );
+  }
+
+  Widget _buildTopButtons() {
+    final myCoins = _game.getMyCoins();
+    return Positioned(
+      top: 18,
+      left: 16,
+      child: Row(
+        children: [
+          _topCircleButton(
+            icon: Icons.menu_rounded,
+            active: _menuOpen,
+            onTap: () => setState(() => _menuOpen = !_menuOpen),
+          ),
+
+          const SizedBox(width: 10),
+          GestureDetector(
+            key: _quickChatBtnKey,
+            onTap: _openQuickChat,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF1A222A),
+                border: Border.all(color: Color(0xFFD4AF37), width: 2),
+              ),
+              child: Icon(Icons.chat, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          /// STORE (dock icon ile)
+          _topCircleButton(
+            asset: "assets/images/lobby/store.png",
+            highlight: true,
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoreScreen(initialCoin: myCoins),
+                ),
+              );
+
+              if (result == true) {
+                _game.reloadInitialState();
+              }
+            },
+          ),
+          if (_doubleMode) ...[
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xCC8B1538),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                'Çifte',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(width: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopRightLeague() {
+    final league = _game.getLeague();
+    if (league == null || league['name'] == null) {
+      return const SizedBox();
+    }
+
+    final entry = league['entry_coin'] ?? 0;
+    final name = league['name'];
+
+    final players = _game.getPlayerCount();
+    final turn = _game.getTurnSeconds();
+
+    return Positioned(
+      top: 18,
+      right: 16,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xCC0F141A),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x33FFFFFF)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            /// league icon
+            Image.asset(_leagueBadge(name), width: 24),
+
+            const SizedBox(width: 6),
+
+            /// league name
+            Text(
+              name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            /// player count
+            const Icon(Icons.group, size: 16, color: Colors.white70),
+            const SizedBox(width: 4),
+            Text(
+              "$players",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            /// turn seconds
+            const Icon(Icons.timer_outlined, size: 16, color: Colors.white70),
+            const SizedBox(width: 4),
+            Text(
+              "${turn}s",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            /// entry coin
+            Image.asset("assets/images/lobby/store.png", width: 16),
+            const SizedBox(width: 4),
+            Text(
+              "$entry",
+              style: const TextStyle(
+                color: Color(0xFFD4A24C),
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _leagueBadge(String name) {
+    final n = name.toLowerCase();
+
+    if (n.contains("standart")) return "assets/images/lobby/standart.png";
+    if (n.contains("bronz")) return "assets/images/lobby/bronz.png";
+    if (n.contains("gumus")) return "assets/images/lobby/gumus.png";
+    if (n.contains("altin")) return "assets/images/lobby/altin.png";
+    if (n.contains("elit")) return "assets/images/lobby/elit.png";
+
+    return "assets/images/lobby/standart.png";
+  }
+
+  Widget _topCircleButton({
+    IconData? icon,
+    String? asset,
+    bool active = false,
+    bool highlight = false,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: active ? const Color(0xFF2A3440) : const Color(0xCC0F141A),
+          border: Border.all(
+            color: highlight
+                ? const Color(0xFFD4A24C)
+                : const Color(0x33FFFFFF),
+            width: 1.2,
+          ),
+        ),
+        child: Center(
+          child: asset != null
+              ? Image.asset(asset, width: 22, height: 22)
+              : Icon(icon, size: 20, color: Colors.white70),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuPanel() {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Container(
+        width: 280,
+        margin: const EdgeInsets.only(left: 14, top: 34),
+        constraints: BoxConstraints(maxHeight: screenHeight * 0.75),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: const Color(0xEE0B0F14),
+          border: Border.all(color: const Color(0x66D4A24C), width: 1.2),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x99000000),
+              blurRadius: 30,
+              offset: Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            /// HEADER
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.menu_rounded,
+                    color: Color(0xFFD4A24C),
+                    size: 22,
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  const Text(
+                    "Oyun Menüsü",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    splashRadius: 18,
+                    onPressed: () => setState(() => _menuOpen = false),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1, color: Color(0x22FFFFFF)),
+
+            /// ACTIONS
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                children: [
+                  _gameMenuItem(
+                    icon: Icons.auto_awesome,
+                    text: "Seri Diz",
+                    onTap: () {
+                      _game.arrangeSerial();
+                      setState(() => _menuOpen = false);
+                    },
+                  ),
+
+                  _gameMenuItem(
+                    icon: Icons.grid_view_rounded,
+                    text: "Çifte Diz",
+                    onTap: () {
+                      _game.arrangePairs();
+                      setState(() => _menuOpen = false);
+                    },
+                  ),
+
+                  _gameMenuItem(
+                    icon: Icons.filter_2,
+                    text: "Çifte Git",
+                    onTap: () async {
+                      setState(() => _menuOpen = false);
+                      await _toggleDoubleMode();
+                    },
+                  ),
+
+                  _gameMenuItem(
+                    icon: Icons.history_rounded,
+                    text: "Discard Geçmişi",
+                    enabled: _doubleMode,
+                    onTap: () async {
+                      setState(() => _menuOpen = false);
+                      await _showDiscardHistorySheet();
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  const Divider(height: 1, color: Color(0x22FFFFFF)),
+
+                  const SizedBox(height: 8),
+
+                  _gameMenuItem(
+                    icon: Icons.logout_rounded,
+                    text: "Masadan Ayrıl",
+                    danger: true,
+                    onTap: () async {
+                      setState(() => _menuOpen = false);
+                      await _confirmLeaveTable();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _gameMenuItem({
+    required IconData icon,
+    required String text,
+    bool danger = false,
+    bool enabled = true,
+    required VoidCallback onTap,
+  }) {
+    final color = danger
+        ? const Color(0xFFE06A6A)
+        : enabled
+        ? Colors.white
+        : Colors.white38;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 22),
+
+            const SizedBox(width: 12),
+
+            Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatPanel() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        width: 460,
+        margin: EdgeInsets.only(
+          right: 12,
+          top: 22,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+        ),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: const Color(0xEE0F141A),
+          border: Border.all(color: const Color(0x33FFFFFF)),
+        ),
+        child: Column(
+          children: [
+            /// HEADER
+            Row(
+              children: [
+                const Icon(Icons.forum_rounded, color: Color(0xFFD4AF37)),
+                const SizedBox(width: 8),
+                const Text(
+                  'Masa Sohbeti',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _chatOpen = false),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            /// 🔥 MESAJ LİSTESİ
+            Expanded(
+              child: ListView.builder(
+                controller: _chatScroll,
+                itemCount: _chatMessages.length,
+                itemBuilder: (context, index) {
+                  final msg = _chatMessages[index];
+
+                  final senderId = msg['sender_id']?.toString();
+                  final mine = senderId == _myUserId;
+
+                  final role = msg['role'] ?? 'player';
+                  final isVoice = msg['type'] == 'voice';
+
+                  final senderName =
+                      msg['users']?['username'] ??
+                      _userNames[senderId] ??
+                      'Oyuncu';
+
+                  return Align(
+                    alignment: mine
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      constraints: const BoxConstraints(maxWidth: 260),
+                      decoration: BoxDecoration(
+                        color: mine
+                            ? const Color(0xFF2A3D1B)
+                            : const Color(0xFF1A222A),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: mine
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
+                        children: [
+                          /// USERNAME + ROLE
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                senderName,
+                                style: TextStyle(
+                                  color: role == 'spectator'
+                                      ? Colors.cyan
+                                      : const Color(0xFFD4AF37),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (role == 'spectator') ...[
+                                const SizedBox(width: 6),
+                                const Text(
+                                  '👁',
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          /// 🔥 CONTENT
+                          isVoice
+                              ? _voiceBubble(msg, mine)
+                              : Text(
+                                  msg['content']?.toString() ?? '',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            /// 🔥 PREVIEW (VOICE)
+            if (_showPreview && _previewPath != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A222A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.play_arrow, color: Colors.white),
+                      onPressed: () async {
+                        await _audioPlayer.setFilePath(_previewPath!);
+                        await _audioPlayer.play();
+                      },
+                    ),
+
+                    Expanded(child: _waveform(false)),
+
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () async {
+                        await File(_previewPath!).delete();
+                        setState(() {
+                          _previewPath = null;
+                          _showPreview = false;
+                        });
+                      },
+                    ),
+
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Colors.green),
+                      onPressed: () async {
+                        await sendVoiceMessage(_previewPath!);
+
+                        setState(() {
+                          _previewPath = null;
+                          _showPreview = false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 8),
+
+            /// QUICK CHAT
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _quickChatChip('Hızlı oyna'),
+                _quickChatChip('Tebrikler'),
+                _quickChatChip('Teşekkürler'),
+                _quickChatChip('Bol şans'),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            /// 🔥 INPUT + VOICE
+            Row(
+              children: [
+                /// 🎤 RECORD
+                Listener(
+                  onPointerDown: (_) async {
+                    _isPressing = true;
+
+                    await Future.delayed(const Duration(milliseconds: 250));
+
+                    if (_isPressing) {
+                      await _startRecording();
+                    }
+                  },
+                  onPointerUp: (_) async {
+                    _isPressing = false;
+                    await _stopRecording(send: false);
+                  },
+                  child: _recordButton(),
+                ),
+
+                const SizedBox(width: 6),
+
+                /// TEXT
+                Expanded(
+                  child: TextField(
+                    controller: _chatController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Mesaj yaz...',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: const Color(0x221A222A),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                /// SEND
+                IconButton.filled(
+                  onPressed: _sendMessage,
+                  icon: const Icon(Icons.send_rounded),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _playVoice(Map<String, dynamic> msg) async {
+    try {
+      final path = msg['voice_url'];
+      if (path == null) return;
+
+      /// aynı mesaj → stop
+      if (_playingMessageId == msg['id']) {
+        await _audioPlayer.stop();
+        setState(() => _playingMessageId = null);
+        return;
+      }
+
+      /// yeni mesaj başlat
+      final url = await _supabase.storage
+          .from('voice')
+          .createSignedUrl(path, 60);
+
+      await _audioPlayer.stop(); // 💥 önemli (önceki sesi kes)
+
+      await _audioPlayer.setUrl(url);
+
+      setState(() => _playingMessageId = msg['id']);
+
+      await _audioPlayer.play();
+    } catch (e) {
+      debugPrint("VOICE PLAY ERROR: $e");
+    }
+  }
+
+  Widget _voiceBubble(Map<String, dynamic> msg, bool mine) {
+    final isPlaying = _playingMessageId == msg['id'];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min, // ❗ önemli
+      children: [
+        /// ▶️ PLAY
+        GestureDetector(
+          onTap: () => _playVoice(msg),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isPlaying
+                  ? const Color(0xFFE7C06A)
+                  : (mine ? Colors.white : Colors.black26),
+            ),
+            child: Icon(
+              isPlaying ? Icons.pause : Icons.play_arrow,
+              size: 18,
+              color: isPlaying
+                  ? Colors.black
+                  : (mine ? Colors.black : Colors.white),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        /// 🔊 WAVE
+        SizedBox(
+          width: 80, // ❗ sabit width
+          child: Row(
+            children: List.generate(12, (i) {
+              final height = (i % 5 + 3).toDouble();
+
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                width: 3,
+                height: height * 2,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.85),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              );
+            }),
+          ),
+        ),
+
+        const SizedBox(width: 6),
+
+        /// ⏱️ süre
+        Text(
+          "${msg['duration'] ?? 0}s",
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  Widget _waveform(bool playing) {
+    return Row(
+      children: List.generate(20, (i) {
+        final baseHeight = (i % 5 + 3).toDouble();
+
+        return AnimatedContainer(
+          duration: Duration(milliseconds: 200 + (i * 20)),
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          width: 3,
+          height: playing ? baseHeight * 5 : baseHeight * 2,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.85),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }),
+    );
+  }
+
+  Future<void> sendVoiceMessage(String filePath) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final file = File(filePath);
+
+      if (!await file.exists()) return;
+
+      /// 🆔 unique id
+      final messageId = const Uuid().v4();
+
+      /// 🔗 storage path (table bazlı)
+      final storagePath = 'table/${widget.tableId}/$messageId.m4a';
+
+      /// 📦 STORAGE UPLOAD
+      await _supabase.storage.from('voice').upload(storagePath, file);
+
+      /// 🧾 DB INSERT
+      await _supabase.from('table_messages').insert({
+        "table_id": widget.tableId,
+        "sender_id": user.id,
+        "role": "player", // veya player
+        "content": "", // boş
+        "type": "voice",
+        "voice_url": storagePath,
+        "duration": 5, // şimdilik sabit
+      });
+
+      /// 🧹 local temizle
+      await file.delete();
+
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint("VOICE SEND ERROR: $e");
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+
+    if (!await _recorder.hasPermission()) return;
+
+    final dir = await getTemporaryDirectory();
+    final path = '${dir.path}/${const Uuid().v4()}.m4a';
+
+    await _recorder.start(
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        bitRate: 64000,
+        sampleRate: 44100,
+      ),
+      path: path,
+    );
+
+    _recordPath = path;
+
+    setState(() => _isRecording = true);
+
+    _startTimer();
+
+    /// 💥 EN KRİTİK (recorder warmup)
+    _canStop = false;
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _canStop = true;
+    });
+  }
+
+  void _startTimer() {
+    _recordSeconds = 0;
+
+    _recordTimer?.cancel();
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      setState(() {
+        _recordSeconds++;
+      });
+    });
+  }
+
+  Future<void> _stopRecording({required bool send}) async {
+    if (!_isRecording) return;
+
+    if (!_canStop) return;
+
+    final path = await _recorder.stop();
+
+    _stopTimer();
+    setState(() => _isRecording = false);
+
+    if (path == null) return;
+
+    final file = File(path);
+    final size = await file.length();
+
+    if (size < 8000) {
+      await file.delete();
+      return;
+    }
+
+    setState(() {
+      _previewPath = path;
+      _showPreview = true;
+    });
+  }
+
+  void _stopTimer() {
+    _recordTimer?.cancel();
+  }
+
+  Widget _recordButton() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+
+      height: _isRecording ? 54 : 44,
+      width: _isRecording ? 54 : 44,
+
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+
+        /// 🎨 BACKGROUND
+        color: _isRecording ? Colors.redAccent : const Color(0xFF1E2A25),
+
+        /// 💎 BORDER
+        border: Border.all(
+          color: _isRecording ? Colors.redAccent : const Color(0x3359A588),
+          width: _isRecording ? 1.6 : 1,
+        ),
+
+        /// ✨ GLOW
+        boxShadow: _isRecording
+            ? [
+                BoxShadow(
+                  color: Colors.redAccent.withOpacity(.7),
+                  blurRadius: 20,
+                  spreadRadius: 1,
+                ),
+              ]
+            : [BoxShadow(color: Colors.black.withOpacity(.25), blurRadius: 6)],
+      ),
+
+      child: Center(
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          scale: _isRecording ? 1.2 : 1,
+
+          child: Icon(
+            _isRecording ? Icons.mic : Icons.mic_none,
+            size: _isRecording ? 26 : 22,
+            color: _isRecording ? Colors.white : const Color(0xFFE7C06A),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWaitingOverlay() {
+    final full = _playerCount >= _maxPlayers;
+    final count = _joinCountdown;
+    final text = full
+        ? (count > 0
+              ? 'Oyun $count saniye sonra başlayacak...'
+              : 'Oyun başlatılıyor...')
+        : 'Oyuncu bekleniyor...';
+
+    return IgnorePointer(
+      ignoring: true,
+      child: Align(
+        alignment: Alignment.center,
+        child: Container(
+          width: 380,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xD90F141A),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color.fromARGB(84, 252, 169, 45)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD4AF37)),
+              Text(
+                text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishFx() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          color: const Color(0x55000000),
+          alignment: Alignment.center,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 250),
+            scale: _showFinishFx ? 1 : 0.95,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFD4AF37), Color(0xFFFFE08A)],
+                ),
+              ),
+              child: Text(
+                _finishFxText,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDiscardHistorySheet() async {
+    if (!_doubleMode) {
+      _showSnack('Discard geçmişini sadece çifte giden oyuncu görebilir.');
+      return;
+    }
+    await _loadDiscardHistory();
+    if (!mounted) return;
+
+    final mySeat = _mySeatIndex;
+    final myRows = mySeat == null
+        ? <Map<String, dynamic>>[]
+        : _discardRows.where((r) => r['seat_index'] == mySeat).toList();
+    final oppRows = mySeat == null
+        ? _discardRows
+        : _discardRows.where((r) => r['seat_index'] != mySeat).toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F141A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.62,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  const Text(
+                    'Discard Geçmişi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        _historySection('Benim attıklarım', myRows),
+                        const SizedBox(height: 10),
+                        _historySection('Rakibin attıkları', oppRows),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _historySection(String title, List<Map<String, dynamic>> rows) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0x221A222A),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFFD4AF37),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (rows.isEmpty)
+            const Text(
+              'Henüz taş yok',
+              style: TextStyle(color: Colors.white54),
+            ),
+          if (rows.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: rows
+                  .map((row) => _miniTileCard(row['tile']))
+                  .toList(growable: false),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniTileCard(dynamic rawTile) {
+    final tile = rawTile is Map<String, dynamic>
+        ? rawTile
+        : (rawTile is Map
+              ? Map<String, dynamic>.from(rawTile)
+              : <String, dynamic>{});
+
+    final isJoker = tile['is_joker'] == true || tile['joker'] == true;
+    final isFakeJoker =
+        tile['is_fake_joker'] == true || tile['fake_joker'] == true;
+
+    final colorName = (tile['color']?.toString() ?? 'red').toLowerCase();
+    final value = tile['number']?.toString() ?? '-';
+
+    Color textColor;
+    switch (colorName) {
+      case 'blue':
+        textColor = Colors.blue.shade700;
+        break;
+      case 'black':
+        textColor = Colors.black;
+        break;
+      case 'yellow':
+        textColor = const Color(0xFFFFD400);
+        break;
+      default:
+        textColor = Colors.red.shade700;
+    }
+
+    return Container(
+      width: 40,
+      height: 58,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF2A323C)),
+      ),
+      alignment: Alignment.center,
+      child: isJoker
+          ? const Icon(Icons.style, color: Colors.black54, size: 18)
+          : isFakeJoker
+          ? const Icon(Icons.star_rounded, color: Color(0xFFD4AF37), size: 18)
+          : Text(
+              value,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+            ),
+    );
+  }
+
+  Widget _quickChatChip(String text) {
+    return InkWell(
+      onTap: () {
+        _chatController.text = text;
+        _sendMessage();
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x33FFFFFF)),
+          color: const Color(0x221A222A),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _ensureUserLoaded(String? userId) async {
+    if (userId == null) return;
+
+    // zaten varsa tekrar çekme
+    if (_userNames.containsKey(userId)) return;
+
+    try {
+      final res = await _supabase
+          .from('users')
+          .select('username')
+          .eq('id', userId)
+          .single();
+
+      final name = res['username'] ?? "Oyuncu";
+
+      _userNames[userId] = name;
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      _userNames[userId] = "Oyuncu";
+    }
+  }
+
+  void _openQuickChat() {
+    _quickChatOverlay?.remove();
+
+    final box =
+        _quickChatBtnKey.currentContext?.findRenderObject() as RenderBox?;
+
+    if (box == null) return;
+
+    final pos = box.localToGlobal(Offset.zero);
+    final size = box.size;
+
+    _quickChatOverlay = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _closeQuickChat,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+
+            /// 🔥 TAM ALTINA OTURUR
+            Positioned(
+              left: pos.dx,
+              top: pos.dy + size.height + 6,
+              child: QuickChatMenu(
+                onSelect: (msg) {
+                  if (msg == "__CHAT__") {
+                    setState(() => _chatOpen = true);
+                  } else {
+                    _chatController.text = msg;
+                    _sendMessage();
+                  }
+
+                  _closeQuickChat();
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_quickChatOverlay!);
+  }
+
+  void _closeQuickChat() {
+    _quickChatOverlay?.remove();
+    _quickChatOverlay = null;
+  }
+}

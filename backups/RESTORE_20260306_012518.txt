@@ -1,0 +1,3 @@
+﻿Backup: C:\Users\nihat\okeyix\backups\okeyix_backup_20260306_012518.zip
+Restore: Zip'i proje kokune cikart, mevcut dosyalarin uzerine yazdir.
+Date: 2026-03-06 01:25:23
