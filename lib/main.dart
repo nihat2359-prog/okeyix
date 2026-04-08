@@ -15,19 +15,12 @@ const _defaultSupabaseAnonKey =
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
-  runApp(const MyApp());
-
-  _initSupabase();
+void main() {
+  runApp(
+    const MaterialApp(
+      home: Scaffold(body: Center(child: Text("OK"))),
+    ),
+  );
 }
 
 Future<void> _initSupabase() async {
