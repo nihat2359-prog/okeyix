@@ -46,8 +46,7 @@
 				</dict>
 			</array>
 		</dict>
-		 <key>NSMicrophoneUsageDescription</key>
-    <string>Voice messages in game chat</string>
+		 
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
@@ -61,6 +60,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	
+	<key>NSMicrophoneUsageDescription</key>
+    <string>Voice messages in game chat</string>
 </dict>
 </plist>
