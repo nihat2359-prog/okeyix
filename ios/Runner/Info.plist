@@ -7,10 +7,10 @@
 	<true/>
 
 	<key>CFBundleDevelopmentRegion</key>
-	<string>tr</string>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
 
 	<key>CFBundleDisplayName</key>
-	<string>OkeyIX</string>
+	<string>Okeyix</string>
 
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
@@ -36,7 +36,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 
-	<!-- 🎮 ORIENTATION (Apple uyumlu) -->
+	<!-- 🎮 Orientation (Apple uyumlu) -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -45,45 +45,19 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<!-- 📱 SADECE iPHONE -->
+	<!-- 📱 iPhone only -->
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>
 	</array>
 
-	<!-- 🔐 NETWORK (SUPABASE için kritik) -->
-	<key>NSAppTransportSecurity</key>
-<dict>
-    <key>NSAllowsArbitraryLoads</key>
-    <true/>
-
-    <key>NSExceptionDomains</key>
-    <dict>
-        <key>esqpgtedmojrzoftchis.supabase.co</key>
-        <dict>
-            <key>NSIncludesSubdomains</key>
-            <true/>
-            <key>NSExceptionAllowsInsecureHTTPLoads</key>
-            <true/>
-            <key>NSExceptionRequiresForwardSecrecy</key>
-            <false/>
-        </dict>
-    </dict>
-</dict>
-
-	<!-- 🎤 MICROPHONE -->
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Voice messages in game chat</string>
-
-	<!-- STATUS BAR -->
-	<key>UIStatusBarHidden</key>
-	<true/>
-
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
-
+	<!-- 🚀 Launch Screen (ZORUNLU) -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+
+	<!-- 🎤 İzin -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Voice messages in game chat</string>
 
 </dict>
 </plist>
