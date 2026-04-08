@@ -25,18 +25,20 @@ Future<void> main() async {
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  runApp(const MyApp());
+
+  _initSupabase();
+}
+
+Future<void> _initSupabase() async {
   try {
     await Supabase.initialize(
-      url: _supabaseUrl.isEmpty ? _defaultSupabaseUrl : _supabaseUrl,
-      anonKey: _supabaseAnonKey.isEmpty
-          ? _defaultSupabaseAnonKey
-          : _supabaseAnonKey,
+      url: _defaultSupabaseUrl,
+      anonKey: _defaultSupabaseAnonKey,
     );
   } catch (e) {
-    print("SUPABASE ERROR: $e");
+    print("SUPABASE INIT ERROR: $e");
   }
-
-  runApp(const MyApp());
 }
 
 final supabase = Supabase.instance.client;
@@ -81,37 +83,46 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: _buildHome());
-  }
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: StreamBuilder<AuthState>(
+        stream: supabase.auth.onAuthStateChange,
+        initialData: AuthState(
+          AuthChangeEvent.initialSession,
+          supabase.auth.currentSession,
+        ),
+        builder: (context, snapshot) {
+          final session =
+              snapshot.data?.session ?? supabase.auth.currentSession;
 
-  Widget _buildHome() {
-    final session = supabase.auth.currentSession;
+          if (session == null) {
+            return const LoginScreen();
+          }
 
-    if (session == null) {
-      return const LoginScreen();
-    }
+          if (!_deviceRegistered) {
+            Future.microtask(() async {
+              try {
+                await registerDevice();
+                _deviceRegistered = true;
+              } catch (e) {
+                if (!mounted) return;
 
-    if (!_deviceRegistered) {
-      Future.microtask(() async {
-        try {
-          await registerDevice();
-          _deviceRegistered = true;
-        } catch (e) {
-          if (!mounted) return;
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(
+                      error: "Bu cihazdan en fazla 3 hesap açabilirsiniz.",
+                    ),
+                  ),
+                );
+              }
+            });
+          }
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const LoginScreen(
-                error: "Bu cihazdan en fazla 3 hesap açabilirsiniz.",
-              ),
-            ),
-          );
-        }
-      });
-    }
-
-    return const LobbyScreen();
+          return const LobbyScreen();
+        },
+      ),
+    );
   }
 }
 
