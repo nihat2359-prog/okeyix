@@ -15,23 +15,21 @@ const _defaultSupabaseAnonKey =
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-void main() {
-  runApp(
-    const MaterialApp(
-      home: Scaffold(body: Center(child: Text("OK"))),
-    ),
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await Supabase.initialize(
+    url: _supabaseUrl.isEmpty ? _defaultSupabaseUrl : _supabaseUrl,
+    anonKey: _supabaseAnonKey.isEmpty
+        ? _defaultSupabaseAnonKey
+        : _supabaseAnonKey,
   );
-}
 
-Future<void> _initSupabase() async {
-  try {
-    await Supabase.initialize(
-      url: _defaultSupabaseUrl,
-      anonKey: _defaultSupabaseAnonKey,
-    );
-  } catch (e) {
-    print("SUPABASE INIT ERROR: $e");
-  }
+  runApp(const MyApp());
 }
 
 final supabase = Supabase.instance.client;
