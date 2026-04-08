@@ -63,5 +63,14 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
     <string>Voice messages in game chat</string>
+	<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>okeyix</string>
+    </array>
+  </dict>
+</array>
 </dict>
 </plist>

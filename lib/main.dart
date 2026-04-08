@@ -126,22 +126,12 @@ Future<String> getDeviceId() async {
 
   if (Platform.isAndroid) {
     final android = await deviceInfo.androidInfo;
-    return android.id; // Android OK
+    return android.id;
   }
 
   if (Platform.isIOS) {
-    final prefs = await SharedPreferences.getInstance();
-
-    String? savedId = prefs.getString("device_id");
-
-    if (savedId != null) {
-      return savedId;
-    }
-
-    final newId = const Uuid().v4();
-    await prefs.setString("device_id", newId);
-
-    return newId;
+    final ios = await deviceInfo.iosInfo;
+    return ios.identifierForVendor ?? const Uuid().v4();
   }
 
   return "unknown_device";
