@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -57,7 +58,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> verifyPurchase(PurchaseDetails purchase) async {
     final userId = supabase.auth.currentUser!.id;
-    final coins = coinRewards[purchase.productID] ?? 0;
+
     try {
       final session = supabase.auth.currentSession;
 
@@ -72,11 +73,18 @@ class _StoreScreenState extends State<StoreScreen> {
         headers: {"Authorization": "Bearer ${session?.accessToken}"},
       );
 
+      final data = res.data is String ? jsonDecode(res.data) : res.data;
+
       if (!mounted) return;
 
-      showPurchaseSuccess(context, coins);
+      if (data["success"] == true) {
+        final coins = data["coins"];
+        showPurchaseSuccess(context, coins);
+      } else {
+        print("VERIFY FAILED: $data");
+      }
     } catch (e) {
-      print(e);
+      print("VERIFY ERROR: $e");
     }
   }
 

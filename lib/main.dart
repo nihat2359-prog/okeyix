@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 const _defaultSupabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
 const _defaultSupabaseAnonKey =
@@ -124,12 +126,22 @@ Future<String> getDeviceId() async {
 
   if (Platform.isAndroid) {
     final android = await deviceInfo.androidInfo;
-    return android.id; // Android cihaz id
+    return android.id; // Android OK
   }
 
   if (Platform.isIOS) {
-    final ios = await deviceInfo.iosInfo;
-    return ios.identifierForVendor ?? "ios_unknown";
+    final prefs = await SharedPreferences.getInstance();
+
+    String? savedId = prefs.getString("device_id");
+
+    if (savedId != null) {
+      return savedId;
+    }
+
+    final newId = const Uuid().v4();
+    await prefs.setString("device_id", newId);
+
+    return newId;
   }
 
   return "unknown_device";
@@ -151,28 +163,29 @@ Future<void> registerDevice() async {
       platform = "android";
       deviceModel = android.model;
       osVersion = android.version.release;
-    }
-
-    if (Platform.isIOS) {
+    } else if (Platform.isIOS) {
       final ios = await deviceInfo.iosInfo;
       platform = "ios";
       deviceModel = ios.utsname.machine;
       osVersion = ios.systemVersion;
     }
 
-    await supabase.from('user_devices').upsert({
-      "user_id": supabase.auth.currentUser!.id,
-      "device_id": deviceId,
-      "platform": platform,
-      "device_model": deviceModel,
-      "os_version": osVersion,
-      "app_version": packageInfo.version,
-      "last_seen": DateTime.now().toIso8601String(),
-    }, onConflict: 'user_id,device_id');
-  } catch (e) {
-    /// cihaz limit hatası
-    await supabase.auth.signOut();
+    final res = await supabase.functions.invoke(
+      'register_device',
+      body: {
+        "device_id": deviceId,
+        "platform": platform,
+        "device_model": deviceModel,
+        "os_version": osVersion,
+        "app_version": packageInfo.version,
+      },
+    );
 
-    throw Exception("Bu cihazdan maksimum 3 hesap açılabilir.");
+    if (res.data?["error"] != null) {
+      throw Exception(res.data["error"]);
+    }
+  } catch (e) {
+    await supabase.auth.signOut();
+    throw Exception("Bu cihazdan maksimum hesap sayısına ulaşıldı.");
   }
 }
