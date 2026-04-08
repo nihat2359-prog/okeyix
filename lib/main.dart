@@ -81,46 +81,37 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: StreamBuilder<AuthState>(
-        stream: supabase.auth.onAuthStateChange,
-        initialData: AuthState(
-          AuthChangeEvent.initialSession,
-          supabase.auth.currentSession,
-        ),
-        builder: (context, snapshot) {
-          final session =
-              snapshot.data?.session ?? supabase.auth.currentSession;
+    return MaterialApp(debugShowCheckedModeBanner: false, home: _buildHome());
+  }
 
-          if (session == null) {
-            return const LoginScreen();
-          }
+  Widget _buildHome() {
+    final session = supabase.auth.currentSession;
 
-          if (!_deviceRegistered) {
-            Future.microtask(() async {
-              try {
-                await registerDevice();
-                _deviceRegistered = true;
-              } catch (e) {
-                if (!mounted) return;
+    if (session == null) {
+      return const LoginScreen();
+    }
 
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const LoginScreen(
-                      error: "Bu cihazdan en fazla 3 hesap açabilirsiniz.",
-                    ),
-                  ),
-                );
-              }
-            });
-          }
+    if (!_deviceRegistered) {
+      Future.microtask(() async {
+        try {
+          await registerDevice();
+          _deviceRegistered = true;
+        } catch (e) {
+          if (!mounted) return;
 
-          return const LobbyScreen();
-        },
-      ),
-    );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const LoginScreen(
+                error: "Bu cihazdan en fazla 3 hesap açabilirsiniz.",
+              ),
+            ),
+          );
+        }
+      });
+    }
+
+    return const LobbyScreen();
   }
 }
 
