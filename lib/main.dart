@@ -17,17 +17,24 @@ const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await Supabase.initialize(
-    url: _supabaseUrl.isEmpty ? _defaultSupabaseUrl : _supabaseUrl,
-    anonKey: _supabaseAnonKey.isEmpty
-        ? _defaultSupabaseAnonKey
-        : _supabaseAnonKey,
-  );
+
+  try {
+    await Supabase.initialize(
+      url: _supabaseUrl.isEmpty ? _defaultSupabaseUrl : _supabaseUrl,
+      anonKey: _supabaseAnonKey.isEmpty
+          ? _defaultSupabaseAnonKey
+          : _supabaseAnonKey,
+    );
+  } catch (e) {
+    print("SUPABASE ERROR: $e");
+  }
 
   runApp(const MyApp());
 }

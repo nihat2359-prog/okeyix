@@ -36,24 +36,29 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 
-	<!-- 🎮 LANDSCAPE ONLY -->
-<key>UISupportedInterfaceOrientations</key>
-<array>
-    <string>UIInterfaceOrientationPortrait</string>
-    <string>UIInterfaceOrientationPortraitUpsideDown</string>
-    <string>UIInterfaceOrientationLandscapeLeft</string>
-    <string>UIInterfaceOrientationLandscapeRight</string>
-</array>
+	<!-- 🎮 ORIENTATION (Apple uyumlu) -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 
-	
-
-	<!-- 📱 SADECE IPHONE -->
+	<!-- 📱 SADECE iPHONE -->
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>
 	</array>
 
-	<!-- 🎤 MICROPHONE (SENDE VAR) -->
+	<!-- 🔐 NETWORK (SUPABASE için kritik) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+
+	<!-- 🎤 MICROPHONE -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voice messages in game chat</string>
 
