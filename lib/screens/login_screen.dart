@@ -173,6 +173,7 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'okeyix://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
     } catch (e) {
       setState(() => _error = "Apple ile giriş başarısız.");
@@ -274,11 +275,12 @@ class _LoginScreenState extends State<LoginScreen>
 
           /// CONTENT
           SafeArea(
+            bottom: false,
             child: Padding(
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
-                bottom: keyboard + 20,
+                bottom: isKeyboardOpen ? keyboard + 20 : 20,
               ),
               child: Row(
                 children: [
