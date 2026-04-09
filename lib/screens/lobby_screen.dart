@@ -236,32 +236,16 @@ class _LobbyScreenState extends State<LobbyScreen>
         throw Exception("Session yok");
       }
 
-      final url = Uri.parse(
-        "https://esqpgtedmojrzoftchis.supabase.co/functions/v1/register_device",
-      );
-      final _defaultSupabaseAnonKey =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzcXBndGVkbW9qcnpvZnRjaGlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMjEyMTIsImV4cCI6MjA4Nzg5NzIxMn0.-XiDoQJtwn_I3PHTc3wxHD_3jhrwoPIqTLpKomOR74o';
-      final response = await http.post(
-        url,
-        headers: {
-          "Authorization": "Bearer ${session.accessToken}",
-          "apikey": _defaultSupabaseAnonKey, // 🔥 EN KRİTİK SATIR
-          "Content-Type": "application/json",
-        },
-        body: jsonEncode({
+      final res = await supabase.functions.invoke(
+        'register_device',
+        body: {
           "device_id": deviceId,
           "platform": platform,
           "device_model": deviceModel,
           "os_version": osVersion,
           "app_version": packageInfo.version,
-        }),
+        },
       );
-
-      final data = jsonDecode(response.body);
-
-      if (data["error"] != null) {
-        throw Exception(data["error"]);
-      }
 
       /// 🔥 HATA KONTROLÜ BURADA
     } catch (e) {
