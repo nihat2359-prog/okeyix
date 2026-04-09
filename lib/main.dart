@@ -3,11 +3,6 @@ import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 const _defaultSupabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
 const _defaultSupabaseAnonKey =
@@ -42,8 +37,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  bool _deviceRegistered = false;
-
   @override
   void initState() {
     super.initState();
@@ -90,28 +83,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             return const LoginScreen();
           }
 
-          if (!_deviceRegistered) {
-            return FutureBuilder(
-              future: registerDevice(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return const LoginScreen(
-                    error: "Bu cihazdan en fazla 3 hesap açabilirsiniz.",
-                  );
-                }
-
-                _deviceRegistered = true;
-                return const LobbyScreen();
-              },
-            );
-          }
-
           return const LobbyScreen();
         },
       ),
@@ -121,80 +92,4 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
 void _hideSystemUI() {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-}
-
-Future<String> getDeviceId() async {
-  final prefs = await SharedPreferences.getInstance();
-
-  // 🔥 önce kayıtlı var mı bak
-  final cached = prefs.getString("device_id");
-  if (cached != null) return cached;
-
-  final deviceInfo = DeviceInfoPlugin();
-  String deviceId = "";
-
-  if (Platform.isAndroid) {
-    final android = await deviceInfo.androidInfo;
-    deviceId = android.id;
-  } else if (Platform.isIOS) {
-    final ios = await deviceInfo.iosInfo;
-
-    deviceId = ios.identifierForVendor ?? const Uuid().v4();
-  } else {
-    deviceId = const Uuid().v4();
-  }
-
-  // 🔥 cache et
-  await prefs.setString("device_id", deviceId);
-
-  return deviceId;
-}
-
-Future<void> registerDevice() async {
-  try {
-    final deviceId = await getDeviceId();
-
-    final deviceInfo = DeviceInfoPlugin();
-    final packageInfo = await PackageInfo.fromPlatform();
-
-    String platform = "";
-    String deviceModel = "";
-    String osVersion = "";
-
-    if (Platform.isAndroid) {
-      final android = await deviceInfo.androidInfo;
-      platform = "android";
-      deviceModel = android.model;
-      osVersion = android.version.release;
-    } else if (Platform.isIOS) {
-      final ios = await deviceInfo.iosInfo;
-      platform = "ios";
-      deviceModel = ios.utsname.machine;
-      osVersion = ios.systemVersion;
-    }
-
-    final res = await supabase.functions.invoke(
-      'register_device',
-      body: {
-        "device_id": deviceId,
-        "platform": platform,
-        "device_model": deviceModel,
-        "os_version": osVersion,
-        "app_version": packageInfo.version,
-      },
-    );
-
-    /// 🔥 HATA KONTROLÜ BURADA
-    if (res.data == null) {
-      throw Exception("Sunucu yanıt vermedi");
-    }
-
-    if (res.data["error"] != null) {
-      throw Exception(res.data["error"]);
-    }
-  } catch (e) {
-    /// 🔥 SADECE SIGNOUT + FORWARD
-    await supabase.auth.signOut();
-    rethrow; // 🔥 EN DOĞRU
-  }
 }

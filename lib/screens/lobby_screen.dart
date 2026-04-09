@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
 
 import 'okey_game_screen.dart';
 import 'login_screen.dart';
@@ -95,6 +101,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _previewPath;
   bool _previewPlaying = false;
   bool _showPreview = false;
+  bool _deviceReady = false;
+
   @override
   void initState() {
     super.initState();
@@ -124,6 +132,144 @@ class _LobbyScreenState extends State<LobbyScreen>
       const Duration(seconds: 12),
       (_) => _loadTables(),
     );
+
+    _initDevice();
+  }
+
+  Future<void> _initDevice() async {
+    try {
+      /// 🔥 SESSION BEKLE (EN KRİTİK)
+      Session? session;
+
+      for (int i = 0; i < 10; i++) {
+        session = supabase.auth.currentSession;
+
+        if (session != null) break;
+
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      if (session == null) {
+        throw Exception("Session oluşmadı");
+      }
+
+      /// 🔥 ŞİMDİ registerDevice
+      await registerDevice();
+
+      if (!mounted) return;
+
+      setState(() {
+        _deviceReady = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => LoginScreen(error: e.toString())),
+      );
+    }
+  }
+
+  Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    String? storedId = prefs.getString("device_id");
+
+    if (storedId != null) {
+      return storedId;
+    }
+
+    final deviceInfo = DeviceInfoPlugin();
+    String id;
+
+    if (kIsWeb) {
+      id = const Uuid().v4();
+    } else if (Platform.isAndroid) {
+      final android = await deviceInfo.androidInfo;
+      id = android.id;
+    } else if (Platform.isIOS) {
+      final ios = await deviceInfo.iosInfo;
+      id = ios.identifierForVendor ?? const Uuid().v4();
+    } else {
+      id = const Uuid().v4();
+    }
+
+    await prefs.setString("device_id", id);
+
+    return id;
+  }
+
+  Future<void> registerDevice() async {
+    try {
+      final deviceId = await getDeviceId();
+
+      final packageInfo = await PackageInfo.fromPlatform();
+
+      String platform = "web";
+      String deviceModel = "";
+      String osVersion = "";
+
+      if (kIsWeb) {
+        platform = "web";
+        deviceModel = "browser";
+        osVersion = "web";
+      } else {
+        final deviceInfo = DeviceInfoPlugin();
+
+        if (Platform.isAndroid) {
+          final android = await deviceInfo.androidInfo;
+          platform = "android";
+          deviceModel = android.model;
+          osVersion = android.version.release;
+        } else if (Platform.isIOS) {
+          final ios = await deviceInfo.iosInfo;
+          platform = "ios";
+          deviceModel = ios.utsname.machine;
+          osVersion = ios.systemVersion;
+        }
+      }
+
+      final session = supabase.auth.currentSession;
+
+      if (session == null) {
+        throw Exception("Session yok");
+      }
+
+      final url = Uri.parse(
+        "https://esqpgtedmojrzoftchis.supabase.co/functions/v1/register_device",
+      );
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer ${session.accessToken}",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "device_id": deviceId,
+          "platform": platform,
+          "device_model": deviceModel,
+          "os_version": osVersion,
+          "app_version": packageInfo.version,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (data["error"] != null) {
+        throw Exception(data["error"]);
+      }
+
+      /// 🔥 HATA KONTROLÜ BURADA
+    } catch (e) {
+      print(e);
+
+      /// 🔥 SADECE SIGNOUT + FORWARD
+      await supabase.auth.signOut();
+
+      rethrow; // 🔥 EN DOĞRU
+    }
   }
 
   @override
@@ -1836,7 +1982,9 @@ class _LobbyScreenState extends State<LobbyScreen>
     final size = MediaQuery.of(context).size;
     final compact = size.width < 1320;
     final leagueWidth = compact ? 260.0 : 270.0;
-
+    if (!_deviceReady) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
