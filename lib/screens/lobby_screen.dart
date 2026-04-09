@@ -102,7 +102,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _previewPlaying = false;
   bool _showPreview = false;
   bool _deviceReady = false;
-
+  bool _initCalled = false;
   @override
   void initState() {
     super.initState();
@@ -133,12 +133,20 @@ class _LobbyScreenState extends State<LobbyScreen>
       (_) => _loadTables(),
     );
 
-    _initDevice();
+    supabase.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+
+      if (session != null) {
+        _initDevice(); // 🔥 SADECE BURADA
+      }
+    });
   }
 
   Future<void> _initDevice() async {
+    if (_initCalled) return; // 🔥 EN KRİTİK SATIR
+    _initCalled = true;
+
     try {
-      /// 🔥 SESSION BEKLE (EN KRİTİK)
       Session? session;
 
       for (int i = 0; i < 10; i++) {
@@ -152,22 +160,19 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (session == null) {
         throw Exception("Session oluşmadı");
       }
-
-      /// 🔥 ŞİMDİ registerDevice
-      await registerDevice();
-
+      await Future.delayed(const Duration(milliseconds: 500));
+      try {
+        await registerDevice();
+      } catch (e) {
+        print("Device register error: $e"); // 🔥 sadece log
+      }
       if (!mounted) return;
 
       setState(() {
         _deviceReady = true;
       });
     } catch (e) {
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => LoginScreen(error: e.toString())),
-      );
+      print(e);
     }
   }
 
@@ -235,10 +240,11 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (session == null) {
         throw Exception("Session yok");
       }
-
+      final user = supabase.auth.currentUser;
       final res = await supabase.functions.invoke(
         'register_device',
         body: {
+          "user_id": user?.id,
           "device_id": deviceId,
           "platform": platform,
           "device_model": deviceModel,
@@ -252,7 +258,6 @@ class _LobbyScreenState extends State<LobbyScreen>
       print(e);
 
       /// 🔥 SADECE SIGNOUT + FORWARD
-      await supabase.auth.signOut();
 
       rethrow; // 🔥 EN DOĞRU
     }
