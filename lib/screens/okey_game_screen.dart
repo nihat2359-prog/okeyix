@@ -805,86 +805,94 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          /// BACKGROUND
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/lobby/lobby.png',
-              fit: BoxFit.cover,
-            ),
-          ),
-
-          /// 🎮 GAME STAGE (GERÇEK COVER)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final screenW = constraints.maxWidth;
-              final screenH = constraints.maxHeight;
-
-              const baseW = 1600.0;
-              const baseH = 900.0;
-
-              final scaleX = screenW / baseW;
-              final scaleY = screenH / baseH;
-
-              final scale = scaleX > scaleY ? scaleX : scaleY; // cover
-
-              final finalW = baseW * scale;
-              final finalH = baseH * scale;
-
-              return Center(
-                child: SizedBox(
-                  width: finalW,
-                  height: finalH,
-                  child: Stack(
-                    children: [
-                      /// 🔥 MASA
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/table.png',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-
-                      /// GAME
-                      Positioned.fill(child: GameWidget(game: _game)),
-
-                      if (!_showFinish)
-                        Positioned.fill(
-                          child: GameAvatarOverlay(tableId: widget.tableId),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-
-          /// UI
-          _buildTopButtons(),
-          _buildTopRightLeague(),
-
-          if (showWaitingOverlay) _buildWaitingOverlay(),
-          if (_menuOpen) _buildMenuPanel(),
-          if (_chatOpen) _buildChatPanel(),
-          if (_showFinishFx) _buildFinishFx(),
-
-          if (_showMessageBanner && _lastIncomingMessage != null)
-            Positioned(
-              top: 60,
-              right: 12,
-              width: MediaQuery.of(context).size.width * 0.28,
-              child: AnimatedSlide(
-                duration: const Duration(milliseconds: 300),
-                offset: _showMessageBanner ? Offset.zero : const Offset(1, 0),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _showMessageBanner ? 1 : 0,
-                  child: _buildMessageBanner(),
-                ),
+      backgroundColor: Colors.black,
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            /// BACKGROUND
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/lobby/lobby.png',
+                fit: BoxFit.cover,
               ),
             ),
-        ],
+
+            /// 🎮 GAME STAGE (REAL COVER - NO GAP EVER)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final screenW = constraints.maxWidth;
+                final screenH = constraints.maxHeight;
+
+                const baseW = 1600.0;
+                const baseH = 900.0;
+
+                final scaleX = screenW / baseW;
+                final scaleY = screenH / baseH;
+
+                final scale = scaleX > scaleY ? scaleX : scaleY;
+
+                final finalW = baseW * scale;
+                final finalH = baseH * scale;
+
+                return Stack(
+                  children: [
+                    /// 🔥 TAŞIRARAK DOLDUR (KRİTİK)
+                    Positioned(
+                      left: (screenW - finalW) / 2,
+                      top: (screenH - finalH) / 2,
+                      width: finalW,
+                      height: finalH,
+                      child: Stack(
+                        children: [
+                          /// TABLE
+                          Positioned.fill(
+                            child: Image.asset(
+                              'assets/images/table.png',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+
+                          /// GAME
+                          Positioned.fill(child: GameWidget(game: _game)),
+
+                          if (!_showFinish)
+                            Positioned.fill(
+                              child: GameAvatarOverlay(tableId: widget.tableId),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            /// UI
+            _buildTopButtons(),
+            _buildTopRightLeague(),
+
+            if (showWaitingOverlay) _buildWaitingOverlay(),
+            if (_menuOpen) _buildMenuPanel(),
+            if (_chatOpen) _buildChatPanel(),
+            if (_showFinishFx) _buildFinishFx(),
+
+            if (_showMessageBanner && _lastIncomingMessage != null)
+              Positioned(
+                top: 60,
+                right: 12,
+                width: MediaQuery.of(context).size.width * 0.28,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 300),
+                  offset: _showMessageBanner ? Offset.zero : const Offset(1, 0),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: _showMessageBanner ? 1 : 0,
+                    child: _buildMessageBanner(),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
