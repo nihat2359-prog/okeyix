@@ -1838,6 +1838,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final leagueWidth = compact ? 260.0 : 270.0;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           Positioned.fill(
@@ -1858,6 +1859,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           ),
 
           SafeArea(
+            bottom: false,
             child: Column(
               children: [
                 const SizedBox(height: 8),

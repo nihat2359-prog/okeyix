@@ -807,42 +807,51 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          /// 🔥 1. BACKGROUND (FULL SCREEN)
+          /// 🔥 BACKGROUND
           Positioned.fill(
             child: Image.asset(
-              'assets/images/lobby/lobby.png', // 👉 yeni oluşturduğun blur background
+              'assets/images/lobby/lobby.png',
               fit: BoxFit.cover,
             ),
           ),
 
-          /// 🎮 2. GAME STAGE (SABİT ORAN)
+          /// 🎮 GAME STAGE
           Center(
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Stack(
-                children: [
-                  /// Masa (artık bozulmaz)
-                  Positioned.fill(
-                    child: Image.asset(
-                      'assets/images/table.png',
-                      fit: BoxFit.contain,
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+
+                return SizedBox(
+                  width: width, // 🔥 TAM GENİŞLİK
+                  child: Stack(
+                    children: [
+                      /// 🔥 MASA FULL WIDTH
+                      Image.asset(
+                        'assets/images/table.png',
+                        width: width,
+                        fit: BoxFit.fitWidth, // 🔥 KRİTİK
+                      ),
+
+                      /// 🔥 GAME (oran koru)
+                      Positioned.fill(
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: GameWidget(game: _game),
+                        ),
+                      ),
+
+                      if (!_showFinish)
+                        Positioned.fill(
+                          child: GameAvatarOverlay(tableId: widget.tableId),
+                        ),
+                    ],
                   ),
-
-                  /// Flame game
-                  Positioned.fill(child: GameWidget(game: _game)),
-
-                  if (!_showFinish)
-                    /// Avatar overlay
-                    Positioned.fill(
-                      child: GameAvatarOverlay(tableId: widget.tableId),
-                    ),
-                ],
-              ),
+                );
+              },
             ),
           ),
 
-          /// UI (üst katmanlar)
+          /// UI
           _buildTopButtons(),
           _buildTopRightLeague(),
 
@@ -850,22 +859,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           if (_menuOpen) _buildMenuPanel(),
           if (_chatOpen) _buildChatPanel(),
           if (_showFinishFx) _buildFinishFx(),
-
-          if (_showMessageBanner && _lastIncomingMessage != null)
-            Positioned(
-              top: 60,
-              right: 12,
-              width: MediaQuery.of(context).size.width * 0.28,
-              child: AnimatedSlide(
-                duration: const Duration(milliseconds: 300),
-                offset: _showMessageBanner ? Offset.zero : const Offset(1, 0),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _showMessageBanner ? 1 : 0,
-                  child: _buildMessageBanner(),
-                ),
-              ),
-            ),
         ],
       ),
     );
