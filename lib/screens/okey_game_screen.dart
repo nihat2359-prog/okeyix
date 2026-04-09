@@ -817,7 +817,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               ),
             ),
 
-            /// 🎮 GAME STAGE (REAL COVER - NO GAP EVER)
+            /// 🎮 GAME STAGE (SADECE BURASI SCALE OLUR)
             LayoutBuilder(
               builder: (context, constraints) {
                 final screenW = constraints.maxWidth;
@@ -828,7 +828,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                 final scaleX = screenW / baseW;
                 final scaleY = screenH / baseH;
-
                 final scale = scaleX > scaleY ? scaleX : scaleY;
 
                 final finalW = baseW * scale;
@@ -836,7 +835,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                 return Stack(
                   children: [
-                    /// 🔥 TAŞIRARAK DOLDUR (KRİTİK)
                     Positioned(
                       left: (screenW - finalW) / 2,
                       top: (screenH - finalH) / 2,
@@ -844,7 +842,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                       height: finalH,
                       child: Stack(
                         children: [
-                          /// TABLE
                           Positioned.fill(
                             child: Image.asset(
                               'assets/images/table.png',
@@ -852,7 +849,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                             ),
                           ),
 
-                          /// GAME
                           Positioned.fill(child: GameWidget(game: _game)),
 
                           if (!_showFinish)
@@ -867,30 +863,38 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               },
             ),
 
-            /// UI
-            _buildTopButtons(),
-            _buildTopRightLeague(),
+            /// 🔥 UI (ASLA SCALE OLMAZ)
+            SafeArea(
+              child: Stack(
+                children: [
+                  _buildTopButtons(),
+                  _buildTopRightLeague(),
 
-            if (showWaitingOverlay) _buildWaitingOverlay(),
-            if (_menuOpen) _buildMenuPanel(),
-            if (_chatOpen) _buildChatPanel(),
-            if (_showFinishFx) _buildFinishFx(),
+                  if (showWaitingOverlay) _buildWaitingOverlay(),
+                  if (_menuOpen) _buildMenuPanel(),
+                  if (_chatOpen) _buildChatPanel(),
+                  if (_showFinishFx) _buildFinishFx(),
 
-            if (_showMessageBanner && _lastIncomingMessage != null)
-              Positioned(
-                top: 60,
-                right: 12,
-                width: MediaQuery.of(context).size.width * 0.28,
-                child: AnimatedSlide(
-                  duration: const Duration(milliseconds: 300),
-                  offset: _showMessageBanner ? Offset.zero : const Offset(1, 0),
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: _showMessageBanner ? 1 : 0,
-                    child: _buildMessageBanner(),
-                  ),
-                ),
+                  if (_showMessageBanner && _lastIncomingMessage != null)
+                    Positioned(
+                      top: 60,
+                      right: 12,
+                      width: MediaQuery.of(context).size.width * 0.28,
+                      child: AnimatedSlide(
+                        duration: const Duration(milliseconds: 300),
+                        offset: _showMessageBanner
+                            ? Offset.zero
+                            : const Offset(1, 0),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 300),
+                          opacity: _showMessageBanner ? 1 : 0,
+                          child: _buildMessageBanner(),
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),
