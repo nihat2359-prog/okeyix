@@ -14,7 +14,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import 'package:http/http.dart' as http;
 
 import 'okey_game_screen.dart';
 import 'login_screen.dart';
@@ -133,46 +132,32 @@ class _LobbyScreenState extends State<LobbyScreen>
       (_) => _loadTables(),
     );
 
-    supabase.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-
-      if (session != null) {
-        _initDevice(); // 🔥 SADECE BURADA
-      }
-    });
+    _initDevice();
   }
 
   Future<void> _initDevice() async {
-    if (_initCalled) return; // 🔥 EN KRİTİK SATIR
+    if (_initCalled) return;
     _initCalled = true;
 
     try {
-      Session? session;
-
-      for (int i = 0; i < 10; i++) {
-        session = supabase.auth.currentSession;
-
-        if (session != null) break;
-
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-
-      if (session == null) {
-        throw Exception("Session oluşmadı");
-      }
-      await Future.delayed(const Duration(milliseconds: 500));
-      try {
-        await registerDevice();
-      } catch (e) {
-        print("Device register error: $e"); // 🔥 sadece log
-      }
-      if (!mounted) return;
-
+      /// 🔥 UI HEMEN AÇILSIN
       setState(() {
         _deviceReady = true;
       });
+
+      /// 🔥 REGISTER ARKADA ÇALIŞSIN
+      unawaited(_safeRegister());
     } catch (e) {
       print(e);
+    }
+  }
+
+  Future<void> _safeRegister() async {
+    try {
+      await Future.delayed(const Duration(milliseconds: 300)); // optional
+      await registerDevice();
+    } catch (e) {
+      print("Device error: $e");
     }
   }
 

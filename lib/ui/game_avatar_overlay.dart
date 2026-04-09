@@ -537,7 +537,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         return Positioned(
           left: 0,
           right: 0,
-          bottom: 155,
+          bottom: 185,
           child: Center(child: child),
         );
       case 1:
@@ -545,7 +545,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           return Positioned(
             left: 0,
             right: 0,
-            top: 6,
+            top: 26,
             child: Center(child: child),
           );
         }
