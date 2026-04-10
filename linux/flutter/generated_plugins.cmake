@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   gtk
   record_linux
   url_launcher_linux
+  window_to_front
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

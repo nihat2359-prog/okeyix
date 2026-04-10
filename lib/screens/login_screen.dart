@@ -11,6 +11,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? error;
@@ -169,14 +170,35 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _loginWithApple() async {
+    final supabase = Supabase.instance.client;
+
     try {
-      await supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
+      const redirectUrl = 'okeyix://login-callback';
+      const _defaultSupabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
+      // 🔥 Supabase authorize endpoint
+      final authUrl =
+          '$_defaultSupabaseUrl/auth/v1/authorize?provider=apple&redirect_to=$redirectUrl';
+
+      final result = await FlutterWebAuth2.authenticate(
+        url: authUrl,
+        callbackUrlScheme: 'okeyix',
       );
+
+      final uri = Uri.parse(result);
+
+      // 🔥 fragment parse (# sonrası)
+      final params = Uri.splitQueryString(uri.fragment);
+
+      final accessToken = params['access_token'];
+      final refreshToken = params['refresh_token'];
+
+      if (accessToken == null || refreshToken == null) {
+        throw Exception("Token alınamadı");
+      }
+
+      await supabase.auth.setSession(accessToken);
     } catch (e) {
-      setState(() => _error = "Apple ile giriş başarısız.");
+      print("Apple login error: $e");
     }
   }
 
