@@ -197,6 +197,14 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       await supabase.auth.setSession(accessToken);
+
+      final user = supabase.auth.currentUser;
+
+      if (user != null && context.mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LobbyScreen()),
+        );
+      }
     } catch (e) {
       print("Apple login error: $e");
     }
