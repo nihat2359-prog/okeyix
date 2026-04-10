@@ -171,25 +171,49 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _loginWithApple() async {
-    try {
-      await supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppWebView,
-      );
-    } catch (e) {
-      final msg = e.toString();
+    final supabase = Supabase.instance.client;
 
-      if (msg.contains("cancelled") ||
-          msg.contains("canceled") ||
-          msg.contains("User canceled")) {
-        return; // sessiz geç
+    try {
+      const redirectUrl = 'okeyix://login-callback';
+      const supabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
+
+      final authUrl =
+          '$supabaseUrl/auth/v1/authorize?provider=apple'
+          '&redirect_to=$redirectUrl'
+          '&flow_type=pkce'
+          '&scope=openid email';
+
+      final result = await FlutterWebAuth2.authenticate(
+        url: authUrl,
+        callbackUrlScheme: 'okeyix',
+      );
+
+      final uri = Uri.parse(result);
+
+      // 🔥 EN KRİTİK NOKTA
+      final code = uri.queryParameters['code'];
+
+      if (code == null || code.isEmpty) {
+        throw Exception("Code alınamadı");
       }
 
-      if (mounted) {
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(content: Text("Apple ile giriş başarısız")),
-        // );
+      // 🔥 DOĞRU LOGIN BURASI
+      await supabase.auth.exchangeCodeForSession(code);
+
+      final user = supabase.auth.currentUser;
+
+      if (user != null && context.mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LobbyScreen()),
+        );
+      } else {
+        throw Exception("User null");
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Login error: $e")));
       }
     }
   }
