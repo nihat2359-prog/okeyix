@@ -198,7 +198,15 @@ class _LoginScreenState extends State<LoginScreen>
 
       await supabase.auth.setSession(accessToken);
 
-      final user = supabase.auth.currentUser;
+      final userResponse = await supabase.auth.getUser();
+
+      final user = userResponse.user;
+
+      if (user == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Giriş tamamlanamadı")));
+      }
 
       if (user != null && context.mounted) {
         Navigator.of(context).pushReplacement(
