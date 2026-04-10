@@ -163,6 +163,7 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'okeyix://login-callback',
+        authScreenLaunchMode: LaunchMode.inAppWebView,
       );
     } catch (e) {
       setState(() => _error = "Google ile giriş başarısız.");
@@ -186,9 +187,9 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Apple ile giriş başarısız")),
-        );
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   const SnackBar(content: Text("Apple ile giriş başarısız")),
+        // );
       }
     }
   }
