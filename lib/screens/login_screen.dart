@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'lobby_screen.dart';
@@ -175,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.platformDefault,
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
     } catch (e) {
       final msg = e.toString();
@@ -184,6 +185,43 @@ class _LoginScreenState extends State<LoginScreen>
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Login error: $msg")));
+      }
+    }
+  }
+
+  Future<void> loginWithApple(BuildContext context) async {
+    final supabase = Supabase.instance.client;
+
+    try {
+      // 🍏 Native Apple login
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      // 🔥 Supabase login
+      await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: credential.identityToken!,
+        accessToken: credential.authorizationCode,
+      );
+
+      final user = supabase.auth.currentUser;
+
+      if (user != null && context.mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LobbyScreen()),
+        );
+      } else {
+        throw Exception("User null");
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Login error: $e")));
       }
     }
   }
