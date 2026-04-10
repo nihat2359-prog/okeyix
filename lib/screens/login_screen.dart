@@ -164,7 +164,6 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppWebView,
       );
     } catch (e) {
       setState(() => _error = "Google ile giriş başarısız.");
@@ -176,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.platformDefault, // 🔥 KRİTİK
+        authScreenLaunchMode: LaunchMode.inAppWebView,
       );
     } catch (e) {
       final msg = e.toString();
