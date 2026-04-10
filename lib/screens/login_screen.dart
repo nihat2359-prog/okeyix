@@ -189,100 +189,6 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> signInWithApple() async {
-    final rawNonce = supabase.auth.generateRawNonce();
-    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
-    final credential = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-      nonce: hashedNonce,
-    );
-    final idToken = credential.identityToken;
-    if (idToken == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Could not find ID Token from generated credential."),
-        ),
-      );
-      throw const AuthException(
-        'Could not find ID Token from generated credential.',
-      );
-    }
-
-    try {
-      final authResponsenew = supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        nonce: rawNonce,
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-      throw AuthException(e.toString());
-    }
-
-    final authResponse = await supabase.auth.signInWithIdToken(
-      provider: OAuthProvider.apple,
-      idToken: idToken,
-      nonce: rawNonce,
-    );
-
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const LobbyScreen()));
-    // Apple only provides the user's full name on the first sign-in
-    // Save it to user metadata if available
-    if (credential.givenName != null || credential.familyName != null) {
-      final nameParts = <String>[];
-      if (credential.givenName != null) nameParts.add(credential.givenName!);
-      if (credential.familyName != null) nameParts.add(credential.familyName!);
-      final fullName = nameParts.join(' ');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login error: $fullName")));
-    }
-  }
-
-  Future<void> loginWithApple(BuildContext context) async {
-    final supabase = Supabase.instance.client;
-
-    try {
-      // 🍏 Native Apple login
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-
-      // 🔥 Supabase login
-      await supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: credential.identityToken!,
-        accessToken: credential.authorizationCode,
-      );
-
-      final user = supabase.auth.currentUser;
-
-      if (user != null && context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LobbyScreen()),
-        );
-      } else {
-        throw Exception("User null");
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Login error: $e")));
-      }
-    }
-  }
-
   Future<String> getDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -540,7 +446,7 @@ class _LoginScreenState extends State<LoginScreen>
     return SizedBox(
       height: 50,
       child: ElevatedButton(
-        onPressed: () => signInWithApple(),
+        onPressed: () => _loginWithApple(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0F0F0F),
           elevation: 8,
