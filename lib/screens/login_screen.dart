@@ -178,10 +178,7 @@ class _LoginScreenState extends State<LoginScreen>
       const supabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
 
       final authUrl =
-          '$supabaseUrl/auth/v1/authorize?provider=apple'
-          '&redirect_to=$redirectUrl'
-          '&flow_type=pkce'
-          '&scope=openid email';
+          '$supabaseUrl/auth/v1/authorize?provider=apple&redirect_to=$redirectUrl';
 
       final result = await FlutterWebAuth2.authenticate(
         url: authUrl,
@@ -190,17 +187,20 @@ class _LoginScreenState extends State<LoginScreen>
 
       final uri = Uri.parse(result);
 
-      // 🔥 EN KRİTİK NOKTA
-      final code = uri.queryParameters['code'];
+      // 🔥 Apple implicit → fragment parse
+      final params = Uri.splitQueryString(uri.fragment);
 
-      if (code == null || code.isEmpty) {
-        throw Exception("Code alınamadı");
+      final accessToken = params['access_token'];
+
+      if (accessToken == null) {
+        throw Exception("Token alınamadı");
       }
 
-      // 🔥 DOĞRU LOGIN BURASI
-      await supabase.auth.exchangeCodeForSession(code);
+      // 🔥 DOĞRU KULLANIM
+      await supabase.auth.setSession(accessToken);
 
-      final user = supabase.auth.currentUser;
+      // 🔥 KRİTİK: user’ı zorla çek
+      final user = (await supabase.auth.getUser()).user;
 
       if (user != null && context.mounted) {
         Navigator.of(context).pushReplacement(
