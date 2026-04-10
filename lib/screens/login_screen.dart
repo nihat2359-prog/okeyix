@@ -40,17 +40,17 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
 
+    bool _navigated = false;
+
     supabase.auth.onAuthStateChange.listen((data) {
       final session = data.session;
 
-      if (session != null && mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+      if (session != null && mounted && !_navigated) {
+        _navigated = true;
 
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LobbyScreen()),
-          );
-        });
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LobbyScreen()),
+        );
       }
     });
 
@@ -177,6 +177,14 @@ class _LoginScreenState extends State<LoginScreen>
         authScreenLaunchMode: LaunchMode.platformDefault, // 🔥 KRİTİK
       );
     } catch (e) {
+      final msg = e.toString();
+
+      if (msg.contains("cancelled") ||
+          msg.contains("canceled") ||
+          msg.contains("User canceled")) {
+        return; // sessiz geç
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Apple ile giriş başarısız")),
