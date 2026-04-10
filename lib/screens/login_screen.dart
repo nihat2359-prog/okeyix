@@ -201,10 +201,29 @@ class _LoginScreenState extends State<LoginScreen>
     );
     final idToken = credential.identityToken;
     if (idToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Could not find ID Token from generated credential."),
+        ),
+      );
       throw const AuthException(
         'Could not find ID Token from generated credential.',
       );
     }
+
+    try {
+      final authResponsenew = supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: rawNonce,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      throw AuthException(e.toString());
+    }
+
     final authResponse = await supabase.auth.signInWithIdToken(
       provider: OAuthProvider.apple,
       idToken: idToken,
