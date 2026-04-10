@@ -170,47 +170,18 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _loginWithApple() async {
-    final supabase = Supabase.instance.client;
-
     try {
-      const redirectUrl = 'okeyix://login-callback';
-      const supabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
-
-      final authUrl =
-          '$supabaseUrl/auth/v1/authorize?provider=apple'
-          '&redirect_to=$redirectUrl'
-          '&flow_type=pkce';
-
-      final result = await FlutterWebAuth2.authenticate(
-        url: authUrl,
-        callbackUrlScheme: 'okeyix',
+      await supabase.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: 'okeyix://login-callback',
+        authScreenLaunchMode: LaunchMode.platformDefault, // 🔥 KRİTİK
       );
-
-      final uri = Uri.parse(result);
-
-      // 🔥 PKCE → code gelir
-      final code = uri.queryParameters['code'];
-
-      if (code == null) {
-        throw Exception("Code alınamadı");
-      }
-
-      // 🔥 DOĞRU SESSION
-      await supabase.auth.exchangeCodeForSession(code);
-
-      final user = supabase.auth.currentUser;
-
-      if (user != null && context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LobbyScreen()),
-        );
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Giriş tamamlanamadı")));
-      }
     } catch (e) {
-      print("Apple login error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Apple ile giriş başarısız")),
+        );
+      }
     }
   }
 
