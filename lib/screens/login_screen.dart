@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppWebView,
+        authScreenLaunchMode: LaunchMode.platformDefault,
       );
     } catch (e) {
       final msg = e.toString();
