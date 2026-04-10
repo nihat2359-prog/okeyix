@@ -483,7 +483,7 @@ class _LoginScreenState extends State<LoginScreen>
     return SizedBox(
       height: 50,
       child: ElevatedButton(
-        onPressed: _loginWithApple,
+        onPressed: () => _loginWithApple(context),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0F0F0F),
           elevation: 8,
