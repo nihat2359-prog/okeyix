@@ -48,8 +48,9 @@ class _LoginScreenState extends State<LoginScreen>
       if (session != null && mounted && !_navigated) {
         _navigated = true;
 
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LobbyScreen()),
+          (route) => false,
         );
       }
     });
