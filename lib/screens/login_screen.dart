@@ -171,49 +171,19 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _loginWithApple() async {
-    final supabase = Supabase.instance.client;
-
     try {
-      const redirectUrl = 'okeyix://login-callback';
-      const supabaseUrl = 'https://esqpgtedmojrzoftchis.supabase.co';
-
-      final authUrl =
-          '$supabaseUrl/auth/v1/authorize?provider=apple&redirect_to=$redirectUrl';
-
-      final result = await FlutterWebAuth2.authenticate(
-        url: authUrl,
-        callbackUrlScheme: 'okeyix',
+      await supabase.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: 'okeyix://login-callback',
+        authScreenLaunchMode: LaunchMode.platformDefault,
       );
-
-      final uri = Uri.parse(result);
-
-      // 🔥 Apple implicit → fragment parse
-      final params = Uri.splitQueryString(uri.fragment);
-
-      final accessToken = params['access_token'];
-
-      if (accessToken == null) {
-        throw Exception("Token alınamadı");
-      }
-
-      // 🔥 DOĞRU KULLANIM
-      await supabase.auth.setSession(accessToken);
-
-      // 🔥 KRİTİK: user’ı zorla çek
-      final user = (await supabase.auth.getUser()).user;
-
-      if (user != null && context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LobbyScreen()),
-        );
-      } else {
-        throw Exception("User null");
-      }
     } catch (e) {
-      if (context.mounted) {
+      final msg = e.toString();
+
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("Login error: $e")));
+        ).showSnackBar(SnackBar(content: Text("Login error: $msg")));
       }
     }
   }
