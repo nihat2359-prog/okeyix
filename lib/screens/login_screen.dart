@@ -171,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> _loginWithApple() async {
+  Future<void> loginWithApple() async {
     try {
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
@@ -189,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> loginWithApple(BuildContext context) async {
+  Future<void> _loginWithApple(BuildContext context) async {
     final supabase = Supabase.instance.client;
 
     try {
