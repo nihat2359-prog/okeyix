@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen>
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.platformDefault,
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
     } catch (e) {
       final msg = e.toString();
@@ -186,6 +186,44 @@ class _LoginScreenState extends State<LoginScreen>
           context,
         ).showSnackBar(SnackBar(content: Text("Login error: $msg")));
       }
+    }
+  }
+
+  Future<void> signInWithApple() async {
+    final rawNonce = supabase.auth.generateRawNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: hashedNonce,
+    );
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw const AuthException(
+        'Could not find ID Token from generated credential.',
+      );
+    }
+    final authResponse = await supabase.auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LobbyScreen()));
+    // Apple only provides the user's full name on the first sign-in
+    // Save it to user metadata if available
+    if (credential.givenName != null || credential.familyName != null) {
+      final nameParts = <String>[];
+      if (credential.givenName != null) nameParts.add(credential.givenName!);
+      if (credential.familyName != null) nameParts.add(credential.familyName!);
+      final fullName = nameParts.join(' ');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login error: $fullName")));
     }
   }
 
@@ -483,7 +521,7 @@ class _LoginScreenState extends State<LoginScreen>
     return SizedBox(
       height: 50,
       child: ElevatedButton(
-        onPressed: () => _loginWithApple(),
+        onPressed: () => signInWithApple(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0F0F0F),
           elevation: 8,
