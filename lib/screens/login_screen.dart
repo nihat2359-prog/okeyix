@@ -171,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> loginWithApple() async {
+  Future<void> _loginWithApple() async {
     try {
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
@@ -189,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> _loginWithApple(BuildContext context) async {
+  Future<void> loginWithApple(BuildContext context) async {
     final supabase = Supabase.instance.client;
 
     try {
@@ -483,7 +483,7 @@ class _LoginScreenState extends State<LoginScreen>
     return SizedBox(
       height: 50,
       child: ElevatedButton(
-        onPressed: () => _loginWithApple(context),
+        onPressed: () => _loginWithApple(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0F0F0F),
           elevation: 8,
