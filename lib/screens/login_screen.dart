@@ -171,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> _loginWithApple() async {
+  Future<void> _loginWithApple2() async {
     try {
       await supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
@@ -186,6 +186,35 @@ class _LoginScreenState extends State<LoginScreen>
           context,
         ).showSnackBar(SnackBar(content: Text("Login error: $msg")));
       }
+    }
+  }
+
+  Future<void> _loginWithApple() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final idToken = credential.identityToken;
+      final authCode = credential.authorizationCode;
+
+      if (idToken == null) {
+        throw Exception("Apple login failed");
+      }
+
+      // 🔥 Supabase login
+      await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        accessToken: authCode,
+      );
+
+      print("LOGIN SUCCESS");
+    } catch (e) {
+      print("LOGIN ERROR: $e");
     }
   }
 

@@ -28,6 +28,7 @@ import '../ui/lobby/lobby_right_panel.dart';
 import '../ui/lobby/_ui_helpers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
+import 'package:http/http.dart' as http;
 
 enum _RightPanelType { none, friends, messages, settings }
 
@@ -3179,8 +3180,90 @@ class _LobbyScreenState extends State<LobbyScreen>
             await _signOutAndGoLogin();
           },
         ),
+
+        const SizedBox(height: 16),
+
+        // 🔥 YENİ EKLEDİĞİMİZ
+        lobbySideMenuButton(
+          icon: Icons.delete_forever_rounded,
+          label: 'Hesabı Sil',
+          danger: true,
+          onTap: () async {
+            _closeRightPanel();
+            await _confirmDeleteAccount();
+          },
+        ),
       ],
     );
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Hesabı Sil"),
+          content: Text(
+            "Bu işlem geri alınamaz. Hesabınız ve tüm verileriniz silinecek. Emin misiniz?",
+          ),
+          actions: [
+            TextButton(
+              child: Text("İptal"),
+              onPressed: () => Navigator.pop(context, false),
+            ),
+            TextButton(
+              child: Text("Sil"),
+              onPressed: () => Navigator.pop(context, true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await _deleteAccountFlow();
+    }
+  }
+
+  Future<void> _deleteAccountFlow() async {
+    try {
+      // loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Center(child: CircularProgressIndicator()),
+      );
+
+      await deleteAccount(); // API call
+
+      Navigator.of(context).pop(); // loading kapat
+
+      await _signOutAndGoLogin();
+    } catch (e) {
+      Navigator.of(context).pop();
+      print("DELETE ERROR: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Hesap silinirken hata oluştu")));
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final session = supabase.auth.currentSession;
+
+    if (session == null) {
+      print("No session");
+      throw Exception("No session");
+    }
+
+    final userId = supabase.auth.currentUser!.id;
+
+    final res = await supabase.functions.invoke(
+      'delete_user',
+      body: {'user_id': userId},
+    );
+
+    print(res.data);
   }
 
   Future<void> _signOutAndGoLogin() async {
