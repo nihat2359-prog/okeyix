@@ -201,20 +201,35 @@ class _LoginScreenState extends State<LoginScreen>
       final idToken = credential.identityToken;
       final authCode = credential.authorizationCode;
 
+      // 🔥 Tokenları SnackBar’da göster
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "ID TOKEN:\n$idToken\n\nAUTH CODE:\n$authCode",
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+
       if (idToken == null) {
-        throw Exception("Apple login failed");
+        throw Exception("Apple login failed - idToken null");
       }
 
-      // 🔥 Supabase login
       await supabase.auth.signInWithIdToken(
         provider: OAuthProvider.apple,
         idToken: idToken,
         accessToken: authCode,
       );
 
-      print("LOGIN SUCCESS");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("LOGIN SUCCESS")));
     } catch (e) {
-      print("LOGIN ERROR: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),
+      );
     }
   }
 
