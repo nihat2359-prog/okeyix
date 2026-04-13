@@ -191,11 +191,13 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _loginWithApple() async {
     try {
+      final rawNonce = DateTime.now().millisecondsSinceEpoch.toString();
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: rawNonce,
       );
 
       final idToken = credential.identityToken;
