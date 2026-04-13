@@ -81,7 +81,7 @@ class _StoreScreenState extends State<StoreScreen> {
         body: {
           "userId": userId,
           "productId": purchase.productID,
-          "token": purchase.verificationData.serverVerificationData,
+          "token": purchase.verificationData.localVerificationData,
           "platform": Platform.isIOS ? "ios" : "android",
         },
         headers: {"Authorization": "Bearer ${session?.accessToken}"},
