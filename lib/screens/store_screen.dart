@@ -130,6 +130,10 @@ class _StoreScreenState extends State<StoreScreen> {
   void listenPurchases() {
     _subscription = _iap.purchaseStream.listen((purchases) {
       for (var purchase in purchases) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Status: ${purchase.status}")));
+
         print("PURCHASE STATUS: ${purchase.status}");
 
         if (purchase.status == PurchaseStatus.pending) {
@@ -144,7 +148,8 @@ class _StoreScreenState extends State<StoreScreen> {
           print("Purchase error: ${purchase.error}");
         }
 
-        if (purchase.pendingCompletePurchase) {
+        if (purchase.status == PurchaseStatus.purchased ||
+            purchase.status == PurchaseStatus.restored) {
           _iap.completePurchase(purchase);
         }
       }
