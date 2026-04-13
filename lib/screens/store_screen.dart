@@ -22,10 +22,17 @@ class _StoreScreenState extends State<StoreScreen> {
 
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   final Map<String, int> coinRewards = {
+    // ANDROID
     "coin_pack_baslangic": 10000,
     "coin_pack_standart": 30000,
     "coin_pack_elit": 80000,
     "coin_pack_mega": 200000,
+
+    // iOS
+    "coin_pack_baslangic_ios": 10000,
+    "coin_pack_standart_ios": 30000,
+    "coin_pack_elit_ios": 80000,
+    "coin_pack_mega_ios": 200000,
   };
 
   @override
@@ -42,12 +49,19 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> loadProducts() async {
-    const ids = {
-      'coin_pack_baslangic',
-      'coin_pack_standart',
-      'coin_pack_elit',
-      'coin_pack_mega',
-    };
+    final ids = Platform.isIOS
+        ? {
+            'coin_pack_baslangic_ios',
+            'coin_pack_standart_ios',
+            'coin_pack_elit_ios',
+            'coin_pack_mega_ios',
+          }
+        : {
+            'coin_pack_baslangic',
+            'coin_pack_standart',
+            'coin_pack_elit',
+            'coin_pack_mega',
+          };
 
     final response = await _iap.queryProductDetails(ids);
 
@@ -195,6 +209,10 @@ class _StoreScreenState extends State<StoreScreen> {
     return value.toString();
   }
 
+  String normalizeId(String id) {
+    return id.replaceAll("_ios", "");
+  }
+
   @override
   Widget build(BuildContext context) {
     if (products.isEmpty) {
@@ -211,19 +229,27 @@ class _StoreScreenState extends State<StoreScreen> {
     ProductDetails? packMega;
 
     try {
-      packBaslangic = products.firstWhere((p) => p.id == "coin_pack_baslangic");
+      packBaslangic = products.firstWhere(
+        (p) => normalizeId(p.id) == "coin_pack_baslangic",
+      );
     } catch (_) {}
 
     try {
-      packStandart = products.firstWhere((p) => p.id == "coin_pack_standart");
+      packStandart = products.firstWhere(
+        (p) => normalizeId(p.id) == "coin_pack_standart",
+      );
     } catch (_) {}
 
     try {
-      packElit = products.firstWhere((p) => p.id == "coin_pack_elit");
+      packElit = products.firstWhere(
+        (p) => normalizeId(p.id) == "coin_pack_elit",
+      );
     } catch (_) {}
 
     try {
-      packMega = products.firstWhere((p) => p.id == "coin_pack_mega");
+      packMega = products.firstWhere(
+        (p) => normalizeId(p.id) == "coin_pack_mega",
+      );
     } catch (_) {}
 
     return Scaffold(
