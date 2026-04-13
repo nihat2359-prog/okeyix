@@ -1,4 +1,4 @@
-import 'dart:async' as async;
+﻿import 'dart:async' as async;
 import 'dart:convert';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
@@ -54,6 +54,8 @@ class OkeyGame extends FlameGame {
   final Map<int, TileComponent> occupiedSlots = {};
   final Map<int, Map<String, dynamic>> _playerSeatMap = {};
   final Set<int> _botSeats = <int>{};
+  final Map<String, Map<String, int>> _botKeepMemory = {};
+  final Map<String, Map<String, int>> _botRecentDiscards = {};
   final List<TileModel> closedPile = [];
   Map<String, dynamic>? _league;
 
@@ -117,10 +119,10 @@ class OkeyGame extends FlameGame {
   Vector2? getSlotPositionFromLive(int index) {
     final tile = occupiedSlots[index];
     if (tile != null) {
-      return tile.position.clone(); // 🔥 GERÇEK POZİSYON
+      return tile.position.clone(); // ğŸ”¥ GERÃ‡EK POZÄ°SYON
     }
 
-    // fallback → slotPositions varsa
+    // fallback â†’ slotPositions varsa
     if (index < slotPositions.length) {
       return slotPositions[index].clone();
     }
@@ -297,7 +299,7 @@ class OkeyGame extends FlameGame {
 
       _gameStarted = false;
 
-      _showWaitingOverlay("Masadan atıldın");
+      _showWaitingOverlay("Masadan atÄ±ldÄ±n");
 
       Future.delayed(const Duration(seconds: 2), () {
         overlays.add('LobbyOverlay');
@@ -319,11 +321,15 @@ class OkeyGame extends FlameGame {
             .map((p) => p['seat_index'] as int),
       );
 
-    _mySeatIndexAbs = playersWithProfiles
-        .where((p) => p['user_id']?.toString() == uid)
-        .map((p) => p['seat_index'] as int?)
-        .cast<int?>()
-        .firstWhere((v) => v != null, orElse: () => null);
+    _mySeatIndexAbs = null;
+    for (final p in playersWithProfiles) {
+      if (p['user_id']?.toString() != uid) continue;
+      final seat = p['seat_index'];
+      if (seat is int) {
+        _mySeatIndexAbs = seat;
+        break;
+      }
+    }
 
     _renderSeats();
     _syncDeckFromTable(table['deck']);
@@ -390,7 +396,7 @@ class OkeyGame extends FlameGame {
       } catch (e, st) {
         debugPrint('START GAME RPC ERROR: $e');
         debugPrintStack(stackTrace: st);
-        rethrow; // 🔥 BUNU EKLE
+        rethrow; // ğŸ”¥ BUNU EKLE
       }
     } finally {
       _startRequestInFlight = false;
@@ -472,30 +478,87 @@ class OkeyGame extends FlameGame {
       if (hand is! List) return;
       final strategy = decideStrategy(hand);
 
+      Map<String, dynamic>? drawnFromDiscardTile;
+      var drewFromDiscard = false;
+
       /// draw
       if (hand.length == 14) {
-        final top = lastDiscardedTile;
-
-        final takeDiscard = shouldTakeDiscard(
+        final fromSeat = (currentTurn - 1 + _maxPlayers) % _maxPlayers;
+        final topDiscard = await _fetchDiscardTopForSeat(fromSeat);
+        _decayBotRecentDiscards(botUserId);
+        final currentPotential = _handPotentialScore(
+          hand
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList(),
+        );
+        final takePotential = _potentialAfterTakingDiscard(
           hand,
-          top == null
-              ? null
-              : {
-                  'value': top.value,
-                  'color': top.colorType.name,
-                  'joker': top.isJoker,
-                },
+          topDiscard,
           strategy,
         );
-
-        await Supabase.instance.client.rpc(
-          'game_draw',
-          params: {
-            'p_table_id': tableId,
-            'p_user_id': botUserId,
-            'p_source': takeDiscard ? 'discard' : 'closed',
-          },
+        final canFinishWithTop = _canFinishAfterTakingTopDiscard(hand, topDiscard);
+        final shouldTakeByHeuristic =
+            shouldTakeDiscard(hand, topDiscard, strategy);
+        final topIsRecentOwnDiscard = topDiscard != null &&
+            _botRecentDiscards[botUserId]?.containsKey(_tileMapKey(topDiscard)) ==
+                true;
+        final topIsFakeJoker = topDiscard != null &&
+            (topDiscard['fake_joker'] == true ||
+                topDiscard['is_fake_joker'] == true);
+        final immediateMeldValue =
+            _immediateMeldGainFromTopDiscard(hand, topDiscard);
+        final wouldThrowBackTop = _wouldDiscardTakenTop(
+          hand,
+          topDiscard,
+          strategy,
         );
+        final potentialGain = takePotential - currentPotential;
+        // Human-like rule:
+        // take from discard when it clearly improves immediate meld quality
+        // (especially completing/strengthening sets), otherwise draw closed.
+        final shouldTakeTop = canFinishWithTop ||
+            (!topIsRecentOwnDiscard &&
+                !topIsFakeJoker &&
+                ((immediateMeldValue >= 4) ||
+                    (!wouldThrowBackTop &&
+                        (immediateMeldValue >= 3))));
+
+        var source = (topDiscard != null && shouldTakeTop) ? 'discard' : 'closed';
+
+        try {
+          await Supabase.instance.client.rpc(
+            'game_draw',
+            params: {
+              'p_table_id': tableId,
+              'p_user_id': botUserId,
+              'p_source': source,
+              'p_from_seat': source == 'discard' ? fromSeat : null,
+            },
+          );
+          drewFromDiscard = source == 'discard';
+          if (drewFromDiscard && topDiscard != null) {
+            drawnFromDiscardTile = Map<String, dynamic>.from(topDiscard);
+          }
+        } catch (e) {
+          // Fallback: if taking from discard fails for any reason, draw from closed
+          // so the bot does not freeze on its turn.
+          if (source == 'discard') {
+            source = 'closed';
+            await Supabase.instance.client.rpc(
+              'game_draw',
+              params: {
+                'p_table_id': tableId,
+                'p_user_id': botUserId,
+                'p_source': source,
+                'p_from_seat': null,
+              },
+            );
+            drewFromDiscard = false;
+          } else {
+            rethrow;
+          }
+        }
 
         rows = await Supabase.instance.client
             .from('table_players')
@@ -511,9 +574,43 @@ class OkeyGame extends FlameGame {
 
       if (hand is! List || hand.length != 15) return;
 
-      final canFinish = _isValidFinishHand(buildFinishTilesFromHand(hand));
+      final finishDiscardTile = _pickFinishDiscardTile(hand);
+      final canFinish = finishDiscardTile != null;
+      final botSlots = _buildSlotsJsonFromHand(hand);
 
-      final tile = pickWorstTile(hand, strategy);
+      _decayBotKeepMemory(botUserId);
+      if (drewFromDiscard && drawnFromDiscardTile != null) {
+        _rememberBotTile(botUserId, drawnFromDiscardTile!);
+      }
+
+      Map<String, dynamic> tile;
+      if (canFinish) {
+        tile = finishDiscardTile!;
+      } else {
+        tile = pickBestDiscardTile(
+          hand,
+          strategy,
+          protectedKeys: _botProtectedTileKeys(botUserId),
+        );
+        if (_isJokerMap(tile)) {
+          tile = _pickNonJokerTileOrFallback(hand, strategy);
+        }
+      }
+      tile = _ensureLooseDiscardWhenPossible(hand, tile, strategy);
+
+      // Final guard against race/desync: never send discard if server hand is not 15.
+      final latestRows = await Supabase.instance.client
+          .from('table_players')
+          .select('hand')
+          .eq('table_id', tableId)
+          .eq('user_id', botUserId)
+          .limit(1);
+      if (latestRows is! List || latestRows.isEmpty) return;
+      final latestHand = latestRows.first['hand'];
+      if (latestHand is! List || latestHand.length != 15) {
+        return;
+      }
+
 
       await Supabase.instance.client.rpc(
         'game_discard',
@@ -521,16 +618,265 @@ class OkeyGame extends FlameGame {
           'p_table_id': tableId,
           'p_user_id': botUserId,
           'p_tile': tile,
-          'p_slots': null,
+          'p_slots': botSlots,
           'p_finish': canFinish,
           'p_is_player_action': false,
         },
       );
+      _rememberBotDiscard(botUserId, tile);
     } catch (e) {
       debugPrint("BOT TURN ERROR $e");
     } finally {
       _actionInFlight = false;
     }
+  }
+
+  Future<Map<String, dynamic>?> _fetchDiscardTopForSeat(int seatIndex) async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('table_discard_tops')
+          .select('tile')
+          .eq('table_id', tableId)
+          .eq('seat_index', seatIndex)
+          .limit(1);
+
+      if (rows is! List || rows.isEmpty) return null;
+      final tile = rows.first['tile'];
+      if (tile is! Map) return null;
+      return Map<String, dynamic>.from(tile);
+    } catch (e) {
+      // Network/intermittent backend failures should not block bot turn logic.
+      return null;
+    }
+  }
+
+  bool _canFinishAfterTakingTopDiscard(
+    List hand,
+    Map<String, dynamic>? topDiscard,
+  ) {
+    if (topDiscard == null) return false;
+    final candidate = List<Map<String, dynamic>>.from(
+      hand.map((e) => Map<String, dynamic>.from(e as Map)),
+    )..add(Map<String, dynamic>.from(topDiscard));
+
+    if (candidate.length != 15) return false;
+    final finishTiles = buildFinishTilesFromHand(candidate);
+    return _isValidFinishHand(finishTiles);
+  }
+
+  bool _wouldDiscardTakenTop(
+    List hand,
+    Map<String, dynamic>? topDiscard,
+    String strategy,
+  ) {
+    if (topDiscard == null) return false;
+    final candidate = List<Map<String, dynamic>>.from(
+      hand.map((e) => Map<String, dynamic>.from(e as Map)),
+    )..add(Map<String, dynamic>.from(topDiscard));
+
+    final bestDiscard = pickBestDiscardTile(candidate, strategy);
+    return _sameTileMap(bestDiscard, topDiscard);
+  }
+
+  int _potentialAfterTakingDiscard(
+    List hand,
+    Map<String, dynamic>? topDiscard,
+    String strategy,
+  ) {
+    if (topDiscard == null) return -999999;
+    final candidate = hand
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    candidate.add(Map<String, dynamic>.from(topDiscard));
+    if (candidate.length != 15) return -999999;
+
+    final discard = pickBestDiscardTile(candidate, strategy);
+    final removeIndex = candidate.indexWhere((t) => _sameTileMap(t, discard));
+    if (removeIndex == -1) return -999999;
+    candidate.removeAt(removeIndex);
+    return _handPotentialScore(candidate);
+  }
+
+  int _immediateMeldGainFromTopDiscard(
+    List hand,
+    Map<String, dynamic>? topDiscard,
+  ) {
+    if (topDiscard == null) return 0;
+    if (_isJokerMap(topDiscard)) return 0;
+    final t = BotTile.fromJson(topDiscard);
+    final tiles = hand
+        .whereType<Map>()
+        .map((e) => BotTile.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+
+    final sameValueColors = tiles
+        .where((x) => x.value == t.value)
+        .map((x) => x.color)
+        .toSet()
+        .length;
+    final sameColorVals = tiles
+        .where((x) => x.color == t.color)
+        .map((x) => x.value)
+        .toSet();
+
+    var runTouch = 0;
+    if (sameColorVals.contains(t.value - 1) || sameColorVals.contains(t.value + 1)) {
+      runTouch += 1;
+    }
+    if (sameColorVals.contains(t.value - 2) || sameColorVals.contains(t.value + 2)) {
+      runTouch += 1;
+    }
+
+    // Set contribution is based on different colors, not duplicate same color.
+    if (sameValueColors >= 2) return 4;
+    if (runTouch >= 2) return 3;
+    if (sameValueColors >= 1 && runTouch >= 1) return 2;
+    if (sameValueColors >= 1 || runTouch >= 1) return 1;
+    return 0;
+  }
+
+  bool _sameTileMap(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final av = _tileNumber(a);
+    final bv = _tileNumber(b);
+    final ac = (a['color'] ?? '').toString();
+    final bc = (b['color'] ?? '').toString();
+    final aj = _isJokerMap(a);
+    final bj = _isJokerMap(b);
+    return av == bv && ac == bc && aj == bj;
+  }
+
+  int _tileNumber(Map<String, dynamic> tile) {
+    return (tile['value'] ?? tile['number'] ?? 0) as int;
+  }
+
+  bool _isJokerMap(Map<String, dynamic> tile) {
+    return tile['joker'] == true ||
+        tile['is_joker'] == true ||
+        tile['fake_joker'] == true ||
+        tile['is_fake_joker'] == true;
+  }
+
+  Map<String, dynamic> _pickNonJokerTileOrFallback(List hand, String strategy) {
+    final chosen = pickWorstTile(hand, strategy);
+    if (!_isJokerMap(chosen)) return chosen;
+    for (final raw in hand) {
+      if (raw is Map<String, dynamic> && !_isJokerMap(raw)) return raw;
+    }
+    for (final raw in hand) {
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+    }
+    return <String, dynamic>{'value': 1, 'color': 'red'};
+  }
+
+  Map<String, dynamic> _ensureLooseDiscardWhenPossible(
+    List hand,
+    Map<String, dynamic> selected,
+    String strategy,
+  ) {
+    final normalized = hand
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
+    if (normalized.isEmpty) return selected;
+
+    final analysis = analyzeHand(normalized);
+    final groupedKeySet = <String>{};
+    for (final run in analysis.runs) {
+      for (final t in run) {
+        groupedKeySet.add('${t.color}-${t.value}');
+      }
+    }
+    for (final set in analysis.sets) {
+      for (final t in set) {
+        groupedKeySet.add('${t.color}-${t.value}');
+      }
+    }
+
+    String keyOf(Map<String, dynamic> t) =>
+        '${(t['color'] ?? '').toString()}-${(t['value'] ?? t['number'] ?? 0)}';
+
+    final selectedKey = keyOf(selected);
+    final hasLoose = normalized.any(
+      (t) => !_isJokerMap(t) && !groupedKeySet.contains(keyOf(t)),
+    );
+    final selectedIsGrouped = groupedKeySet.contains(selectedKey);
+    if (!hasLoose || !selectedIsGrouped) return selected;
+
+    final looseOnly = normalized
+        .where((t) => !_isJokerMap(t) && !groupedKeySet.contains(keyOf(t)))
+        .toList(growable: false);
+    if (looseOnly.isEmpty) return selected;
+
+    return pickBestDiscardTile(looseOnly, strategy);
+  }
+
+  Map<String, dynamic>? _pickFinishDiscardTile(List hand) {
+    final normalized = hand
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    if (normalized.length != 15) return null;
+
+    for (int i = 0; i < normalized.length; i++) {
+      final candidate = <Map<String, dynamic>>[];
+      for (int j = 0; j < normalized.length; j++) {
+        if (j != i) candidate.add(normalized[j]);
+      }
+      final finishTiles = buildFinishTilesFromHand(candidate);
+      if (_isValidFinishHand(finishTiles)) {
+        return normalized[i];
+      }
+    }
+    return null;
+  }
+
+  void _rememberBotTile(String botUserId, Map<String, dynamic> tile) {
+    final key = _tileMapKey(tile);
+    final memory = _botKeepMemory.putIfAbsent(botUserId, () => <String, int>{});
+    memory[key] = 8;
+  }
+
+  void _decayBotKeepMemory(String botUserId) {
+    final memory = _botKeepMemory[botUserId];
+    if (memory == null) return;
+    final next = <String, int>{};
+    memory.forEach((k, turns) {
+      final left = turns - 1;
+      if (left > 0) next[k] = left;
+    });
+    _botKeepMemory[botUserId] = next;
+  }
+
+  Set<String> _botProtectedTileKeys(String botUserId) {
+    final memory = _botKeepMemory[botUserId];
+    if (memory == null || memory.isEmpty) return <String>{};
+    return memory.keys.toSet();
+  }
+
+  void _rememberBotDiscard(String botUserId, Map<String, dynamic> tile) {
+    final key = _tileMapKey(tile);
+    final memory =
+        _botRecentDiscards.putIfAbsent(botUserId, () => <String, int>{});
+    memory[key] = 12;
+  }
+
+  void _decayBotRecentDiscards(String botUserId) {
+    final memory = _botRecentDiscards[botUserId];
+    if (memory == null) return;
+    final next = <String, int>{};
+    memory.forEach((k, turns) {
+      final left = turns - 1;
+      if (left > 0) next[k] = left;
+    });
+    _botRecentDiscards[botUserId] = next;
+  }
+
+  String _tileMapKey(Map<String, dynamic> tile) {
+    final value = _tileNumber(tile);
+    final color = (tile['color'] ?? '').toString();
+    final joker = _isJokerMap(tile) ? 1 : 0;
+    return '$color-$value-$joker';
   }
 
   void _startDiscardPoll() {
@@ -790,10 +1136,14 @@ class OkeyGame extends FlameGame {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    final me = rawPlayers.cast<Map<String, dynamic>?>().firstWhere(
-      (p) => p != null && p['user_id'] == userId,
-      orElse: () => null,
-    );
+    Map<String, dynamic>? me;
+    for (final raw in rawPlayers) {
+      if (raw is! Map<String, dynamic>) continue;
+      if (raw['user_id'] == userId) {
+        me = raw;
+        break;
+      }
+    }
 
     if (me == null) return;
     final hand = me['hand'];
@@ -1029,7 +1379,7 @@ class OkeyGame extends FlameGame {
         i,
     ];
 
-    // 🔥 CASE 1: hiç group yok → SPLIT
+    // ğŸ”¥ CASE 1: hiÃ§ group yok â†’ SPLIT
     if (groups.isEmpty) {
       final topCount = (count / 2).ceil();
 
@@ -1047,7 +1397,7 @@ class OkeyGame extends FlameGame {
       return placement;
     }
 
-    // 🔥 GROUP YERLEŞİMİ
+    // ğŸ”¥ GROUP YERLEÅÄ°MÄ°
     var groupCursor = 0;
     for (final group in groups) {
       final sortedGroup = _sortGroup(group);
@@ -1062,7 +1412,7 @@ class OkeyGame extends FlameGame {
       if (groupCursor >= groupRowSlots.length) break;
     }
 
-    // 🔥 LOOSE YERLEŞİMİ (overflow fix ile)
+    // ğŸ”¥ LOOSE YERLEÅÄ°MÄ° (overflow fix ile)
     var looseCursor = 0;
     for (final ref in orderedBottomTiles) {
       if (placement[ref.originalIndex] != -1) continue;
@@ -1071,7 +1421,7 @@ class OkeyGame extends FlameGame {
         placement[ref.originalIndex] = looseRowSlots[looseCursor];
         looseCursor++;
       } else {
-        // 🔥 overflow → alt row boş slot bul
+        // ğŸ”¥ overflow â†’ alt row boÅŸ slot bul
         final nextFree = groupRowSlots.firstWhere(
           (slot) => !placement.contains(slot),
           orElse: () => -1,
@@ -1083,7 +1433,7 @@ class OkeyGame extends FlameGame {
       }
     }
 
-    // 🔥 SAFE FALLBACK (clamp yerine)
+    // ğŸ”¥ SAFE FALLBACK (clamp yerine)
     for (int i = 0; i < placement.length; i++) {
       if (placement[i] == -1) {
         final nextFree = List.generate(
@@ -1413,44 +1763,144 @@ class OkeyGame extends FlameGame {
   }
 
   void _onMatchMove(Map<String, dynamic> move) {
-    final type = move['move_type'];
+    final type = move['move_type']?.toString();
     final playerId = move['player_id'];
-    final tile = move['tile_data'];
+    final rawTile = move['tile_data'];
+    Map<String, dynamic>? tile;
+    if (rawTile is String) {
+      final decoded = jsonDecode(rawTile);
+      if (decoded is Map) tile = Map<String, dynamic>.from(decoded);
+    } else if (rawTile is Map) {
+      tile = Map<String, dynamic>.from(rawTile);
+    }
 
     final seat = _seatFromUserId(playerId);
     if (seat == null) return;
 
     if (type == 'draw_discard') {
-      _animateDiscardToPlayer(seat, tile);
+      final rawFromSeat = move['from_seat'] ?? move['source_seat'];
+      final fromSeat =
+          rawFromSeat is int ? rawFromSeat : int.tryParse('$rawFromSeat');
+      _animateDiscardToPlayer(
+        fromSeat: fromSeat ?? ((seat - 1 + _maxPlayers) % _maxPlayers),
+        toSeat: seat,
+        tileData: tile,
+      );
+      return;
+    }
+
+    if (type == 'discard') {
+      final mySeat = _resolveMySeatIndex();
+      // Local player's manual drag already gives enough feedback.
+      if (mySeat != null && seat == mySeat) return;
+      _animatePlayerToDiscard(
+        seat: seat,
+        tileData: tile,
+      );
     }
   }
 
-  void _animateDiscardToPlayer(int seat, Map<String, dynamic> tileData) {
-    final slotIndex = _slotIndexForAbsoluteSeat(seat);
-    final slot = _discardSlotsByIndex[slotIndex];
+  void _animateDiscardToPlayer({
+    required int fromSeat,
+    required int toSeat,
+    Map<String, dynamic>? tileData,
+  }) {
+    final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
+    final fromSlot = _discardSlotsByIndex[fromSlotIndex];
+    if (fromSlot == null) return;
 
-    if (slot == null || slot.currentTile == null) return;
+    final sourceTop = _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
+    final model = tileData != null ? _tileModelFromPayload(tileData) : null;
 
-    final fromTile = slot.currentTile!;
+    final value = model?.value ?? sourceTop?.value;
+    final colorType =
+        model != null ? mapTileColor(model.color) : sourceTop?.colorType;
+    if (value == null || colorType == null) return;
 
-    final tile = TileComponent(
-      value: tileData['value'],
-      colorType: mapTileColor(tileData['color']),
-      position: fromTile.position.clone(),
-      isJoker: tileData['joker'] == true,
-    )..priority = 60;
+    final transient = TileComponent(
+      value: value,
+      colorType: colorType,
+      position: fromSlot.position.clone(),
+      isJoker: model?.isJoker ?? sourceTop?.isJoker ?? false,
+      isFakeJoker: model?.isFakeJoker ?? sourceTop?.isFakeJoker ?? false,
+    )..priority = 80;
+    transient.isLocked = true;
+    world.add(transient);
 
-    world.add(tile);
+    // Remove old top immediately so it is clear that the tile was taken.
+    _discardTopTilesBySeat[fromSeat]?.removeFromParent();
+    _discardTopTilesBySeat.remove(fromSeat);
+    fromSlot.currentTile = null;
 
-    // hedef: oyuncunun alt kısmı (basit yaklaşım)
-    final target = Vector2(size.x / 2, size.y - 120);
-
-    tile.add(
+    final target = _drawAnimationTargetForSeat(toSeat);
+    transient.add(
       MoveEffect.to(
         target,
-        EffectController(duration: 0.25, curve: Curves.easeOut),
+        EffectController(duration: 0.28, curve: Curves.easeOutCubic),
       ),
     );
+
+    async.Timer(const Duration(milliseconds: 320), () {
+      transient.removeFromParent();
+    });
+  }
+
+  Vector2 _drawAnimationTargetForSeat(int absoluteSeat) {
+    final relative = (absoluteSeat - (_mySeatIndexAbs ?? 0) + _maxPlayers) %
+        _maxPlayers;
+    if (_maxPlayers == 2) {
+      return relative == 0 ? Vector2(800, 730) : Vector2(800, 170);
+    }
+    switch (relative) {
+      case 0:
+        return Vector2(800, 730);
+      case 1:
+        return Vector2(330, 520);
+      case 2:
+        return Vector2(800, 170);
+      case 3:
+        return Vector2(1270, 520);
+      default:
+        return Vector2(800, 450);
+    }
+  }
+
+  void _animatePlayerToDiscard({
+    required int seat,
+    Map<String, dynamic>? tileData,
+  }) {
+    final slotIndex = _slotIndexForAbsoluteSeat(seat);
+    final slot = _discardSlotsByIndex[slotIndex];
+    if (slot == null) return;
+
+    final model = tileData != null ? _tileModelFromPayload(tileData) : null;
+    final fallbackTop = _discardTopTilesBySeat[seat] ?? slot.currentTile;
+    final value = model?.value ?? fallbackTop?.value;
+    final colorType =
+        model != null ? mapTileColor(model.color) : fallbackTop?.colorType;
+    if (value == null || colorType == null) return;
+
+    final start = _drawAnimationTargetForSeat(seat);
+    final transient = TileComponent(
+      value: value,
+      colorType: colorType,
+      position: start,
+      isJoker: model?.isJoker ?? fallbackTop?.isJoker ?? false,
+      isFakeJoker: model?.isFakeJoker ?? fallbackTop?.isFakeJoker ?? false,
+    )..priority = 79;
+    transient.isLocked = true;
+    world.add(transient);
+
+    transient.add(
+      MoveEffect.to(
+        slot.position.clone(),
+        EffectController(duration: 0.28, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    async.Timer(const Duration(milliseconds: 320), () {
+      transient.removeFromParent();
+    });
   }
 
   void _subscribeTablePlayersRealtime() {
@@ -1508,7 +1958,7 @@ class OkeyGame extends FlameGame {
     if (status != 'playing' && _gameStarted) {
       _gameStarted = false;
 
-      /// COIN YENİLE
+      /// COIN YENÄ°LE
       await _loadInitialState();
       return;
     }
@@ -1854,19 +2304,107 @@ class OkeyGame extends FlameGame {
     if (userId == null) return;
     _actionInFlight = true;
     try {
-      final res = await Supabase.instance.client.rpc(
-        'game_timeout_move',
-        params: {'p_table_id': tableId, 'p_user_id': userId},
-      );
-
-      await _loadInitialState();
-      await _syncDiscardTopsFromServer();
-      hasDrawnThisTurn = false;
-    } catch (e) {
-      debugPrint('GAME_TIMEOUT RPC ERROR: $e');
+      // Server-side timeout function is unstable on this backend.
+      // Use client fallback directly to keep turn flow deterministic.
+      await _runClientTimeoutFallback();
       await _loadInitialState();
     } finally {
       _actionInFlight = false;
+    }
+  }
+
+  List<Map<String, dynamic>> _buildSlotsJsonFromHand(List hand) {
+    final result = <Map<String, dynamic>>[];
+    final normalized = hand
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
+
+    for (int i = 0; i < 26; i++) {
+      if (i < normalized.length) {
+        final t = normalized[i];
+        result.add({
+          'i': i,
+          'tile': {
+            'color': (t['color'] ?? '').toString(),
+            'number': (t['number'] ?? t['value'] ?? 0) as int,
+            'joker': t['joker'] == true || t['is_joker'] == true,
+            'fake_joker': t['fake_joker'] == true || t['is_fake_joker'] == true,
+          },
+        });
+      } else {
+        result.add({'i': i, 'tile': null});
+      }
+    }
+
+    return result;
+  }
+
+  Future<void> _runClientTimeoutFallback() async {
+    try {
+      if (!_isMyTurn()) return;
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      if (uid == null) return;
+
+      var rows = await Supabase.instance.client
+          .from('table_players')
+          .select('hand')
+          .eq('table_id', tableId)
+          .eq('user_id', uid)
+          .limit(1);
+      if (rows is! List || rows.isEmpty) return;
+      var hand = rows.first['hand'];
+      if (hand is! List) return;
+
+      if (hand.length == 14) {
+        await Supabase.instance.client.rpc(
+          'game_draw',
+          params: {
+            'p_table_id': tableId,
+            'p_user_id': uid,
+            'p_source': 'closed',
+            'p_from_seat': null,
+          },
+        );
+        rows = await Supabase.instance.client
+            .from('table_players')
+            .select('hand')
+            .eq('table_id', tableId)
+            .eq('user_id', uid)
+            .limit(1);
+        if (rows is! List || rows.isEmpty) return;
+        hand = rows.first['hand'];
+        if (hand is! List) return;
+      }
+
+      if (hand.length != 15) return;
+      final strategy = decideStrategy(hand);
+      final finishTile = _pickFinishDiscardTile(hand);
+      final tile = finishTile ??
+          pickBestDiscardTile(
+            hand,
+            strategy,
+            protectedKeys: const <String>{},
+          );
+      final safeTile = _ensureLooseDiscardWhenPossible(hand, tile, strategy);
+      final canFinish = finishTile != null;
+      final slots = _buildSlotsJsonFromHand(hand);
+
+      await Supabase.instance.client.rpc(
+        'game_discard',
+        params: {
+          'p_table_id': tableId,
+          'p_user_id': uid,
+          'p_tile': safeTile,
+          'p_slots': slots,
+          'p_finish': canFinish,
+          'p_is_player_action': false,
+        },
+      );
+      hasDrawnThisTurn = false;
+      await _syncDiscardTopsFromServer();
+    } catch (e) {
+      debugPrint('TIMEOUT FALLBACK ERROR: $e');
     }
   }
 
@@ -2246,7 +2784,7 @@ class OkeyGame extends FlameGame {
       final t = BotTile.fromJson(e);
 
       return _FinishTile(
-        id: _tileId(t, i), // ✅ int
+        id: _tileId(t, i), // âœ… int
         number: t.value,
         colorType: _mapColor(t.color),
         isJoker: t.joker,
@@ -2361,16 +2899,16 @@ class OkeyGame extends FlameGame {
       int diff;
 
       if (candidate.number == run.last.number + 1) {
-        // normal artış (1→2 dahil)
+        // normal artÄ±ÅŸ (1â†’2 dahil)
         diff = 1;
       } else if (run.last.number == 13 && candidate.number == 1) {
         // sadece bu wrap allowed
         diff = 1;
       } else if (candidate.number > run.last.number) {
-        // joker ile boşluk doldurma
+        // joker ile boÅŸluk doldurma
         diff = candidate.number - run.last.number;
       } else {
-        break; // sadece wrap sonrası geri dönüş yasak
+        break; // sadece wrap sonrasÄ± geri dÃ¶nÃ¼ÅŸ yasak
       }
 
       if (diff == 0) {
@@ -2500,11 +3038,11 @@ class BotTile {
 
   factory BotTile.fromJson(Map<String, dynamic> json) {
     return BotTile(
-      json['value'] ?? json['number'] ?? 0, // 🔥 FIX
+      json['value'] ?? json['number'] ?? 0, // ğŸ”¥ FIX
       json['color'] ?? '',
       json['joker'] == true ||
           json['is_joker'] == true ||
-          json['is_fake_joker'] == true, // 🔥 EKSTRA
+          json['is_fake_joker'] == true, // ğŸ”¥ EKSTRA
     );
   }
 }
@@ -2551,7 +3089,7 @@ bool shouldTakeDiscard(
   if (sameCount >= 2)
     score += 100; // direkt set
   else if (sameCount == 1)
-    score += 40; // set adayı
+    score += 40; // set adayÄ±
 
   // RUN
   final hasCloseNeighbor = tiles.any(
@@ -2577,7 +3115,15 @@ bool shouldTakeDiscard(
 }
 
 Map<String, dynamic> pickWorstTile(List hand, String strategy) {
-  final tiles = hand.map((e) => BotTile.fromJson(e)).toList();
+  final normalized = hand
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+  if (normalized.isEmpty) {
+    return <String, dynamic>{'value': 1, 'color': 'red'};
+  }
+
+  final tiles = normalized.map((e) => BotTile.fromJson(e)).toList();
   final analysis = analyzeHand(hand);
 
   final protected = <BotTile>{};
@@ -2593,17 +3139,17 @@ Map<String, dynamic> pickWorstTile(List hand, String strategy) {
   int worstScore = 999999;
 
   for (var t in tiles) {
-    // ❌ joker asla atılmaz
+    // âŒ joker asla atÄ±lmaz
     if (t.isOkey) continue;
 
     int score = 0;
 
-    // 🔒 full group
+    // ğŸ”’ full group
     if (protected.contains(t)) {
       score += 100;
     }
 
-    // 🔶 near run
+    // ğŸ”¶ near run
     final hasNeighbor = tiles.any(
       (x) =>
           x != t &&
@@ -2616,28 +3162,28 @@ Map<String, dynamic> pickWorstTile(List hand, String strategy) {
 
     if (hasNeighbor) score += 40;
 
-    // 🔶 pair
+    // ğŸ”¶ pair
     final sameCount = tiles.where((x) => x != t && x.value == t.value).length;
     if (sameCount >= 1) score += 30;
 
-    // 🎯 orta değer
+    // ğŸ¯ orta deÄŸer
     if (t.value >= 6 && t.value <= 9) score += 5;
 
-    // ⚠️ uç değer
+    // âš ï¸ uÃ§ deÄŸer
     if (t.value <= 2 || t.value >= 12) score -= 5;
 
-    // 💀 dead tile
+    // ğŸ’€ dead tile
     if (!hasNeighbor && sameCount == 0 && !protected.contains(t)) {
       score -= 50;
     }
 
     if (strategy == 'run') {
-      // set'e giden taşları biraz düşür
+      // set'e giden taÅŸlarÄ± biraz dÃ¼ÅŸÃ¼r
       if (sameCount >= 1) score -= 10;
     }
 
     if (strategy == 'set') {
-      // run'a giden taşları biraz düşür
+      // run'a giden taÅŸlarÄ± biraz dÃ¼ÅŸÃ¼r
       if (hasNeighbor) score -= 10;
     }
 
@@ -2647,12 +3193,207 @@ Map<String, dynamic> pickWorstTile(List hand, String strategy) {
     }
   }
 
-  worst ??= tiles.last;
-
-  return hand.firstWhere(
-    (e) => e['value'] == worst!.value && e['color'] == worst.color,
-    orElse: () => hand.last,
+  worst ??= tiles.firstWhere(
+    (x) => !x.isOkey,
+    orElse: () => tiles.last,
   );
+
+  for (final tile in normalized) {
+    final value = (tile['value'] ?? tile['number'] ?? 0) as int;
+    final color = (tile['color'] ?? '').toString();
+    if (value == worst!.value && color == worst.color) {
+      return tile;
+    }
+  }
+
+  for (final tile in normalized) {
+    final isJoker = tile['joker'] == true ||
+        tile['is_joker'] == true ||
+        tile['fake_joker'] == true ||
+        tile['is_fake_joker'] == true;
+    if (!isJoker) return tile;
+  }
+
+  return normalized.first;
+}
+
+Map<String, dynamic> pickBestDiscardTile(
+  List hand,
+  String strategy, {
+  Set<String> protectedKeys = const <String>{},
+}) {
+  final normalized = hand
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+  if (normalized.isEmpty) {
+    return <String, dynamic>{'value': 1, 'color': 'red'};
+  }
+
+  final analysis = analyzeHand(normalized);
+  final groupedCounts = <String, int>{};
+  final groupedKeySet = <String>{};
+  String keyOf(Map<String, dynamic> t) =>
+      '${(t['color'] ?? '').toString()}-${(t['value'] ?? t['number'] ?? 0)}';
+  for (final run in analysis.runs) {
+    for (final t in run) {
+      final k = '${t.color}-${t.value}';
+      groupedKeySet.add(k);
+      groupedCounts[k] = (groupedCounts[k] ?? 0) + 1;
+    }
+  }
+  for (final set in analysis.sets) {
+    for (final t in set) {
+      final k = '${t.color}-${t.value}';
+      groupedKeySet.add(k);
+      groupedCounts[k] = (groupedCounts[k] ?? 0) + 1;
+    }
+  }
+
+  final candidates = <int>[];
+  for (int i = 0; i < normalized.length; i++) {
+    if (!_botIsJokerMap(normalized[i])) {
+      candidates.add(i);
+    }
+  }
+  if (candidates.isEmpty) return normalized.first;
+
+  // Human-like priority: discard loose tiles first.
+  final looseCandidates = <int>[];
+  for (final idx in candidates) {
+    final key = keyOf(normalized[idx]);
+    final left = groupedCounts[key] ?? 0;
+    if (left > 0) {
+      groupedCounts[key] = left - 1;
+    } else {
+      looseCandidates.add(idx);
+    }
+  }
+  // Hard guard: if there are clearly non-group keys, never discard grouped keys.
+  final nonGroupKeyCandidates = candidates
+      .where((idx) => !groupedKeySet.contains(keyOf(normalized[idx])))
+      .toList(growable: false);
+  final evaluationCandidates = nonGroupKeyCandidates.isNotEmpty
+      ? nonGroupKeyCandidates
+      : (looseCandidates.isNotEmpty ? looseCandidates : candidates);
+
+  Map<String, dynamic>? bestTile;
+  var bestPotential = -1 << 30;
+  var bestUsefulness = 1 << 30;
+  var bestProtectedPenalty = 1 << 30;
+
+  for (final idx in evaluationCandidates) {
+    final tile = normalized[idx];
+    final remaining = <Map<String, dynamic>>[];
+    for (int i = 0; i < normalized.length; i++) {
+      if (i != idx) remaining.add(normalized[i]);
+    }
+
+    final potential = _handPotentialScore(remaining);
+    final usefulness = _tileUsefulnessScore(tile, normalized, strategy);
+    final protectedPenalty =
+        protectedKeys.contains(_botTileMapKey(tile)) ? 1000 : 0;
+
+    final betterPotential = potential > bestPotential;
+    final equalPotential = potential == bestPotential;
+    final betterPenalty =
+        equalPotential && protectedPenalty < bestProtectedPenalty;
+    final equalPenalty = equalPotential && protectedPenalty == bestProtectedPenalty;
+    final betterUsefulness = equalPenalty && usefulness < bestUsefulness;
+
+    if (betterPotential || betterPenalty || betterUsefulness) {
+      bestTile = tile;
+      bestPotential = potential;
+      bestUsefulness = usefulness;
+      bestProtectedPenalty = protectedPenalty;
+    }
+  }
+
+  return bestTile ?? pickWorstTile(hand, strategy);
+}
+
+int _handPotentialScore(List<Map<String, dynamic>> hand) {
+  final analysis = analyzeHand(hand);
+  var score = 0;
+
+  for (final run in analysis.runs) {
+    score += run.length * 18;
+  }
+  for (final set in analysis.sets) {
+    score += set.length * 18;
+  }
+
+  final tiles = hand.map((e) => BotTile.fromJson(e)).toList();
+  for (final t in tiles) {
+    final sameCount = tiles.where((x) => x != t && x.value == t.value).length;
+    if (sameCount >= 1) score += 6;
+
+    final closeNeighbor = tiles.any(
+      (x) =>
+          x != t &&
+          x.color == t.color &&
+          (x.value == t.value - 1 ||
+              x.value == t.value + 1 ||
+              (t.value == 1 && x.value == 13) ||
+              (t.value == 13 && x.value == 1)),
+    );
+    if (closeNeighbor) score += 8;
+  }
+
+  return score;
+}
+
+bool _botIsJokerMap(Map<String, dynamic> tile) {
+  return tile['joker'] == true ||
+      tile['is_joker'] == true ||
+      tile['fake_joker'] == true ||
+      tile['is_fake_joker'] == true;
+}
+
+String _botTileMapKey(Map<String, dynamic> tile) {
+  final value = (tile['value'] ?? tile['number'] ?? 0) as int;
+  final color = (tile['color'] ?? '').toString();
+  final joker = _botIsJokerMap(tile) ? 1 : 0;
+  return '$color-$value-$joker';
+}
+
+int _tileUsefulnessScore(
+  Map<String, dynamic> tile,
+  List<Map<String, dynamic>> hand,
+  String strategy,
+) {
+  final t = BotTile.fromJson(tile);
+  final tiles = hand.map((e) => BotTile.fromJson(e)).toList();
+
+  var score = 0;
+  final sameCount = tiles.where((x) => x.value == t.value).length - 1;
+  if (sameCount >= 2) score += 60;
+  if (sameCount == 1) score += 25;
+
+  final hasCloseNeighbor = tiles.any(
+    (x) =>
+        x.color == t.color &&
+        x.value != t.value &&
+        (x.value == t.value - 1 ||
+            x.value == t.value + 1 ||
+            (t.value == 1 && x.value == 13) ||
+            (t.value == 13 && x.value == 1)),
+  );
+  if (hasCloseNeighbor) score += 45;
+
+  final hasNearNeighbor = tiles.any(
+    (x) =>
+        x.color == t.color &&
+        x.value != t.value &&
+        (x.value == t.value - 2 || x.value == t.value + 2),
+  );
+  if (hasNearNeighbor) score += 15;
+
+  if (strategy == 'run' && hasCloseNeighbor) score += 10;
+  if (strategy == 'set' && sameCount >= 1) score += 10;
+
+  if (t.value >= 6 && t.value <= 9) score += 5;
+  return score;
 }
 
 class HandAnalysis {
@@ -2662,48 +3403,67 @@ class HandAnalysis {
 }
 
 HandAnalysis analyzeHand(List hand) {
-  final tiles = hand.map((e) => BotTile.fromJson(e)).toList();
+  final tiles = hand
+      .whereType<Map>()
+      .map((e) => BotTile.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
   final result = HandAnalysis();
 
-  Map<String, List<BotTile>> byColor = {};
+  final byColor = <String, List<BotTile>>{};
 
   for (var t in tiles) {
+    if (t.isOkey) continue;
     byColor.putIfAbsent(t.color, () => []).add(t);
   }
 
   /// seri analizi
   for (var color in byColor.keys) {
-    final list = byColor[color]!;
-
+    final list = [...byColor[color]!];
     list.sort((a, b) => a.value.compareTo(b.value));
 
-    List<BotTile> current = [];
+    // For runs, duplicate numbers of the same color don't extend sequence.
+    final uniqueByValue = <int, BotTile>{};
+    for (final t in list) {
+      uniqueByValue.putIfAbsent(t.value, () => t);
+    }
+    final values = uniqueByValue.keys.toList()..sort();
 
-    for (var t in list) {
+    var current = <BotTile>[];
+    for (final v in values) {
+      final tile = uniqueByValue[v]!;
       if (current.isEmpty) {
-        current.add(t);
-      } else if (t.value == current.last.value + 1 ||
-          (current.last.value == 13 && t.value == 1)) {
-        current.add(t);
+        current.add(tile);
+      } else if (v == current.last.value + 1 ||
+          (current.last.value == 13 && v == 1)) {
+        current.add(tile);
       } else {
-        if (current.length >= 3) result.runs.add(List.from(current));
-        current = [t];
+        if (current.length >= 3) result.runs.add(List<BotTile>.from(current));
+        current = [tile];
       }
     }
-
-    if (current.length >= 3) result.runs.add(current);
+    if (current.length >= 3) result.runs.add(List<BotTile>.from(current));
   }
 
   /// per analizi
-  Map<int, List<BotTile>> byValue = {};
+  final byValue = <int, List<BotTile>>{};
 
   for (var t in tiles) {
+    if (t.isOkey) continue;
     byValue.putIfAbsent(t.value, () => []).add(t);
   }
 
-  for (var v in byValue.values) {
-    if (v.length >= 3) result.sets.add(v);
+  for (final valueGroup in byValue.values) {
+    // Sets must be same number, different colors.
+    final uniqueByColor = <String, BotTile>{};
+    for (final t in valueGroup) {
+      uniqueByColor.putIfAbsent(t.color, () => t);
+    }
+    final set = uniqueByColor.values.toList();
+    if (set.length >= 3) {
+      result.sets.add(set);
+    }
   }
 
   return result;
 }
+

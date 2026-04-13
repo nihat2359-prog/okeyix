@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -12,12 +12,12 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
   Future<void> onLoad() async {
     position = Vector2(
       gameRef.size.x / 2,
-      gameRef.size.y / 2 + 100, // 🔥 aşağı kaydır
+      gameRef.size.y / 2 + 100, // aşağı kaydır
     );
     anchor = Anchor.center;
     priority = 999999;
     final bgWidth = gameRef.size.x * 1.5;
-    final bgHeight = gameRef.size.y * 1; // 🔥 sabit yükseklik
+    final bgHeight = gameRef.size.y * 1;
 
     add(
       RoundedBackground(Vector2(bgWidth, bgHeight))
@@ -69,7 +69,6 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
     final tileWidth = 75.0;
     final spacing = 9.0;
 
-    // 🔥 GERÇEK GENİŞLİK
     final totalWidth = tileWidth - 10 * spacing;
 
     for (final s in slots) {
@@ -81,7 +80,6 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
       final isTop = i <= 12;
       final col = isTop ? i : i - 13;
 
-      // 🔥 SOL BAŞLANGIÇ → ORTALAMA
       final startX = -totalWidth / 2;
 
       final x = startX + col * (tileWidth + spacing);
@@ -126,10 +124,39 @@ class RoundedBackground extends PositionComponent {
 
     final rrect = RRect.fromRectAndRadius(
       rect,
-      const Radius.circular(30), // 🔥 radius burada
+      const Radius.circular(30),
     );
 
-    final paint = Paint()..color = Colors.black.withOpacity(0.65);
-    canvas.drawRRect(rrect, paint);
+    final fill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xE0121821),
+          Color(0xD00A0F16),
+        ],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, fill);
+
+    final outerStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0x88FFD36A);
+    canvas.drawRRect(rrect, outerStroke);
+
+    final inner = RRect.fromRectAndRadius(
+      rect.deflate(10),
+      const Radius.circular(24),
+    );
+    final innerStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x334FC3FF);
+    canvas.drawRRect(inner, innerStroke);
+
+    final softGlow = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
+      ..color = const Color(0x224FC3FF);
+    canvas.drawRRect(inner, softGlow);
   }
 }

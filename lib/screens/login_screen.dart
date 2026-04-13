@@ -1,7 +1,5 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'lobby_screen.dart';
@@ -12,7 +10,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? error;
@@ -104,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    /// basit email format kontrolü
+    /// Basit e-posta format kontrolü
     final emailRegex = RegExp(r'^[\w\.-]+@([\w-]+\.)+[a-zA-Z]{2,}$');
 
     if (!emailRegex.hasMatch(email)) {
@@ -118,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      /// 1️⃣ önce login dene
+      /// Önce giriş dene
       final res = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -132,12 +129,12 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
     } on AuthApiException catch (e) {
-      /// 2️⃣ kullanıcı yoksa register
+      /// Kullanıcı yoksa kayıt ol
       if (e.code == "invalid_credentials") {
         try {
           await supabase.auth.signUp(email: email, password: password);
 
-          /// 3️⃣ auto login
+          /// Sonra otomatik giriş yap
           final res = await supabase.auth.signInWithPassword(
             email: email,
             password: password,
@@ -159,82 +156,6 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  Future<void> _loginWithGoogle() async {
-    try {
-      await supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'okeyix://login-callback',
-      );
-    } catch (e) {
-      setState(() => _error = "Google ile giriş başarısız.");
-    }
-  }
-
-  Future<void> _loginWithApple2() async {
-    try {
-      await supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'okeyix://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
-      );
-    } catch (e) {
-      final msg = e.toString();
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Login error: $msg")));
-      }
-    }
-  }
-
-  Future<void> _loginWithApple() async {
-    try {
-      final rawNonce = DateTime.now().millisecondsSinceEpoch.toString();
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: rawNonce,
-      );
-
-      final idToken = credential.identityToken;
-      final authCode = credential.authorizationCode;
-
-      // 🔥 Tokenları SnackBar’da göster
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "ID TOKEN:\n$idToken\n\nAUTH CODE:\n$authCode",
-            maxLines: 5,
-            overflow: TextOverflow.ellipsis,
-          ),
-          duration: Duration(seconds: 5),
-        ),
-      );
-
-      if (idToken == null) {
-        throw Exception("Apple login failed - idToken null");
-      }
-
-      await supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        accessToken: authCode,
-      );
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("LOGIN SUCCESS")));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),
-      );
-    }
-  }
-
   Future<String> getDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -276,10 +197,10 @@ class _LoginScreenState extends State<LoginScreen>
       _error = null;
     });
     try {
-      /// 1️⃣ önce login dene
+      /// Önce giriş dene
       await supabase.auth.signInWithPassword(email: email, password: password);
     } on AuthApiException catch (e) {
-      /// 2️⃣ kullanıcı yoksa oluştur
+      /// Kullanıcı yoksa oluştur
       if (e.code == 'invalid_credentials') {
         await supabase.auth.signUp(
           email: email,
@@ -287,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen>
           data: {"guest": true, "device_hash": deviceHash},
         );
 
-        /// 3️⃣ sonra tekrar login
+        /// Sonra tekrar giriş yap
         await supabase.auth.signInWithPassword(
           email: email,
           password: password,
@@ -339,7 +260,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
               child: Row(
                 children: [
-                  /// 🔥 SOL PANEL (LOGO + SOCIAL)
+                  /// ğŸ”¥ SOL PANEL (LOGO + SOCIAL)
                   Expanded(
                     flex: 4,
                     child: AnimatedOpacity(
@@ -355,9 +276,7 @@ class _LoginScreenState extends State<LoginScreen>
                             child: const OkeyixLogo(),
                           ),
 
-                          const SizedBox(height: 24),
-
-                          _socialButtons(),
+                          const SizedBox(height: 8),
                         ],
                       ),
                     ),
@@ -365,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                   const SizedBox(width: 20),
 
-                  /// 🔥 SAĞ PANEL (FORM)
+                  /// SAĞ PANEL (FORM)
                   Expanded(
                     flex: 5,
                     child: Center(
@@ -381,13 +300,13 @@ class _LoginScreenState extends State<LoginScreen>
                             color: const Color(0x990B1612),
                             borderRadius: BorderRadius.circular(22),
 
-                            /// 🔥 GOLD BORDER
+                            /// ğŸ”¥ GOLD BORDER
                             border: Border.all(
                               color: const Color(0x66F2C14E),
                               width: 1.2,
                             ),
 
-                            /// 🔥 GLOW
+                            /// ğŸ”¥ GLOW
                             boxShadow: [
                               BoxShadow(
                                 color: const Color(0x33F2C14E),
@@ -410,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen>
                               const SizedBox(height: 12),
 
                               const Text(
-                                "veya e-posta ile giriş",
+                                "E-posta ile giriş",
                                 style: TextStyle(color: Colors.white70),
                               ),
 
@@ -456,75 +375,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _googleButton() {
-    return SizedBox(
-      height: 50,
-      child: ElevatedButton(
-        onPressed: _loginWithGoogle,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          elevation: 10,
-          shadowColor: Colors.black26,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset("assets/images/google.png", height: 22),
-            const SizedBox(width: 10),
-            const Text(
-              "Google",
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _appleButton() {
-    return SizedBox(
-      height: 50,
-      child: ElevatedButton(
-        onPressed: () => _loginWithApple(),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0F0F0F),
-          elevation: 8,
-          shadowColor: Colors.black87,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(
-              color: Color(0x33FFFFFF), // ince açık border
-              width: 1,
-            ),
-          ),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.apple, size: 20, color: Colors.white),
-            SizedBox(width: 8),
-            Text(
-              "Apple",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _guestButton() {
     return SizedBox(
       width: double.infinity,
@@ -550,16 +400,6 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
       ),
-    );
-  }
-
-  Widget _socialButtons() {
-    return Row(
-      children: [
-        Expanded(child: _googleButton()),
-        const SizedBox(width: 12),
-        Expanded(child: _appleButton()),
-      ],
     );
   }
 
@@ -739,7 +579,7 @@ class OkeyixLogo extends StatelessWidget {
         Stack(
           alignment: Alignment.center,
           children: [
-            /// glow katmanı
+            /// Glow katmanı
 
             /// ana text
             ShaderMask(
@@ -767,3 +607,8 @@ class OkeyixLogo extends StatelessWidget {
     );
   }
 }
+
+
+
+
+

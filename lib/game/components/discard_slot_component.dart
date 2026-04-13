@@ -61,34 +61,28 @@ class DiscardSlotComponent extends PositionComponent
   @override
   void onTapUp(TapUpEvent event) {
     super.onTapUp(event);
-    try {
-      final gameRef = findGame() as OkeyGame;
-      gameRef.takeFromDiscardTap(this);
-    } catch (_) {}
+    if (!isMounted) return;
+    game.takeFromDiscardTap(this);
   }
 
   @override
   void onDragStart(DragStartEvent event) {
     super.onDragStart(event);
-    try {
-      final gameRef = findGame() as OkeyGame;
-      gameRef.takeFromDiscardDrag(this, absolutePosition);
-    } catch (_) {}
+    if (!isMounted) return;
+    game.takeFromDiscardDrag(this, absolutePosition);
   }
 
   @override
   void onDragUpdate(DragUpdateEvent event) {
     super.onDragUpdate(event);
-    final gameRef = findGame() as OkeyGame;
-    gameRef.updateSourceDrawDrag(event.localDelta);
+    if (!isMounted) return;
+    game.updateSourceDrawDrag(event.localDelta);
   }
 
   @override
   void onDragEnd(DragEndEvent event) {
     super.onDragEnd(event);
-    try {
-      final gameRef = findGame() as OkeyGame;
-      gameRef.endSourceDrawDrag();
-    } catch (_) {}
+    if (!isMounted) return;
+    game.endSourceDrawDrag();
   }
 }

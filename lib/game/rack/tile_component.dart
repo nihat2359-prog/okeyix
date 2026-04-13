@@ -218,7 +218,8 @@ class TileComponent extends PositionComponent
       event.handled = true;
       return;
     }
-    final gameRef = findGame() as OkeyGame;
+    final gameRef = _tryGame();
+    if (gameRef == null) return;
     originalPosition = position.clone();
     dragOffset = event.localPosition;
     priority = 100;
@@ -233,7 +234,8 @@ class TileComponent extends PositionComponent
   @override
   void onDragUpdate(DragUpdateEvent event) {
     super.onDragUpdate(event);
-    final gameRef = findGame() as OkeyGame;
+    final gameRef = _tryGame();
+    if (gameRef == null) return;
     final zoom = gameRef.cameraComponent.viewfinder.zoom;
 
     position += event.localDelta / zoom;
@@ -245,8 +247,9 @@ class TileComponent extends PositionComponent
   void onDragEnd(DragEndEvent event) {
     super.onDragEnd(event);
     try {
+      final gameRef = _tryGame();
+      if (gameRef == null) return;
       final worldPos = absolutePosition;
-      final gameRef = findGame() as OkeyGame;
       // 0) Kapali desteye birakildiysa bitirme denemesi
       if (gameRef.isPointNearClosedPile(worldPos)) {
         final accepted = gameRef.finishWithTile(this);
@@ -299,24 +302,33 @@ class TileComponent extends PositionComponent
       gameRef.clearPreview();
       gameRef.clearTemporaryShift();
     } catch (_) {
-      final gameRef = findGame() as OkeyGame;
-      _restoreToOriginalSlot();
-      priority = 0;
-      gameRef.clearPreview();
-      gameRef.clearTemporaryShift();
+      final gameRef = _tryGame();
+      if (gameRef != null) {
+        _restoreToOriginalSlot();
+        priority = 0;
+        gameRef.clearPreview();
+        gameRef.clearTemporaryShift();
+      }
     }
   }
 
   void _restoreToOriginalSlot() {
     final slot = originalSlotIndex;
     if (slot != null) {
-      final gameRef = findGame() as OkeyGame;
+      final gameRef = _tryGame();
+      if (gameRef == null) return;
       currentSlotIndex = slot;
       gameRef.occupySlot(slot, this);
       position = gameRef.slotPositions[slot];
       return;
     }
     position = originalPosition;
+  }
+
+  OkeyGame? _tryGame() {
+    if (!isMounted) return null;
+    final g = game;
+    return g is OkeyGame ? g : null;
   }
 
   @override
