@@ -81,7 +81,7 @@ class _StoreScreenState extends State<StoreScreen> {
         body: {
           "userId": userId,
           "productId": purchase.productID,
-          "token": purchase.verificationData.localVerificationData,
+          "token": purchase.verificationData.serverVerificationData,
           "platform": Platform.isIOS ? "ios" : "android",
         },
         headers: {"Authorization": "Bearer ${session?.accessToken}"},
@@ -130,10 +130,6 @@ class _StoreScreenState extends State<StoreScreen> {
   void listenPurchases() {
     _subscription = _iap.purchaseStream.listen((purchases) {
       for (var purchase in purchases) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Status: ${purchase.status}")));
-
         print("PURCHASE STATUS: ${purchase.status}");
 
         if (purchase.status == PurchaseStatus.pending) {
