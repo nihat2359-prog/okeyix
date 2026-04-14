@@ -91,13 +91,6 @@ class _StoreScreenState extends State<StoreScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(data.toString()),
-          duration: Duration(seconds: 5),
-        ),
-      );
-
       if (data["success"] == true) {
         final coins = data["coins"];
         showPurchaseSuccess(context, coins);
