@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
-import 'package:okeyix/services/push_notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 
@@ -44,7 +43,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     _hideSystemUI();
-    PushNotificationService.instance.initialize();
   }
 
   @override
