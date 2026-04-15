@@ -24,7 +24,6 @@ Future<void> main() async {
         ? _defaultSupabaseAnonKey
         : _supabaseAnonKey,
   );
-  await PushNotificationService.instance.initialize();
 
   runApp(const MyApp());
 }
@@ -45,6 +44,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     _hideSystemUI();
+    PushNotificationService.instance.initialize();
   }
 
   @override

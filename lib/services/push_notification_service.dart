@@ -46,7 +46,10 @@ class PushNotificationService {
 
     debugPrint('PUSH PERMISSION: ${settings.authorizationStatus}');
 
-    final token = await messaging.getToken();
+    final token = await messaging.getToken().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => null,
+    );
     _lastKnownToken = token;
     await _syncTokenForCurrentUser();
 
@@ -72,7 +75,10 @@ class PushNotificationService {
 
   Future<void> _syncTokenForCurrentUser() async {
     if (_lastKnownToken == null || _lastKnownToken!.isEmpty) {
-      _lastKnownToken = await FirebaseMessaging.instance.getToken();
+      _lastKnownToken = await FirebaseMessaging.instance.getToken().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => null,
+      );
     }
     await _saveTokenToSupabase(_lastKnownToken);
   }
