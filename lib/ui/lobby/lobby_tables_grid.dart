@@ -8,8 +8,12 @@ class LobbyTablesGrid extends StatelessWidget {
   final Set<String> blockedUserIds;
 
   final Function(Map<String, dynamic>) onJoin;
+  final Function(Map<String, dynamic>) onSpectate;
+  final bool canSpectateAll;
   final Function(Map<String, dynamic>) onUserTap;
   final Future<void> Function() onRefresh;
+
+  static void _defaultOnSpectate(Map<String, dynamic> _) {}
 
   const LobbyTablesGrid({
     super.key,
@@ -17,6 +21,8 @@ class LobbyTablesGrid extends StatelessWidget {
     required this.loading,
     required this.blockedUserIds,
     required this.onJoin,
+    this.onSpectate = _defaultOnSpectate,
+    this.canSpectateAll = false,
     required this.onUserTap,
     required this.onRefresh,
   });
@@ -48,6 +54,8 @@ class LobbyTablesGrid extends StatelessWidget {
             table: table,
             blockedUserIds: blockedUserIds,
             onJoin: onJoin,
+            onSpectate: onSpectate,
+            canSpectateAll: canSpectateAll,
             onUserTap: onUserTap,
           );
         },

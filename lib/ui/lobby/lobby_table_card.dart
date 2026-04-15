@@ -5,13 +5,19 @@ class LobbyTableCard extends StatelessWidget {
   final Map<String, dynamic> table;
   final Set<String> blockedUserIds;
   final Function(Map<String, dynamic>) onJoin;
+  final Function(Map<String, dynamic>) onSpectate;
+  final bool canSpectateAll;
   final Function(Map<String, dynamic>) onUserTap;
+
+  static void _defaultOnSpectate(Map<String, dynamic> _) {}
 
   const LobbyTableCard({
     super.key,
     required this.table,
     required this.blockedUserIds,
     required this.onJoin,
+    this.onSpectate = _defaultOnSpectate,
+    this.canSpectateAll = false,
     required this.onUserTap,
   });
 
@@ -24,6 +30,9 @@ class LobbyTableCard extends StatelessWidget {
     final players = ((table['_players'] as List?) ?? const [])
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+    final status = (table['status']?.toString() ?? 'waiting').trim();
+    final isPlaying = status == 'playing';
+    final isFake = table['is_fake'] == true;
 
     return Container(
       decoration: BoxDecoration(
@@ -67,6 +76,61 @@ class LobbyTableCard extends StatelessWidget {
               ),
             ),
           ),
+          if (isPlaying && !isFake)
+            Positioned(
+              right: 8,
+              top: 7,
+              child: InkWell(
+                onTap: () => onSpectate(table),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFEBC778), Color(0xFFC8942D)],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: const Color(0xFFFFF1BA),
+                      width: 1.1,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66A16D18),
+                        blurRadius: 10,
+                        spreadRadius: 0.4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(
+                        Icons.remove_red_eye_rounded,
+                        size: 12,
+                        color: Color(0xFF493000),
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'IZLE',
+                        style: TextStyle(
+                          color: Color(0xFF3F2900),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.3,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           ...List.generate(maxPlayers, (seat) {
             Map<String, dynamic>? player;

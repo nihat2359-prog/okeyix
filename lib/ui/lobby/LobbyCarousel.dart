@@ -5,13 +5,19 @@ class LobbyCarousel extends StatefulWidget {
   final List<Map<String, dynamic>> tables;
   final Set<String> blockedUserIds;
   final Function(Map<String, dynamic>) onJoin;
+  final Function(Map<String, dynamic>) onSpectate;
+  final bool canSpectateAll;
   final Function(Map<String, dynamic>) onUserTap;
+
+  static void _defaultOnSpectate(Map<String, dynamic> _) {}
 
   const LobbyCarousel({
     super.key,
     required this.tables,
     required this.blockedUserIds,
     required this.onJoin,
+    this.onSpectate = _defaultOnSpectate,
+    this.canSpectateAll = false,
     required this.onUserTap,
   });
 
@@ -55,6 +61,8 @@ class _LobbyCarouselState extends State<LobbyCarousel> {
                   table: widget.tables[index],
                   blockedUserIds: widget.blockedUserIds,
                   onJoin: widget.onJoin,
+                  onSpectate: widget.onSpectate,
+                  canSpectateAll: widget.canSpectateAll,
                   onUserTap: widget.onUserTap,
                 ),
               ),

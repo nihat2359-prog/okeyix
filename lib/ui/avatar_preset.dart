@@ -2,119 +2,185 @@ class AvatarPreset {
   final String id;
   final String label;
   final String imageUrl;
+  final String gender;
+  final bool isPremium;
+  final int unlockCost;
 
   const AvatarPreset({
     required this.id,
     required this.label,
     required this.imageUrl,
+    required this.gender,
+    this.isPremium = false,
+    this.unlockCost = 0,
   });
 }
 
 const List<AvatarPreset> avatarPresets = <AvatarPreset>[
   AvatarPreset(
     id: 'kadin_01',
-    label: 'Kadın Genç',
+    label: 'Kadin Genc',
     imageUrl: 'assets/images/avatars/avatar13.png',
+    gender: 'female',
   ),
   AvatarPreset(
     id: 'kadin_02',
-    label: 'Kadın Havalı',
+    label: 'Kadin Havali',
     imageUrl: 'assets/images/avatars/avatar6.png',
+    gender: 'female',
   ),
   AvatarPreset(
     id: 'kadin_03',
-    label: 'Kadın Şık',
+    label: 'Kadin Sik',
     imageUrl: 'assets/images/avatars/avatar7.png',
+    gender: 'female',
   ),
   AvatarPreset(
     id: 'kadin_04',
-    label: 'Kadın Olgun',
+    label: 'Kadin Olgun',
     imageUrl: 'assets/images/avatars/avatar12.png',
+    gender: 'female',
   ),
   AvatarPreset(
     id: 'kadin_05',
-    label: 'Kadın Örtülü',
+    label: 'Kadin Ortulu',
     imageUrl: 'assets/images/avatars/avatar15.png',
+    gender: 'female',
   ),
   AvatarPreset(
     id: 'kadin_06',
-    label: 'Kadın Modern',
+    label: 'Kadin Modern',
     imageUrl: 'assets/images/avatars/avatar5.png',
+    gender: 'female',
   ),
-
   AvatarPreset(
     id: 'erkek_01',
-    label: 'Erkek Genç',
+    label: 'Erkek Genc',
     imageUrl: 'assets/images/avatars/avatar8.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_02',
-    label: 'Erkek Havalı',
+    label: 'Erkek Havali',
     imageUrl: 'assets/images/avatars/avatar11.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_03',
-    label: 'Erkek Şık',
+    label: 'Erkek Sik',
     imageUrl: 'assets/images/avatars/avatar10.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_04',
     label: 'Erkek Olgun',
     imageUrl: 'assets/images/avatars/avatar2.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_05',
     label: 'Erkek Enerjik',
     imageUrl: 'assets/images/avatars/avatar3.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_06',
     label: 'Erkek Modern',
     imageUrl: 'assets/images/avatars/avatar1.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_07',
     label: 'Erkek Cool',
     imageUrl: 'assets/images/avatars/avatar9.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_08',
-    label: 'Erkek Yaşlı',
-    imageUrl: 'assets/images/avatars/avatar2.png',
+    label: 'Erkek Yasli',
+    imageUrl: 'assets/images/avatars/avatar4.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_09',
     label: 'Erkek Karizmatik',
     imageUrl: 'assets/images/avatars/avatar14.png',
+    gender: 'male',
   ),
   AvatarPreset(
     id: 'erkek_10',
     label: 'Erkek Dinamik',
     imageUrl: 'assets/images/avatars/avatar16.png',
+    gender: 'male',
+  ),
+  AvatarPreset(
+    id: 'premium_kadin_01',
+    label: 'Premium Kadin 1',
+    imageUrl: 'assets/images/avatars/premium/premium_kadin_01.png',
+    gender: 'female',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_kadin_02',
+    label: 'Premium Kadin 2',
+    imageUrl: 'assets/images/avatars/premium/premium_kadin_02.png',
+    gender: 'female',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_kadin_03',
+    label: 'Premium Kadin 3',
+    imageUrl: 'assets/images/avatars/premium/premium_kadin_03.png',
+    gender: 'female',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_kadin_04',
+    label: 'Premium Kadin 4',
+    imageUrl: 'assets/images/avatars/premium/premium_kadin_04.png',
+    gender: 'female',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_erkek_01',
+    label: 'Premium Erkek 1',
+    imageUrl: 'assets/images/avatars/premium/premium_erkek_01.png',
+    gender: 'male',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_erkek_02',
+    label: 'Premium Erkek 2',
+    imageUrl: 'assets/images/avatars/premium/premium_erkek_02.png',
+    gender: 'male',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_erkek_03',
+    label: 'Premium Erkek 3',
+    imageUrl: 'assets/images/avatars/premium/premium_erkek_03.png',
+    gender: 'male',
+    isPremium: true,
+    unlockCost: 2500,
+  ),
+  AvatarPreset(
+    id: 'premium_erkek_04',
+    label: 'Premium Erkek 4',
+    imageUrl: 'assets/images/avatars/premium/premium_erkek_04.png',
+    gender: 'male',
+    isPremium: true,
+    unlockCost: 2500,
   ),
 ];
 
-const List<String> avatarPresetIds = <String>[
-  'kadin_01',
-  'kadin_02',
-  'kadin_03',
-  'kadin_04',
-  'kadin_05',
-  'kadin_06',
-  'kadin_07',
-  'kadin_08',
-  'kadin_09',
-  'kadin_10',
-  'erkek_01',
-  'erkek_02',
-  'erkek_03',
-  'erkek_04',
-  'erkek_05',
-  'erkek_06',
-  'erkek_07',
-  'erkek_08',
-  'erkek_09',
-  'erkek_10',
+final List<String> avatarPresetIds = <String>[
+  for (final preset in avatarPresets) preset.id,
 ];
 
 AvatarPreset avatarPresetByRef(String? ref) {
@@ -142,4 +208,16 @@ String normalizeAvatarForStorage(String ref) {
 
 String defaultAvatarPresetForSeat(int seatIndex) {
   return avatarPresets[seatIndex % avatarPresets.length].imageUrl;
+}
+
+List<AvatarPreset> freeAvatarPresetsByGender(String gender) {
+  return avatarPresets
+      .where((p) => !p.isPremium && p.gender == gender)
+      .toList(growable: false);
+}
+
+List<AvatarPreset> premiumAvatarPresetsByGender(String gender) {
+  return avatarPresets
+      .where((p) => p.isPremium && p.gender == gender)
+      .toList(growable: false);
 }

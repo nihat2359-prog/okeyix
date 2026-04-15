@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:okeyix/game/components/radial_quick_chat.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
-import 'package:okeyix/ui/game_avatar_overlay.dart';
+import 'package:okeyix/ui/game_avatar_overlay.dart' as overlay;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -59,6 +59,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   int? _mySeatIndex;
   String? _myUserId;
+  bool _isLeavingTable = false;
 
   final Map<String, String> _userNames = {};
   List<Map<String, dynamic>> _chatMessages = [];
@@ -437,7 +438,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       final currentUserId = _myUserId;
       if (currentUserId != null &&
           !players.any((p) => p['user_id']?.toString() == currentUserId)) {
-        if (mounted) {
+        if (mounted && !_isLeavingTable) {
           _showSnack('Süre aşımı nedeniyle masadan çıkarıldın.');
           _leaveTable();
         }
@@ -703,8 +704,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   Future<void> _leaveTable() async {
+    if (_isLeavingTable) return;
     final userId = _myUserId;
     if (userId == null) return;
+    _isLeavingTable = true;
 
     try {
       // ⭐ realtime kapat
@@ -726,6 +729,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         (route) => false,
       );
     } catch (e) {
+      _isLeavingTable = false;
       _showSnack('Masadan ayrılınamadı: $e');
     }
   }
@@ -803,12 +807,17 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   Widget build(BuildContext context) {
     final showWaitingOverlay = _tableStatus == 'waiting' && !_game.gameStarted;
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.black,
-      body: SizedBox.expand(
-        child: Stack(
-          children: [
+    return WillPopScope(
+      onWillPop: () async {
+        await _confirmLeaveTable();
+        return false;
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.black,
+        body: SizedBox.expand(
+          child: Stack(
+            children: [
             /// BACKGROUND
             Positioned.fill(
               child: Image.asset(
@@ -853,7 +862,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                           if (!_showFinish)
                             Positioned.fill(
-                              child: GameAvatarOverlay(tableId: widget.tableId),
+                              child: overlay.GameAvatarOverlay(
+                                tableId: widget.tableId,
+                              ),
                             ),
                         ],
                       ),
@@ -895,12 +906,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
 
   Widget _buildFinishOverlay() {
     final top = _finishSlots!

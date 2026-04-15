@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'lobby_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../ui/lobby/lobby_shimmer_loaders.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen>
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final supabase = Supabase.instance.client;
+  static const _secureStorage = FlutterSecureStorage();
 
   late final AnimationController _fadeController;
   late final AnimationController _particleController;
@@ -157,31 +159,32 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
   Future<String> getDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    String? storedId = prefs.getString("device_id");
-
-    if (storedId != null) {
-      return storedId;
-    }
-
     final deviceInfo = DeviceInfoPlugin();
-    String id;
+    String? id;
 
     if (kIsWeb) {
-      id = const Uuid().v4();
+      final prefs = await SharedPreferences.getInstance();
+      id = prefs.getString("device_id");
+      id ??= 'web_${const Uuid().v4()}';
+      await prefs.setString("device_id", id);
     } else if (Platform.isAndroid) {
       final android = await deviceInfo.androidInfo;
-      id = android.id;
+      id = 'android_${android.id}';
     } else if (Platform.isIOS) {
-      final ios = await deviceInfo.iosInfo;
-      id = ios.identifierForVendor ?? const Uuid().v4();
+      id = await _secureStorage.read(key: 'stable_device_id');
+      if (id == null || id.isEmpty) {
+        final ios = await deviceInfo.iosInfo;
+        final vendor = ios.identifierForVendor;
+        id = (vendor != null && vendor.isNotEmpty)
+            ? 'ios_$vendor'
+            : 'ios_${const Uuid().v4()}';
+        await _secureStorage.write(key: 'stable_device_id', value: id);
+      }
     } else {
-      id = const Uuid().v4();
+      id = await _secureStorage.read(key: 'stable_device_id');
+      id ??= 'device_${const Uuid().v4()}';
+      await _secureStorage.write(key: 'stable_device_id', value: id);
     }
-
-    await prefs.setString("device_id", id);
-
     return id;
   }
 

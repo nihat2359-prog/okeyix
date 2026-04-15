@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
@@ -44,12 +45,19 @@ class _LobbyScreenState extends State<LobbyScreen>
   static const Color _goldBorderColor = Color(0xCCB07A1A);
   static const Color _goldBorderDark = Color(0xFF8F6215);
   static const double _goldBorderWidth = 0.3;
+  static const int _renameCoinCost = 1000;
+  static const int _globalSpectatorPassCost = 10000;
+  static const String _freeRenameUsedPrefix = 'profile.free_rename_used.';
+  static const String _ownedPremiumAvatarPrefix = 'profile.premium_avatars.';
   final _audioPlayer = AudioPlayer();
+  static const _secureStorage = FlutterSecureStorage();
   String? _playingMessageId;
   final supabase = Supabase.instance.client;
   Timer? _leagueActivityTimer;
   Timer? _socialRefreshTimer;
   Timer? _tablesRefreshTimer;
+  Timer? _systemMessageTimer;
+  Timer? _spectatorPassTimer;
   late final AnimationController _bgController;
   final TextEditingController _chatController = TextEditingController();
   final _recorder = AudioRecorder();
@@ -103,6 +111,11 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _showPreview = false;
   bool _deviceReady = false;
   bool _initCalled = false;
+  List<Map<String, dynamic>> _systemMessages = [];
+  final Set<String> _seenSystemMessageIds = <String>{};
+  String? _lastSystemToastMessageId;
+  DateTime? _globalSpectatorPassUntil;
+  bool _campaignChecked = false;
   @override
   void initState() {
     super.initState();
@@ -131,6 +144,14 @@ class _LobbyScreenState extends State<LobbyScreen>
     _tablesRefreshTimer = Timer.periodic(
       const Duration(seconds: 12),
       (_) => _loadTables(),
+    );
+    _systemMessageTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _checkUnreadSystemMessages(showToast: true),
+    );
+    _spectatorPassTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _refreshGlobalSpectatorPassStatus(),
     );
 
     _initDevice();
@@ -163,31 +184,32 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<String> getDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    String? storedId = prefs.getString("device_id");
-
-    if (storedId != null) {
-      return storedId;
-    }
-
     final deviceInfo = DeviceInfoPlugin();
-    String id;
+    String? id;
 
     if (kIsWeb) {
-      id = const Uuid().v4();
+      final prefs = await SharedPreferences.getInstance();
+      id = prefs.getString("device_id");
+      id ??= 'web_${const Uuid().v4()}';
+      await prefs.setString("device_id", id);
     } else if (Platform.isAndroid) {
       final android = await deviceInfo.androidInfo;
-      id = android.id;
+      id = 'android_${android.id}';
     } else if (Platform.isIOS) {
-      final ios = await deviceInfo.iosInfo;
-      id = ios.identifierForVendor ?? const Uuid().v4();
+      id = await _secureStorage.read(key: 'stable_device_id');
+      if (id == null || id.isEmpty) {
+        final ios = await deviceInfo.iosInfo;
+        final vendor = ios.identifierForVendor;
+        id = (vendor != null && vendor.isNotEmpty)
+            ? 'ios_$vendor'
+            : 'ios_${const Uuid().v4()}';
+        await _secureStorage.write(key: 'stable_device_id', value: id);
+      }
     } else {
-      id = const Uuid().v4();
+      id = await _secureStorage.read(key: 'stable_device_id');
+      id ??= 'device_${const Uuid().v4()}';
+      await _secureStorage.write(key: 'stable_device_id', value: id);
     }
-
-    await prefs.setString("device_id", id);
-
     return id;
   }
 
@@ -254,6 +276,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     _leagueActivityTimer?.cancel();
     _socialRefreshTimer?.cancel();
     _tablesRefreshTimer?.cancel();
+    _systemMessageTimer?.cancel();
+    _spectatorPassTimer?.cancel();
     _chatController.dispose();
     _bgController.dispose();
     _storePulse.dispose();
@@ -263,11 +287,16 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _init() async {
     await _loadUser();
+    await _refreshGlobalSpectatorPassStatus();
     await _checkOnboarding();
     await _loadSocialData();
+    await _loadSystemMessages();
+    await _restoreSeenSystemMessages();
+    await _checkUnreadSystemMessages(showToast: false);
     await _loadLeagues();
     await _loadLeagueActivity();
     await _loadTables();
+    await _checkCampaignPopup();
   }
 
   Future<void> _ensureUserRow() async {
@@ -321,28 +350,18 @@ class _LobbyScreenState extends State<LobbyScreen>
         user,
         columns: 'id,username,rating,avatar_url',
       );
-      final walletRows = await supabase
-          .from('wallet_transactions')
-          .select('amount')
-          .eq('user_id', user.id);
       final profileRows = await supabase
           .from('profiles')
-          .select('rating,coins')
+          .select('coins,rating')
           .eq('id', user.id)
           .limit(1);
-
-      var balance = 0;
-      for (final row in walletRows) {
-        balance += (row['amount'] as int?) ?? 0;
-      }
-      final profileCoin = (profileRows as List).isNotEmpty
-          ? (profileRows.first['coins'] as int?) ?? 0
-          : 0;
-      final profileRating = (profileRows as List).isNotEmpty
-          ? (profileRows.first['rating'] as int?) ?? 100
-          : 0;
-      final resolvedCoin = balance > profileCoin ? balance : profileCoin;
-      final effectiveCoin = resolvedCoin;
+      final profile = (profileRows as List).isNotEmpty
+          ? Map<String, dynamic>.from(profileRows.first)
+          : null;
+      final profileCoin = (profile?['coins'] as int?) ?? 0;
+      final profileRating = (profile?['rating'] as int?) ?? 1200;
+      final effectiveCoin = profileCoin;
+      final effectiveRating = profileRating;
 
       if (!mounted) return;
       if (row != null) {
@@ -352,7 +371,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           userName = ((row['username'] as String?) ?? '').trim().isEmpty
               ? (user.email?.split('@').first ?? 'Oyuncu')
               : row['username'] as String;
-          userRating = profileRating;
+          userRating = effectiveRating;
           _userAvatarUrl = (row['avatar_url'] as String?)?.trim();
           userCoin = effectiveCoin;
         });
@@ -361,6 +380,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           _userId = user.id;
           _userRowId = null;
           userName = user.email?.split('@').first ?? 'Oyuncu';
+          userRating = effectiveRating;
           _userAvatarUrl = null;
           userCoin = effectiveCoin;
         });
@@ -420,6 +440,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       }
     } catch (_) {}
 
+    final freeRenameUsed = await _isFreeRenameUsed(user.id);
+    final ownedPremiumAvatars = await _getOwnedPremiumAvatars(user.id);
+
     if (!mounted) return;
     final result = await showDialog<_ProfileSetupResult>(
       context: context,
@@ -428,6 +451,11 @@ class _LobbyScreenState extends State<LobbyScreen>
         forceComplete: forceComplete,
         initialUsername: initialUsername,
         initialAvatarRef: initialAvatar,
+        currentUserId: user.id,
+        currentCoins: userCoin,
+        renameCoinCost: _renameCoinCost,
+        freeRenameUsed: freeRenameUsed,
+        ownedPremiumAvatarRefs: ownedPremiumAvatars,
       ),
     );
 
@@ -470,16 +498,50 @@ class _LobbyScreenState extends State<LobbyScreen>
         _userRowId = updated.first['id']?.toString();
       }
 
+      if (result.renameCoinSpent > 0) {
+        await _spendProfileCoins(
+          userId: user.id,
+          amount: result.renameCoinSpent,
+          reason: 'profile_name_change',
+          note: 'profile_name_change_coin_spend',
+        );
+      }
+      if (result.avatarCoinSpent > 0) {
+        final unlockedAvatarRef = result.unlockedAvatarRef;
+        await _spendProfileCoins(
+          userId: user.id,
+          amount: result.avatarCoinSpent,
+          reason: 'avatar_purchase',
+          note: unlockedAvatarRef == null
+              ? 'profile_avatar_purchase'
+              : 'profile_avatar_purchase:$unlockedAvatarRef',
+        );
+      }
+      if (result.consumeFreeRename) {
+        await _setFreeRenameUsed(user.id);
+      }
+      if (result.newUnlockedPremiumAvatarRefs.isNotEmpty) {
+        final merged = {
+          ...ownedPremiumAvatars,
+          ...result.newUnlockedPremiumAvatarRefs,
+        };
+        await _setOwnedPremiumAvatars(user.id, merged);
+      }
+
       await _loadUser();
       await _loadTables();
       if (!mounted) return;
-      _msg('Profil güncellendi.');
+      if (result.spentCoins > 0) {
+        _msg('Profil guncellendi. ${result.spentCoins} coin harcandi.');
+      } else {
+        _msg('Profil guncellendi.');
+      }
       return;
     } catch (e) {
       if (e is PostgrestException && e.code == '23505') {
-        _msg('Bu kullanıcı adı zaten kullanımda.');
+        _msg('Bu kullanici adi zaten kullanimda.');
       } else {
-        _msg('Profil güncellenemedi.');
+        _msg('Profil guncellenemedi.');
       }
       return;
     }
@@ -617,10 +679,21 @@ class _LobbyScreenState extends State<LobbyScreen>
     tables.removeWhere((t) => !newIds.contains(t['id'].toString()));
   }
 
+  Future<void> _cleanupOrphanTables(List<String> orphanTableIds) async {
+    if (orphanTableIds.isEmpty) return;
+    try {
+      await supabase.from('tables').delete().inFilter('id', orphanTableIds);
+      debugPrint(
+        'ORPHAN TABLE CLEANUP: ${orphanTableIds.length} masa temizlendi.',
+      );
+    } catch (e) {
+      debugPrint('ORPHAN TABLE CLEANUP ERROR: $e');
+    }
+  }
+
   Future<void> _loadTables() async {
     if (!mounted) return;
 
-    const minTables = 5;
     if (!_tablesInitialized) {
       setState(() {
         loadingTables = true;
@@ -646,12 +719,20 @@ class _LobbyScreenState extends State<LobbyScreen>
           .from('tables')
           .select()
           .eq('league_id', league['id'])
-          .eq('status', 'waiting')
+          .inFilter('status', ['waiting', 'playing'])
           .order('created_at', ascending: false);
 
-      final tableRows = (response as List)
+      final fetchedRows = (response as List)
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
+      final seenTableIds = <String>{};
+      final tableRows = <Map<String, dynamic>>[];
+      for (final row in fetchedRows) {
+        final id = row['id']?.toString();
+        if (id == null || id.isEmpty || seenTableIds.contains(id)) continue;
+        seenTableIds.add(id);
+        tableRows.add(row);
+      }
 
       final tableIds = tableRows.map((e) => e['id'] as String).toList();
 
@@ -675,6 +756,18 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           playersByTable.putIfAbsent(tableId, () => []).add(row);
         }
+      }
+
+      final orphanTableIds = tableRows
+          .map((t) => t['id']?.toString())
+          .whereType<String>()
+          .where((id) => (playersByTable[id] ?? const []).isEmpty)
+          .toList();
+      if (orphanTableIds.isNotEmpty) {
+        await _cleanupOrphanTables(orphanTableIds);
+        tableRows.removeWhere(
+          (t) => orphanTableIds.contains(t['id']?.toString()),
+        );
       }
 
       final usernameById = <String, String>{};
@@ -733,55 +826,53 @@ class _LobbyScreenState extends State<LobbyScreen>
         return table;
       }).toList();
 
-      /// ---------------- BOT USERS ----------------
-
-      final botRows = await supabase
-          .from('users')
-          .select('id,username,avatar_url,rating')
-          .eq('is_bot', true)
-          .limit(40);
-
-      final bots = (botRows as List)
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-
-      /// ---------------- FAKE TABLE GENERATOR ----------------
-
-      final rnd = Random();
-
-      if (merged.length < minTables) {
-        final missing = minTables - merged.length;
-
-        for (int i = 0; i < missing; i++) {
-          final fakePlayers = <Map<String, dynamic>>[];
-
-          final playerCount = 2 + rnd.nextInt(2); // 2-3 oyuncu
-
-          final shuffledBots = List.from(bots)..shuffle();
-
-          for (int p = 0; p < playerCount; p++) {
-            final bot = shuffledBots[p];
-
-            fakePlayers.add({
-              'seat_index': p,
-              'user_id': bot['id'],
-              'username': bot['username'],
-              'avatar_url': bot['avatar_url'],
-              'rating': bot['rating'],
-              'blocked': false,
+      if (merged.isEmpty) {
+        final botRows = await supabase
+            .from('users')
+            .select('id,username,avatar_url,rating')
+            .eq('is_bot', true)
+            .limit(40);
+        final bots = (botRows as List)
+            .map((e) => Map<String, dynamic>.from(e))
+            .where((b) => (b['id']?.toString() ?? '').isNotEmpty)
+            .toList();
+        if (bots.length >= 2) {
+          final rnd = Random();
+          for (int i = 0; i < 5; i++) {
+            final shuffled = List<Map<String, dynamic>>.from(bots)..shuffle(rnd);
+            final b1 = shuffled[0];
+            final b2 = shuffled[1];
+            merged.add({
+              'id': 'fake_${league['id']}_$i',
+              'league_id': league['id'],
+              'status': 'playing',
+              'entry_coin': (league['entry_coin'] as int?) ?? 100,
+              'max_players': 2,
+              'is_fake': true,
+              '_players': [
+                {
+                  'seat_index': 0,
+                  'user_id': b1['id']?.toString(),
+                  'username': (b1['username']?.toString().trim().isNotEmpty ?? false)
+                      ? b1['username']
+                      : 'Bot Oyuncu',
+                  'avatar_url': b1['avatar_url']?.toString(),
+                  'rating': (b1['rating'] as int?) ?? 1000,
+                  'blocked': false,
+                },
+                {
+                  'seat_index': 1,
+                  'user_id': b2['id']?.toString(),
+                  'username': (b2['username']?.toString().trim().isNotEmpty ?? false)
+                      ? b2['username']
+                      : 'Bot Oyuncu',
+                  'avatar_url': b2['avatar_url']?.toString(),
+                  'rating': (b2['rating'] as int?) ?? 1000,
+                  'blocked': false,
+                },
+              ],
             });
           }
-
-          final leagueCoin = (league['entry_coin'] as int?) ?? 100;
-
-          merged.add({
-            'id': 'fake_$i',
-            'league_id': league['id'],
-            'status': 'waiting',
-            'entry_coin': leagueCoin,
-            'is_fake': true,
-            '_players': fakePlayers,
-          });
         }
       }
 
@@ -848,9 +939,17 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _joinTable(Map<String, dynamic> table) async {
+    if (table['is_fake'] == true) {
+      _msg('Bu masa vitrin masasıdır. Katılım kapalı.');
+      return;
+    }
     final user = supabase.auth.currentUser;
     final tableId = table['id'] as String?;
     if (user == null || tableId == null) return;
+    final status = table['status']?.toString() ?? 'waiting';
+    if (status == 'playing') {
+      return _handleSpectateTap(table);
+    }
     final entry = (table['entry_coin'] as int?) ?? 100;
     if (userCoin < entry) return _msg('Yetersiz coin.');
     final tableRating = await supabase
@@ -913,6 +1012,923 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   void _msg(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  bool get _hasGlobalSpectatorPass {
+    final until = _globalSpectatorPassUntil;
+    return until != null && until.isAfter(DateTime.now());
+  }
+
+  String _globalSpectatorPassRemainingText() {
+    final until = _globalSpectatorPassUntil;
+    if (until == null) return 'Pasif';
+    final diff = until.difference(DateTime.now());
+    if (diff.isNegative) return 'Pasif';
+    final h = diff.inHours;
+    final m = diff.inMinutes % 60;
+    return '${h}s ${m}dk';
+  }
+
+  Future<void> _refreshGlobalSpectatorPassStatus() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final rows = await supabase
+          .from('wallet_transactions')
+          .select('created_at,note')
+          .eq('user_id', uid)
+          .eq('reason', 'spectator_pass_purchase')
+          .order('created_at', ascending: false)
+          .limit(20);
+      DateTime? bestUntil;
+      for (final row in (rows as List)) {
+        final note = row['note']?.toString() ?? '';
+        DateTime? until;
+        if (note.startsWith('spectator_pass_until:')) {
+          final raw = note.split(':').skip(1).join(':').trim();
+          until = DateTime.tryParse(raw)?.toLocal();
+        }
+        until ??=
+            DateTime.tryParse(row['created_at']?.toString() ?? '')
+                ?.toLocal()
+                .add(const Duration(hours: 24));
+        if (until == null) continue;
+        if (bestUntil == null || until.isAfter(bestUntil)) {
+          bestUntil = until;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _globalSpectatorPassUntil = bestUntil;
+      });
+    } catch (_) {}
+  }
+
+  Future<bool> _purchaseGlobalSpectatorPass() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return false;
+    if (userCoin < _globalSpectatorPassCost) {
+      _msg('Yetersiz coin. Gereken: $_globalSpectatorPassCost');
+      return false;
+    }
+    final base = (_globalSpectatorPassUntil != null &&
+            _globalSpectatorPassUntil!.isAfter(DateTime.now()))
+        ? _globalSpectatorPassUntil!
+        : DateTime.now();
+    final until = base.add(const Duration(hours: 24));
+    try {
+      await _spendProfileCoins(
+        userId: uid,
+        amount: _globalSpectatorPassCost,
+        reason: 'spectator_pass_purchase',
+        note: 'spectator_pass_until:${until.toUtc().toIso8601String()}',
+      );
+      await _loadUser();
+      await _refreshGlobalSpectatorPassStatus();
+      _msg('Genel seyirci gecisi aktif. Kalan: ${_globalSpectatorPassRemainingText()}');
+      return true;
+    } catch (_) {
+      _msg('Satin alma basarisiz.');
+      return false;
+    }
+  }
+
+  bool _tableHasFriendPlayer(Map<String, dynamic> table) {
+    final players = ((table['_players'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    for (final p in players) {
+      final uid = p['user_id']?.toString();
+      if (uid != null && _friendIds.contains(uid)) return true;
+    }
+    return false;
+  }
+
+  Future<void> _handleSpectateTap(Map<String, dynamic> table) async {
+    final tableId = table['id']?.toString();
+    if (tableId == null || tableId.isEmpty) return;
+    final status = table['status']?.toString() ?? 'waiting';
+    if (status != 'playing') {
+      return _joinTable(table);
+    }
+    final hasFriendAtTable = _tableHasFriendPlayer(table);
+    if (hasFriendAtTable || _hasGlobalSpectatorPass) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => SpectatorScreen(tableId: tableId)),
+      );
+      return;
+    }
+    await _showSpectatorPassOfferDialog(tableId);
+  }
+
+  Future<void> _showSpectatorPassOfferDialog(String tableId) async {
+    final shouldBuy = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(18),
+          child: Container(
+            width: 560,
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
+              ),
+              border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 22,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.workspace_premium_rounded,
+                      color: Color(0xFFFFE0A8),
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Genel Seyirci Geçişi',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0x33273830),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0x334F8F75)),
+                  ),
+                  child: const Text(
+                    'Sadece arkadaşı olduğun kullanıcının masasını ücretsiz izleyebilirsin.\n\n'
+                    '24 saat boyunca tüm oynanan masaları izlemek için '
+                    '10.000 coin ile Genel Seyirci Geçişi açabilirsin.',
+                    style: TextStyle(
+                      color: Color(0xFFD9EBDD),
+                      height: 1.35,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF24563F), Color(0xFF1B4232)],
+                    ),
+                    border: Border.all(color: const Color(0x66E7C06A)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_filled_rounded,
+                        size: 16,
+                        color: Color(0xFFFFE0A8),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Süre: 24 saat  •  Ücret: 10.000 coin',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Vazgeç'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context, true),
+                      icon: const Icon(Icons.visibility_rounded),
+                      label: const Text('10.000 coin ile Aç'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2B7B55),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(
+                            color: Color(0xFF8F6215),
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (shouldBuy != true) return;
+    final ok = await _purchaseGlobalSpectatorPass();
+    if (!ok || !_hasGlobalSpectatorPass || !mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => SpectatorScreen(tableId: tableId)),
+    );
+  }
+
+  Future<void> _loadSystemMessages() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    try {
+      final rows = await supabase
+          .from('system_messages')
+          .select('id,title,body,type,created_at,target_user_id,is_active')
+          .or('target_user_id.is.null,target_user_id.eq.$uid')
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .limit(50);
+      if (!mounted) return;
+      setState(() {
+        _systemMessages = (rows as List)
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
+    } catch (_) {
+      // Table may not exist yet in some environments.
+      if (!mounted) return;
+      setState(() => _systemMessages = []);
+    }
+  }
+
+  Future<void> _restoreSeenSystemMessages() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final values = prefs.getStringList('system_seen_$uid') ?? const <String>[];
+    _seenSystemMessageIds
+      ..clear()
+      ..addAll(values);
+  }
+
+  Future<void> _persistSeenSystemMessages() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'system_seen_$uid',
+      _seenSystemMessageIds.toList()..sort(),
+    );
+  }
+
+  Future<void> _markVisibleSystemMessagesAsSeen() async {
+    var changed = false;
+    for (final row in _systemMessages) {
+      final id = row['id']?.toString();
+      if (id != null && id.isNotEmpty && !_seenSystemMessageIds.contains(id)) {
+        _seenSystemMessageIds.add(id);
+        changed = true;
+      }
+    }
+    if (changed) {
+      await _persistSeenSystemMessages();
+    }
+  }
+
+  Future<void> _checkUnreadSystemMessages({required bool showToast}) async {
+    await _loadSystemMessages();
+    final unreadIds = <String>[];
+    for (final row in _systemMessages) {
+      final id = row['id']?.toString();
+      if (id == null || id.isEmpty) continue;
+      if (!_seenSystemMessageIds.contains(id)) {
+        unreadIds.add(id);
+      }
+    }
+    if (!showToast || unreadIds.isEmpty || !mounted) return;
+    final newestId = unreadIds.first;
+    if (_lastSystemToastMessageId == newestId) return;
+    _lastSystemToastMessageId = newestId;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Yeni sistem duyurusu var.'),
+        action: SnackBarAction(
+          label: 'A\u00E7',
+          onPressed: () async {
+            await _showSystemMessagesDialog();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSupportRequestDialog() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final messageController = TextEditingController();
+    String category = 'talep';
+    String? errorText;
+    bool sending = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !sending,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            Future<void> submit() async {
+              final message = messageController.text.trim();
+              if (message.length < 8) {
+                setLocalState(() {
+                  errorText = 'L\u00FCtfen en az 8 karakter a\u00E7\u0131klama yaz.';
+                });
+                return;
+              }
+              setLocalState(() {
+                sending = true;
+                errorText = null;
+              });
+              try {
+                await supabase.from('support_requests').insert({
+                  'user_id': uid,
+                  'category': category,
+                  'message': message,
+                  'status': 'open',
+                });
+                if (!mounted) return;
+                Navigator.pop(context);
+                _msg('Talebiniz al\u0131nm\u0131\u015Ft\u0131r.');
+              } catch (_) {
+                setLocalState(() {
+                  sending = false;
+                  errorText =
+                      'Talep g\u00F6nderilemedi. support_requests tablosunu kontrol et.';
+                });
+              }
+            }
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(18),
+              child: Container(
+                width: 560,
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
+                  ),
+                  border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x66000000),
+                      blurRadius: 20,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.support_agent_rounded,
+                          color: Color(0xFFFFE0A8),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Destek / \u015Eikayet G\u00F6nder',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: sending
+                              ? null
+                              : () => Navigator.pop(context),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: category,
+                      dropdownColor: const Color(0xFF1A2E27),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'talep', child: Text('Talep')),
+                        DropdownMenuItem(
+                          value: 'sikayet',
+                          child: Text('\u015Eikayet'),
+                        ),
+                        DropdownMenuItem(value: 'hata', child: Text('Hata')),
+                      ],
+                      onChanged: sending
+                          ? null
+                          : (v) => setLocalState(
+                              () => category = (v ?? 'talep').trim(),
+                            ),
+                      decoration: InputDecoration(
+                        labelText: 'Kategori',
+                        labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
+                        filled: true,
+                        fillColor: const Color(0x33273830),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: messageController,
+                      minLines: 5,
+                      maxLines: 7,
+                      enabled: !sending,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Mesaj',
+                        labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
+                        hintText: 'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
+                        hintStyle: const TextStyle(color: Color(0x99D9EBDD)),
+                        filled: true,
+                        fillColor: const Color(0x33273830),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText!,
+                        style: const TextStyle(
+                          color: Color(0xFFFF8A8A),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: sending ? null : () => Navigator.pop(context),
+                          child: const Text('Vazgec'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: sending ? null : submit,
+                          icon: sending
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.send_rounded),
+                          label: Text(sending ? 'Gonderiliyor' : 'Gonder'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2B7B55),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    messageController.dispose();
+  }
+
+  Future<void> _showSystemMessagesDialog() async {
+    await _loadSystemMessages();
+    await _markVisibleSystemMessagesAsSeen();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(18),
+          child: Container(
+            width: 600,
+            constraints: const BoxConstraints(maxHeight: 620),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
+              ),
+              border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.notifications_active_rounded,
+                      color: Color(0xFFFFE0A8),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Sistem Duyurular\u0131',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: _systemMessages.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'G\u00F6sterilecek duyuru yok.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: _systemMessages.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) {
+                            final row = _systemMessages[i];
+                            final title = _normalizeTrText(
+                              row['title']?.toString().trim() ?? '',
+                            );
+                            final body = _normalizeTrText(
+                              row['body']?.toString().trim() ?? '',
+                            );
+                            final type = row['type']?.toString().trim();
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0x33273830),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0x334F8F75),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title.isNotEmpty
+                                              ? title
+                                              : 'Duyuru',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ),
+                                      if (type != null && type.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0x33E7C06A),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            type.toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Color(0xFFFFE0A8),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    body?.isNotEmpty == true ? body! : '-',
+                                    style: const TextStyle(
+                                      color: Color(0xFFD9EBDD),
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _checkCampaignPopup() async {
+    if (_campaignChecked) return;
+    _campaignChecked = true;
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null || !mounted) return;
+    try {
+      final nowIso = DateTime.now().toIso8601String();
+      final rows = await supabase
+          .from('campaigns')
+          .select('id,image_url,title,is_active,start_at,end_at,priority')
+          .eq('is_active', true)
+          .lte('start_at', nowIso)
+          .gte('end_at', nowIso)
+          .order('priority', ascending: false)
+          .limit(1);
+      if ((rows as List).isEmpty) return;
+      final campaign = Map<String, dynamic>.from(rows.first);
+      final campaignId = campaign['id']?.toString();
+      if (campaignId == null || campaignId.isEmpty) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final localKey = 'campaign_seen_${uid}_$campaignId';
+      if (prefs.getBool(localKey) == true) return;
+
+      bool seenInDb = false;
+      try {
+        final seenRows = await supabase
+            .from('campaign_views')
+            .select('id')
+            .eq('campaign_id', campaignId)
+            .eq('user_id', uid)
+            .limit(1);
+        seenInDb = (seenRows as List).isNotEmpty;
+      } catch (_) {
+        seenInDb = false;
+      }
+      if (seenInDb) {
+        await prefs.setBool(localKey, true);
+        return;
+      }
+
+      if (!mounted) return;
+      await _showCampaignDialog(campaign);
+
+      await prefs.setBool(localKey, true);
+      try {
+        await supabase.from('campaign_views').insert({
+          'campaign_id': campaignId,
+          'user_id': uid,
+          'seen_at': DateTime.now().toIso8601String(),
+        });
+      } catch (_) {}
+    } catch (_) {
+      // Table may not exist yet in some environments.
+    }
+  }
+
+  Future<void> _showCampaignDialog(Map<String, dynamic> campaign) async {
+    final imageUrl = campaign['image_url']?.toString().trim() ?? '';
+    final title = campaign['title']?.toString().trim();
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111A16),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (title != null && title.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                          ),
+                        ),
+                      ),
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: imageUrl.startsWith('http')
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: const Color(0x3324362E),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'Kampanya g\u00F6rseli y\u00FCklenemedi.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: const Color(0x3324362E),
+                                alignment: Alignment.center,
+                                child: const Text(
+                                  'Kampanya g\u00F6rseli yok.',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 2,
+                right: 2,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => Navigator.pop(context),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.close_rounded, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _isFreeRenameUsed(String userId) async {
+    try {
+      final rows = await supabase
+          .from('wallet_transactions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('reason', 'profile_name_change')
+          .limit(1);
+      if ((rows as List).isNotEmpty) {
+        return true;
+      }
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('$_freeRenameUsedPrefix$userId') ?? false;
+  }
+
+  Future<void> _setFreeRenameUsed(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$_freeRenameUsedPrefix$userId', true);
+  }
+
+  Future<Set<String>> _getOwnedPremiumAvatars(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList('$_ownedPremiumAvatarPrefix$userId');
+    final owned = stored == null ? <String>{} : stored.toSet();
+    try {
+      final purchaseRows = await supabase
+          .from('wallet_transactions')
+          .select('reason,note')
+          .eq('user_id', userId)
+          .eq('reason', 'avatar_purchase');
+      for (final row in (purchaseRows as List)) {
+        final note = row['note']?.toString() ?? '';
+        if (note.startsWith('profile_avatar_purchase:')) {
+          final ref = note.split(':').last.trim();
+          if (ref.isNotEmpty) owned.add(ref);
+        }
+      }
+    } catch (_) {}
+    return owned;
+  }
+
+  Future<void> _setOwnedPremiumAvatars(String userId, Set<String> owned) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      '$_ownedPremiumAvatarPrefix$userId',
+      owned.toList()..sort(),
+    );
+  }
+
+  Future<void> _spendProfileCoins({
+    required String userId,
+    required int amount,
+    required String reason,
+    required String note,
+  }) async {
+    if (amount <= 0) return;
+    final profileRows = await supabase
+        .from('profiles')
+        .select('coins')
+        .eq('id', userId)
+        .limit(1);
+    final currentCoins = (profileRows as List).isNotEmpty
+        ? (profileRows.first['coins'] as int?) ?? userCoin
+        : userCoin;
+    if (currentCoins < amount) {
+      throw Exception('Insufficient profile balance');
+    }
+    final nextCoins = max(0, currentCoins - amount);
+
+    await supabase.from('wallet_transactions').insert({
+      'user_id': userId,
+      'amount': -amount,
+      'reason': reason,
+      'type': 'debit',
+      'store': 'system',
+      'note': note,
+    });
+
+    if ((profileRows).isNotEmpty) {
+      await supabase.from('profiles').update({'coins': nextCoins}).eq('id', userId);
+    }
   }
 
   void _toggleSideMenu() {
@@ -1987,7 +3003,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             bottom: false,
             child: Column(
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 0),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -3161,6 +4177,24 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Column(
       children: [
         lobbySideMenuButton(
+          icon: Icons.support_agent_rounded,
+          label: 'Destek / \u015Eikayet G\u00F6nder',
+          onTap: () async {
+            _closeRightPanel();
+            await _openSupportRequestDialog();
+          },
+        ),
+        const SizedBox(height: 8),
+        lobbySideMenuButton(
+          icon: Icons.notifications_active_rounded,
+          label: 'Sistem Duyurular\u0131',
+          onTap: () async {
+            _closeRightPanel();
+            await _showSystemMessagesDialog();
+          },
+        ),
+        const SizedBox(height: 8),
+        lobbySideMenuButton(
           icon: Icons.person_rounded,
           label: 'Profil Kartım',
           onTap: () => _showUserCard({
@@ -3386,8 +4420,8 @@ class _LobbyScreenState extends State<LobbyScreen>
               /// 🔥 biraz daha geniş
               width: leagueWidth + 60,
 
-              margin: const EdgeInsets.fromLTRB(10, 10, 6, 10),
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
+              margin: const EdgeInsets.fromLTRB(10, 2, 6, 8),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
 
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
@@ -3403,29 +4437,29 @@ class _LobbyScreenState extends State<LobbyScreen>
                     children: [
                       Image.asset(
                         "assets/images/logo/okeyix_logo.png",
-                        height: 46,
+                        height: 34,
                         fit: BoxFit.contain,
                       ),
 
                       const Text(
-                        "Adil Dağıtım • Gerçek Rekabet",
+                        "Adil Da\u011f\u0131t\u0131m \u2022 Ger\u00e7ek Rekabet",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFFD4A24C),
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1.6,
+                          letterSpacing: 1.1,
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
 
                   /// 🔥 GOLD DIVIDER
                   Container(
                     height: 1,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -3481,6 +4515,8 @@ class _LobbyScreenState extends State<LobbyScreen>
             loading: loadingTables,
             blockedUserIds: _blockedUserIds,
             onJoin: (table) => _joinTable(table),
+            onSpectate: (table) => _handleSpectateTap(table),
+            canSpectateAll: true,
             onUserTap: (user) => _showUserCard(user),
             onRefresh: () => _loadTables(),
           ),
@@ -3516,7 +4552,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 11,
+                          fontSize: 10,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -3711,19 +4747,44 @@ class _AnimatedStoreButtonState extends State<AnimatedStoreButton>
 class _ProfileSetupResult {
   final String username;
   final String avatarRef;
+  final int renameCoinSpent;
+  final int avatarCoinSpent;
+  final bool consumeFreeRename;
+  final Set<String> newUnlockedPremiumAvatarRefs;
+  int get spentCoins => renameCoinSpent + avatarCoinSpent;
+  String? get unlockedAvatarRef => newUnlockedPremiumAvatarRefs.isEmpty
+      ? null
+      : newUnlockedPremiumAvatarRefs.first;
 
-  const _ProfileSetupResult({required this.username, required this.avatarRef});
+  const _ProfileSetupResult({
+    required this.username,
+    required this.avatarRef,
+    required this.renameCoinSpent,
+    required this.avatarCoinSpent,
+    required this.consumeFreeRename,
+    required this.newUnlockedPremiumAvatarRefs,
+  });
 }
 
 class _ProfileSetupDialog extends StatefulWidget {
   final bool forceComplete;
   final String initialUsername;
   final String? initialAvatarRef;
+  final String currentUserId;
+  final int currentCoins;
+  final int renameCoinCost;
+  final bool freeRenameUsed;
+  final Set<String> ownedPremiumAvatarRefs;
 
   const _ProfileSetupDialog({
     required this.forceComplete,
     required this.initialUsername,
     required this.initialAvatarRef,
+    required this.currentUserId,
+    required this.currentCoins,
+    required this.renameCoinCost,
+    required this.freeRenameUsed,
+    required this.ownedPremiumAvatarRefs,
   });
 
   @override
@@ -3733,13 +4794,47 @@ class _ProfileSetupDialog extends StatefulWidget {
 class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
   late final TextEditingController usernameController;
   late String selectedAvatarRef;
+  late Set<String> ownedPremiumAvatarRefs;
   String? errorText;
+  bool _saving = false;
+
+  String get _initialUsername => widget.initialUsername.trim();
+
+  bool get _didUsernameChange =>
+      usernameController.text.trim() != _initialUsername;
+
+  AvatarPreset get _selectedPreset => avatarPresetByRef(selectedAvatarRef);
+
+  bool get _isSelectedPremiumLocked =>
+      _selectedPreset.isPremium &&
+      !ownedPremiumAvatarRefs.contains(_selectedPreset.id);
+
+  bool get _willConsumeFreeRename =>
+      _didUsernameChange && !widget.freeRenameUsed;
+
+  int get _renameCoinCostToCharge =>
+      (_didUsernameChange && widget.freeRenameUsed) ? widget.renameCoinCost : 0;
+
+  int get _avatarCoinCostToCharge =>
+      _isSelectedPremiumLocked ? _selectedPreset.unlockCost : 0;
+
+  int get _computedCoinCost {
+    return _renameCoinCostToCharge + _avatarCoinCostToCharge;
+  }
 
   @override
   void initState() {
     super.initState();
     usernameController = TextEditingController(text: widget.initialUsername);
     selectedAvatarRef = avatarPresetByRef(widget.initialAvatarRef).id;
+    ownedPremiumAvatarRefs = {...widget.ownedPremiumAvatarRefs};
+    final initialPreset = avatarPresetByRef(widget.initialAvatarRef);
+    if (initialPreset.isPremium) {
+      ownedPremiumAvatarRefs.add(initialPreset.id);
+    }
+    usernameController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -3748,15 +4843,80 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     super.dispose();
   }
 
-  void _save() {
+  Future<bool> _isUsernameTaken(String username) async {
+    final rows = await Supabase.instance.client
+        .from('users')
+        .select('id')
+        .ilike('username', username)
+        .limit(5);
+    for (final row in (rows as List)) {
+      final id = row['id']?.toString();
+      if (id != null && id != widget.currentUserId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
     final username = usernameController.text.trim();
     if (username.isEmpty) {
-      setState(() => errorText = 'Kullanıcı adı zorunlu.');
+      setState(() => errorText = 'Kullanici adi zorunlu.');
       return;
     }
+
+    final renameCoinSpent = _renameCoinCostToCharge;
+    final avatarCoinSpent = _avatarCoinCostToCharge;
+    final spentCoins = renameCoinSpent + avatarCoinSpent;
+    if (spentCoins > widget.currentCoins) {
+      setState(() {
+        errorText =
+            'Yetersiz coin. Gereken: $spentCoins, mevcut: ${widget.currentCoins}.';
+      });
+      return;
+    }
+
+    if (_didUsernameChange) {
+      setState(() {
+        _saving = true;
+        errorText = null;
+      });
+      try {
+        final taken = await _isUsernameTaken(username);
+        if (taken) {
+          setState(() {
+            _saving = false;
+            errorText = 'Bu kullanici adi zaten kullanimda.';
+          });
+          return;
+        }
+      } catch (_) {
+        setState(() {
+          _saving = false;
+          errorText = 'Kullanici adi kontrol edilemedi. Tekrar dene.';
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _saving = false);
+    }
+
+    final unlockedPremium = <String>{};
+    if (_isSelectedPremiumLocked) {
+      unlockedPremium.add(_selectedPreset.id);
+    }
+
     Navigator.pop(
       context,
-      _ProfileSetupResult(username: username, avatarRef: selectedAvatarRef),
+      _ProfileSetupResult(
+        username: username,
+        avatarRef: selectedAvatarRef,
+        renameCoinSpent: renameCoinSpent,
+        avatarCoinSpent: avatarCoinSpent,
+        consumeFreeRename: _willConsumeFreeRename,
+        newUnlockedPremiumAvatarRefs: unlockedPremium,
+      ),
     );
   }
 
@@ -3766,9 +4926,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final title = widget.forceComplete
-        ? 'Profilini Tamamla'
-        : 'Profili Düzenle';
+    final title = widget.forceComplete ? 'Profilini Tamamla' : 'Profili Duzenle';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -3795,7 +4953,6 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
         ),
         child: Column(
           children: [
-            /// HEADER
             Row(
               children: [
                 const Icon(
@@ -3823,9 +4980,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                   ),
               ],
             ),
-
             const SizedBox(height: 10),
-
             Expanded(
               child: isLandscape
                   ? Row(
@@ -3843,7 +4998,6 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                       ],
                     ),
             ),
-
             if (errorText != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -3852,34 +5006,49 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                   style: const TextStyle(color: Color(0xFFFF7A7A)),
                 ),
               ),
-
             const SizedBox(height: 10),
-
-            /// BUTTONS
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (!widget.forceComplete)
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Vazgeç'),
-                  ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Kaydet'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2B7B55),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(
-                        color: Color(0xFF8F6215),
-                        width: 1.4,
+                Text(
+                  _computedCoinCost > 0
+                      ? 'Toplam maliyet: $_computedCoinCost coin'
+                      : (_didUsernameChange && !widget.freeRenameUsed)
+                            ? 'Ilk isim degisikligi ucretsiz.'
+                            : 'Bu kayit icin coin harcanmayacak.',
+                  style: const TextStyle(color: Color(0xFFD9EBDD)),
+                ),
+                Row(
+                  children: [
+                    if (!widget.forceComplete)
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Vazgec'),
+                      ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_rounded),
+                      label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2B7B55),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(
+                            color: Color(0xFF8F6215),
+                            width: 1.4,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -3890,13 +5059,17 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
   }
 
   Widget _usernameSection() {
+    final renameInfo = !widget.freeRenameUsed
+        ? 'Ilk isim degisikligi ucretsiz. Sonrasi ${widget.renameCoinCost} coin.'
+        : 'Her isim degisikligi ${widget.renameCoinCost} coin.';
+
     return SizedBox(
-      width: 220,
+      width: 240,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Kullanıcı adı',
+            'Kullanici adi',
             style: TextStyle(
               color: Color(0xFFD9EBDD),
               fontWeight: FontWeight.w700,
@@ -3912,13 +5085,22 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
             ),
             decoration: InputDecoration(
               counterText: '',
-              hintText: 'Örnek: OkeyUstasi',
+              hintText: 'Ornek: OkeyUstasi',
               hintStyle: const TextStyle(color: Color(0x88D9EBDD)),
               filled: true,
               fillColor: const Color(0x33273830),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            renameInfo,
+            style: const TextStyle(
+              color: Color(0xFFB9CFBF),
+              fontSize: 12,
+              height: 1.3,
             ),
           ),
         ],
@@ -3929,45 +5111,199 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
   Widget _avatarGrid() {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final crossAxisCount = isLandscape ? 5 : 4;
 
-    return GridView.builder(
-      itemCount: avatarPresetIds.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isLandscape ? 6 : 4,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-      ),
-      itemBuilder: (_, index) {
-        final avatarRef = avatarPresetIds[index];
-        final preset = avatarPresetByRef(avatarRef);
-        final selected = selectedAvatarRef == avatarRef;
+    final freeWomen = freeAvatarPresetsByGender('female');
+    final freeMen = freeAvatarPresetsByGender('male');
+    final premiumWomen = premiumAvatarPresetsByGender('female');
+    final premiumMen = premiumAvatarPresetsByGender('male');
 
-        return InkWell(
-          onTap: () => setState(() => selectedAvatarRef = avatarRef),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: const Color(0x44213129),
-              border: Border.all(
-                color: selected
-                    ? const Color(0xFFE8C36A)
-                    : const Color(0x334F8F75),
-                width: selected ? 2 : 1,
+    return ListView(
+      children: [
+        _avatarSection(
+          title: 'Standart Kadin Avatarlari',
+          subtitle: 'Ucretsiz',
+          presets: freeWomen,
+          crossAxisCount: crossAxisCount,
+        ),
+        const SizedBox(height: 14),
+        _avatarSection(
+          title: 'Standart Erkek Avatarlari',
+          subtitle: 'Ucretsiz',
+          presets: freeMen,
+          crossAxisCount: crossAxisCount,
+        ),
+        const SizedBox(height: 14),
+        _avatarSection(
+          title: 'Premium Kadin Avatarlari',
+          subtitle: 'Coin ile acilir',
+          presets: premiumWomen,
+          crossAxisCount: crossAxisCount,
+          premiumHeader: true,
+        ),
+        const SizedBox(height: 14),
+        _avatarSection(
+          title: 'Premium Erkek Avatarlari',
+          subtitle: 'Coin ile acilir',
+          presets: premiumMen,
+          crossAxisCount: crossAxisCount,
+          premiumHeader: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _avatarSection({
+    required String title,
+    required String subtitle,
+    required List<AvatarPreset> presets,
+    required int crossAxisCount,
+    bool premiumHeader = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: premiumHeader
+                    ? const Color(0xFFFFD27D)
+                    : const Color(0xFFE3F4E8),
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
               ),
             ),
-            child: Center(
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: premiumHeader
+                    ? const Color(0x33FFD27D)
+                    : const Color(0x3345B47A),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: premiumHeader
+                      ? const Color(0x66FFD27D)
+                      : const Color(0x6645B47A),
+                ),
+              ),
+              child: Text(
+                subtitle,
+                style: TextStyle(
+                  color: premiumHeader
+                      ? const Color(0xFFFFD27D)
+                      : const Color(0xFFBFE5CC),
+                          fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          itemCount: presets.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+          ),
+          itemBuilder: (_, index) => _avatarTile(presets[index]),
+        ),
+      ],
+    );
+  }
+
+  Widget _avatarTile(AvatarPreset preset) {
+    final selected = selectedAvatarRef == preset.id;
+    final isLockedPremium =
+        preset.isPremium && !ownedPremiumAvatarRefs.contains(preset.id);
+
+    return InkWell(
+      onTap: () => setState(() => selectedAvatarRef = preset.id),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: preset.isPremium
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0x6640200D), Color(0x44401008)],
+                )
+              : null,
+          color: preset.isPremium ? null : const Color(0x44213129),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFFE8C36A)
+                : (preset.isPremium
+                      ? const Color(0x66FFD27D)
+                      : const Color(0x334F8F75)),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Center(
               child: CircleAvatar(
                 radius: 28,
                 backgroundImage: AssetImage(preset.imageUrl),
               ),
             ),
-          ),
-        );
-      },
+            if (isLockedPremium)
+              Positioned(
+                left: 4,
+                right: 4,
+                bottom: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xCC111111),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${preset.unlockCost} coin',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFFD27D),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            if (preset.isPremium)
+              const Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 14,
+                  color: Color(0xFFFFD27D),
+                ),
+              ),
+            if (isLockedPremium)
+              const Positioned(
+                top: 4,
+                left: 4,
+                child: Icon(
+                  Icons.lock_rounded,
+                  size: 14,
+                  color: Color(0xFFFFD27D),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
-
 class LobbyLayout extends StatelessWidget {
   final Widget mobile;
   final Widget tablet;
@@ -3999,3 +5335,7 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
+
+
+
+

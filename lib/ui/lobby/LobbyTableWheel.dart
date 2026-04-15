@@ -6,6 +6,8 @@ class LobbyTableWheel extends StatefulWidget {
   final List<Map<String, dynamic>> tables;
   final Set<String> blockedUserIds;
   final Function(Map<String, dynamic>) onJoin;
+  final Function(Map<String, dynamic>) onSpectate;
+  final bool canSpectateAll;
   final Function(Map<String, dynamic>) onUserTap;
   final Future<void> Function() onRefresh;
   final bool loading;
@@ -15,6 +17,8 @@ class LobbyTableWheel extends StatefulWidget {
     required this.tables,
     required this.blockedUserIds,
     required this.onJoin,
+    required this.onSpectate,
+    required this.canSpectateAll,
     required this.onUserTap,
     required this.onRefresh,
     required this.loading,
@@ -116,6 +120,8 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                             table: table,
                             blockedUserIds: widget.blockedUserIds,
                             onJoin: widget.onJoin,
+                            onSpectate: widget.onSpectate,
+                            canSpectateAll: widget.canSpectateAll,
                             onUserTap: widget.onUserTap,
                           ),
                         ),

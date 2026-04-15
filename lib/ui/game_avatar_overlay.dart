@@ -579,137 +579,131 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             borderRadius: BorderRadius.circular(16),
             side: const BorderSide(color: Color(0xFFB9932F), width: 1.4),
           ),
-          child: Container(
-            width: 420,
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                /// TITLE
-                const Text(
-                  "Oyuncu Davet Et",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFE7C66A),
-                    letterSpacing: .5,
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                if (candidates.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                      "Bu lig iÃ§in uygun oyuncu bulunamadÄ±.",
-                      style: TextStyle(color: Colors.white70),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 440,
+              maxHeight: MediaQuery.of(context).size.height * 0.78,
+            ),
+            child: Container(
+              width: 420,
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Oyuncu Davet Et",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFE7C66A),
+                      letterSpacing: .5,
                     ),
-                  )
-                else
-                  SizedBox(
-                    height: 280,
-                    child: ListView.separated(
-                      itemCount: candidates.length,
-                      separatorBuilder: (_, _) =>
-                          const Divider(color: Colors.white10),
-                      itemBuilder: (_, i) {
-                        final p = candidates[i];
+                  ),
+                  const SizedBox(height: 14),
+                  if (candidates.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        "Bu lig için uygun ve aktif oyuncu bulunamadý.",
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: candidates.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white10),
+                        itemBuilder: (_, i) {
+                          final p = candidates[i];
+                          final name = p['username']?.toString() ?? "Oyuncu";
+                          final rating = p['rating']?.toString() ?? "-";
+                          final coins = p['coins']?.toString() ?? "0";
+                          final userId = p['id']?.toString();
+                          final avatarUrl = p['avatar_url'];
 
-                        final name = p['username']?.toString() ?? "Oyuncu";
-                        final rating = p['rating']?.toString() ?? "-";
-                        final coins = p['coins']?.toString() ?? "0";
-                        final userId = p['id']?.toString();
-
-                        final isBot = p['is_bot'] == true;
-                        final avatarUrl = p['avatar_url'];
-                        return Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              /// Avatar
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: const Color(0xFF1F3D32),
-                                backgroundImage:
-                                    avatarUrl != null && avatarUrl.isNotEmpty
-                                    ? NetworkImage(avatarUrl)
-                                    : null,
-                                child: avatarUrl == null || avatarUrl.isEmpty
-                                    ? Text(
-                                        name.substring(0, 1).toUpperCase(),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: const Color(0xFF1F3D32),
+                                  backgroundImage: avatarUrl != null &&
+                                          avatarUrl.toString().isNotEmpty
+                                      ? NetworkImage(avatarUrl.toString())
+                                      : null,
+                                  child: avatarUrl == null ||
+                                          avatarUrl.toString().isEmpty
+                                      ? Text(
+                                          name.substring(0, 1).toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                      )
-                                    : null,
-                              ),
-
-                              const SizedBox(width: 12),
-
-                              /// Info
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
                                       ),
-                                    ),
-
-                                    const SizedBox(height: 2),
-
-                                    Text(
-                                      isBot
-                                          ? "Misafir oyuncu â€¢ Rating $rating â€¢ $coins coin"
-                                          : "Rating $rating â€¢ $coins coin",
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.white60,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "Rating $rating • $coins coin",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white60,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              /// Invite button
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFB9932F),
-                                  foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    ],
                                   ),
                                 ),
-                                onPressed: userId == null
-                                    ? null
-                                    : () async {
-                                        await _sendInvite(
-                                          userId: userId,
-                                          isBot: isBot,
-                                        );
-
-                                        if (!mounted) return;
-
-                                        Navigator.pop(context);
-                                      },
-                                child: const Text("Davet"),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFB9932F),
+                                    foregroundColor: Colors.black,
+                                    visualDensity: VisualDensity.compact,
+                                    minimumSize: const Size(72, 34),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  onPressed: userId == null
+                                      ? null
+                                      : () async {
+                                          await _sendInvite(userId: userId, isBot: p['is_bot'] == true);
+                                          if (!mounted) return;
+                                          Navigator.pop(context);
+                                        },
+                                  child: const Text("Davet"),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -731,6 +725,17 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           .whereType<String>()
           .toSet();
       excludedIds.add(myUserId);
+
+      final pendingInvites = await _supabase
+          .from('table_invites')
+          .select('to_user')
+          .eq('table_id', widget.tableId)
+          .eq('status', 'pending');
+      for (final raw in (pendingInvites as List)) {
+        final uid = (raw as Map)['to_user']?.toString();
+        if (uid != null && uid.isNotEmpty) excludedIds.add(uid);
+      }
+
       int minRating = 0;
       try {
         final league = await _supabase
@@ -740,46 +745,99 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             .maybeSingle();
         minRating = (league?['min_rating'] as int?) ?? 0;
       } catch (_) {}
+
+      final activeTables = await _supabase
+          .from('tables')
+          .select('id')
+          .inFilter('status', ['waiting', 'playing']);
+      final activeTableIds = (activeTables as List)
+          .map((r) => (r as Map)['id']?.toString())
+          .whereType<String>()
+          .toList();
+      if (activeTableIds.isEmpty) return [];
+
+      final activePlayers = await _supabase
+          .from('table_players')
+          .select('user_id')
+          .inFilter('table_id', activeTableIds);
+      final activeUserIds = (activePlayers as List)
+          .map((r) => (r as Map)['user_id']?.toString())
+          .whereType<String>()
+          .toSet();
+      if (activeUserIds.isEmpty) return [];
+
       final profileRows = await _supabase
           .from('profiles')
-          .select('id, username, rating, coins')
+          .select('id, username, rating, coins, avatar')
+          .inFilter('id', activeUserIds.toList())
           .gte('rating', minRating)
           .gte('coins', _entryCoin)
-          .limit(50);
+          .limit(80);
+
+      final userRows = await _supabase
+          .from('users')
+          .select('id, avatar_url')
+          .inFilter('id', activeUserIds.toList());
+      final avatarById = <String, String?>{};
+      for (final raw in (userRows as List)) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final id = row['id']?.toString();
+        if (id == null) continue;
+        avatarById[id] = row['avatar_url']?.toString();
+      }
+
       final regular = (profileRows as List)
           .map((r) => Map<String, dynamic>.from(r as Map))
           .where((p) {
             final id = p['id']?.toString();
             return id != null && !excludedIds.contains(id);
           })
+          .map((p) {
+            final id = p['id']?.toString();
+            if (id != null) {
+              p['avatar_url'] = avatarById[id] ?? p['avatar']?.toString();
+            }
+            return p;
+          })
           .toList();
+
+      regular.sort((a, b) {
+        final ar = (a['rating'] as int?) ?? 0;
+        final br = (b['rating'] as int?) ?? 0;
+        return br.compareTo(ar);
+      });
+
       final bots = <Map<String, dynamic>>[];
       try {
         final botRows = await _supabase
             .from('users')
-            .select('id, username, rating, is_bot')
+            .select('id, username, rating, avatar_url, is_bot')
             .eq('is_bot', true)
-            .limit(20);
+            .limit(30);
         for (final raw in (botRows as List)) {
           final row = Map<String, dynamic>.from(raw as Map);
           final id = row['id']?.toString();
           if (id == null || id.isEmpty || excludedIds.contains(id)) continue;
+          final rating = (row['rating'] as int?) ?? 1000;
+          if (rating < minRating) continue;
           bots.add({
             'id': id,
             'username': row['username'] ?? 'Standart Bot',
-            'rating': row['rating'] ?? 1000,
+            'rating': rating,
             'coins': 999999,
+            'avatar_url': row['avatar_url']?.toString(),
             'is_bot': true,
           });
+          if (bots.length >= 5) break;
         }
       } catch (_) {}
+
       return [...bots, ...regular];
     } catch (e) {
       debugPrint('ELIGIBLE PLAYERS ERROR: $e');
       return [];
     }
   }
-
   Future<void> _sendInvite({required String userId, bool isBot = false}) async {
     final myUserId = _myUserId;
     if (myUserId == null) return;

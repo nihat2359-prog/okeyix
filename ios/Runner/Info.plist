@@ -63,6 +63,10 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
     <string>Voice messages in game chat</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 <array>
   <dict>
