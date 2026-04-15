@@ -20,6 +20,7 @@ class PushNotificationService {
   static final PushNotificationService instance = PushNotificationService._();
 
   bool _initialized = false;
+  String? _lastKnownToken;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -46,10 +47,12 @@ class PushNotificationService {
     debugPrint('PUSH PERMISSION: ${settings.authorizationStatus}');
 
     final token = await messaging.getToken();
-    await _saveTokenToSupabase(token);
+    _lastKnownToken = token;
+    await _syncTokenForCurrentUser();
 
     messaging.onTokenRefresh.listen((newToken) async {
-      await _saveTokenToSupabase(newToken);
+      _lastKnownToken = newToken;
+      await _syncTokenForCurrentUser();
     });
 
     FirebaseMessaging.onMessage.listen((message) {
@@ -60,7 +63,18 @@ class PushNotificationService {
       debugPrint('PUSH OPENED APP: ${message.messageId}');
     });
 
+    Supabase.instance.client.auth.onAuthStateChange.listen((_) async {
+      await _syncTokenForCurrentUser();
+    });
+
     _initialized = true;
+  }
+
+  Future<void> _syncTokenForCurrentUser() async {
+    if (_lastKnownToken == null || _lastKnownToken!.isEmpty) {
+      _lastKnownToken = await FirebaseMessaging.instance.getToken();
+    }
+    await _saveTokenToSupabase(_lastKnownToken);
   }
 
   Future<void> _saveTokenToSupabase(String? token) async {
