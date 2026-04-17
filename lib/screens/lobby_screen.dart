@@ -352,10 +352,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (user == null) return;
     await _ensureUserRow();
     try {
-      final row = await _findUserRow(
-        user,
-        columns: 'id,username,avatar_url',
-      );
+      final row = await _findUserRow(user, columns: 'id,username,avatar_url');
       final profileRows = await supabase
           .from('profiles')
           .select('coins,rating')
@@ -1082,7 +1079,10 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _openGame(String tableId, bool isCreator) async {
-    await precacheImage(const AssetImage('assets/images/lobby/lobby.png'), context);
+    await precacheImage(
+      const AssetImage('assets/images/lobby/lobby.png'),
+      context,
+    );
     await precacheImage(const AssetImage('assets/images/table.png'), context);
     if (!mounted) return;
     Navigator.push(
@@ -2482,7 +2482,10 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (_) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 24,
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 430),
             child: Container(
@@ -2494,7 +2497,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                   end: Alignment.bottomRight,
                   colors: [Color(0xFF17382E), Color(0xFF0D221B)],
                 ),
-                border: Border.all(color: _goldBorderColor, width: _goldBorderWidth),
+                border: Border.all(
+                  color: _goldBorderColor,
+                  width: _goldBorderWidth,
+                ),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0xCC000000),
@@ -2541,7 +2547,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                         child: IconButton(
                           onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
+                          ),
                         ),
                       ),
                     ],
@@ -2555,7 +2564,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFE9C46A), width: 2),
+                          border: Border.all(
+                            color: const Color(0xFFE9C46A),
+                            width: 2,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: const Color(0xFFE9C46A).withOpacity(.28),
@@ -2588,11 +2600,16 @@ class _LobbyScreenState extends State<LobbyScreen>
                             ),
                             const SizedBox(height: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(.18),
                                 borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: statusColor.withOpacity(.55)),
+                                border: Border.all(
+                                  color: statusColor.withOpacity(.55),
+                                ),
                               ),
                               child: Text(
                                 statusText,
@@ -2645,7 +2662,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                             await _openProfileSetupDialog(forceComplete: false);
                           },
                         ),
-                      if (!isSelf && !isBlocked && !isFriend && !incoming && !outgoing)
+                      if (!isSelf &&
+                          !isBlocked &&
+                          !isFriend &&
+                          !incoming &&
+                          !outgoing)
                         _modalActionButton(
                           label: 'Arkadaş Ekle',
                           onPressed: () async {
@@ -4437,7 +4458,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                 inactiveTrackColor: const Color(0x334E6A5D),
                 title: const Text(
                   'Ses',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 subtitle: const Text(
                   'Oyun ve mesaj sesleri',
@@ -4460,7 +4484,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                 inactiveTrackColor: const Color(0x334E6A5D),
                 title: const Text(
                   'Titreşim',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 subtitle: const Text(
                   'Sesle birlikte haptic geri bildirim',
@@ -5276,8 +5303,8 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                     border: Border.all(color: const Color(0x66E9C46A)),
                   ),
                   child: const Icon(
-                  Icons.person_rounded,
-                  color: Color(0xFFFFE0A8),
+                    Icons.person_rounded,
+                    color: Color(0xFFFFE0A8),
                     size: 20,
                   ),
                 ),
@@ -5313,7 +5340,10 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                   ),
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white70,
+                    ),
                   ),
                 ),
               ],
@@ -5408,7 +5438,6 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
               ),
             ),
           ],
-        ),
         ),
       ),
     );
@@ -5693,6 +5722,3 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
-
-
-
