@@ -5235,18 +5235,15 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
 
     final viewInsets = MediaQuery.of(context).viewInsets;
     final keyboardOpen = viewInsets.bottom > 0;
-    final maxDialogHeight = (size.height - viewInsets.bottom - 24).clamp(
+    final maxDialogHeight = (size.height - viewInsets.bottom - 16).clamp(
       300.0,
       size.height * 0.94,
     );
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: keyboardOpen ? viewInsets.bottom + 20 : 0),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(18),
-        child: Container(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      alignment: keyboardOpen ? Alignment.topCenter : Alignment.center,
+      insetPadding: EdgeInsets.fromLTRB(18, keyboardOpen ? 8 : 18, 18, 18),
+      child: Container(
         width: isLandscape ? 720 : 520,
         constraints: BoxConstraints(maxHeight: maxDialogHeight),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -5438,6 +5435,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
           TextField(
             controller: usernameController,
             maxLength: 20,
+            scrollPadding: const EdgeInsets.only(bottom: 240),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
