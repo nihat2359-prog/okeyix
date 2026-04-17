@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/game.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/game/components/radial_quick_chat.dart';
 import 'package:okeyix/game/okey_game.dart';
@@ -988,14 +986,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                 final finalH = baseH * scale;
                 final cropTop = ((finalH - screenH) / 2);
                 final visibleCropTop = cropTop > 0 ? cropTop : 0.0;
-                final safeTop = MediaQuery.of(context).padding.top;
-                final isIos = !kIsWeb && Platform.isIOS;
-                final avatarTopInset = isIos
-                    ? (visibleCropTop + safeTop * 0.18).clamp(
-                        visibleCropTop,
-                        visibleCropTop + 16,
-                      ).toDouble()
-                    : visibleCropTop;
+                final avatarTopInset = 0.0;
 
                 return Stack(
                   children: [

@@ -4416,7 +4416,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _settingsPanel() {
-    return Column(
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 16),
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -5322,21 +5323,25 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: keyboardOpen
-                  ? Align(alignment: Alignment.topLeft, child: _usernameSection())
-                  : isLandscape
+              child: isLandscape
                   ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _usernameSection(),
-                        const SizedBox(width: 18),
-                        Expanded(child: _avatarGrid()),
+                        if (!keyboardOpen) ...[
+                          const SizedBox(width: 18),
+                          Expanded(child: _avatarGrid()),
+                        ],
                       ],
                     )
                   : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _usernameSection(),
-                        const SizedBox(height: 14),
-                        Expanded(child: _avatarGrid()),
+                        if (!keyboardOpen) ...[
+                          const SizedBox(height: 14),
+                          Expanded(child: _avatarGrid()),
+                        ],
                       ],
                     ),
             ),
