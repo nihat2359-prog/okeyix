@@ -209,7 +209,6 @@ class LobbyLeagueList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        /// 🔥 ÜST SATIR
         Row(
           children: [
             Icon(icon, size: 14, color: color),
@@ -224,49 +223,64 @@ class LobbyLeagueList extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 4),
-
-        /// 🔥 AAA PROGRESS BAR
         Container(
           width: 60,
-          height: 6,
+          height: 7,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            color: const Color(0x22FFFFFF),
+            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x331D2C24), Color(0x66455E52)],
+            ),
+            border: Border.all(color: const Color(0x3DFFFFFF), width: 0.6),
           ),
-          child: Stack(
-            children: [
-              /// 🔥 DOLU KISIM
-              FractionallySizedBox(
-                widthFactor: progress,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-
-                    /// 🔥 GRADIENT
-                    gradient: LinearGradient(
-                      colors: [color.withOpacity(0.7), color],
-                    ),
-
-                    /// 🔥 GLOW
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withOpacity(0.6),
-                        blurRadius: 8,
-                        spreadRadius: 1,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              children: [
+                FractionallySizedBox(
+                  widthFactor: progress,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          color.withOpacity(0.55),
+                          color,
+                          color.withOpacity(0.88),
+                        ],
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withOpacity(0.55),
+                          blurRadius: 8,
+                          spreadRadius: 0.8,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+                if (progress > 0)
+                  FractionallySizedBox(
+                    widthFactor: progress,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        height: 1.4,
+                        color: Colors.white.withOpacity(0.28),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
-
   Widget _leagueBadgeWidget(String name, Color color, bool selected) {
     return SizedBox(
       width: 66,
@@ -334,3 +348,4 @@ class LobbyLeagueList extends StatelessWidget {
     return "assets/images/lobby/standart.png";
   }
 }
+

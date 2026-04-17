@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -77,7 +77,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _rightPanelLoading = false;
 
   String userName = 'Oyuncu';
-  int userRating = 1000;
+  int userRating = 1200;
   int userCoin = 0;
   String? _userId;
   String? _userRowId;
@@ -162,12 +162,12 @@ class _LobbyScreenState extends State<LobbyScreen>
     _initCalled = true;
 
     try {
-      /// 🔥 UI HEMEN AÇILSIN
+      /// ğŸ”¥ UI HEMEN AÇILSIN
       setState(() {
         _deviceReady = true;
       });
 
-      /// 🔥 REGISTER ARKADA ÇALIŞSIN
+      /// ğŸ”¥ REGISTER ARKADA ÇALIÅSIN
       unawaited(_safeRegister());
     } catch (e) {
       print(e);
@@ -261,13 +261,13 @@ class _LobbyScreenState extends State<LobbyScreen>
         },
       );
 
-      /// 🔥 HATA KONTROLÜ BURADA
+      /// ğŸ”¥ HATA KONTROLÜ BURADA
     } catch (e) {
       print(e);
 
-      /// 🔥 SADECE SIGNOUT + FORWARD
+      /// ğŸ”¥ SADECE SIGNOUT + FORWARD
 
-      rethrow; // 🔥 EN DOĞRU
+      rethrow; // ğŸ”¥ EN DOÄRU
     }
   }
 
@@ -305,7 +305,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     try {
       final existing = await _findUserRow(
         user,
-        columns: 'id,email,username,avatar_url,rating',
+        columns: 'id,email,username,avatar_url',
       );
       if (existing != null) return;
       await supabase.from('users').insert({'id': user.id, 'email': user.email});
@@ -348,7 +348,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     try {
       final row = await _findUserRow(
         user,
-        columns: 'id,username,rating,avatar_url',
+        columns: 'id,username,avatar_url',
       );
       final profileRows = await supabase
           .from('profiles')
@@ -539,7 +539,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       return;
     } catch (e) {
       if (e is PostgrestException && e.code == '23505') {
-        _msg('Bu kullanici adi zaten kullanimda.');
+        _msg('Bu kullanıcı adı zaten kullanımda.');
       } else {
         _msg('Profil guncellenemedi.');
       }
@@ -682,6 +682,30 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<void> _cleanupOrphanTables(List<String> orphanTableIds) async {
     if (orphanTableIds.isEmpty) return;
     try {
+      try {
+        await supabase
+            .from('match_moves')
+            .delete()
+            .inFilter('table_id', orphanTableIds);
+      } catch (_) {}
+      try {
+        await supabase
+            .from('table_discard_tops')
+            .delete()
+            .inFilter('table_id', orphanTableIds);
+      } catch (_) {}
+      try {
+        await supabase
+            .from('table_discards')
+            .delete()
+            .inFilter('table_id', orphanTableIds);
+      } catch (_) {}
+      try {
+        await supabase
+            .from('table_players')
+            .delete()
+            .inFilter('table_id', orphanTableIds);
+      } catch (_) {}
       await supabase.from('tables').delete().inFilter('id', orphanTableIds);
       debugPrint(
         'ORPHAN TABLE CLEANUP: ${orphanTableIds.length} masa temizlendi.',
@@ -773,12 +797,23 @@ class _LobbyScreenState extends State<LobbyScreen>
       final usernameById = <String, String>{};
       final avatarById = <String, String?>{};
       final ratingById = <String, int>{};
+      final isBotById = <String, bool>{};
 
       if (allUserIds.isNotEmpty) {
         final users = await supabase
             .from('users')
-            .select('id,username,avatar_url,rating')
+            .select('id,username,avatar_url,is_bot')
             .inFilter('id', allUserIds.toList());
+        final profiles = await supabase
+            .from('profiles')
+            .select('id,rating')
+            .inFilter('id', allUserIds.toList());
+        for (final raw in (profiles as List)) {
+          final row = Map<String, dynamic>.from(raw);
+          final id = row['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          ratingById[id] = (row['rating'] as int?) ?? 1200;
+        }
 
         for (final raw in (users as List)) {
           final row = Map<String, dynamic>.from(raw);
@@ -789,8 +824,29 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           usernameById[id] = name.isEmpty ? 'Oyuncu' : name;
           avatarById[id] = row['avatar_url']?.toString();
-          ratingById[id] = (row['rating'] as int?) ?? 1000;
+          isBotById[id] = row['is_bot'] == true;
         }
+      }
+
+      final inactiveTableIds = tableRows
+          .map((t) => t['id']?.toString())
+          .whereType<String>()
+          .where((id) {
+            final seats = playersByTable[id] ?? const <Map<String, dynamic>>[];
+            if (seats.isEmpty) return true;
+            final hasHuman = seats.any((p) {
+              final uid = p['user_id']?.toString();
+              if (uid == null || uid.isEmpty) return false;
+              return isBotById[uid] != true;
+            });
+            return !hasHuman;
+          })
+          .toList();
+      if (inactiveTableIds.isNotEmpty) {
+        await _cleanupOrphanTables(inactiveTableIds);
+        tableRows.removeWhere(
+          (t) => inactiveTableIds.contains(t['id']?.toString()),
+        );
       }
 
       final merged = tableRows.map((table) {
@@ -808,7 +864,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ? 'Oyuncu'
                   : (usernameById[uid] ?? 'Oyuncu'),
               'avatar_url': uid == null ? null : avatarById[uid],
-              'rating': uid == null ? 1000 : (ratingById[uid] ?? 1000),
+              'rating': uid == null ? 1200 : (ratingById[uid] ?? 1200),
               'blocked': uid != null && _blockedUserIds.contains(uid),
             });
           }
@@ -826,20 +882,41 @@ class _LobbyScreenState extends State<LobbyScreen>
         return table;
       }).toList();
 
-      if (merged.isEmpty) {
+      const minVisibleTableCount = 5;
+      if (merged.length < minVisibleTableCount) {
         final botRows = await supabase
             .from('users')
-            .select('id,username,avatar_url,rating')
+            .select('id,username,avatar_url')
             .eq('is_bot', true)
             .limit(40);
         final bots = (botRows as List)
             .map((e) => Map<String, dynamic>.from(e))
             .where((b) => (b['id']?.toString() ?? '').isNotEmpty)
             .toList();
+        final botIds = bots
+            .map((b) => b['id']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toList();
+        final botRatings = <String, int>{};
+        if (botIds.isNotEmpty) {
+          final botProfiles = await supabase
+              .from('profiles')
+              .select('id,rating')
+              .inFilter('id', botIds);
+          for (final raw in (botProfiles as List)) {
+            final row = Map<String, dynamic>.from(raw);
+            final id = row['id']?.toString();
+            if (id == null || id.isEmpty) continue;
+            botRatings[id] = (row['rating'] as int?) ?? 1200;
+          }
+        }
         if (bots.length >= 2) {
           final rnd = Random();
-          for (int i = 0; i < 5; i++) {
-            final shuffled = List<Map<String, dynamic>>.from(bots)..shuffle(rnd);
+          final needFake = minVisibleTableCount - merged.length;
+          for (int i = 0; i < needFake; i++) {
+            final shuffled = List<Map<String, dynamic>>.from(bots)
+              ..shuffle(rnd);
             final b1 = shuffled[0];
             final b2 = shuffled[1];
             merged.add({
@@ -853,21 +930,23 @@ class _LobbyScreenState extends State<LobbyScreen>
                 {
                   'seat_index': 0,
                   'user_id': b1['id']?.toString(),
-                  'username': (b1['username']?.toString().trim().isNotEmpty ?? false)
+                  'username':
+                      (b1['username']?.toString().trim().isNotEmpty ?? false)
                       ? b1['username']
                       : 'Bot Oyuncu',
                   'avatar_url': b1['avatar_url']?.toString(),
-                  'rating': (b1['rating'] as int?) ?? 1000,
+                  'rating': botRatings[b1['id']?.toString()] ?? 1200,
                   'blocked': false,
                 },
                 {
                   'seat_index': 1,
                   'user_id': b2['id']?.toString(),
-                  'username': (b2['username']?.toString().trim().isNotEmpty ?? false)
+                  'username':
+                      (b2['username']?.toString().trim().isNotEmpty ?? false)
                       ? b2['username']
                       : 'Bot Oyuncu',
                   'avatar_url': b2['avatar_url']?.toString(),
-                  'rating': (b2['rating'] as int?) ?? 1000,
+                  'rating': botRatings[b2['id']?.toString()] ?? 1200,
                   'blocked': false,
                 },
               ],
@@ -935,7 +1014,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     if (!mounted) return;
     Navigator.pop(context);
-    _openGame(tableId, true);
+    await _openGame(tableId, true);
   }
 
   Future<void> _joinTable(Map<String, dynamic> table) async {
@@ -993,10 +1072,13 @@ class _LobbyScreenState extends State<LobbyScreen>
       });
     }
     if (!mounted) return;
-    _openGame(tableId, false);
+    await _openGame(tableId, false);
   }
 
-  void _openGame(String tableId, bool isCreator) {
+  Future<void> _openGame(String tableId, bool isCreator) async {
+    await precacheImage(const AssetImage('assets/images/lobby/lobby.png'), context);
+    await precacheImage(const AssetImage('assets/images/table.png'), context);
+    if (!mounted) return;
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -1048,10 +1130,9 @@ class _LobbyScreenState extends State<LobbyScreen>
           final raw = note.split(':').skip(1).join(':').trim();
           until = DateTime.tryParse(raw)?.toLocal();
         }
-        until ??=
-            DateTime.tryParse(row['created_at']?.toString() ?? '')
-                ?.toLocal()
-                .add(const Duration(hours: 24));
+        until ??= DateTime.tryParse(
+          row['created_at']?.toString() ?? '',
+        )?.toLocal().add(const Duration(hours: 24));
         if (until == null) continue;
         if (bestUntil == null || until.isAfter(bestUntil)) {
           bestUntil = until;
@@ -1071,7 +1152,8 @@ class _LobbyScreenState extends State<LobbyScreen>
       _msg('Yetersiz coin. Gereken: $_globalSpectatorPassCost');
       return false;
     }
-    final base = (_globalSpectatorPassUntil != null &&
+    final base =
+        (_globalSpectatorPassUntil != null &&
             _globalSpectatorPassUntil!.isAfter(DateTime.now()))
         ? _globalSpectatorPassUntil!
         : DateTime.now();
@@ -1085,7 +1167,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       );
       await _loadUser();
       await _refreshGlobalSpectatorPassStatus();
-      _msg('Genel seyirci gecisi aktif. Kalan: ${_globalSpectatorPassRemainingText()}');
+      _msg(
+        'Genel seyirci gecisi aktif. Kalan: ${_globalSpectatorPassRemainingText()}',
+      );
       return true;
     } catch (_) {
       _msg('Satin alma basarisiz.');
@@ -1379,7 +1463,8 @@ class _LobbyScreenState extends State<LobbyScreen>
               final message = messageController.text.trim();
               if (message.length < 8) {
                 setLocalState(() {
-                  errorText = 'L\u00FCtfen en az 8 karakter a\u00E7\u0131klama yaz.';
+                  errorText =
+                      'L\u00FCtfen en az 8 karakter a\u00E7\u0131klama yaz.';
                 });
                 return;
               }
@@ -1419,7 +1504,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
                   ),
-                  border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+                  border: Border.all(
+                    color: const Color(0xCCB07A1A),
+                    width: 1.8,
+                  ),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x66000000),
@@ -1500,7 +1588,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                       decoration: InputDecoration(
                         labelText: 'Mesaj',
                         labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
-                        hintText: 'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
+                        hintText:
+                            'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
                         hintStyle: const TextStyle(color: Color(0x99D9EBDD)),
                         filled: true,
                         fillColor: const Color(0x33273830),
@@ -1524,8 +1613,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed: sending ? null : () => Navigator.pop(context),
-                          child: const Text('Vazgec'),
+                          onPressed: sending
+                              ? null
+                              : () => Navigator.pop(context),
+                          child: const Text('Vazgeç'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
@@ -1534,7 +1625,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ? const SizedBox(
                                   width: 14,
                                   height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.send_rounded),
                           label: Text(sending ? 'Gonderiliyor' : 'Gonder'),
@@ -1650,9 +1743,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          title.isNotEmpty
-                                              ? title
-                                              : 'Duyuru',
+                                          title.isNotEmpty ? title : 'Duyuru',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w900,
@@ -1778,7 +1869,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFF111A16),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+                  border: Border.all(
+                    color: const Color(0xCCB07A1A),
+                    width: 1.8,
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1927,7 +2021,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     });
 
     if ((profileRows).isNotEmpty) {
-      await supabase.from('profiles').update({'coins': nextCoins}).eq('id', userId);
+      await supabase
+          .from('profiles')
+          .update({'coins': nextCoins})
+          .eq('id', userId);
     }
   }
 
@@ -1992,16 +2089,27 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       /// USERS
       final usersById = <String, Map<String, dynamic>>{};
+      final profileRatingById = <String, int>{};
       if (counterpartIds.isNotEmpty) {
         final userRows = await supabase
             .from('users')
-            .select('id,username,avatar_url,rating')
+            .select('id,username,avatar_url')
+            .inFilter('id', counterpartIds.toList());
+        final profileRows = await supabase
+            .from('profiles')
+            .select('id,rating')
             .inFilter('id', counterpartIds.toList());
 
         for (final raw in (userRows as List)) {
           final row = Map<String, dynamic>.from(raw);
           final id = row['id']?.toString();
           if (id != null) usersById[id] = row;
+        }
+        for (final raw in (profileRows as List)) {
+          final row = Map<String, dynamic>.from(raw);
+          final id = row['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          profileRatingById[id] = (row['rating'] as int?) ?? 1200;
         }
       }
 
@@ -2037,7 +2145,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ? 'Oyuncu'
               : user!['username'],
           'avatar_url': user?['avatar_url'],
-          'rating': user?['rating'] ?? 1000,
+          'rating': profileRatingById[friendId] ?? 1200,
           'blocked': blockedIds.contains(friendId),
 
           /// EKLENEN
@@ -2338,182 +2446,300 @@ class _LobbyScreenState extends State<LobbyScreen>
         .single();
 
     final coins = profile['coins'] ?? 0;
-    final rating = profile['rating'] ?? user['rating'] ?? 1000;
+    final rating = (profile['rating'] as int?) ?? 1200;
+
+    final username = (user['username']?.toString().trim().isNotEmpty ?? false)
+        ? user['username'].toString().trim()
+        : 'Oyuncu';
+
+    final statusText = isSelf
+        ? 'Bu senin profilin'
+        : isBlocked
+        ? 'Bu kullanıcı engellendi'
+        : isFriend
+        ? 'Arkadaşın'
+        : incoming
+        ? 'Sana arkadaşlık isteği gönderdi'
+        : outgoing
+        ? 'Arkadaşlık isteği gönderildi'
+        : 'Henüz arkadaş değilsiniz';
+
+    final statusColor = isBlocked
+        ? const Color(0xFFE57373)
+        : (isFriend || isSelf)
+        ? const Color(0xFF7ED9A5)
+        : const Color(0xFFF2C14E);
 
     await showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withOpacity(.78),
       builder: (_) {
-        return Center(
-          child: Container(
-            width: 340,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F1F18),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: _goldBorderColor,
-                width: _goldBorderWidth,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black87,
-                  blurRadius: 30,
-                  offset: Offset(0, 10),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF17382E), Color(0xFF0D221B)],
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                /// 🔥 AVATAR
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.amber.withOpacity(0.4),
-                        blurRadius: 20,
+                border: Border.all(color: _goldBorderColor, width: _goldBorderWidth),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0xCC000000),
+                    blurRadius: 34,
+                    offset: Offset(0, 16),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: const Color(0x2CECCB79),
+                          border: Border.all(color: const Color(0x66E9C46A)),
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: Color(0xFFFFE0A8),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Oyuncu Profili',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0x221A2520),
+                          border: Border.all(color: const Color(0x55FFFFFF)),
+                        ),
+                        child: IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        ),
                       ),
                     ],
                   ),
-                  child: LobbyAvatar(
-                    username: user['username'] ?? 'Oyuncu',
-                    avatarUrl: user['avatar_url'],
-                    size: 55,
-                    blocked: isBlocked,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        width: 62,
+                        height: 62,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFE9C46A), width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFE9C46A).withOpacity(.28),
+                              blurRadius: 16,
+                            ),
+                          ],
+                        ),
+                        child: LobbyAvatar(
+                          username: username,
+                          avatarUrl: user['avatar_url'],
+                          size: 56,
+                          blocked: isBlocked,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              username,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .2,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(.18),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: statusColor.withOpacity(.55)),
+                              ),
+                              child: Text(
+                                statusText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _statPanel(
+                          label: 'Rating',
+                          icon: Icons.star_rounded,
+                          value: rating,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _statPanel(
+                          label: 'Coin',
+                          icon: Icons.monetization_on_rounded,
+                          value: coins,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      if (isSelf)
+                        _modalActionButton(
+                          label: 'Düzenle',
+                          primary: true,
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _openProfileSetupDialog(forceComplete: false);
+                          },
+                        ),
+                      if (!isSelf && !isBlocked && !isFriend && !incoming && !outgoing)
+                        _modalActionButton(
+                          label: 'Arkadaş Ekle',
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _sendFriendRequest(otherId);
+                          },
+                        ),
+                      if (!isSelf && incoming)
+                        _modalActionButton(
+                          label: 'Kabul',
+                          primary: true,
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _acceptFriendRequest(otherId);
+                          },
+                        ),
+                      if (!isSelf && incoming)
+                        _modalActionButton(
+                          label: 'Reddet',
+                          danger: true,
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _rejectFriendRequest(otherId);
+                          },
+                        ),
+                      if (!isSelf && isFriend)
+                        _modalActionButton(
+                          label: 'Arkadaşı Çıkar',
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _removeFriend(otherId);
+                          },
+                        ),
+                      if (!isSelf && !isBlocked)
+                        _modalActionButton(
+                          label: 'Engelle',
+                          danger: true,
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _blockUser(otherId);
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-                const SizedBox(height: 12),
-
-                /// 🔥 USERNAME
+  Widget _statPanel({
+    required String label,
+    required IconData icon,
+    required int value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x2CF6E7C1), Color(0x15F6E7C1)],
+        ),
+        border: Border.all(color: const Color(0x55E9C46A)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFFE9C46A)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  user['username'] ?? 'Oyuncu',
+                  value.toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
                   ),
                 ),
-
-                const SizedBox(height: 10),
-
-                /// 🔥 STATS (AAA)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _statChip(Icons.star, rating),
-                    const SizedBox(width: 8),
-                    _statChip(Icons.monetization_on, coins),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                /// 🔥 STATUS TEXT
                 Text(
-                  isSelf
-                      ? 'Bu senin profilin'
-                      : isBlocked
-                      ? 'Bu kullanıcı engelli'
-                      : isFriend
-                      ? 'Arkadaşın'
-                      : incoming
-                      ? 'Sana istek gönderdi'
-                      : outgoing
-                      ? 'İstek gönderildi'
-                      : 'Arkadaş değilsiniz',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-
-                const SizedBox(height: 16),
-
-                /// 🔥 ACTIONS
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    if (isSelf)
-                      _modalActionButton(
-                        label: 'Düzenle',
-                        primary: true,
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _openProfileSetupDialog(forceComplete: false);
-                        },
-                      ),
-
-                    if (!isSelf &&
-                        !isBlocked &&
-                        !isFriend &&
-                        !incoming &&
-                        !outgoing)
-                      _modalActionButton(
-                        label: 'Arkadaşlık',
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _sendFriendRequest(otherId);
-                        },
-                      ),
-
-                    if (!isSelf && incoming)
-                      _modalActionButton(
-                        label: 'Kabul',
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _acceptFriendRequest(otherId);
-                        },
-                      ),
-
-                    if (!isSelf && incoming)
-                      _modalActionButton(
-                        label: 'Reddet',
-                        danger: true,
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _rejectFriendRequest(otherId);
-                        },
-                      ),
-
-                    if (!isSelf && isFriend)
-                      _modalActionButton(
-                        label: 'Çıkar',
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _removeFriend(otherId);
-                        },
-                      ),
-
-                    if (!isSelf && !isBlocked)
-                      _modalActionButton(
-                        label: 'Engelle',
-                        danger: true,
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _blockUser(otherId);
-                        },
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: 10),
-
-                /// 🔥 CLOSE
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Kapat',
-                    style: TextStyle(color: Colors.white54),
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFFD4E8DB),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -2782,7 +3008,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                         children: const [
                                           Center(
                                             child: Text(
-                                              "👥 2 Oyuncu",
+                                              "2 Oyuncu",
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 color: Colors.white,
@@ -2795,7 +3021,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                                           Center(
                                             child: Text(
-                                              "👥 4 Oyuncu • Yakında",
+                                              "4 Oyuncu • Yakında",
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 color: Color(0x66FFFFFF),
@@ -2858,7 +3084,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                         children: const [
                                           Center(
                                             child: Text(
-                                              "🐢 20 sn  Yavaş",
+                                              "20 sn  Yavaş",
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 14,
@@ -2869,7 +3095,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                                           Center(
                                             child: Text(
-                                              "⚡ 15 sn  Normal",
+                                              "15 sn  Normal",
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 14,
@@ -2880,7 +3106,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                                           Center(
                                             child: Text(
-                                              "🔥 10 sn  Hızlı",
+                                              "10 sn  Hızlı",
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 14,
@@ -3209,7 +3435,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     return Row(
       children: [
-        /// SOL ARKADAŞ LİSTESİ
+        /// SOL ARKADAÅ LİSTESİ
         Container(
           width: 230,
           decoration: BoxDecoration(
@@ -3302,7 +3528,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 Expanded(
                   child: Stack(
                     children: [
-                      /// 💬 MESAJ LİSTESİ
+                      /// ğŸ’¬ MESAJ LİSTESİ
                       _rightPanelLoading
                           ? Center(child: _premiumLoader(size: 32))
                           : ListView.builder(
@@ -3368,7 +3594,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               },
                             ),
 
-                      /// 🔥 FLOATING MENU (ŞİMDİ ÇALIŞIR)
+                      /// ğŸ”¥ FLOATING MENU (ÅİMDİ ÇALIÅIR)
                       Positioned(top: 8, right: 8, child: _floatingMenu()),
                     ],
                   ),
@@ -3390,7 +3616,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                     child: Row(
                       children: [
-                        /// ▶️ PLAY
+                        /// â–¶ï¸ PLAY
                         GestureDetector(
                           onTap: () async {
                             if (_previewPlaying) {
@@ -3429,12 +3655,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                         const SizedBox(width: 10),
 
-                        /// 🔊 WAVE
+                        /// ğŸ”Š WAVE
                         Expanded(child: _waveform(_previewPlaying)),
 
                         const SizedBox(width: 8),
 
-                        /// ❌ DELETE
+                        /// âŒ DELETE
                         IconButton(
                           icon: const Icon(
                             Icons.close,
@@ -3456,7 +3682,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           },
                         ),
 
-                        /// ✅ SEND
+                        /// âœ… SEND
                         IconButton(
                           icon: const Icon(
                             Icons.send,
@@ -3498,7 +3724,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                     child: Row(
                       children: [
-                        /// 🎤 ICON
+                        /// ğŸ¤ ICON
                         const Icon(
                           Icons.mic,
                           color: Colors.redAccent,
@@ -3518,12 +3744,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                         const Spacer(),
 
-                        /// 🔴 BLINK DOT
+                        /// ğŸ”´ BLINK DOT
                         _recordDot(),
 
                         const SizedBox(width: 6),
 
-                        /// ⏱️ TIMER
+                        /// â±ï¸ TIMER
                         Text(
                           _recordDuration,
                           style: const TextStyle(
@@ -3587,7 +3813,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                       ),
 
-                      /// 🎤 VOICE BUTTON
+                      /// ğŸ¤ VOICE BUTTON
                       const SizedBox(width: 8),
 
                       /// TEXTFIELD
@@ -3795,7 +4021,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  /// 🧠 TITLE
+                  /// ğŸ§  TITLE
                   const Text(
                     "Sohbeti sil",
                     style: TextStyle(
@@ -3807,7 +4033,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 10),
 
-                  /// ⚠️ DESCRIPTION
+                  /// âš ï¸ DESCRIPTION
                   const Text(
                     "Bu kullanıcıyla tüm mesajlar ve ses kayıtları silinecek.",
                     textAlign: TextAlign.center,
@@ -3816,7 +4042,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 18),
 
-                  /// 🔘 BUTTONS
+                  /// ğŸ”˜ BUTTONS
                   Row(
                     children: [
                       /// CANCEL
@@ -3924,28 +4150,28 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       if (!await file.exists()) return;
 
-      /// 🆔 message id
+      /// ğŸ†” message id
       final messageId = const Uuid().v4();
 
       final storagePath = 'friend/$ftableid/$messageId.m4a';
 
-      /// 📦 1. STORAGE UPLOAD
+      /// ğŸ“¦ 1. STORAGE UPLOAD
       await supabase.storage.from('voice').upload(storagePath, file);
 
-      /// 🧾 2. DB INSERT (senin yapıya uyumlu)
+      /// ğŸ§¾ 2. DB INSERT (senin yapıya uyumlu)
       await supabase.from('messages').insert({
         'sender_id': uid,
         'receiver_id': otherId,
-        'content': null, // ❗ text yok
+        'content': null, // â— text yok
         'type': 'voice',
         'voice_url': storagePath,
         'duration': 5, // şimdilik sabit
       });
 
-      /// 🧹 3. LOCAL TEMİZLE
+      /// ğŸ§¹ 3. LOCAL TEMİZLE
       await file.delete();
 
-      /// 🔄 4. CHAT REFRESH (senin sistem)
+      /// ğŸ”„ 4. CHAT REFRESH (senin sistem)
       await _loadMessagesWith(otherId, ftableid, markRead: false);
     } catch (e) {
       _msg('Sesli mesaj gönderilemedi.');
@@ -3961,9 +4187,9 @@ class _LobbyScreenState extends State<LobbyScreen>
     final isPlaying = _playingMessageId == msg['id'];
 
     return Row(
-      mainAxisSize: MainAxisSize.min, // ❗ önemli
+      mainAxisSize: MainAxisSize.min, // â— önemli
       children: [
-        /// ▶️ PLAY
+        /// â–¶ï¸ PLAY
         GestureDetector(
           onTap: () => _playVoice(msg),
           child: Container(
@@ -3987,9 +4213,9 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 8),
 
-        /// 🔊 WAVE
+        /// ğŸ”Š WAVE
         SizedBox(
-          width: 80, // ❗ sabit width
+          width: 80, // â— sabit width
           child: Row(
             children: List.generate(12, (i) {
               final height = (i % 5 + 3).toDouble();
@@ -4009,7 +4235,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 6),
 
-        /// ⏱️ süre
+        /// â±ï¸ süre
         Text(
           "${msg['duration'] ?? 0}s",
           style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -4023,7 +4249,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final path = msg['voice_url'];
       if (path == null) return;
 
-      /// aynı mesaj → stop
+      /// aynı mesaj â†’ stop
       if (_playingMessageId == msg['id']) {
         await _audioPlayer.stop();
         setState(() => _playingMessageId = null);
@@ -4035,7 +4261,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           .from('voice')
           .createSignedUrl(path, 60);
 
-      await _audioPlayer.stop(); // 💥 önemli (önceki sesi kes)
+      await _audioPlayer.stop(); // ğŸ’¥ önemli (önceki sesi kes)
 
       await _audioPlayer.setUrl(url);
 
@@ -4091,7 +4317,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     _startTimer();
 
-    /// 💥 EN KRİTİK (recorder warmup)
+    /// ğŸ’¥ EN KRİTİK (recorder warmup)
     _canStop = false;
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -4119,7 +4345,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       return;
     }
 
-    /// ❗ ARTIK GÖNDERMEYİZ
+    /// â— ARTIK GÖNDERMEYİZ
     setState(() {
       _previewPath = path;
       _showPreview = true;
@@ -4137,16 +4363,16 @@ class _LobbyScreenState extends State<LobbyScreen>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
 
-        /// 🎨 BACKGROUND
+        /// ğŸ¨ BACKGROUND
         color: _isRecording ? Colors.redAccent : const Color(0xFF1E2A25),
 
-        /// 💎 BORDER
+        /// ğŸ’ BORDER
         border: Border.all(
           color: _isRecording ? Colors.redAccent : const Color(0x3359A588),
           width: _isRecording ? 1.6 : 1,
         ),
 
-        /// ✨ GLOW
+        /// âœ¨ GLOW
         boxShadow: _isRecording
             ? [
                 BoxShadow(
@@ -4204,20 +4430,10 @@ class _LobbyScreenState extends State<LobbyScreen>
             'rating': userRating,
           }),
         ),
-        const SizedBox(height: 8),
-        lobbySideMenuButton(
-          icon: Icons.logout_rounded,
-          label: 'Çıkış Yap',
-          danger: true,
-          onTap: () async {
-            _closeRightPanel();
-            await _signOutAndGoLogin();
-          },
-        ),
 
         const SizedBox(height: 16),
 
-        // 🔥 YENİ EKLEDİĞİMİZ
+        // ğŸ”¥ YENİ EKLEDİÄİMİZ
         lobbySideMenuButton(
           icon: Icons.delete_forever_rounded,
           label: 'Hesabı Sil',
@@ -4394,30 +4610,42 @@ class _LobbyScreenState extends State<LobbyScreen>
   String _normalizeTrText(String input) {
     if (input.isEmpty) return input;
     return input
-        .replaceAll('Ã¼', 'ü')
-        .replaceAll('Ãœ', 'Ü')
-        .replaceAll('Ã§', 'ç')
-        .replaceAll('Ã‡', 'Ç')
-        .replaceAll('Ä±', 'ı')
-        .replaceAll('Ä°', 'İ')
-        .replaceAll('Ã¶', 'ö')
-        .replaceAll('Ã–', 'Ö')
-        .replaceAll('ÅŸ', 'ş')
-        .replaceAll('Åž', 'Ş')
-        .replaceAll('ÄŸ', 'ğ')
-        .replaceAll('Äž', 'Ğ');
+        .replaceAll('ü', 'ü')
+        .replaceAll('Ü', 'Ü')
+        .replaceAll('ç', 'ç')
+        .replaceAll('Ç', 'Ç')
+        .replaceAll('ı', 'ı')
+        .replaceAll('İ', 'İ')
+        .replaceAll('ö', 'ö')
+        .replaceAll('Ö', 'Ö')
+        .replaceAll('ş', 'ş')
+        .replaceAll('Ş', 'Ş')
+        .replaceAll('ğ', 'ğ')
+        .replaceAll('Ğ', 'Ğ')
+        .replaceAll('ü', 'ü')
+        .replaceAll('Ü', 'Ü')
+        .replaceAll('ç', 'ç')
+        .replaceAll('Ç', 'Ç')
+        .replaceAll('ı', 'ı')
+        .replaceAll('İ', 'İ')
+        .replaceAll('ö', 'ö')
+        .replaceAll('Ö', 'Ö')
+        .replaceAll('ş', 'ş')
+        .replaceAll('Ş', 'Ş')
+        .replaceAll('ğ', 'ğ')
+        .replaceAll('Ğ', 'Ğ');
   }
 
   Widget _connectedLeagueAndTables({required double leagueWidth}) {
     return Row(
       children: [
-        /// 🔥 SOL PANEL (GLASS EFFECT)
+        /// ğŸ”¥ SOL PANEL (GLASS EFFECT)
         ClipRRect(
           borderRadius: BorderRadius.circular(22),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
             child: Container(
-              /// 🔥 biraz daha geniş
+              /// ğŸ”¥ biraz daha geniş
               width: leagueWidth + 60,
 
               margin: const EdgeInsets.fromLTRB(10, 2, 6, 8),
@@ -4426,13 +4654,13 @@ class _LobbyScreenState extends State<LobbyScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
 
-                /// 🔥 cam rengi (çok kritik)
+                /// ğŸ”¥ cam rengi (çok kritik)
                 border: Border.all(color: const Color(0x33FFFFFF), width: 1.2),
               ),
 
               child: Column(
                 children: [
-                  /// 🔥 HEADER
+                  /// ğŸ”¥ HEADER
                   Column(
                     children: [
                       Image.asset(
@@ -4456,7 +4684,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 2),
 
-                  /// 🔥 GOLD DIVIDER
+                  /// ğŸ”¥ GOLD DIVIDER
                   Container(
                     height: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -4471,7 +4699,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                   ),
 
-                  /// 🔥 LİG LİSTESİ
+                  /// ğŸ”¥ LİG LİSTESİ
                   Expanded(
                     child: Stack(
                       children: [
@@ -4489,7 +4717,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               setState(() {
                                 selectedLeague = newLeague;
 
-                                /// 🔥 HARD RESET
+                                /// ğŸ”¥ HARD RESET
                                 tables = [];
                                 loadingTables = true;
                                 _tablesInitialized = false;
@@ -4508,7 +4736,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           ),
         ),
 
-        /// 🔥 MASALAR
+        /// ğŸ”¥ MASALAR
         Expanded(
           child: LobbyTableWheel(
             tables: tables,
@@ -4552,7 +4780,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             value,
             style: const TextStyle(
               color: Colors.white,
-                          fontSize: 10,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -4596,7 +4824,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ),
             ),
 
-            const SizedBox(height: 10), // 🔥 BURASI
+            const SizedBox(height: 10), // ğŸ”¥ BURASI
 
             Row(
               children: [
@@ -4862,7 +5090,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     if (_saving) return;
     final username = usernameController.text.trim();
     if (username.isEmpty) {
-      setState(() => errorText = 'Kullanici adi zorunlu.');
+      setState(() => errorText = 'Kullanıcı adı zorunlu.');
       return;
     }
 
@@ -4887,14 +5115,14 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
         if (taken) {
           setState(() {
             _saving = false;
-            errorText = 'Bu kullanici adi zaten kullanimda.';
+            errorText = 'Bu kullanıcı adı zaten kullanımda.';
           });
           return;
         }
       } catch (_) {
         setState(() {
           _saving = false;
-          errorText = 'Kullanici adi kontrol edilemedi. Tekrar dene.';
+          errorText = 'Kullanıcı adı kontrol edilemedi. Tekrar dene.';
         });
         return;
       }
@@ -4926,28 +5154,35 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final title = widget.forceComplete ? 'Profilini Tamamla' : 'Profili Duzenle';
+    final title = widget.forceComplete
+        ? 'Profilini Tamamla'
+        : 'Profili Düzenle';
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(18),
-      child: Container(
+    final viewInsets = MediaQuery.of(context).viewInsets;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(18),
+        child: Container(
         width: isLandscape ? 720 : 520,
         constraints: BoxConstraints(maxHeight: size.height * 0.92),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
+            colors: [Color(0xFF17382E), Color(0xFF0D221B)],
           ),
-          border: Border.all(color: const Color(0xCCB07A1A), width: 2),
+          border: Border.all(color: const Color(0xD7D0A14A), width: 1.8),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 18,
-              offset: Offset(0, 8),
+              color: Color(0xB3000000),
+              blurRadius: 28,
+              offset: Offset(0, 14),
             ),
           ],
         ),
@@ -4955,29 +5190,55 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
           children: [
             Row(
               children: [
-                const Icon(
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0x2CECCB79),
+                    border: Border.all(color: const Color(0x66E9C46A)),
+                  ),
+                  child: const Icon(
                   Icons.person_rounded,
                   color: Color(0xFFFFE0A8),
-                  size: 26,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const Text(
+                        'Kullanıcı bilgilerini ve avatarını güncelle',
+                        style: TextStyle(
+                          color: Color(0xFFBBD2C4),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
-                if (!widget.forceComplete)
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white70,
-                    ),
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0x221A2520),
+                    border: Border.all(color: const Color(0x55FFFFFF)),
                   ),
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -5003,56 +5264,68 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   errorText!,
-                  style: const TextStyle(color: Color(0xFFFF7A7A)),
+                  style: const TextStyle(
+                    color: Color(0xFFFF8E8E),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _computedCoinCost > 0
-                      ? 'Toplam maliyet: $_computedCoinCost coin'
-                      : (_didUsernameChange && !widget.freeRenameUsed)
-                            ? 'Ilk isim degisikligi ucretsiz.'
-                            : 'Bu kayit icin coin harcanmayacak.',
-                  style: const TextStyle(color: Color(0xFFD9EBDD)),
-                ),
-                Row(
-                  children: [
-                    if (!widget.forceComplete)
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Vazgec'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0x2A111A17),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x4DE7C06A)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Color(0xFFE9C46A),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _computedCoinCost > 0
+                          ? 'Toplam maliyet: $_computedCoinCost coin'
+                          : (_didUsernameChange && !widget.freeRenameUsed)
+                          ? 'İlk isim değişikliği ücretsiz.'
+                          : 'Bu kayıt için coin harcanmayacak.',
+                      style: const TextStyle(
+                        color: Color(0xFFD9EBDD),
+                        fontWeight: FontWeight.w700,
                       ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check_rounded),
-                      label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2B7B55),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(
-                            color: Color(0xFF8F6215),
-                            width: 1.4,
-                          ),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_rounded),
+                    label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2B7B55),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(
+                          color: Color(0xFF8F6215),
+                          width: 1.4,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -5060,8 +5333,8 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
 
   Widget _usernameSection() {
     final renameInfo = !widget.freeRenameUsed
-        ? 'Ilk isim degisikligi ucretsiz. Sonrasi ${widget.renameCoinCost} coin.'
-        : 'Her isim degisikligi ${widget.renameCoinCost} coin.';
+        ? 'İlk isim değişikliği ücretsiz. Sonrası ${widget.renameCoinCost} coin.'
+        : 'Her isim değişikliği ${widget.renameCoinCost} coin.';
 
     return SizedBox(
       width: 240,
@@ -5069,7 +5342,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Kullanici adi',
+            'Kullanıcı adı',
             style: TextStyle(
               color: Color(0xFFD9EBDD),
               fontWeight: FontWeight.w700,
@@ -5085,7 +5358,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
             ),
             decoration: InputDecoration(
               counterText: '',
-              hintText: 'Ornek: OkeyUstasi',
+              hintText: 'Örnek: OkeyUstasi',
               hintStyle: const TextStyle(color: Color(0x88D9EBDD)),
               filled: true,
               fillColor: const Color(0x33273830),
@@ -5121,30 +5394,30 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     return ListView(
       children: [
         _avatarSection(
-          title: 'Standart Kadin Avatarlari',
-          subtitle: 'Ucretsiz',
+          title: 'Standart Kadın Avatarları',
+          subtitle: 'Ücretsiz',
           presets: freeWomen,
           crossAxisCount: crossAxisCount,
         ),
         const SizedBox(height: 14),
         _avatarSection(
-          title: 'Standart Erkek Avatarlari',
-          subtitle: 'Ucretsiz',
+          title: 'Standart Erkek Avatarları',
+          subtitle: 'Ücretsiz',
           presets: freeMen,
           crossAxisCount: crossAxisCount,
         ),
         const SizedBox(height: 14),
         _avatarSection(
-          title: 'Premium Kadin Avatarlari',
-          subtitle: 'Coin ile acilir',
+          title: 'Premium Kadın Avatarları',
+          subtitle: 'Coin ile açılır',
           presets: premiumWomen,
           crossAxisCount: crossAxisCount,
           premiumHeader: true,
         ),
         const SizedBox(height: 14),
         _avatarSection(
-          title: 'Premium Erkek Avatarlari',
-          subtitle: 'Coin ile acilir',
+          title: 'Premium Erkek Avatarları',
+          subtitle: 'Coin ile açılır',
           presets: premiumMen,
           crossAxisCount: crossAxisCount,
           premiumHeader: true,
@@ -5195,7 +5468,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                   color: premiumHeader
                       ? const Color(0xFFFFD27D)
                       : const Color(0xFFBFE5CC),
-                          fontSize: 10,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -5304,6 +5577,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     );
   }
 }
+
 class LobbyLayout extends StatelessWidget {
   final Widget mobile;
   final Widget tablet;
@@ -5335,7 +5609,6 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
-
 
 
 

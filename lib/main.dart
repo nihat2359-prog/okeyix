@@ -69,6 +69,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF173C31),
+          elevation: 14,
+          contentTextStyle: const TextStyle(
+            color: Color(0xFFF4F8F6),
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0x99E7C06A), width: 1.1),
+          ),
+          actionTextColor: const Color(0xFFF2C14E),
+          disabledActionTextColor: const Color(0x80F2C14E),
+          showCloseIcon: true,
+          closeIconColor: const Color(0xFFEAF2EE),
+        ),
+      ),
       home: StreamBuilder<AuthState>(
         stream: supabase.auth.onAuthStateChange,
         initialData: AuthState(

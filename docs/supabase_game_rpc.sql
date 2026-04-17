@@ -199,6 +199,7 @@ declare
   v_after int;
   v_coin_reward int;
   v_rating_reward int;
+  v_rating_loss int;
 begin
   select id, status, current_turn, max_players, entry_coin
     into v_table
@@ -257,6 +258,7 @@ begin
   if p_finish then
     v_coin_reward := greatest(coalesce(v_table.entry_coin, 100), 100);
     v_rating_reward := 10;
+    v_rating_loss := greatest(1, floor(v_rating_reward / 2.0));
 
     update public.profiles
       set coins = coalesce(coins, 0) + v_coin_reward,
@@ -278,6 +280,40 @@ begin
     begin
       insert into public.rating_transactions(user_id, amount, type, note)
       values (p_user_id, v_rating_reward, 'game_win', 'winner reward');
+    exception when others then
+      -- Optional table/columns or constraints; ignore if schema differs.
+      null;
+    end;
+
+    -- Losers lose rating (with floor protection).
+    update public.profiles p
+      set rating = greatest(coalesce(p.rating, 1200) - v_rating_loss, 500)
+    where p.id in (
+      select tp.user_id
+      from public.table_players tp
+      where tp.table_id = p_table_id
+        and tp.user_id <> p_user_id
+    );
+
+    update public.users u
+      set rating = greatest(coalesce(u.rating, 1200) - v_rating_loss, 500)
+    where u.id in (
+      select tp.user_id
+      from public.table_players tp
+      where tp.table_id = p_table_id
+        and tp.user_id <> p_user_id
+    );
+
+    begin
+      insert into public.rating_transactions(user_id, amount, type, note)
+      select
+        tp.user_id,
+        -v_rating_loss,
+        'game_lose',
+        'loser rating penalty'
+      from public.table_players tp
+      where tp.table_id = p_table_id
+        and tp.user_id <> p_user_id;
     exception when others then
       -- Optional table/columns or constraints; ignore if schema differs.
       null;

@@ -12,35 +12,38 @@ class PreviewComponent extends PositionComponent with HasVisibility {
     super.render(canvas);
 
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 
-    final paint = Paint()
-      ..color = const Color.fromARGB(255, 243, 216, 181)
+    final fill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x2AF2C14E), Color(0x12F2C14E)],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, fill);
+
+    final outerGlow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = 3
+      ..color = const Color(0x99F2C14E);
+    canvas.drawRRect(rrect, outerGlow);
 
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(10)));
+    final innerEdge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0xCCFFF4D0);
+    canvas.drawRRect(rrect.deflate(2), innerEdge);
 
-    final dashed = _createDashedPath(path, 10, 6);
-
-    canvas.drawPath(dashed, paint);
-  }
-
-  Path _createDashedPath(Path source, double dashWidth, double dashSpace) {
-    final dest = Path();
-
-    for (final metric in source.computeMetrics()) {
-      double distance = 0;
-
-      while (distance < metric.length) {
-        final next = distance + dashWidth;
-
-        dest.addPath(metric.extractPath(distance, next), Offset.zero);
-
-        distance = next + dashSpace;
-      }
-    }
-
-    return dest;
+    final topShineRect = Rect.fromLTWH(0, 0, size.x, size.y * 0.42);
+    final topShine = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x40FFFFFF), Color(0x00FFFFFF)],
+      ).createShader(topShineRect);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(topShineRect, const Radius.circular(12)),
+      topShine,
+    );
   }
 }

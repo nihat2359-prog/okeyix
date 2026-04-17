@@ -25,6 +25,7 @@ class OkeyGame extends FlameGame {
 
   final String tableId;
   final bool isCreator;
+  final VoidCallback? onTileSfx;
 
   bool isTempShiftActive = false;
   int? tempShiftIndex;
@@ -78,11 +79,22 @@ class OkeyGame extends FlameGame {
   TextComponent? _centerStatusText;
   final Map<int, DiscardSlotComponent> _discardSlotsByIndex = {};
   final Map<int, TileComponent> _discardTopTilesBySeat = {};
+  final Set<int> _discardAnimationInFlightSeats = <int>{};
+  final Set<String> _recentMoveKeys = <String>{};
+  final List<String> _recentMoveKeyOrder = <String>[];
   final List<TileComponent> _deferredTileRemovals = [];
   FinishRack? _finishRack;
-  OkeyGame({required this.tableId, required this.isCreator});
+  OkeyGame({
+    required this.tableId,
+    required this.isCreator,
+    this.onTileSfx,
+  });
 
   bool get gameStarted => _gameStarted;
+
+  void _emitTileSfx() {
+    onTileSfx?.call();
+  }
 
   @override
   Future<void> onLoad() async {
@@ -1286,6 +1298,8 @@ class OkeyGame extends FlameGame {
     for (final slot in _discardSlotsByIndex.values) {
       slot.currentTile = null;
     }
+    _recentMoveKeys.clear();
+    _recentMoveKeyOrder.clear();
   }
 
   List<int> _buildPreservingSlotPlan(List<TileModel> tiles) {
@@ -1763,6 +1777,17 @@ class OkeyGame extends FlameGame {
   }
 
   void _onMatchMove(Map<String, dynamic> move) {
+    final moveKey = _moveDedupeKey(move);
+    if (moveKey != null) {
+      if (_recentMoveKeys.contains(moveKey)) return;
+      _recentMoveKeys.add(moveKey);
+      _recentMoveKeyOrder.add(moveKey);
+      if (_recentMoveKeyOrder.length > 120) {
+        final evict = _recentMoveKeyOrder.removeAt(0);
+        _recentMoveKeys.remove(evict);
+      }
+    }
+
     final type = move['move_type']?.toString();
     final playerId = move['player_id'];
     final rawTile = move['tile_data'];
@@ -1778,6 +1803,10 @@ class OkeyGame extends FlameGame {
     if (seat == null) return;
 
     if (type == 'draw_discard') {
+      final mySeat = _resolveMySeatIndex();
+      if (mySeat != null && seat == mySeat) {
+        return;
+      }
       final rawFromSeat = move['from_seat'] ?? move['source_seat'];
       final fromSeat =
           rawFromSeat is int ? rawFromSeat : int.tryParse('$rawFromSeat');
@@ -1798,6 +1827,19 @@ class OkeyGame extends FlameGame {
         tileData: tile,
       );
     }
+  }
+
+  String? _moveDedupeKey(Map<String, dynamic> move) {
+    final id = move['id'];
+    if (id != null) return 'id:$id';
+    final createdAt = move['created_at']?.toString() ?? '';
+    final player = move['player_id']?.toString() ?? '';
+    final type = move['move_type']?.toString() ?? '';
+    final fromSeat = (move['from_seat'] ?? move['source_seat'])?.toString() ?? '';
+    final tileData = move['tile_data'];
+    final tileSig = tileData is String ? tileData : (tileData?.toString() ?? '');
+    final key = '$createdAt|$player|$type|$fromSeat|$tileSig';
+    return key == '||||' ? null : key;
   }
 
   void _animateDiscardToPlayer({
@@ -1842,6 +1884,7 @@ class OkeyGame extends FlameGame {
 
     async.Timer(const Duration(milliseconds: 320), () {
       transient.removeFromParent();
+      _emitTileSfx();
     });
   }
 
@@ -1890,6 +1933,7 @@ class OkeyGame extends FlameGame {
     )..priority = 79;
     transient.isLocked = true;
     world.add(transient);
+    _discardAnimationInFlightSeats.add(seat);
 
     transient.add(
       MoveEffect.to(
@@ -1899,8 +1943,25 @@ class OkeyGame extends FlameGame {
     );
 
     async.Timer(const Duration(milliseconds: 320), () {
-      transient.removeFromParent();
+      final previousTop = _discardTopTilesBySeat[seat];
+      if (previousTop != null && previousTop != transient) {
+        previousTop.removeFromParent();
+      }
+      transient.priority = 50;
+      transient.position = slot.position.clone();
+      _discardTopTilesBySeat[seat] = transient;
+      slot.currentTile = transient;
+      _discardAnimationInFlightSeats.remove(seat);
+      _syncDiscardTopsFromServer();
+      _emitTileSfx();
     });
+  }
+
+  bool _sameDiscardVisualTile(TileComponent existing, TileModel model) {
+    return existing.value == model.value &&
+        existing.colorType == mapTileColor(model.color) &&
+        existing.isJoker == model.isJoker &&
+        existing.isFakeJoker == model.isFakeJoker;
   }
 
   void _subscribeTablePlayersRealtime() {
@@ -2088,13 +2149,22 @@ class OkeyGame extends FlameGame {
       // Render/update current tops.
       for (final entry in topsBySeat.entries) {
         final seat = entry.key;
+        if (_discardAnimationInFlightSeats.contains(seat)) continue;
         final tileModel = _tileModelFromPayload(entry.value);
         if (tileModel == null) continue;
         final slotIndex = _slotIndexForAbsoluteSeat(seat);
         final slot = _discardSlotsByIndex[slotIndex];
         if (slot == null) continue;
+        final existing = _discardTopTilesBySeat[seat];
+        if (existing != null && _sameDiscardVisualTile(existing, tileModel)) {
+          existing.position = slot.position.clone();
+          existing.priority = 50;
+          existing.isLocked = true;
+          slot.currentTile = existing;
+          continue;
+        }
 
-        _discardTopTilesBySeat[seat]?.removeFromParent();
+        existing?.removeFromParent();
         final tile = TileComponent(
           value: tileModel.value,
           colorType: mapTileColor(tileModel.color),
@@ -2217,6 +2287,7 @@ class OkeyGame extends FlameGame {
       await _loadInitialState();
       await _syncDiscardTopsFromServer();
       hasDrawnThisTurn = _isMyTurn() && occupiedSlots.length >= 15;
+      _emitTileSfx();
     } catch (e) {
       debugPrint('GAME_DRAW RPC ERROR: $e');
       _pendingPreferredDrawSlot = null;
@@ -2286,6 +2357,7 @@ class OkeyGame extends FlameGame {
       await _syncDiscardTopsFromServer();
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
+      _emitTileSfx();
     } catch (e) {
       debugPrint('GAME_DISCARD RPC ERROR: $e');
       if ('$e'.contains('NOT_YOUR_TURN')) {
@@ -2490,6 +2562,7 @@ class OkeyGame extends FlameGame {
       occupiedSlots[targetIndex] = tile;
       tile.position = slotPositions[targetIndex];
       tile.currentSlotIndex = targetIndex;
+      _emitTileSfx();
       return;
     }
 
@@ -2519,6 +2592,7 @@ class OkeyGame extends FlameGame {
     occupiedSlots[targetIndex] = tile;
     tile.position = slotPositions[targetIndex];
     tile.currentSlotIndex = targetIndex;
+    _emitTileSfx();
   }
 
   void _restoreTileToOriginalSlot(TileComponent tile) {
@@ -2895,47 +2969,59 @@ class OkeyGame extends FlameGame {
     var run = <_FinishTile>[first];
     var neededJokers = 0;
 
-    for (final candidate in sameColor.skip(1)) {
-      int diff;
-
-      if (candidate.number == run.last.number + 1) {
-        // normal artÄ±ÅŸ (1â†’2 dahil)
-        diff = 1;
-      } else if (run.last.number == 13 && candidate.number == 1) {
-        // sadece bu wrap allowed
-        diff = 1;
-      } else if (candidate.number > run.last.number) {
-        // joker ile boÅŸluk doldurma
-        diff = candidate.number - run.last.number;
-      } else {
-        break; // sadece wrap sonrasÄ± geri dÃ¶nÃ¼ÅŸ yasak
-      }
-
-      if (diff == 0) {
-        continue;
-      }
-      if (diff == 1) {
-        run = [...run, candidate];
-      } else {
-        final need = diff - 1;
-        if (need <= (jokers.length - neededJokers)) {
-          neededJokers += need;
-          run = [...run, candidate];
-        } else {
-          break;
-        }
-      }
-
-      final totalGroupSize = run.length + neededJokers;
-      if (totalGroupSize >= 3) {
-        final usedJokers = jokers.take(neededJokers).toList();
+    // Joker ile başlayan/biten seri varyasyonlarını da dene.
+    // Mevcut akış sadece aradaki boşluğu joker ile dolduruyordu.
+    void tryRunWithExtraJokers() {
+      final remainingJokers = jokers.length - neededJokers;
+      final maxExtra = remainingJokers.clamp(0, 3);
+      for (int extra = 0; extra <= maxExtra; extra++) {
+        final totalGroupSize = run.length + neededJokers + extra;
+        if (totalGroupSize < 3) continue;
+        final usedJokers = jokers.take(neededJokers + extra).toList();
         final group = [...run, ...usedJokers];
         final remaining = _removeTilesById(sorted, group);
         if (_canFinishRecursive(remaining, memo)) {
           memo[key] = true;
-          return true;
+          throw const _FinishSolved();
         }
       }
+    }
+
+    try {
+      tryRunWithExtraJokers();
+
+      for (final candidate in sameColor.skip(1)) {
+        int diff;
+
+        if (candidate.number == run.last.number + 1) {
+          diff = 1;
+        } else if (run.last.number == 13 && candidate.number == 1) {
+          diff = 1;
+        } else if (candidate.number > run.last.number) {
+          diff = candidate.number - run.last.number;
+        } else {
+          break;
+        }
+
+        if (diff == 0) {
+          continue;
+        }
+        if (diff == 1) {
+          run = [...run, candidate];
+        } else {
+          final need = diff - 1;
+          if (need <= (jokers.length - neededJokers)) {
+            neededJokers += need;
+            run = [...run, candidate];
+          } else {
+            break;
+          }
+        }
+
+        tryRunWithExtraJokers();
+      }
+    } on _FinishSolved {
+      return true;
     }
 
     memo[key] = false;
@@ -3215,6 +3301,10 @@ Map<String, dynamic> pickWorstTile(List hand, String strategy) {
   }
 
   return normalized.first;
+}
+
+class _FinishSolved implements Exception {
+  const _FinishSolved();
 }
 
 Map<String, dynamic> pickBestDiscardTile(

@@ -25,13 +25,42 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     setState(() {
       loading = true;
     });
-    final res = await supabase
-        .from('users')
-        .select('username,rating,avatar_url')
+    final profileRows = await supabase
+        .from('profiles')
+        .select('id,rating')
         .order('rating', ascending: false)
         .limit(20);
+    final ranked = (profileRows as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    final ids = ranked
+        .map((r) => r['id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
 
-    players = List<Map<String, dynamic>>.from(res);
+    final usersById = <String, Map<String, dynamic>>{};
+    if (ids.isNotEmpty) {
+      final userRows = await supabase
+          .from('users')
+          .select('id,username,avatar_url')
+          .inFilter('id', ids);
+      for (final raw in (userRows as List)) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final id = row['id']?.toString();
+        if (id != null && id.isNotEmpty) usersById[id] = row;
+      }
+    }
+
+    players = ranked.map((r) {
+      final id = r['id']?.toString();
+      final user = id == null ? null : usersById[id];
+      return <String, dynamic>{
+        'username': user?['username'] ?? 'Oyuncu',
+        'avatar_url': user?['avatar_url'],
+        'rating': r['rating'] ?? 1200,
+      };
+    }).toList(growable: false);
 
     setState(() {
       loading = false;

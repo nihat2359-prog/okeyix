@@ -31,7 +31,6 @@ class TileComponent extends PositionComponent
   final bool isFakeJoker;
   late SpriteComponent baseSprite;
   late TextComponent numberText;
-  late CircleComponent colorDot;
   late SpriteComponent backSprite;
   bool isFaceDown = false;
   Vector2? dragOffset;
@@ -140,49 +139,74 @@ class TileComponent extends PositionComponent
 
     // NORMAL TAŞ İÇERİĞİ
 
-    final mainColor = _getColor();
+    final inkColor = _getInkColor();
+    final badgeColors = _getBadgeColors();
 
-    // Shadow text
+    // Surface polish and bevel for a more premium tile body.
+    add(TileSurfaceFx(size: size, position: size / 2));
+
+    // Number emboss shadow.
     add(
       TextComponent(
         text: value.toString(),
         textRenderer: TextPaint(
           style: TextStyle(
-            fontSize: 48,
+            fontSize: 49,
             fontWeight: FontWeight.w900,
-            color: Color(0x40000000),
+            letterSpacing: -1.0,
+            color: const Color(0x50000000),
           ),
         ),
         anchor: Anchor.center,
-        position: Vector2(size.x / 2 + 1.5, size.y * 0.36 + 2),
+        position: Vector2(size.x / 2 + 1.4, size.y * 0.345 + 2.0),
       ),
     );
 
-    // Main number
+    // Number crisp edge.
+    add(
+      TextComponent(
+        text: value.toString(),
+        textRenderer: TextPaint(
+          style: TextStyle(
+            fontSize: 49,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -1.0,
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.2
+              ..color = const Color(0xE6FFFFFF),
+          ),
+        ),
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y * 0.345),
+      ),
+    );
+
+    // Main number fill.
     numberText = TextComponent(
       text: value.toString(),
       textRenderer: TextPaint(
         style: TextStyle(
-          fontSize: 48,
+          fontSize: 47,
           fontWeight: FontWeight.w900,
-          color: mainColor,
+          letterSpacing: -0.8,
+          color: inkColor,
         ),
       ),
       anchor: Anchor.center,
-      position: Vector2(size.x / 2, size.y * 0.36),
+      position: Vector2(size.x / 2, size.y * 0.345),
     );
-
     add(numberText);
 
-    // Circle
-    colorDot = CircleComponent(
-      radius: 10,
-      paint: Paint()..color = mainColor,
-      anchor: Anchor.center,
-      position: Vector2(size.x / 2, size.y * 0.74),
+    // Color gem instead of a flat dot.
+    add(
+      TileGemBadge(
+        radius: 10.5,
+        center: Vector2(size.x / 2, size.y * 0.74),
+        coreColor: badgeColors[0],
+        rimColor: badgeColors[1],
+      ),
     );
-
-    add(colorDot);
   }
 
   void toggleFace() {
@@ -339,17 +363,104 @@ class TileComponent extends PositionComponent
 
   // =============================
 
-  Color _getColor() {
+  Color _getInkColor() {
     switch (colorType) {
       case TileColorType.red:
-        return const Color.fromARGB(255, 155, 2, 2);
+        return const Color(0xFFA3171B);
       case TileColorType.blue:
-        return const Color.fromARGB(255, 0, 87, 187);
+        return const Color(0xFF1B4FB5);
       case TileColorType.black:
-        return Colors.black;
+        return const Color(0xFF151515);
       case TileColorType.yellow:
-        return const Color.fromARGB(255, 216, 159, 3);
+        return const Color(0xFF9F7600);
     }
+  }
+
+  List<Color> _getBadgeColors() {
+    switch (colorType) {
+      case TileColorType.red:
+        return [const Color(0xFFC62828), const Color(0xFF6B1111)];
+      case TileColorType.blue:
+        return [const Color(0xFF2B6DE8), const Color(0xFF173D83)];
+      case TileColorType.black:
+        return [const Color(0xFF2C2C2C), const Color(0xFF0E0E0E)];
+      case TileColorType.yellow:
+        return [const Color(0xFFD8A719), const Color(0xFF7C5D00)];
+    }
+  }
+}
+
+class TileSurfaceFx extends PositionComponent {
+  TileSurfaceFx({required Vector2 size, required Vector2 position}) {
+    this.size = size;
+    this.position = position;
+    anchor = Anchor.center;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+
+    final topGloss = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x40FFFFFF), Color(0x00FFFFFF)],
+        stops: [0.0, 0.42],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, topGloss);
+
+    final edgeShadow = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x00000000), Color(0x22000000)],
+        stops: [0.65, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, edgeShadow);
+
+    final innerStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x59FFFFFF);
+    canvas.drawRRect(rrect.deflate(1.2), innerStroke);
+  }
+}
+
+class TileGemBadge extends PositionComponent {
+  final double radius;
+  final Vector2 center;
+  final Color coreColor;
+  final Color rimColor;
+
+  TileGemBadge({
+    required this.radius,
+    required this.center,
+    required this.coreColor,
+    required this.rimColor,
+  }) {
+    position = center;
+    anchor = Anchor.center;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final outer = Paint()
+      ..shader = RadialGradient(
+        colors: [coreColor.withOpacity(0.96), rimColor],
+        stops: const [0.35, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: radius));
+    canvas.drawCircle(Offset.zero, radius, outer);
+
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0x88FFFFFF);
+    canvas.drawCircle(Offset.zero, radius - 0.9, ring);
+
+    final gleam = Paint()..color = const Color(0xA6FFFFFF);
+    canvas.drawCircle(Offset(-radius * 0.3, -radius * 0.35), radius * 0.28, gleam);
   }
 }
 

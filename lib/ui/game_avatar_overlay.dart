@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/player_model.dart';
@@ -7,8 +7,13 @@ import 'avatar_preset.dart';
 
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
+  final double topInset;
 
-  const GameAvatarOverlay({super.key, required this.tableId});
+  const GameAvatarOverlay({
+    super.key,
+    required this.tableId,
+    this.topInset = 0,
+  });
 
   @override
   State<GameAvatarOverlay> createState() => _GameAvatarOverlayState();
@@ -34,6 +39,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   int _lastSeenTurnSeat = -1;
   DateTime? _turnStartedAt;
   Timer? _tickerTimer;
+  bool _hasLoadedPlayersOnce = false;
 
   @override
   void initState() {
@@ -224,15 +230,38 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           .firstWhere((v) => v != null, orElse: () => null);
 
       if (!mounted) return;
+      final previousIds = players.map((p) => p.player.id).toSet();
+      final joinedPlayers = _hasLoadedPlayersOnce
+          ? mapped.where((p) => !previousIds.contains(p.player.id)).toList()
+          : const <_SeatPlayer>[];
+
       setState(() {
         players = mapped;
         _mySeatIndex = mySeat;
+        _hasLoadedPlayersOnce = true;
       });
+
+      _showJoinedPlayersSnack(joinedPlayers);
     } catch (e) {
       debugPrint('OVERLAY ERROR: $e');
     }
   }
 
+  void _showJoinedPlayersSnack(List<_SeatPlayer> joinedPlayers) {
+    if (!mounted || joinedPlayers.isEmpty) return;
+
+    final names = joinedPlayers
+        .map((p) => p.player.name.trim())
+        .where((n) => n.isNotEmpty)
+        .toList(growable: false);
+    if (names.isEmpty) return;
+
+    final message = names.length == 1
+        ? '${names.first} masaya katıldı'
+        : '${names.length} oyuncu masaya katıldı: ${names.join(', ')}';
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
   Future<Map<String, Map<String, dynamic>>> _loadProfilesByUserId(
     List<String> userIds,
   ) async {
@@ -264,7 +293,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     try {
       final rows = await _supabase
           .from('users')
-          .select('id, username, email, avatar_url, rating')
+          .select('id, username, email, avatar_url')
           .inFilter('id', userIds);
 
       return (rows as List)
@@ -293,7 +322,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     try {
       final row = await _supabase
           .from('users')
-          .select('id, username, email, avatar_url, rating')
+          .select('id, username, email, avatar_url')
           .eq('email', email)
           .maybeSingle();
 
@@ -336,17 +365,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       final opponentFloor = _entryCoin > 0 ? _entryCoin : 100;
       coins = userId == _myUserId ? _localCoinFloor : opponentFloor;
     }
-    final userRatingRaw = user?['rating'];
     final profileRatingRaw = profile?['rating'];
-    final userRating = userRatingRaw is int
-        ? userRatingRaw
-        : int.tryParse('$userRatingRaw') ?? 0;
     final profileRating = profileRatingRaw is int
         ? profileRatingRaw
         : int.tryParse('$profileRatingRaw') ?? 0;
-    final rating = userRating > 0
-        ? userRating
-        : (profileRating > 0 ? profileRating : 1000);
+    final rating = profileRating > 0 ? profileRating : 1200;
 
     final avatarRaw = (user?['avatar_url'] ?? profile?['avatar_url'])
         ?.toString();
@@ -545,7 +568,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           return Positioned(
             left: 0,
             right: 0,
-            top: 26,
+            top: 26 + widget.topInset,
             child: Center(child: child),
           );
         }
@@ -554,7 +577,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         return Positioned(
           left: 0,
           right: 0,
-          top: 52,
+          top: 52 + widget.topInset,
           child: Center(child: child),
         );
       case 3:
@@ -604,7 +627,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                     const Padding(
                       padding: EdgeInsets.all(16),
                       child: Text(
-                        "Bu lig i�in uygun ve aktif oyuncu bulunamad�.",
+                        "Bu lig iÃ§in uygun ve aktif oyuncu bulunamadÄ±.",
                         style: TextStyle(color: Colors.white70),
                       ),
                     )
@@ -661,7 +684,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        "Rating $rating � $coins coin",
+                                        "Rating $rating â€¢ $coins coin",
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
@@ -811,14 +834,32 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       try {
         final botRows = await _supabase
             .from('users')
-            .select('id, username, rating, avatar_url, is_bot')
+            .select('id, username, avatar_url, is_bot')
             .eq('is_bot', true)
             .limit(30);
+        final botIds = (botRows as List)
+            .map((r) => (r as Map)['id']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toList();
+        final botRatingById = <String, int>{};
+        if (botIds.isNotEmpty) {
+          final botProfiles = await _supabase
+              .from('profiles')
+              .select('id,rating')
+              .inFilter('id', botIds);
+          for (final raw in (botProfiles as List)) {
+            final row = Map<String, dynamic>.from(raw as Map);
+            final id = row['id']?.toString();
+            if (id == null || id.isEmpty) continue;
+            botRatingById[id] = (row['rating'] as int?) ?? 1200;
+          }
+        }
         for (final raw in (botRows as List)) {
           final row = Map<String, dynamic>.from(raw as Map);
           final id = row['id']?.toString();
           if (id == null || id.isEmpty || excludedIds.contains(id)) continue;
-          final rating = (row['rating'] as int?) ?? 1000;
+          final rating = botRatingById[id] ?? 1200;
           if (rating < minRating) continue;
           bots.add({
             'id': id,
@@ -868,9 +909,6 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           'hand': <dynamic>[],
         });
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Misafir Oyuncu masaya katıldı')),
-        );
         await _loadPlayers();
         return;
       }
@@ -883,7 +921,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Davet gönderildi')));
+      ).showSnackBar(const SnackBar(content: Text('Davet gÃ¶nderildi')));
     } catch (e) {
       if (!mounted) return;
       final err = e.toString();
