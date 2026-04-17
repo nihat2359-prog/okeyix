@@ -5242,7 +5242,7 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: viewInsets.bottom * 0.22),
+      padding: EdgeInsets.only(bottom: keyboardOpen ? viewInsets.bottom + 20 : 0),
       child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(18),

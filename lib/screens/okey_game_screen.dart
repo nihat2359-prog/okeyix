@@ -992,7 +992,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   final finalH = baseH * scale;
                   final cropTop = ((finalH - screenH) / 2);
                   final visibleCropTop = cropTop > 0 ? cropTop : 0.0;
-                  final avatarTopInset = 0.0;
+                final avatarTopInset = 10.0;
 
                   return Stack(
                     children: [
