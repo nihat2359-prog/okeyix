@@ -455,6 +455,48 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     return defaultAvatarPresetForSeat(seatIndex);
   }
 
+  Widget _inviteAvatar(String? avatarRef, String name) {
+    final raw = avatarRef?.trim();
+    final resolved = (raw != null && raw.isNotEmpty)
+        ? avatarPresetByRef(raw).imageUrl
+        : '';
+    final fallbackChar = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    if (resolved.startsWith('assets/')) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundColor: const Color(0xFF1F3D32),
+        backgroundImage: AssetImage(resolved),
+      );
+    }
+    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundColor: const Color(0xFF1F3D32),
+        backgroundImage: NetworkImage(resolved),
+        onBackgroundImageError: (_, __) {},
+        child: Text(
+          fallbackChar,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: const Color(0xFF1F3D32),
+      child: Text(
+        fallbackChar,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -649,24 +691,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: const Color(0xFF1F3D32),
-                                  backgroundImage: avatarUrl != null &&
-                                          avatarUrl.toString().isNotEmpty
-                                      ? NetworkImage(avatarUrl.toString())
-                                      : null,
-                                  child: avatarUrl == null ||
-                                          avatarUrl.toString().isEmpty
-                                      ? Text(
-                                          name.substring(0, 1).toUpperCase(),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        )
-                                      : null,
-                                ),
+                                _inviteAvatar(avatarUrl?.toString(), name),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(

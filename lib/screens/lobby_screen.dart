@@ -30,6 +30,7 @@ import '../ui/lobby/_ui_helpers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
 import 'package:http/http.dart' as http;
+import 'package:okeyix/services/feedback_settings_service.dart';
 
 enum _RightPanelType { none, friends, messages, settings }
 
@@ -111,6 +112,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _showPreview = false;
   bool _deviceReady = false;
   bool _initCalled = false;
+  bool _soundEnabled = true;
+  bool _vibrationEnabled = true;
   List<Map<String, dynamic>> _systemMessages = [];
   final Set<String> _seenSystemMessageIds = <String>{};
   String? _lastSystemToastMessageId;
@@ -286,6 +289,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _init() async {
+    await FeedbackSettingsService.load();
+    _soundEnabled = FeedbackSettingsService.soundEnabled;
+    _vibrationEnabled = FeedbackSettingsService.vibrationEnabled;
     await _loadUser();
     await _refreshGlobalSpectatorPassStatus();
     await _checkOnboarding();
@@ -3623,8 +3629,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                               await _audioPlayer.stop();
                               setState(() => _previewPlaying = false);
                             } else {
+                              if (!FeedbackSettingsService.soundEnabled) {
+                                await FeedbackSettingsService.triggerHaptic();
+                                return;
+                              }
                               await _audioPlayer.setFilePath(_previewPath!);
                               await _audioPlayer.play();
+                              await FeedbackSettingsService.triggerHaptic();
                               setState(() => _previewPlaying = true);
 
                               _audioPlayer.playerStateStream.listen((state) {
@@ -4248,6 +4259,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     try {
       final path = msg['voice_url'];
       if (path == null) return;
+      if (!FeedbackSettingsService.soundEnabled) {
+        await FeedbackSettingsService.triggerHaptic();
+        return;
+      }
 
       /// aynı mesaj â†’ stop
       if (_playingMessageId == msg['id']) {
@@ -4268,6 +4283,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       setState(() => _playingMessageId = msg['id']);
 
       await _audioPlayer.play();
+      await FeedbackSettingsService.triggerHaptic();
     } catch (e) {
       debugPrint("VOICE PLAY ERROR: $e");
     }
@@ -4402,6 +4418,64 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _settingsPanel() {
     return Column(
       children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF18231F),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0x3359A588)),
+          ),
+          child: Column(
+            children: [
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: const Color(0xFF163328),
+                activeTrackColor: const Color(0xFFE7C06A),
+                inactiveThumbColor: const Color(0xFF8EA79A),
+                inactiveTrackColor: const Color(0x334E6A5D),
+                title: const Text(
+                  'Ses',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Oyun ve mesaj sesleri',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                value: _soundEnabled,
+                onChanged: (value) async {
+                  await FeedbackSettingsService.setSoundEnabled(value);
+                  if (!mounted) return;
+                  setState(() => _soundEnabled = value);
+                },
+              ),
+              const Divider(color: Color(0x3359A588), height: 1),
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: const Color(0xFF163328),
+                activeTrackColor: const Color(0xFFE7C06A),
+                inactiveThumbColor: const Color(0xFF8EA79A),
+                inactiveTrackColor: const Color(0x334E6A5D),
+                title: const Text(
+                  'Titreşim',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Sesle birlikte haptic geri bildirim',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                value: _vibrationEnabled,
+                onChanged: (value) async {
+                  await FeedbackSettingsService.setVibrationEnabled(value);
+                  if (!mounted) return;
+                  setState(() => _vibrationEnabled = value);
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         lobbySideMenuButton(
           icon: Icons.support_agent_rounded,
           label: 'Destek / \u015Eikayet G\u00F6nder',
@@ -5159,16 +5233,21 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
         : 'Profili Düzenle';
 
     final viewInsets = MediaQuery.of(context).viewInsets;
+    final keyboardOpen = viewInsets.bottom > 0;
+    final maxDialogHeight = (size.height - viewInsets.bottom - 24).clamp(
+      300.0,
+      size.height * 0.94,
+    );
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      padding: EdgeInsets.only(bottom: viewInsets.bottom * 0.22),
       child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(18),
         child: Container(
         width: isLandscape ? 720 : 520,
-        constraints: BoxConstraints(maxHeight: size.height * 0.92),
+        constraints: BoxConstraints(maxHeight: maxDialogHeight),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
@@ -5243,7 +5322,9 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: isLandscape
+              child: keyboardOpen
+                  ? Align(alignment: Alignment.topLeft, child: _usernameSection())
+                  : isLandscape
                   ? Row(
                       children: [
                         _usernameSection(),

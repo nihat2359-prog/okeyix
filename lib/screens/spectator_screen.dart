@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:okeyix/services/feedback_settings_service.dart';
 import '../game/spectator_game.dart';
 
 class SpectatorScreen extends StatefulWidget {
@@ -78,6 +79,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> _load() async {
+    await FeedbackSettingsService.load();
     final t = await supabase
         .from('tables')
         .select()
@@ -513,10 +515,15 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                         color: Colors.white,
                                       ),
                                       onPressed: () async {
+                                        if (!FeedbackSettingsService.soundEnabled) {
+                                          await FeedbackSettingsService.triggerHaptic();
+                                          return;
+                                        }
                                         await _audioPlayer.setFilePath(
                                           _previewPath!,
                                         );
                                         await _audioPlayer.play();
+                                        await FeedbackSettingsService.triggerHaptic();
                                       },
                                     ),
                                     Expanded(child: _waveform(false)),
@@ -670,6 +677,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     try {
       final path = msg['voice_url'];
       if (path == null) return;
+      if (!FeedbackSettingsService.soundEnabled) {
+        await FeedbackSettingsService.triggerHaptic();
+        return;
+      }
 
       /// aynı mesaj → stop
       if (_playingMessageId == msg['id']) {
@@ -690,6 +701,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       setState(() => _playingMessageId = msg['id']);
 
       await _audioPlayer.play();
+      await FeedbackSettingsService.triggerHaptic();
     } catch (e) {
       debugPrint("VOICE PLAY ERROR: $e");
     }
