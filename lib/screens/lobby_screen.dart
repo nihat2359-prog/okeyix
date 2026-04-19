@@ -4503,7 +4503,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         lobbySideMenuButton(
           icon: Icons.support_agent_rounded,
           label: 'Destek / \u015Eikayet G\u00F6nder',
@@ -4512,7 +4512,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             await _openSupportRequestDialog();
           },
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         lobbySideMenuButton(
           icon: Icons.notifications_active_rounded,
           label: 'Sistem Duyurular\u0131',
@@ -4521,7 +4521,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             await _showSystemMessagesDialog();
           },
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         lobbySideMenuButton(
           icon: Icons.person_rounded,
           label: 'Profil Kartım',
@@ -4533,7 +4533,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           }),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
 
         // ğŸ”¥ YENİ EKLEDİÄİMİZ
         lobbySideMenuButton(
@@ -5383,60 +5383,65 @@ class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
                   ),
                 ),
               ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0x2A111A17),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x4DE7C06A)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Color(0xFFE9C46A),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _computedCoinCost > 0
-                          ? 'Toplam maliyet: $_computedCoinCost coin'
-                          : (_didUsernameChange && !widget.freeRenameUsed)
-                          ? 'İlk isim değişikliği ücretsiz.'
-                          : 'Bu kayıt için coin harcanmayacak.',
-                      style: const TextStyle(
-                        color: Color(0xFFD9EBDD),
-                        fontWeight: FontWeight.w700,
-                      ),
+            if (!keyboardOpen) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0x2A111A17),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0x4DE7C06A)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      color: Color(0xFFE9C46A),
+                      size: 18,
                     ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check_rounded),
-                    label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2B7B55),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(
-                          color: Color(0xFF8F6215),
-                          width: 1.4,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _computedCoinCost > 0
+                            ? 'Toplam maliyet: $_computedCoinCost coin'
+                            : (_didUsernameChange && !widget.freeRenameUsed)
+                            ? 'İlk isim değişikliği ücretsiz.'
+                            : 'Bu kayıt için coin harcanmayacak.',
+                        style: const TextStyle(
+                          color: Color(0xFFD9EBDD),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    ElevatedButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_rounded),
+                      label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2B7B55),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(
+                            color: Color(0xFF8F6215),
+                            width: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
