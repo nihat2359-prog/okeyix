@@ -260,8 +260,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         ? '${names.first} masaya katıldı'
         : '${names.length} oyuncu masaya katıldı: ${names.join(', ')}';
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
+
   Future<Map<String, Map<String, dynamic>>> _loadProfilesByUserId(
     List<String> userIds,
   ) async {
@@ -669,7 +672,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                     const Padding(
                       padding: EdgeInsets.all(16),
                       child: Text(
-                        "Bu lig iÃ§in uygun ve aktif oyuncu bulunamadÄ±.",
+                        "Bu lig için uygun ve aktif oyuncu bulunamadı.",
                         style: TextStyle(color: Colors.white70),
                       ),
                     )
@@ -709,7 +712,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        "Rating $rating â€¢ $coins coin",
+                                        "Rating $rating - $coins coin",
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
@@ -738,7 +741,10 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                                   onPressed: userId == null
                                       ? null
                                       : () async {
-                                          await _sendInvite(userId: userId, isBot: p['is_bot'] == true);
+                                          await _sendInvite(
+                                            userId: userId,
+                                            isBot: p['is_bot'] == true,
+                                          );
                                           if (!mounted) return;
                                           Navigator.pop(context);
                                         },
@@ -794,10 +800,10 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         minRating = (league?['min_rating'] as int?) ?? 0;
       } catch (_) {}
 
-      final activeTables = await _supabase
-          .from('tables')
-          .select('id')
-          .inFilter('status', ['waiting', 'playing']);
+      final activeTables = await _supabase.from('tables').select('id').inFilter(
+        'status',
+        ['waiting', 'playing'],
+      );
       final activeTableIds = (activeTables as List)
           .map((r) => (r as Map)['id']?.toString())
           .whereType<String>()
@@ -904,6 +910,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       return [];
     }
   }
+
   Future<void> _sendInvite({required String userId, bool isBot = false}) async {
     final myUserId = _myUserId;
     if (myUserId == null) return;

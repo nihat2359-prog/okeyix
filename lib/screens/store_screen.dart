@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:okeyix/screens/login_screen.dart';
+import 'package:okeyix/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 
@@ -146,9 +148,96 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   void buy(ProductDetails product) {
+    if (AuthService.isGuest()) {
+      _showLoginRequiredDialog();
+      return;
+    }
+
     final purchaseParam = PurchaseParam(productDetails: product);
 
     _iap.buyConsumable(purchaseParam: purchaseParam);
+  }
+
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Color(0xFF0F2A1F),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.amber.withOpacity(0.4)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock, color: Colors.amber, size: 36),
+              SizedBox(height: 12),
+
+              Text(
+                "Hesap Gerekli",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+
+              SizedBox(height: 10),
+
+              Text(
+                "Coin satın almak için hesabını bağlamalısın.\n\n"
+                "Bu sayede satın aldıkların kaybolmaz.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70),
+              ),
+
+              SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        "İptal",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Future.delayed(Duration(milliseconds: 200), () {
+                          _signOutAndGoLogin();
+                        });
+                      },
+                      child: Text("Giriş Yap"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _signOutAndGoLogin() async {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      debugPrint('SIGN OUT ERROR: $e');
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   void showCoinAnimation(int coins) {

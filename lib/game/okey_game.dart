@@ -84,11 +84,7 @@ class OkeyGame extends FlameGame {
   final List<String> _recentMoveKeyOrder = <String>[];
   final List<TileComponent> _deferredTileRemovals = [];
   FinishRack? _finishRack;
-  OkeyGame({
-    required this.tableId,
-    required this.isCreator,
-    this.onTileSfx,
-  });
+  OkeyGame({required this.tableId, required this.isCreator, this.onTileSfx});
 
   bool get gameStarted => _gameStarted;
 
@@ -509,17 +505,29 @@ class OkeyGame extends FlameGame {
           topDiscard,
           strategy,
         );
-        final canFinishWithTop = _canFinishAfterTakingTopDiscard(hand, topDiscard);
-        final shouldTakeByHeuristic =
-            shouldTakeDiscard(hand, topDiscard, strategy);
-        final topIsRecentOwnDiscard = topDiscard != null &&
-            _botRecentDiscards[botUserId]?.containsKey(_tileMapKey(topDiscard)) ==
+        final canFinishWithTop = _canFinishAfterTakingTopDiscard(
+          hand,
+          topDiscard,
+        );
+        final shouldTakeByHeuristic = shouldTakeDiscard(
+          hand,
+          topDiscard,
+          strategy,
+        );
+        final topIsRecentOwnDiscard =
+            topDiscard != null &&
+            _botRecentDiscards[botUserId]?.containsKey(
+                  _tileMapKey(topDiscard),
+                ) ==
                 true;
-        final topIsFakeJoker = topDiscard != null &&
+        final topIsFakeJoker =
+            topDiscard != null &&
             (topDiscard['fake_joker'] == true ||
                 topDiscard['is_fake_joker'] == true);
-        final immediateMeldValue =
-            _immediateMeldGainFromTopDiscard(hand, topDiscard);
+        final immediateMeldValue = _immediateMeldGainFromTopDiscard(
+          hand,
+          topDiscard,
+        );
         final wouldThrowBackTop = _wouldDiscardTakenTop(
           hand,
           topDiscard,
@@ -529,14 +537,16 @@ class OkeyGame extends FlameGame {
         // Human-like rule:
         // take from discard when it clearly improves immediate meld quality
         // (especially completing/strengthening sets), otherwise draw closed.
-        final shouldTakeTop = canFinishWithTop ||
+        final shouldTakeTop =
+            canFinishWithTop ||
             (!topIsRecentOwnDiscard &&
                 !topIsFakeJoker &&
                 ((immediateMeldValue >= 4) ||
-                    (!wouldThrowBackTop &&
-                        (immediateMeldValue >= 3))));
+                    (!wouldThrowBackTop && (immediateMeldValue >= 3))));
 
-        var source = (topDiscard != null && shouldTakeTop) ? 'discard' : 'closed';
+        var source = (topDiscard != null && shouldTakeTop)
+            ? 'discard'
+            : 'closed';
 
         try {
           await Supabase.instance.client.rpc(
@@ -622,7 +632,6 @@ class OkeyGame extends FlameGame {
       if (latestHand is! List || latestHand.length != 15) {
         return;
       }
-
 
       await Supabase.instance.client.rpc(
         'game_discard',
@@ -733,10 +742,12 @@ class OkeyGame extends FlameGame {
         .toSet();
 
     var runTouch = 0;
-    if (sameColorVals.contains(t.value - 1) || sameColorVals.contains(t.value + 1)) {
+    if (sameColorVals.contains(t.value - 1) ||
+        sameColorVals.contains(t.value + 1)) {
       runTouch += 1;
     }
-    if (sameColorVals.contains(t.value - 2) || sameColorVals.contains(t.value + 2)) {
+    if (sameColorVals.contains(t.value - 2) ||
+        sameColorVals.contains(t.value + 2)) {
       runTouch += 1;
     }
 
@@ -868,8 +879,10 @@ class OkeyGame extends FlameGame {
 
   void _rememberBotDiscard(String botUserId, Map<String, dynamic> tile) {
     final key = _tileMapKey(tile);
-    final memory =
-        _botRecentDiscards.putIfAbsent(botUserId, () => <String, int>{});
+    final memory = _botRecentDiscards.putIfAbsent(
+      botUserId,
+      () => <String, int>{},
+    );
     memory[key] = 12;
   }
 
@@ -1808,8 +1821,9 @@ class OkeyGame extends FlameGame {
         return;
       }
       final rawFromSeat = move['from_seat'] ?? move['source_seat'];
-      final fromSeat =
-          rawFromSeat is int ? rawFromSeat : int.tryParse('$rawFromSeat');
+      final fromSeat = rawFromSeat is int
+          ? rawFromSeat
+          : int.tryParse('$rawFromSeat');
       _animateDiscardToPlayer(
         fromSeat: fromSeat ?? ((seat - 1 + _maxPlayers) % _maxPlayers),
         toSeat: seat,
@@ -1822,10 +1836,7 @@ class OkeyGame extends FlameGame {
       final mySeat = _resolveMySeatIndex();
       // Local player's manual drag already gives enough feedback.
       if (mySeat != null && seat == mySeat) return;
-      _animatePlayerToDiscard(
-        seat: seat,
-        tileData: tile,
-      );
+      _animatePlayerToDiscard(seat: seat, tileData: tile);
     }
   }
 
@@ -1835,9 +1846,12 @@ class OkeyGame extends FlameGame {
     final createdAt = move['created_at']?.toString() ?? '';
     final player = move['player_id']?.toString() ?? '';
     final type = move['move_type']?.toString() ?? '';
-    final fromSeat = (move['from_seat'] ?? move['source_seat'])?.toString() ?? '';
+    final fromSeat =
+        (move['from_seat'] ?? move['source_seat'])?.toString() ?? '';
     final tileData = move['tile_data'];
-    final tileSig = tileData is String ? tileData : (tileData?.toString() ?? '');
+    final tileSig = tileData is String
+        ? tileData
+        : (tileData?.toString() ?? '');
     final key = '$createdAt|$player|$type|$fromSeat|$tileSig';
     return key == '||||' ? null : key;
   }
@@ -1855,8 +1869,9 @@ class OkeyGame extends FlameGame {
     final model = tileData != null ? _tileModelFromPayload(tileData) : null;
 
     final value = model?.value ?? sourceTop?.value;
-    final colorType =
-        model != null ? mapTileColor(model.color) : sourceTop?.colorType;
+    final colorType = model != null
+        ? mapTileColor(model.color)
+        : sourceTop?.colorType;
     if (value == null || colorType == null) return;
 
     final transient = TileComponent(
@@ -1889,8 +1904,8 @@ class OkeyGame extends FlameGame {
   }
 
   Vector2 _drawAnimationTargetForSeat(int absoluteSeat) {
-    final relative = (absoluteSeat - (_mySeatIndexAbs ?? 0) + _maxPlayers) %
-        _maxPlayers;
+    final relative =
+        (absoluteSeat - (_mySeatIndexAbs ?? 0) + _maxPlayers) % _maxPlayers;
     if (_maxPlayers == 2) {
       return relative == 0 ? Vector2(800, 730) : Vector2(800, 170);
     }
@@ -1919,8 +1934,9 @@ class OkeyGame extends FlameGame {
     final model = tileData != null ? _tileModelFromPayload(tileData) : null;
     final fallbackTop = _discardTopTilesBySeat[seat] ?? slot.currentTile;
     final value = model?.value ?? fallbackTop?.value;
-    final colorType =
-        model != null ? mapTileColor(model.color) : fallbackTop?.colorType;
+    final colorType = model != null
+        ? mapTileColor(model.color)
+        : fallbackTop?.colorType;
     if (value == null || colorType == null) return;
 
     final start = _drawAnimationTargetForSeat(seat);
@@ -2452,12 +2468,9 @@ class OkeyGame extends FlameGame {
       if (hand.length != 15) return;
       final strategy = decideStrategy(hand);
       final finishTile = _pickFinishDiscardTile(hand);
-      final tile = finishTile ??
-          pickBestDiscardTile(
-            hand,
-            strategy,
-            protectedKeys: const <String>{},
-          );
+      final tile =
+          finishTile ??
+          pickBestDiscardTile(hand, strategy, protectedKeys: const <String>{});
       final safeTile = _ensureLooseDiscardWhenPossible(hand, tile, strategy);
       final canFinish = finishTile != null;
       final slots = _buildSlotsJsonFromHand(hand);
@@ -3279,10 +3292,7 @@ Map<String, dynamic> pickWorstTile(List hand, String strategy) {
     }
   }
 
-  worst ??= tiles.firstWhere(
-    (x) => !x.isOkey,
-    orElse: () => tiles.last,
-  );
+  worst ??= tiles.firstWhere((x) => !x.isOkey, orElse: () => tiles.last);
 
   for (final tile in normalized) {
     final value = (tile['value'] ?? tile['number'] ?? 0) as int;
@@ -3293,7 +3303,8 @@ Map<String, dynamic> pickWorstTile(List hand, String strategy) {
   }
 
   for (final tile in normalized) {
-    final isJoker = tile['joker'] == true ||
+    final isJoker =
+        tile['joker'] == true ||
         tile['is_joker'] == true ||
         tile['fake_joker'] == true ||
         tile['is_fake_joker'] == true;
@@ -3381,14 +3392,16 @@ Map<String, dynamic> pickBestDiscardTile(
 
     final potential = _handPotentialScore(remaining);
     final usefulness = _tileUsefulnessScore(tile, normalized, strategy);
-    final protectedPenalty =
-        protectedKeys.contains(_botTileMapKey(tile)) ? 1000 : 0;
+    final protectedPenalty = protectedKeys.contains(_botTileMapKey(tile))
+        ? 1000
+        : 0;
 
     final betterPotential = potential > bestPotential;
     final equalPotential = potential == bestPotential;
     final betterPenalty =
         equalPotential && protectedPenalty < bestProtectedPenalty;
-    final equalPenalty = equalPotential && protectedPenalty == bestProtectedPenalty;
+    final equalPenalty =
+        equalPotential && protectedPenalty == bestProtectedPenalty;
     final betterUsefulness = equalPenalty && usefulness < bestUsefulness;
 
     if (betterPotential || betterPenalty || betterUsefulness) {
@@ -3556,4 +3569,3 @@ HandAnalysis analyzeHand(List hand) {
 
   return result;
 }
-

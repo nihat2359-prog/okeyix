@@ -274,10 +274,14 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   void _playTileSfx() {
-    if (FeedbackSettingsService.soundEnabled) {
-      _tileSfxPlayer.stop();
+    if (!FeedbackSettingsService.soundEnabled) return;
+
+    try {
       _tileSfxPlayer.play(jo.AssetSource('sounds/drop.mp3'), volume: 0.35);
+    } catch (e) {
+      debugPrint("SFX error: $e");
     }
+
     FeedbackSettingsService.triggerHaptic();
   }
 
@@ -752,7 +756,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _isLeavingTable = true;
 
     try {
-      // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â realtime kapat
       _tableChannel?.unsubscribe();
       _playersChannel?.unsubscribe();
       _discardChannel?.unsubscribe();
@@ -761,6 +764,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         'leave_table',
         params: {'p_table_id': widget.tableId, 'p_user_id': userId},
       );
+
+      // 🔥 DB'nin oturmasını bekle
+      await _waitUntilPlayerRemoved();
+
       await _cleanupTableIfInactive();
 
       _game.resetGameState();
@@ -777,68 +784,107 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     }
   }
 
+  Future<void> _waitUntilPlayerRemoved() async {
+    for (int i = 0; i < 5; i++) {
+      final res = await _supabase
+          .from('table_players')
+          .select('user_id')
+          .eq('table_id', widget.tableId);
+
+      final players = (res as List)
+          .map((e) => e['user_id']?.toString())
+          .toList();
+
+      if (!players.contains(_myUserId)) {
+        return; // artık DB güncel
+      }
+
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
   Future<void> _cleanupTableIfInactive() async {
     try {
       final playerRows = await _supabase
           .from('table_players')
           .select('user_id')
           .eq('table_id', widget.tableId);
+
       final players = (playerRows as List)
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
 
-      bool inactive = players.isEmpty;
-      if (!inactive) {
-        final ids = players
-            .map((p) => p['user_id']?.toString())
-            .whereType<String>()
-            .where((id) => id.isNotEmpty)
-            .toList();
-        if (ids.isEmpty) {
-          inactive = true;
-        } else {
-          final users = await _supabase
-              .from('users')
-              .select('id,is_bot')
-              .inFilter('id', ids);
-          final isBotById = <String, bool>{
-            for (final raw in (users as List))
-              (raw['id']?.toString() ?? ''): raw['is_bot'] == true,
-          };
-          final hasHuman = ids.any((id) => isBotById[id] != true);
-          inactive = !hasHuman;
-        }
+      // 🔥 1. Hiç oyuncu yok
+      if (players.isEmpty) {
+        await _deleteTable();
+        return;
       }
 
-      if (!inactive) return;
+      final ids = players
+          .map((p) => p['user_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
 
-      try {
-        await _supabase
-            .from('match_moves')
-            .delete()
-            .eq('table_id', widget.tableId);
-      } catch (_) {}
-      try {
-        await _supabase
-            .from('table_discard_tops')
-            .delete()
-            .eq('table_id', widget.tableId);
-      } catch (_) {}
-      try {
-        await _supabase
-            .from('table_discards')
-            .delete()
-            .eq('table_id', widget.tableId);
-      } catch (_) {}
-      try {
-        await _supabase
-            .from('table_players')
-            .delete()
-            .eq('table_id', widget.tableId);
-      } catch (_) {}
-      try {
-        await _supabase.from('tables').delete().eq('id', widget.tableId);
-      } catch (_) {}
+      // 🔥 2. Tek oyuncu varsa direkt sil
+      if (ids.length <= 1) {
+        await _deleteTable();
+        return;
+      }
+
+      // 🔥 3. Bot kontrolü
+      final users = await _supabase
+          .from('users')
+          .select('id,is_bot')
+          .inFilter('id', ids);
+
+      final isBotById = <String, bool>{
+        for (final raw in (users as List))
+          (raw['id']?.toString() ?? ''): raw['is_bot'] == true,
+      };
+
+      final hasHuman = ids.any((id) => isBotById[id] != true);
+
+      // 🔥 4. Sadece bot varsa sil
+      if (!hasHuman) {
+        await _deleteTable();
+      }
+    } catch (e) {
+      debugPrint("cleanup error: $e");
+    }
+  }
+
+  Future<void> _deleteTable() async {
+    try {
+      await _supabase
+          .from('match_moves')
+          .delete()
+          .eq('table_id', widget.tableId);
+    } catch (_) {}
+
+    try {
+      await _supabase
+          .from('table_discard_tops')
+          .delete()
+          .eq('table_id', widget.tableId);
+    } catch (_) {}
+
+    try {
+      await _supabase
+          .from('table_discards')
+          .delete()
+          .eq('table_id', widget.tableId);
+    } catch (_) {}
+
+    try {
+      await _supabase
+          .from('table_players')
+          .delete()
+          .eq('table_id', widget.tableId);
+    } catch (_) {}
+
+    try {
+      await _supabase.from('tables').delete().eq('id', widget.tableId);
     } catch (_) {}
   }
 
@@ -992,7 +1038,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   final finalH = baseH * scale;
                   final cropTop = ((finalH - screenH) / 2);
                   final visibleCropTop = cropTop > 0 ? cropTop : 0.0;
-                final avatarTopInset = 10.0;
+                  final avatarTopInset = 10.0;
 
                   return Stack(
                     children: [

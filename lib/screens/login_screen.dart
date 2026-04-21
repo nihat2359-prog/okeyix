@@ -367,32 +367,52 @@ class _LoginScreenState extends State<LoginScreen>
                             vertical: 18,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0x990B1612),
+                            color: Colors.black.withOpacity(
+                              0.55,
+                            ), // 🔥 daha premium cam hissi
                             borderRadius: BorderRadius.circular(22),
 
-                            /// ğŸ”¥ GOLD BORDER
                             border: Border.all(
-                              color: const Color(0x66F2C14E),
+                              color: Colors.amber.withOpacity(0.35),
                               width: 1.2,
                             ),
 
-                            /// ğŸ”¥ GLOW
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0x33F2C14E),
-                                blurRadius: isKeyboardOpen ? 30 : 20,
-                                spreadRadius: 1,
-                              ),
-                              const BoxShadow(
-                                color: Color(0x88000000),
+                                color: Colors.black.withOpacity(0.8),
                                 blurRadius: 40,
                                 offset: Offset(0, 20),
+                              ),
+                              BoxShadow(
+                                color: Colors.amber.withOpacity(0.15),
+                                blurRadius: 25,
                               ),
                             ],
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              Text(
+                                "MASAYA KATIL",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+
+                              Text(
+                                "Gerçek oyuncularla rekabet et",
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 14,
+                                ),
+                              ),
+
+                              SizedBox(height: 18),
+
                               /// GUEST
                               _appleButton(),
                               const SizedBox(height: 12),
@@ -425,27 +445,67 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _guestButton() {
     return SizedBox(
       width: double.infinity,
-      height: 46,
+      height: 52,
       child: ElevatedButton(
         onPressed: _loadingGuest ? null : _playAsGuest,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0x11F2C14E),
+          backgroundColor: Colors.transparent,
           elevation: 0,
-          side: const BorderSide(color: Color(0x55F2C14E)),
+          padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: _loadingGuest
-            ? const LobbyLoading()
-            : const Text(
-                "MİSAFİR OLARAK OYNA",
-                style: TextStyle(
-                  color: Color(0xFFF2C14E),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+
+            // 🟡 subtle gradient (premium hissi)
+            gradient: LinearGradient(
+              colors: [Color(0x11F2C14E), Color(0x22F2C14E)],
+            ),
+
+            // 🟡 border
+            border: Border.all(color: Color(0x66F2C14E), width: 1),
+
+            // ✨ glow
+            boxShadow: [
+              BoxShadow(color: Colors.amber.withOpacity(0.15), blurRadius: 10),
+            ],
+          ),
+          child: Container(
+            alignment: Alignment.center,
+            child: _loadingGuest
+                ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFFF2C14E),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        color: Color(0xFFF2C14E),
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        "Misafir olarak oyna",
+                        style: TextStyle(
+                          color: Color(0xFFF2C14E),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -453,30 +513,48 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _googleButton() {
     return SizedBox(
       height: 66,
+      width: double.infinity,
       child: ElevatedButton(
         onPressed: _loginWithGoogle,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          elevation: 10,
-          shadowColor: Colors.black26,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset("assets/images/google.png", height: 30),
-            const SizedBox(width: 10),
-            const Text(
-              "Google",
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 20,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 12,
+                offset: Offset(0, 6),
               ),
+            ],
+          ),
+          child: Container(
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset("assets/images/google.png", height: 24),
+                SizedBox(width: 10),
+                Text(
+                  "Google ile devam et",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -484,36 +562,54 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _appleButton() {
     return SizedBox(
-      height: 66,
+      height: 66, // 🔥 eski yüksekliğini koru
+      width: double.infinity,
       child: ElevatedButton(
-        onPressed: () => _loginWithApple(),
+        onPressed: _loginWithApple,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0F0F0F),
-          elevation: 8,
-          shadowColor: Colors.black87,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(
-              color: Color(0x33FFFFFF), // ince açık border
-              width: 1,
-            ),
           ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.apple, size: 30, color: Colors.white),
-            SizedBox(width: 12),
-            Text(
-              "Apple",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 20,
-                letterSpacing: 0.3,
-              ),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: LinearGradient(
+              colors: [Color(0xFF1C1C1C), Color(0xFF0A0A0A)],
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.8),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Container(
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+            ), // 🔥 kalınlık buradan
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.apple, size: 26, color: Colors.white),
+                SizedBox(width: 10),
+                Text(
+                  "Apple ile devam et",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:okeyix/services/auth_service.dart';
 
 import 'okey_game_screen.dart';
 import 'login_screen.dart';
@@ -114,6 +115,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _initCalled = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
+  bool _showGuestBanner = false;
   List<Map<String, dynamic>> _systemMessages = [];
   final Set<String> _seenSystemMessageIds = <String>{};
   String? _lastSystemToastMessageId;
@@ -122,6 +124,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   @override
   void initState() {
     super.initState();
+    _checkGuestWelcome();
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         setState(() => _playingMessageId = null);
@@ -272,6 +275,54 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       rethrow; // ğŸ”¥ EN DOÄRU
     }
+  }
+
+  Future<void> _checkGuestWelcome() async {
+    if (!AuthService.isGuest()) return;
+
+    setState(() {
+      _showGuestBanner = true;
+    });
+  }
+
+  Widget _guestBanner() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(14),
+
+        border: Border.all(color: Colors.amber.withOpacity(0.4)),
+
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.7), blurRadius: 12),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person_outline, color: Colors.amber, size: 16),
+          SizedBox(width: 6),
+          Text(
+            "Misafir modu",
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          SizedBox(width: 10),
+
+          GestureDetector(
+            onTap: _signOutAndGoLogin,
+            child: Text(
+              "Bağla",
+              style: TextStyle(
+                color: Colors.amber,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -3314,6 +3365,8 @@ class _LobbyScreenState extends State<LobbyScreen>
           ),
 
           _rightPanelOverlay(),
+          if (_showGuestBanner)
+            Positioned(top: 12, right: 12, child: _guestBanner()),
         ],
       ),
     );
