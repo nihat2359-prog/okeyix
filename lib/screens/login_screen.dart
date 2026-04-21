@@ -1,5 +1,7 @@
 ﻿import 'dart:math' as math;
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'lobby_screen.dart';
@@ -158,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) setState(() => _loading = false);
     }
   }
+
   Future<String> getDeviceId() async {
     final deviceInfo = DeviceInfoPlugin();
     String? id;
@@ -222,6 +225,70 @@ class _LoginScreenState extends State<LoginScreen>
     } finally {
       if (mounted) setState(() => _loadingGuest = false);
     }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    try {
+      await supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'okeyix://login-callback',
+      );
+    } catch (e) {
+      setState(() => _error = "Google ile giriş başarısız.");
+    }
+  }
+
+  Future<void> _loginWithApple() async {
+    try {
+      final rawNonce = generateNonce();
+      final hashedNonce = sha256ofString(rawNonce);
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+
+      final idToken = credential.identityToken;
+      final authCode = credential.authorizationCode;
+
+      if (idToken == null) {
+        throw Exception("Apple login failed - idToken null");
+      }
+
+      await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        accessToken: authCode,
+        nonce: rawNonce, // 🔥 BU ÇOK ÖNEMLİ
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("LOGIN SUCCESS")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  String generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
+  String sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   String hashDeviceId(String deviceId) {
@@ -327,42 +394,19 @@ class _LoginScreenState extends State<LoginScreen>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               /// GUEST
+                              _appleButton(),
+                              const SizedBox(height: 12),
+
+                              _googleButton(),
+
+                              const SizedBox(height: 12),
+
                               _guestButton(),
-
                               const SizedBox(height: 12),
-
-                              const Text(
-                                "E-posta ile giriş",
-                                style: TextStyle(color: Colors.white70),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              _inputField(
-                                controller: emailController,
-                                hint: "E-posta",
-                                icon: Icons.alternate_email,
-                              ),
-
-                              const SizedBox(height: 10),
-
-                              _inputField(
-                                controller: passwordController,
-                                hint: "Şifre",
-                                icon: Icons.lock,
-                                obscure: true,
-                              ),
-
-                              const SizedBox(height: 10),
 
                               _errorBox(),
 
                               const SizedBox(height: 14),
-
-                              SizedBox(
-                                width: double.infinity,
-                                child: _loginButton(),
-                              ),
                             ],
                           ),
                         ),
@@ -381,7 +425,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _guestButton() {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 46,
       child: ElevatedButton(
         onPressed: _loadingGuest ? null : _playAsGuest,
         style: ElevatedButton.styleFrom(
@@ -406,31 +450,71 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _loginButton() {
+  Widget _googleButton() {
     return SizedBox(
-      width: double.infinity,
-      height: 60,
+      height: 66,
       child: ElevatedButton(
-        onPressed: _loading ? null : _login,
+        onPressed: _loginWithGoogle,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF2C14E),
-          foregroundColor: Colors.black,
-          elevation: 18,
-          shadowColor: const Color(0x99F2C14E),
+          backgroundColor: Colors.white,
+          elevation: 10,
+          shadowColor: Colors.black26,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: _loading
-            ? const LobbyLoading()
-            : const Text(
-                "GİRİŞ YAP",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset("assets/images/google.png", height: 30),
+            const SizedBox(width: 10),
+            const Text(
+              "Google",
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.w600,
+                fontSize: 20,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _appleButton() {
+    return SizedBox(
+      height: 66,
+      child: ElevatedButton(
+        onPressed: () => _loginWithApple(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0F0F0F),
+          elevation: 8,
+          shadowColor: Colors.black87,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(
+              color: Color(0x33FFFFFF), // ince açık border
+              width: 1,
+            ),
+          ),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.apple, size: 30, color: Colors.white),
+            SizedBox(width: 12),
+            Text(
+              "Apple",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 20,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -464,53 +548,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _inputField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    bool obscure = false,
-  }) {
-    const gold = Color(0xFFF2C14E);
-
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
-      cursorColor: gold,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0x809FB0A9)),
-        prefixIcon: Icon(icon, color: gold),
-
-        filled: true,
-        fillColor: const Color(0xFF15211B),
-
-        /// NORMAL BORDER
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0x55F2C14E), width: 1.5),
-        ),
-
-        /// FOCUS BORDER
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: gold, width: 2),
-        ),
-
-        /// ERROR BORDER
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-        ),
-
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-        ),
       ),
     );
   }
@@ -610,8 +647,3 @@ class OkeyixLogo extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
