@@ -1,5 +1,7 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:okeyix/game/okey_game.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/player_model.dart';
 import 'avatar_card.dart';
@@ -8,11 +10,12 @@ import 'avatar_preset.dart';
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
   final double topInset;
-
+  final OkeyGame game;
   const GameAvatarOverlay({
     super.key,
     required this.tableId,
     this.topInset = 0,
+    required this.game,
   });
 
   @override
@@ -517,6 +520,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           .cast<_SeatPlayer?>()
           .firstWhere((p) => p != null, orElse: () => null);
 
+      final isMe = me != null;
+
       if (me != null) {
         items.add(
           _buildPositionedSeat(
@@ -525,6 +530,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             child: AvatarCard(
               player: me.player,
               position: AvatarPosition.bottom,
+              progress: widget.game.getTurnProgress(),
             ),
           ),
         );
@@ -538,6 +544,10 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               ? AvatarCard(
                   player: opponent.player,
                   position: AvatarPosition.top,
+                  progress: (opponent.player.remainingTime / 15).clamp(
+                    0.0,
+                    1.0,
+                  ),
                 )
               : (_tableStatus == 'playing'
                     ? const SizedBox.shrink()
@@ -563,6 +573,10 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               ? AvatarCard(
                   player: occupied.player,
                   position: _avatarPositionFor(relativeSeat),
+                  progress: (occupied.player.remainingTime / 15).clamp(
+                    0.0,
+                    1.0,
+                  ),
                 )
               : (_tableStatus == 'playing'
                     ? const SizedBox.shrink()
@@ -953,7 +967,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Davet gÃ¶nderildi')));
+      ).showSnackBar(const SnackBar(content: Text('Davet Gönderildi')));
     } catch (e) {
       if (!mounted) return;
       final err = e.toString();

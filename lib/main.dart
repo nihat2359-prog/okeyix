@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
+import 'package:okeyix/services/auth_service.dart';
+import 'package:okeyix/services/gift_listener.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 
@@ -28,6 +30,9 @@ Future<void> main() async {
 }
 
 final supabase = Supabase.instance.client;
+final GlobalKey<OverlayState> overlayKey = GlobalKey<OverlayState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+bool _giftListenerStarted = false;
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -65,10 +70,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
+
+      // 🔥 BURASI EKLENECEK
+      builder: (context, child) {
+        return Overlay(
+          key: overlayKey,
+          initialEntries: [OverlayEntry(builder: (context) => child!)],
+        );
+      },
+
       theme: ThemeData(
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
@@ -90,6 +104,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           closeIconColor: const Color(0xFFEAF2EE),
         ),
       ),
+
       home: StreamBuilder<AuthState>(
         stream: supabase.auth.onAuthStateChange,
         initialData: AuthState(
@@ -104,7 +119,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             return const LoginScreen();
           }
 
-          return const LobbyScreen();
+          final user = session.user;
+
+          // 🔥 SPAM ENGELLE (çok önemli)
+          if (!_giftListenerStarted) {
+            listenIncomingGifts(user.id);
+            _giftListenerStarted = true;
+          }
+
+          return const AppRoot();
         },
       ),
     );
@@ -113,4 +136,34 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
 void _hideSystemUI() {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+}
+
+class AppRoot extends StatefulWidget {
+  const AppRoot({super.key});
+
+  @override
+  State<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<AppRoot> {
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // sadece 1 kere çalışsın
+    if (!_initialized) {
+      final user = supabase.auth.currentUser;
+      if (user != null) {
+        listenIncomingGifts(user.id);
+      }
+      _initialized = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const LobbyScreen(); // senin ana ekranın
+  }
 }

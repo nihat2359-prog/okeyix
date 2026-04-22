@@ -1,15 +1,23 @@
 ﻿import 'dart:ui';
 
+import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
+import 'package:okeyix/services/celebration_service.dart';
+import 'package:okeyix/services/feedback_settings_service.dart';
+
+final _player = jo.AudioPlayer();
 
 class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
   final List<Map<String, dynamic>> slots;
   final String winnerName;
-  FinishRack(this.slots, this.winnerName);
+  final bool isWinner;
+  final bool isSpectator;
+  FinishRack(this.slots, this.winnerName, this.isWinner, this.isSpectator);
   Future<void> onLoad() async {
+    _playResultSound();
     position = Vector2(
       gameRef.size.x / 2,
       gameRef.size.y / 2 + 100, // aşağı kaydır
@@ -28,7 +36,7 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
 
     add(
       TextComponent(
-        text: "KAZANDIN",
+        text: _getResultText(),
         position: Vector2(380, -170),
         anchor: Anchor.center,
         textRenderer: TextPaint(
@@ -97,6 +105,27 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
     }
   }
 
+  String _getResultText() {
+    if (isSpectator) {
+      return "$winnerName KAZANDI";
+    }
+
+    return isWinner ? "KAZANDIN" : "KAYBETTİN";
+  }
+
+  void _playResultSound() {
+    if (!FeedbackSettingsService.soundEnabled) return;
+
+    if (isSpectator || isWinner) {
+      _player.play(jo.AssetSource('sounds/win.mp3'));
+      CelebrationService.showConfetti();
+    } else {
+      _player.play(jo.AssetSource('sounds/lose.mp3'));
+    }
+
+    FeedbackSettingsService.triggerHaptic();
+  }
+
   TileColorType _stringToTileColor(String c) {
     switch (c) {
       case 'red':
@@ -122,19 +151,13 @@ class RoundedBackground extends PositionComponent {
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, sizeRect.x, sizeRect.y);
 
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      const Radius.circular(30),
-    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(30));
 
     final fill = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          Color(0xE0121821),
-          Color(0xD00A0F16),
-        ],
+        colors: [Color(0xE0121821), Color(0xD00A0F16)],
       ).createShader(rect);
     canvas.drawRRect(rrect, fill);
 

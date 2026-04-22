@@ -1,13 +1,18 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-final supabase = Supabase.instance.client;
-
 class AuthService {
-  static bool isGuest() {
-    final user = supabase.auth.currentUser;
-    if (user == null) return false;
+  static final _supabase = Supabase.instance.client;
 
-    return user.email?.startsWith("guest_") == true ||
-        user.userMetadata?['guest'] == true;
+  static User? get currentUser => _supabase.auth.currentUser;
+
+  static String? get userId => _supabase.auth.currentUser?.id;
+
+  static bool isLoggedIn() {
+    return _supabase.auth.currentUser != null;
+  }
+
+  static bool isGuest() {
+    final email = _supabase.auth.currentUser?.email ?? "";
+    return email.startsWith("guest_");
   }
 }

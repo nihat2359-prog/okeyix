@@ -55,7 +55,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     if (widget.tables.isEmpty) {
       return const Center(
         child: Text(
-          "No tables available",
+          "Masa bulunmamaktadır.",
           style: TextStyle(color: Colors.white70),
         ),
       );

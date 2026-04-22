@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/services/auth_service.dart';
+import 'package:okeyix/services/celebration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 
@@ -95,6 +96,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
       if (data["success"] == true) {
         final coins = data["coins"];
+        CelebrationService.showConfetti();
         showPurchaseSuccess(context, coins);
       } else {
         print("VERIFY FAILED: $data");

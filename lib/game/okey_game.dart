@@ -84,9 +84,13 @@ class OkeyGame extends FlameGame {
   final List<String> _recentMoveKeyOrder = <String>[];
   final List<TileComponent> _deferredTileRemovals = [];
   FinishRack? _finishRack;
+
+  List<Map<String, dynamic>> playersWithProfiles = [];
+
   OkeyGame({required this.tableId, required this.isCreator, this.onTileSfx});
 
   bool get gameStarted => _gameStarted;
+  bool _kickedHandled = false;
 
   void _emitTileSfx() {
     onTileSfx?.call();
@@ -111,10 +115,15 @@ class OkeyGame extends FlameGame {
     await _loadInitialState();
   }
 
-  void showFinish(List<Map<String, dynamic>> slots, String name) {
+  void showFinish(
+    List<Map<String, dynamic>> slots,
+    String name,
+    bool isWinner,
+    bool isSpectator,
+  ) {
     _finishRack?.removeFromParent(); // varsa sil
 
-    _finishRack = FinishRack(slots, name);
+    _finishRack = FinishRack(slots, name, isWinner, isSpectator);
 
     world.add(_finishRack!);
   }
@@ -148,6 +157,35 @@ class OkeyGame extends FlameGame {
     if (user == null) return 0;
 
     return user['coins'] ?? 0;
+  }
+
+  Map<String, dynamic>? getMyUser() {
+    if (_mySeatIndexAbs == null) return null;
+
+    final player = _playerSeatMap[_mySeatIndexAbs];
+    if (player == null) return null;
+
+    return player['user'];
+  }
+
+  Map<String, dynamic>? getWinnerUser(String? winnerSeat) {
+    if (winnerSeat == null) return null;
+
+    final seat = int.tryParse(winnerSeat);
+    if (seat == null) return null;
+
+    final player = _playerSeatMap[seat];
+    if (player == null) return null;
+
+    return player['user'];
+  }
+
+  bool isMeWinner(String? winnerUserId) {
+    final myUser = getMyUser();
+
+    if (myUser == null || winnerUserId == null) return false;
+
+    return myUser['id']?.toString() == winnerUserId;
   }
 
   @override
@@ -200,6 +238,18 @@ class OkeyGame extends FlameGame {
         tile.removeFromParent();
       }
     }
+  }
+
+  double getTurnProgress() {
+    if (!_gameStarted) return 1.0;
+    if (!_isMyTurn()) return 1.0;
+
+    final startAt = _turnStartedAt;
+    if (startAt == null) return 1.0;
+
+    final elapsed = DateTime.now().difference(startAt).inMilliseconds / 1000.0;
+
+    return ((_turnSeconds - elapsed) / _turnSeconds).clamp(0.0, 1.0);
   }
 
   void scheduleTileRemoval(TileComponent tile) {
@@ -281,7 +331,7 @@ class OkeyGame extends FlameGame {
     ''')
         .eq('table_id', tableId);
 
-    final playersWithProfiles = (rawPlayers as List).map((p) {
+    playersWithProfiles = (rawPlayers as List).map((p) {
       final map = Map<String, dynamic>.from(p as Map);
 
       final user = map['users'];
@@ -302,17 +352,16 @@ class OkeyGame extends FlameGame {
       (p) => p['user_id']?.toString() == uid,
     );
 
-    if (!stillInTable) {
+    if (!stillInTable && !_kickedHandled) {
+      _kickedHandled = true;
+
       debugPrint("PLAYER REMOVED FROM TABLE");
 
       _gameStarted = false;
 
-      _showWaitingOverlay("Masadan atÄ±ldÄ±n");
-
-      Future.delayed(const Duration(seconds: 2), () {
-        overlays.add('LobbyOverlay');
-      });
-
+      _showWaitingOverlay("Masadan atıldın");
+      overlays.clear();
+      overlays.add('LobbyOverlay');
       return;
     }
 
@@ -424,7 +473,7 @@ class OkeyGame extends FlameGame {
 
   void _startTurnTimer() {
     _turnTimer?.cancel();
-    _turnTimer = async.Timer.periodic(const Duration(milliseconds: 500), (_) {
+    _turnTimer = async.Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!_gameStarted) return;
       _maybePlayBotTurn();
       if (!_isMyTurn()) return;
@@ -494,26 +543,12 @@ class OkeyGame extends FlameGame {
         final fromSeat = (currentTurn - 1 + _maxPlayers) % _maxPlayers;
         final topDiscard = await _fetchDiscardTopForSeat(fromSeat);
         _decayBotRecentDiscards(botUserId);
-        final currentPotential = _handPotentialScore(
-          hand
-              .whereType<Map>()
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList(),
-        );
-        final takePotential = _potentialAfterTakingDiscard(
-          hand,
-          topDiscard,
-          strategy,
-        );
+
         final canFinishWithTop = _canFinishAfterTakingTopDiscard(
           hand,
           topDiscard,
         );
-        final shouldTakeByHeuristic = shouldTakeDiscard(
-          hand,
-          topDiscard,
-          strategy,
-        );
+
         final topIsRecentOwnDiscard =
             topDiscard != null &&
             _botRecentDiscards[botUserId]?.containsKey(
@@ -533,7 +568,7 @@ class OkeyGame extends FlameGame {
           topDiscard,
           strategy,
         );
-        final potentialGain = takePotential - currentPotential;
+
         // Human-like rule:
         // take from discard when it clearly improves immediate meld quality
         // (especially completing/strengthening sets), otherwise draw closed.
@@ -633,17 +668,41 @@ class OkeyGame extends FlameGame {
         return;
       }
 
-      await Supabase.instance.client.rpc(
-        'game_discard',
-        params: {
-          'p_table_id': tableId,
-          'p_user_id': botUserId,
-          'p_tile': tile,
-          'p_slots': botSlots,
-          'p_finish': canFinish,
-          'p_is_player_action': false,
-        },
-      );
+      try {
+        await Supabase.instance.client.rpc(
+          'game_discard',
+          params: {
+            'p_table_id': tableId,
+            'p_user_id': botUserId,
+            'p_tile': tile,
+            'p_slots': botSlots,
+            'p_finish': canFinish,
+            'p_is_player_action': false,
+          },
+        );
+      } catch (e) {
+        debugPrint("BOT DISCARD ERROR: $e");
+
+        // 🔥 KRİTİK: INVALID_FINISH fallback
+        if (canFinish && e.toString().contains("INVALID_FINISH")) {
+          debugPrint("⚠️ Bot finish geçersiz → normal discard'a dönüyor");
+
+          await Supabase.instance.client.rpc(
+            'game_discard',
+            params: {
+              'p_table_id': tableId,
+              'p_user_id': botUserId,
+              'p_tile': tile,
+              'p_slots': botSlots,
+              'p_finish': false, // 👈 EN KRİTİK SATIR
+              'p_is_player_action': false,
+            },
+          );
+        } else {
+          rethrow;
+        }
+      }
+
       _rememberBotDiscard(botUserId, tile);
     } catch (e) {
       debugPrint("BOT TURN ERROR $e");
@@ -697,26 +756,6 @@ class OkeyGame extends FlameGame {
 
     final bestDiscard = pickBestDiscardTile(candidate, strategy);
     return _sameTileMap(bestDiscard, topDiscard);
-  }
-
-  int _potentialAfterTakingDiscard(
-    List hand,
-    Map<String, dynamic>? topDiscard,
-    String strategy,
-  ) {
-    if (topDiscard == null) return -999999;
-    final candidate = hand
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
-    candidate.add(Map<String, dynamic>.from(topDiscard));
-    if (candidate.length != 15) return -999999;
-
-    final discard = pickBestDiscardTile(candidate, strategy);
-    final removeIndex = candidate.indexWhere((t) => _sameTileMap(t, discard));
-    if (removeIndex == -1) return -999999;
-    candidate.removeAt(removeIndex);
-    return _handPotentialScore(candidate);
   }
 
   int _immediateMeldGainFromTopDiscard(
@@ -2303,7 +2342,7 @@ class OkeyGame extends FlameGame {
       await _loadInitialState();
       await _syncDiscardTopsFromServer();
       hasDrawnThisTurn = _isMyTurn() && occupiedSlots.length >= 15;
-      _emitTileSfx();
+      //_emitTileSfx();
     } catch (e) {
       debugPrint('GAME_DRAW RPC ERROR: $e');
       _pendingPreferredDrawSlot = null;
@@ -2373,7 +2412,7 @@ class OkeyGame extends FlameGame {
       await _syncDiscardTopsFromServer();
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
-      _emitTileSfx();
+      //_emitTileSfx();
     } catch (e) {
       debugPrint('GAME_DISCARD RPC ERROR: $e');
       if ('$e'.contains('NOT_YOUR_TURN')) {
@@ -2387,15 +2426,24 @@ class OkeyGame extends FlameGame {
 
   Future<void> _serverTimeoutMove() async {
     if (_actionInFlight) return;
-    final userId = Supabase.instance.client.auth.currentUser?.id;
 
+    final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
+
     _actionInFlight = true;
+
     try {
-      // Server-side timeout function is unstable on this backend.
-      // Use client fallback directly to keep turn flow deterministic.
-      await _runClientTimeoutFallback();
+      // 🔥 server'a timeout işlemini yaptır
+      await Supabase.instance.client.rpc(
+        'game_timeout_move',
+        params: {'p_table_id': tableId, 'p_user_id': userId},
+      );
+
+      // 🔥 yeni state'i çek (taşlar burada güncellenir)
       await _loadInitialState();
+    } catch (e) {
+      // ⚠️ süre dolmadıysa hata verir, ignore edebilirsin
+      debugPrint("TIMEOUT MOVE ERROR: $e");
     } finally {
       _actionInFlight = false;
     }
@@ -2431,6 +2479,19 @@ class OkeyGame extends FlameGame {
   Future<void> _runClientTimeoutFallback() async {
     try {
       if (!_isMyTurn()) return;
+      Map<String, dynamic>? currentPlayer;
+
+      for (final p in playersWithProfiles) {
+        if (p['seat_index'] == currentTurn) {
+          currentPlayer = p;
+          break;
+        }
+      }
+
+      if (currentPlayer == null) return;
+
+      bool isBot = currentPlayer['is_bot'] == true;
+      if (isBot) return;
       final uid = Supabase.instance.client.auth.currentUser?.id;
       if (uid == null) return;
 
@@ -2482,7 +2543,7 @@ class OkeyGame extends FlameGame {
           'p_user_id': uid,
           'p_tile': safeTile,
           'p_slots': slots,
-          'p_finish': canFinish,
+          'p_finish': false,
           'p_is_player_action': false,
         },
       );
@@ -2575,7 +2636,7 @@ class OkeyGame extends FlameGame {
       occupiedSlots[targetIndex] = tile;
       tile.position = slotPositions[targetIndex];
       tile.currentSlotIndex = targetIndex;
-      _emitTileSfx();
+      // _emitTileSfx();
       return;
     }
 
@@ -2605,7 +2666,7 @@ class OkeyGame extends FlameGame {
     occupiedSlots[targetIndex] = tile;
     tile.position = slotPositions[targetIndex];
     tile.currentSlotIndex = targetIndex;
-    _emitTileSfx();
+    // _emitTileSfx();
   }
 
   void _restoreTileToOriginalSlot(TileComponent tile) {

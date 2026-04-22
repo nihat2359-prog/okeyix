@@ -8,8 +8,13 @@ enum AvatarPosition { bottom, top, left, right }
 class AvatarCard extends StatelessWidget {
   final PlayerModel player;
   final AvatarPosition position;
-
-  const AvatarCard({super.key, required this.player, required this.position});
+  final double progress;
+  const AvatarCard({
+    super.key,
+    required this.player,
+    required this.position,
+    required this.progress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +109,7 @@ class AvatarCard extends StatelessWidget {
           // GOLD TIMER RING
           CustomPaint(
             size: const Size(70, 70),
-            painter: _CircleTimerPainter(ratio),
+            painter: _CircleTimerPainter(progress),
           ),
 
           // AVATAR

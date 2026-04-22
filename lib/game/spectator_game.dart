@@ -323,7 +323,7 @@ class SpectatorGame extends FlameGame {
 
     final slots = List<Map<String, dynamic>>.from(rawSlots);
 
-    _game.showFinish(slots, winnerName); // 🔥 SADECE BU
+    _game.showFinish(slots, winnerName, false, true); // 🔥 SADECE BU
   }
 
   void _decreaseDeck() {

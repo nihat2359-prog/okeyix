@@ -1,5 +1,4 @@
 ﻿import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -8,7 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
+import 'package:okeyix/services/celebration_service.dart';
+import 'package:okeyix/services/profile_service.dart';
+import 'package:okeyix/services/user_state.dart';
+
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,7 +25,6 @@ import 'okey_game_screen.dart';
 import 'login_screen.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
-import '../ui/avatar_preset.dart';
 import '../ui/lobby/lobby_avatar.dart';
 import '../ui/lobby/lobby_league_list.dart';
 import '../ui/lobby/lobby_bottom_dock.dart';
@@ -30,7 +33,6 @@ import '../ui/lobby/lobby_right_panel.dart';
 import '../ui/lobby/_ui_helpers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
-import 'package:http/http.dart' as http;
 import 'package:okeyix/services/feedback_settings_service.dart';
 
 enum _RightPanelType { none, friends, messages, settings }
@@ -49,8 +51,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   static const double _goldBorderWidth = 0.3;
   static const int _renameCoinCost = 1000;
   static const int _globalSpectatorPassCost = 10000;
-  static const String _freeRenameUsedPrefix = 'profile.free_rename_used.';
-  static const String _ownedPremiumAvatarPrefix = 'profile.premium_avatars.';
+
   final _audioPlayer = AudioPlayer();
   static const _secureStorage = FlutterSecureStorage();
   String? _playingMessageId;
@@ -78,25 +79,15 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _isSideMenuOpen = false;
   bool _rightPanelLoading = false;
 
-  String userName = 'Oyuncu';
-  int userRating = 1200;
-  int userCoin = 0;
-  String? _userId;
-  String? _userRowId;
-  String? _userAvatarUrl;
-
   _RightPanelType _rightPanelType = _RightPanelType.none;
   List<Map<String, dynamic>> _friends = [];
   Map<String, int> _unreadByUser = {};
-  Set<String> _friendIds = {};
-  Set<String> _blockedUserIds = {};
-  Set<String> _incomingRequestIds = {};
-  Set<String> _outgoingRequestIds = {};
+
   final Set<String> _notifiedIncomingRequestIds = <String>{};
   List<Map<String, dynamic>> _activeChatMessages = [];
   String? _activeChatUserId;
   String? _activeChatUserTableId;
-  bool _friendRequestPromptOpen = false;
+
   late AnimationController _storePulse;
   bool _isRecording = false;
   int _recordSeconds = 0;
@@ -343,6 +334,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     await FeedbackSettingsService.load();
     _soundEnabled = FeedbackSettingsService.soundEnabled;
     _vibrationEnabled = FeedbackSettingsService.vibrationEnabled;
+
     await _loadUser();
     await _refreshGlobalSpectatorPassStatus();
     await _checkOnboarding();
@@ -354,56 +346,24 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadLeagueActivity();
     await _loadTables();
     await _checkCampaignPopup();
-  }
-
-  Future<void> _ensureUserRow() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
-    try {
-      final existing = await _findUserRow(
-        user,
-        columns: 'id,email,username,avatar_url',
-      );
-      if (existing != null) return;
-      await supabase.from('users').insert({'id': user.id, 'email': user.email});
-    } catch (e) {
-      debugPrint('ENSURE USER ROW ERROR: $e');
-    }
-  }
 
-  Future<Map<String, dynamic>?> _findUserRow(
-    User user, {
-    required String columns,
-  }) async {
-    final byId = await supabase
-        .from('users')
-        .select(columns)
-        .eq('id', user.id)
-        .limit(1);
-    if ((byId as List).isNotEmpty) {
-      return Map<String, dynamic>.from(byId.first);
+    if (user != null) {
+      await loadMissedGifts(user.id);
     }
-
-    final email = user.email?.trim();
-    if (email == null || email.isEmpty) return null;
-
-    final byEmail = await supabase
-        .from('users')
-        .select(columns)
-        .eq('email', email)
-        .limit(1);
-    if ((byEmail as List).isNotEmpty) {
-      return Map<String, dynamic>.from(byEmail.first);
-    }
-    return null;
   }
 
   Future<void> _loadUser() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-    await _ensureUserRow();
+    await ProfileService.ensureUserRow();
     try {
-      final row = await _findUserRow(user, columns: 'id,username,avatar_url');
+      final row = await ProfileService.findUserRow(
+        user,
+        columns: 'id,username,avatar_url,wins,losses',
+      );
+
+      // ✅ profiles'den coins ve rating al
       final profileRows = await supabase
           .from('profiles')
           .select('coins,rating')
@@ -412,31 +372,35 @@ class _LobbyScreenState extends State<LobbyScreen>
       final profile = (profileRows as List).isNotEmpty
           ? Map<String, dynamic>.from(profileRows.first)
           : null;
+
       final profileCoin = (profile?['coins'] as int?) ?? 0;
       final profileRating = (profile?['rating'] as int?) ?? 1200;
-      final effectiveCoin = profileCoin;
-      final effectiveRating = profileRating;
 
       if (!mounted) return;
       if (row != null) {
         setState(() {
-          _userId = user.id;
-          _userRowId = row['id']?.toString();
-          userName = ((row['username'] as String?) ?? '').trim().isEmpty
+          UserState.userId = user.id;
+          UserState.wins = (row['wins'] as int?) ?? 0; // ✅ users'dan
+          UserState.losses = (row['losses'] as int?) ?? 0; // ✅ users'dan
+          UserState.userRowId = row['id']?.toString();
+          UserState.userName =
+              ((row['username'] as String?) ?? '').trim().isEmpty
               ? (user.email?.split('@').first ?? 'Oyuncu')
               : row['username'] as String;
-          userRating = effectiveRating;
-          _userAvatarUrl = (row['avatar_url'] as String?)?.trim();
-          userCoin = effectiveCoin;
+          UserState.userRating = profileRating; // ✅ profiles'den
+          UserState.userAvatarUrl = (row['avatar_url'] as String?)?.trim();
+          UserState.userCoin = profileCoin; // ✅ profiles'den
         });
       } else {
         setState(() {
-          _userId = user.id;
-          _userRowId = null;
-          userName = user.email?.split('@').first ?? 'Oyuncu';
-          userRating = effectiveRating;
-          _userAvatarUrl = null;
-          userCoin = effectiveCoin;
+          UserState.userId = user.id;
+          UserState.wins = 0;
+          UserState.losses = 0;
+          UserState.userRowId = null;
+          UserState.userName = user.email?.split('@').first ?? 'Oyuncu';
+          UserState.userRating = profileRating;
+          UserState.userAvatarUrl = null;
+          UserState.userCoin = profileCoin;
         });
       }
     } catch (e) {
@@ -447,16 +411,25 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<void> _checkOnboarding() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
-    await _ensureUserRow();
+    await ProfileService.ensureUserRow();
     try {
-      final row = await _findUserRow(user, columns: 'id,username,avatar_url');
+      final row = await ProfileService.findUserRow(
+        user,
+        columns: 'id,username,avatar_url',
+      );
       if (row == null) return;
       final username = ((row['username'] as String?) ?? '').trim();
       final avatar = ((row['avatar_url'] as String?) ?? '').trim();
       final isIncomplete = username.isEmpty || avatar.isEmpty;
       if (isIncomplete && _isLikelyFirstLogin(user)) {
         if (!mounted) return;
-        await _openProfileSetupDialog(forceComplete: true);
+        await ProfileService.openProfileSetupDialog(
+          forceComplete: true,
+          onSuccess: () async {
+            await _loadSocialData();
+            await _loadTables();
+          },
+        );
       }
     } catch (e) {
       debugPrint('ONBOARDING ERROR: $e');
@@ -475,130 +448,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (createdAt == null || lastSignInAt == null) return false;
     final diff = lastSignInAt.difference(createdAt).abs();
     return diff <= const Duration(minutes: 15);
-  }
-
-  Future<void> _openProfileSetupDialog({required bool forceComplete}) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-    await _ensureUserRow();
-
-    var initialUsername = userName == 'Oyuncu' ? '' : userName;
-    var initialAvatar = _userAvatarUrl;
-
-    try {
-      final row = await _findUserRow(user, columns: 'id,username,avatar_url');
-      if (row != null) {
-        initialUsername = ((row['username'] as String?) ?? '').trim();
-        initialAvatar = (row['avatar_url'] as String?)?.trim();
-        _userRowId = row['id']?.toString();
-      }
-    } catch (_) {}
-
-    final freeRenameUsed = await _isFreeRenameUsed(user.id);
-    final ownedPremiumAvatars = await _getOwnedPremiumAvatars(user.id);
-
-    if (!mounted) return;
-    final result = await showDialog<_ProfileSetupResult>(
-      context: context,
-      barrierDismissible: !forceComplete,
-      builder: (_) => _ProfileSetupDialog(
-        forceComplete: forceComplete,
-        initialUsername: initialUsername,
-        initialAvatarRef: initialAvatar,
-        currentUserId: user.id,
-        currentCoins: userCoin,
-        renameCoinCost: _renameCoinCost,
-        freeRenameUsed: freeRenameUsed,
-        ownedPremiumAvatarRefs: ownedPremiumAvatars,
-      ),
-    );
-
-    if (result == null) return;
-
-    try {
-      final payload = {
-        'username': result.username,
-        'avatar_url': normalizeAvatarForStorage(result.avatarRef),
-      };
-      final targetId = _userRowId ?? user.id;
-      final updated = await supabase
-          .from('users')
-          .update(payload)
-          .eq('id', targetId)
-          .select('id')
-          .limit(1);
-
-      if ((updated as List).isEmpty) {
-        final email = user.email?.trim();
-        if (email != null && email.isNotEmpty) {
-          final updatedByEmail = await supabase
-              .from('users')
-              .update(payload)
-              .eq('email', email)
-              .select('id')
-              .limit(1);
-          if ((updatedByEmail as List).isNotEmpty) {
-            _userRowId = updatedByEmail.first['id']?.toString();
-          } else {
-            await supabase.from('users').insert({
-              'id': user.id,
-              'email': user.email,
-              ...payload,
-            });
-            _userRowId = user.id;
-          }
-        }
-      } else {
-        _userRowId = updated.first['id']?.toString();
-      }
-
-      if (result.renameCoinSpent > 0) {
-        await _spendProfileCoins(
-          userId: user.id,
-          amount: result.renameCoinSpent,
-          reason: 'profile_name_change',
-          note: 'profile_name_change_coin_spend',
-        );
-      }
-      if (result.avatarCoinSpent > 0) {
-        final unlockedAvatarRef = result.unlockedAvatarRef;
-        await _spendProfileCoins(
-          userId: user.id,
-          amount: result.avatarCoinSpent,
-          reason: 'avatar_purchase',
-          note: unlockedAvatarRef == null
-              ? 'profile_avatar_purchase'
-              : 'profile_avatar_purchase:$unlockedAvatarRef',
-        );
-      }
-      if (result.consumeFreeRename) {
-        await _setFreeRenameUsed(user.id);
-      }
-      if (result.newUnlockedPremiumAvatarRefs.isNotEmpty) {
-        final merged = {
-          ...ownedPremiumAvatars,
-          ...result.newUnlockedPremiumAvatarRefs,
-        };
-        await _setOwnedPremiumAvatars(user.id, merged);
-      }
-
-      await _loadUser();
-      await _loadTables();
-      if (!mounted) return;
-      if (result.spentCoins > 0) {
-        _msg('Profil guncellendi. ${result.spentCoins} coin harcandi.');
-      } else {
-        _msg('Profil guncellendi.');
-      }
-      return;
-    } catch (e) {
-      if (e is PostgrestException && e.code == '23505') {
-        _msg('Bu kullanıcı adı zaten kullanımda.');
-      } else {
-        _msg('Profil guncellenemedi.');
-      }
-      return;
-    }
   }
 
   Future<void> _loadLeagues() async {
@@ -919,7 +768,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   : (usernameById[uid] ?? 'Oyuncu'),
               'avatar_url': uid == null ? null : avatarById[uid],
               'rating': uid == null ? 1200 : (ratingById[uid] ?? 1200),
-              'blocked': uid != null && _blockedUserIds.contains(uid),
+              'blocked': uid != null && UserState.blockedUserIds.contains(uid),
             });
           }
         }
@@ -1040,8 +889,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
     final entry = (league['entry_coin'] as int?) ?? 100;
     final effectiveTurnSeconds = createTurnSeconds;
-    if (userCoin < entry) return _msg('Yetersiz coin.');
-    if (userRating < ((league['min_rating'] as int?) ?? 0)) {
+    if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
+    if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
       return _msg('Bu lig için rating yetersiz.');
     }
 
@@ -1084,7 +933,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       return _handleSpectateTap(table);
     }
     final entry = (table['entry_coin'] as int?) ?? 100;
-    if (userCoin < entry) return _msg('Yetersiz coin.');
+    if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     final tableRating = await supabase
         .from('leagues')
         .select('min_rating')
@@ -1092,7 +941,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         .limit(1);
     if ((tableRating as List).isNotEmpty) {
       final minRating = (tableRating.first['min_rating'] as int?) ?? 0;
-      if (userRating < minRating) {
+      if (UserState.userRating < minRating) {
         return _msg('Bu lig için rating yetersiz.');
       }
     }
@@ -1205,7 +1054,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<bool> _purchaseGlobalSpectatorPass() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return false;
-    if (userCoin < _globalSpectatorPassCost) {
+    if (UserState.userCoin < _globalSpectatorPassCost) {
       _msg('Yetersiz coin. Gereken: $_globalSpectatorPassCost');
       return false;
     }
@@ -1216,7 +1065,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         : DateTime.now();
     final until = base.add(const Duration(hours: 24));
     try {
-      await _spendProfileCoins(
+      await ProfileService.spendProfileCoins(
         userId: uid,
         amount: _globalSpectatorPassCost,
         reason: 'spectator_pass_purchase',
@@ -1240,7 +1089,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         .toList();
     for (final p in players) {
       final uid = p['user_id']?.toString();
-      if (uid != null && _friendIds.contains(uid)) return true;
+      if (uid != null && UserState.friendIds.contains(uid)) return true;
     }
     return false;
   }
@@ -1998,93 +1847,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
-  Future<bool> _isFreeRenameUsed(String userId) async {
-    try {
-      final rows = await supabase
-          .from('wallet_transactions')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('reason', 'profile_name_change')
-          .limit(1);
-      if ((rows as List).isNotEmpty) {
-        return true;
-      }
-    } catch (_) {}
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('$_freeRenameUsedPrefix$userId') ?? false;
-  }
-
-  Future<void> _setFreeRenameUsed(String userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$_freeRenameUsedPrefix$userId', true);
-  }
-
-  Future<Set<String>> _getOwnedPremiumAvatars(String userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getStringList('$_ownedPremiumAvatarPrefix$userId');
-    final owned = stored == null ? <String>{} : stored.toSet();
-    try {
-      final purchaseRows = await supabase
-          .from('wallet_transactions')
-          .select('reason,note')
-          .eq('user_id', userId)
-          .eq('reason', 'avatar_purchase');
-      for (final row in (purchaseRows as List)) {
-        final note = row['note']?.toString() ?? '';
-        if (note.startsWith('profile_avatar_purchase:')) {
-          final ref = note.split(':').last.trim();
-          if (ref.isNotEmpty) owned.add(ref);
-        }
-      }
-    } catch (_) {}
-    return owned;
-  }
-
-  Future<void> _setOwnedPremiumAvatars(String userId, Set<String> owned) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      '$_ownedPremiumAvatarPrefix$userId',
-      owned.toList()..sort(),
-    );
-  }
-
-  Future<void> _spendProfileCoins({
-    required String userId,
-    required int amount,
-    required String reason,
-    required String note,
-  }) async {
-    if (amount <= 0) return;
-    final profileRows = await supabase
-        .from('profiles')
-        .select('coins')
-        .eq('id', userId)
-        .limit(1);
-    final currentCoins = (profileRows as List).isNotEmpty
-        ? (profileRows.first['coins'] as int?) ?? userCoin
-        : userCoin;
-    if (currentCoins < amount) {
-      throw Exception('Insufficient profile balance');
-    }
-    final nextCoins = max(0, currentCoins - amount);
-
-    await supabase.from('wallet_transactions').insert({
-      'user_id': userId,
-      'amount': -amount,
-      'reason': reason,
-      'type': 'debit',
-      'store': 'system',
-      'note': note,
-    });
-
-    if ((profileRows).isNotEmpty) {
-      await supabase
-          .from('profiles')
-          .update({'coins': nextCoins})
-          .eq('id', userId);
-    }
-  }
-
   void _toggleSideMenu() {
     setState(() => _isSideMenuOpen = !_isSideMenuOpen);
   }
@@ -2104,7 +1866,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (uid == null) return;
 
     try {
-      final previousIncoming = Set<String>.from(_incomingRequestIds);
+      final previousIncoming = Set<String>.from(UserState.incomingRequestIds);
 
       final friendshipRows = await supabase
           .from('friends')
@@ -2234,12 +1996,12 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (!mounted) return;
 
       setState(() {
-        _userId = uid;
+        UserState.userId = uid;
         _friends = friendList;
-        _friendIds = friendIds;
-        _blockedUserIds = blockedIds;
-        _incomingRequestIds = incomingRequestIds;
-        _outgoingRequestIds = outgoingRequestIds;
+        UserState.friendIds = friendIds;
+        UserState.blockedUserIds = blockedIds;
+        UserState.incomingRequestIds = incomingRequestIds;
+        UserState.outgoingRequestIds = outgoingRequestIds;
         _unreadByUser = unread;
       });
 
@@ -2259,7 +2021,11 @@ class _LobbyScreenState extends State<LobbyScreen>
         final requesterId = newIncoming.first;
         _notifiedIncomingRequestIds.add(requesterId);
         unawaited(
-          _showIncomingFriendRequestDialog(requesterId, usersById[requesterId]),
+          ProfileService.showIncomingFriendRequestDialog(
+            context,
+            requesterId,
+            usersById[requesterId],
+          ),
         );
       }
     } catch (e) {
@@ -2304,7 +2070,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     String friendtableid, {
     bool markRead = true,
   }) async {
-    final uid = _userId ?? supabase.auth.currentUser?.id;
+    final uid = UserState.userId ?? supabase.auth.currentUser?.id;
     if (uid == null) return;
     if (_rightPanelType != _RightPanelType.messages) return;
 
@@ -2355,12 +2121,12 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _sendMessage() async {
-    final uid = _userId ?? supabase.auth.currentUser?.id;
+    final uid = UserState.userId ?? supabase.auth.currentUser?.id;
     final otherId = _activeChatUserId;
     final ftableid = _activeChatUserTableId ?? "";
     final text = _chatController.text.trim();
     if (uid == null || otherId == null || text.isEmpty) return;
-    if (!_friendIds.contains(otherId)) {
+    if (!UserState.friendIds.contains(otherId)) {
       return _msg('Sadece arkadaşlara mesaj gönderebilirsin.');
     }
     try {
@@ -2377,543 +2143,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     } catch (e) {
       _msg('Mesaj gönderilemedi.');
       debugPrint('SEND MESSAGE ERROR: $e');
-    }
-  }
-
-  Future<void> _sendFriendRequest(String otherUserId) async {
-    if (_userId == null || otherUserId == _userId) return;
-    if (_blockedUserIds.contains(otherUserId)) {
-      return _msg('Engellediğin kullanıcıya istek gönderemezsin.');
-    }
-    try {
-      await supabase.from('friends').upsert({
-        'user_id': _userId,
-        'friend_id': otherUserId,
-        'status': 'pending',
-      }, onConflict: 'user_id,friend_id');
-      await _loadSocialData();
-      _msg('Arkadaşlık isteği gönderildi.');
-    } catch (e) {
-      debugPrint('FRIEND REQUEST ERROR: $e');
-      _msg('İstek gönderilemedi.');
-    }
-  }
-
-  Future<void> _acceptFriendRequest(String otherUserId) async {
-    if (_userId == null) return;
-    try {
-      await supabase
-          .from('friends')
-          .update({'status': 'accepted'})
-          .eq('user_id', otherUserId)
-          .eq('friend_id', _userId!);
-      await _loadSocialData();
-      _msg('Arkadaşlık isteği kabul edildi.');
-    } catch (e) {
-      _msg('İstek kabul edilemedi.');
-      debugPrint('ACCEPT FRIEND ERROR: $e');
-    }
-  }
-
-  Future<void> _rejectFriendRequest(String otherUserId) async {
-    if (_userId == null) return;
-    try {
-      await supabase
-          .from('friends')
-          .delete()
-          .eq('user_id', otherUserId)
-          .eq('friend_id', _userId!);
-      await _loadSocialData();
-      _msg('İstek reddedildi.');
-    } catch (e) {
-      _msg('İstek reddedilemedi.');
-      debugPrint('REJECT FRIEND ERROR: $e');
-    }
-  }
-
-  Future<void> _removeFriend(String otherUserId) async {
-    if (_userId == null) return;
-    try {
-      await supabase
-          .from('friends')
-          .delete()
-          .eq('user_id', _userId!)
-          .eq('friend_id', otherUserId);
-      await supabase
-          .from('friends')
-          .delete()
-          .eq('user_id', otherUserId)
-          .eq('friend_id', _userId!);
-      await _loadSocialData();
-      _msg('Arkadaşlıktan çıkarıldı.');
-    } catch (e) {
-      _msg('İşlem başarısız.');
-      debugPrint('REMOVE FRIEND ERROR: $e');
-    }
-  }
-
-  Future<void> _blockUser(String otherUserId) async {
-    if (_userId == null || otherUserId == _userId) return;
-    try {
-      await supabase.from('friends').upsert({
-        'user_id': _userId,
-        'friend_id': otherUserId,
-        'status': 'blocked',
-      }, onConflict: 'user_id,friend_id');
-      await _loadSocialData();
-      await _loadTables();
-      _msg('Kullanıcı engellendi.');
-    } catch (e) {
-      _msg('Kullanıcı engellenemedi.');
-      debugPrint('BLOCK USER ERROR: $e');
-    }
-  }
-
-  Future<void> _unblockUser(String otherUserId) async {
-    if (_userId == null) return;
-    try {
-      await supabase
-          .from('friends')
-          .delete()
-          .eq('user_id', _userId!)
-          .eq('friend_id', otherUserId)
-          .eq('status', 'blocked');
-      await _loadSocialData();
-      await _loadTables();
-      _msg('Engel kaldırıldı.');
-    } catch (e) {
-      _msg('Engel kaldırılamadı.');
-      debugPrint('UNBLOCK ERROR: $e');
-    }
-  }
-
-  Future<void> _showUserCard(Map<String, dynamic> user) async {
-    final otherId = user['id']?.toString() ?? user['user_id']?.toString();
-    if (otherId == null) return;
-
-    final isSelf = otherId == _userId;
-    final isFriend = _friendIds.contains(otherId);
-    final isBlocked = _blockedUserIds.contains(otherId);
-    final incoming = _incomingRequestIds.contains(otherId);
-    final outgoing = _outgoingRequestIds.contains(otherId);
-    final profile = await supabase
-        .from('profiles')
-        .select('coins, rating')
-        .eq('id', otherId)
-        .single();
-
-    final coins = profile['coins'] ?? 0;
-    final rating = (profile['rating'] as int?) ?? 1200;
-
-    final username = (user['username']?.toString().trim().isNotEmpty ?? false)
-        ? user['username'].toString().trim()
-        : 'Oyuncu';
-
-    final statusText = isSelf
-        ? 'Bu senin profilin'
-        : isBlocked
-        ? 'Bu kullanıcı engellendi'
-        : isFriend
-        ? 'Arkadaşın'
-        : incoming
-        ? 'Sana arkadaşlık isteği gönderdi'
-        : outgoing
-        ? 'Arkadaşlık isteği gönderildi'
-        : 'Henüz arkadaş değilsiniz';
-
-    final statusColor = isBlocked
-        ? const Color(0xFFE57373)
-        : (isFriend || isSelf)
-        ? const Color(0xFF7ED9A5)
-        : const Color(0xFFF2C14E);
-
-    await showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(.78),
-      builder: (_) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 24,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF17382E), Color(0xFF0D221B)],
-                ),
-                border: Border.all(
-                  color: _goldBorderColor,
-                  width: _goldBorderWidth,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0xCC000000),
-                    blurRadius: 34,
-                    offset: Offset(0, 16),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          color: const Color(0x2CECCB79),
-                          border: Border.all(color: const Color(0x66E9C46A)),
-                        ),
-                        child: const Icon(
-                          Icons.person_rounded,
-                          color: Color(0xFFFFE0A8),
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Oyuncu Profili',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0x221A2520),
-                          border: Border.all(color: const Color(0x55FFFFFF)),
-                        ),
-                        child: IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Container(
-                        width: 62,
-                        height: 62,
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFFE9C46A),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFE9C46A).withOpacity(.28),
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                        child: LobbyAvatar(
-                          username: username,
-                          avatarUrl: user['avatar_url'],
-                          size: 56,
-                          blocked: isBlocked,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              username,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .2,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(.18),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: statusColor.withOpacity(.55),
-                                ),
-                              ),
-                              child: Text(
-                                statusText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: statusColor,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _statPanel(
-                          label: 'Rating',
-                          icon: Icons.star_rounded,
-                          value: rating,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _statPanel(
-                          label: 'Coin',
-                          icon: Icons.monetization_on_rounded,
-                          value: coins,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      if (isSelf)
-                        _modalActionButton(
-                          label: 'Düzenle',
-                          primary: true,
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _openProfileSetupDialog(forceComplete: false);
-                          },
-                        ),
-                      if (!isSelf &&
-                          !isBlocked &&
-                          !isFriend &&
-                          !incoming &&
-                          !outgoing)
-                        _modalActionButton(
-                          label: 'Arkadaş Ekle',
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _sendFriendRequest(otherId);
-                          },
-                        ),
-                      if (!isSelf && incoming)
-                        _modalActionButton(
-                          label: 'Kabul',
-                          primary: true,
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _acceptFriendRequest(otherId);
-                          },
-                        ),
-                      if (!isSelf && incoming)
-                        _modalActionButton(
-                          label: 'Reddet',
-                          danger: true,
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _rejectFriendRequest(otherId);
-                          },
-                        ),
-                      if (!isSelf && isFriend)
-                        _modalActionButton(
-                          label: 'Arkadaşı Çıkar',
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _removeFriend(otherId);
-                          },
-                        ),
-                      if (!isSelf && !isBlocked)
-                        _modalActionButton(
-                          label: 'Engelle',
-                          danger: true,
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await _blockUser(otherId);
-                          },
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _statPanel({
-    required String label,
-    required IconData icon,
-    required int value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x2CF6E7C1), Color(0x15F6E7C1)],
-        ),
-        border: Border.all(color: const Color(0x55E9C46A)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: const Color(0xFFE9C46A)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value.toString(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFFD4E8DB),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statChip(IconData icon, int value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: Colors.amber),
-          const SizedBox(width: 4),
-          Text(
-            value.toString(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showIncomingFriendRequestDialog(
-    String otherUserId,
-    Map<String, dynamic>? user,
-  ) async {
-    if (!mounted || _friendRequestPromptOpen) return;
-    _friendRequestPromptOpen = true;
-
-    final username = ((user?['username'] as String?) ?? '').trim().isEmpty
-        ? 'Oyuncu'
-        : user!['username'].toString();
-    final avatarUrl = user?['avatar_url']?.toString();
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF13231C),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: _goldBorderColor, width: _goldBorderWidth),
-        ),
-        title: const Text(
-          'Yeni arkadaşlık isteği',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-        ),
-        content: Row(
-          children: [
-            LobbyAvatar(username: username, avatarUrl: avatarUrl, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$username sana arkadaşlık isteği gönderdi.',
-                style: const TextStyle(color: Color(0xFFD5E9DF)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          _modalActionButton(
-            label: 'Reddet',
-            danger: true,
-            onPressed: () async {
-              Navigator.pop(context);
-              await _rejectFriendRequest(otherUserId);
-            },
-          ),
-          _modalActionButton(
-            label: 'Engelle',
-            danger: true,
-            onPressed: () async {
-              Navigator.pop(context);
-              await _blockUser(otherUserId);
-            },
-          ),
-          _modalActionButton(
-            label: 'Kabul Et',
-            primary: true,
-            onPressed: () async {
-              Navigator.pop(context);
-              await _acceptFriendRequest(otherUserId);
-            },
-          ),
-        ],
-      ),
-    );
-
-    if (mounted) {
-      _friendRequestPromptOpen = false;
     }
   }
 
@@ -2946,7 +2175,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final canCreate = userCoin >= entry;
+            final canCreate = UserState.userCoin >= entry;
 
             return Material(
               color: Colors.transparent,
@@ -3411,11 +2640,19 @@ class _LobbyScreenState extends State<LobbyScreen>
       separatorBuilder: (_, index) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         final friend = _friends[i];
-        final blocked = _blockedUserIds.contains(friend['id']);
+        final blocked = UserState.blockedUserIds.contains(friend['id']);
         final tableId = friend['table_id'];
 
         return InkWell(
-          onTap: () => _showUserCard(friend),
+          onTap: () async {
+            await ProfileService.showUserCard(
+              friend,
+              onRefresh: () async {
+                await _loadSocialData();
+                await _loadTables();
+              },
+            );
+          },
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -3617,7 +2854,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                               itemCount: _activeChatMessages.length,
                               itemBuilder: (_, i) {
                                 final msg = _activeChatMessages[i];
-                                final mine = msg['sender_id'] == _userId;
+                                final mine =
+                                    msg['sender_id'] == UserState.userId;
 
                                 final isVoice = msg['type'] == 'voice';
 
@@ -4198,7 +3436,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _deleteChat() async {
-    final uid = _userId;
+    final uid = UserState.userId;
     final other = _activeChatUserId;
 
     if (uid == null || other == null) return;
@@ -4225,7 +3463,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _sendVoiceMessage(String filePath) async {
-    final uid = _userId ?? supabase.auth.currentUser?.id;
+    final uid = UserState.userId ?? supabase.auth.currentUser?.id;
     final otherId = _activeChatUserId;
     final ftableid = _activeChatUserTableId ?? "";
     if (uid == null || otherId == null) return;
@@ -4578,12 +3816,20 @@ class _LobbyScreenState extends State<LobbyScreen>
         lobbySideMenuButton(
           icon: Icons.person_rounded,
           label: 'Profil Kartım',
-          onTap: () => _showUserCard({
-            'id': _userId,
-            'username': userName,
-            'avatar_url': _userAvatarUrl,
-            'rating': userRating,
-          }),
+          onTap: () => ProfileService.showUserCard(
+            {
+              'id': UserState.userId,
+              'username': UserState.userName,
+              'avatar_url': UserState.userAvatarUrl,
+              'rating': UserState.userRating,
+              'wins': UserState.wins,
+              'losses': UserState.losses,
+            },
+            onRefresh: () async {
+              await _loadSocialData();
+              await _loadTables();
+            },
+          ),
         ),
 
         const SizedBox(height: 10),
@@ -4701,38 +3947,6 @@ class _LobbyScreenState extends State<LobbyScreen>
           fontWeight: FontWeight.w800,
         ),
       ),
-    );
-  }
-
-  Widget _modalActionButton({
-    required String label,
-    required VoidCallback onPressed,
-    bool danger = false,
-    bool primary = false,
-  }) {
-    final bgColor = danger
-        ? const Color(0xFF7F2A2A)
-        : primary
-        ? const Color(0xFF2B7B55)
-        : const Color(0x55314036);
-    final borderColor = danger
-        ? const Color(0xFFAA4A4A)
-        : primary
-        ? _goldBorderDark
-        : const Color(0x886A4E2B);
-
-    return TextButton(
-      style: TextButton.styleFrom(
-        backgroundColor: bgColor,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: borderColor, width: 1.6),
-        ),
-      ),
-      onPressed: onPressed,
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
     );
   }
 
@@ -4862,8 +4076,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                           leagues: leagues,
                           selectedLeagueId: selectedLeague,
                           leagueActivePlayers: leagueActivePlayers,
-                          userCoin: userCoin,
-                          userRating: userRating,
+                          userCoin: UserState.userCoin,
+                          userRating: UserState.userRating,
                           loading: loadingLeagues,
                           onSelect: (league) {
                             final newLeague = league['id'];
@@ -4896,11 +4110,19 @@ class _LobbyScreenState extends State<LobbyScreen>
           child: LobbyTableWheel(
             tables: tables,
             loading: loadingTables,
-            blockedUserIds: _blockedUserIds,
+            blockedUserIds: UserState.blockedUserIds,
             onJoin: (table) => _joinTable(table),
             onSpectate: (table) => _handleSpectateTap(table),
             canSpectateAll: true,
-            onUserTap: (user) => _showUserCard(user),
+            onUserTap: (user) async {
+              await ProfileService.showUserCard(
+                user,
+                onRefresh: () async {
+                  await _loadSocialData();
+                  await _loadTables();
+                },
+              );
+            },
             onRefresh: () => _loadTables(),
           ),
         ),
@@ -4954,14 +4176,25 @@ class _LobbyScreenState extends State<LobbyScreen>
         const SizedBox(width: 10),
 
         InkWell(
-          onTap: () => _showUserCard({
-            'id': _userId,
-            'username': userName,
-            'avatar_url': _userAvatarUrl,
-            'rating': userRating,
-          }),
+          onTap: () => ProfileService.showUserCard(
+            {
+              'id': UserState.userId,
+              'username': UserState.userName,
+              'avatar_url': UserState.userAvatarUrl,
+              'rating': UserState.userRating,
+              'wins': UserState.wins,
+              'losses': UserState.losses,
+            },
+            onRefresh: () async {
+              await _loadSocialData();
+              await _loadTables();
+            },
+          ),
           borderRadius: BorderRadius.circular(999),
-          child: LobbyAvatar(username: userName, avatarUrl: _userAvatarUrl),
+          child: LobbyAvatar(
+            username: UserState.userName,
+            avatarUrl: UserState.userAvatarUrl,
+          ),
         ),
 
         const SizedBox(width: 10),
@@ -4971,7 +4204,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              userName,
+              UserState.userName,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -4983,11 +4216,11 @@ class _LobbyScreenState extends State<LobbyScreen>
 
             Row(
               children: [
-                statChip(Icons.star, userRating.toString()),
+                statChip(Icons.star, UserState.userRating.toString()),
 
                 const SizedBox(width: 10),
 
-                statChip(Icons.monetization_on, userCoin.toString()),
+                statChip(Icons.monetization_on, UserState.userCoin.toString()),
               ],
             ),
           ],
@@ -5033,7 +4266,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StoreScreen(initialCoin: userCoin),
+                  builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
                 ),
               );
 
@@ -5075,6 +4308,95 @@ class _LobbyScreenState extends State<LobbyScreen>
       context,
       MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
     );
+  }
+
+  Future<void> loadMissedGifts(String userId) async {
+    final res = await supabase
+        .from('gifts')
+        .select()
+        .eq('receiver_id', userId)
+        .eq('seen', false)
+        .order('created_at', ascending: true);
+
+    if (res.isEmpty) return;
+
+    // 🔥 1. GÖNDERENE GÖRE GRUPLA
+    final Map<String, List<dynamic>> grouped = {};
+
+    for (final g in res) {
+      final sender = g['sender_id'];
+      grouped.putIfAbsent(sender, () => []).add(g);
+    }
+
+    // 🔥 2. HER GRUP İÇİN GÖSTER
+    for (final entry in grouped.entries) {
+      final senderId = entry.key;
+      final gifts = entry.value;
+
+      final firstGift = gifts.first;
+      final giftType = firstGift['gift_type'];
+
+      // 👤 sender name
+      String senderName = "Bir oyuncu";
+
+      try {
+        final profile = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', senderId)
+            .maybeSingle();
+
+        if (profile != null) {
+          senderName = profile['username'] ?? senderName;
+        }
+      } catch (_) {}
+
+      // 🎁 gift info (ilk gift üzerinden)
+      String emoji = "🎁";
+      String giftName = "Hediye";
+
+      try {
+        final giftRes = await supabase
+            .from('gift_types')
+            .select('emoji, name')
+            .eq('type', giftType)
+            .maybeSingle();
+
+        if (giftRes != null) {
+          emoji = giftRes['emoji'] ?? emoji;
+          giftName = giftRes['name'] ?? giftName;
+        }
+      } catch (_) {}
+
+      // 🔥 MULTI LOGIC
+      if (gifts.length == 1) {
+        // ✅ TEK GIFT
+        GiftOverlay.show(
+          senderName: senderName,
+          emoji: emoji,
+          giftName: giftName,
+          senderId: senderId,
+        );
+      } else {
+        // 🔥 ÇOKLU GIFT
+        GiftOverlay.show(
+          senderName: senderName,
+          emoji: "🎁",
+          giftName: "${gifts.length} hediye gönderdi!",
+          senderId: senderId,
+        );
+      }
+
+      // 💥 CONFETTI (her sender için 1 kere)
+      CelebrationService.showConfetti();
+    }
+
+    // 🔥 TOPLU SEEN
+    await supabase
+        .from('gifts')
+        .update({'seen': true, 'seen_at': DateTime.now().toIso8601String()})
+        .eq('receiver_id', userId)
+        .eq('seen', false);
   }
 }
 
@@ -5122,628 +4444,6 @@ class _AnimatedStoreButtonState extends State<AnimatedStoreButton>
           ],
         ),
         child: lobbyStoreIcon(onTap: widget.onTap),
-      ),
-    );
-  }
-}
-
-class _ProfileSetupResult {
-  final String username;
-  final String avatarRef;
-  final int renameCoinSpent;
-  final int avatarCoinSpent;
-  final bool consumeFreeRename;
-  final Set<String> newUnlockedPremiumAvatarRefs;
-  int get spentCoins => renameCoinSpent + avatarCoinSpent;
-  String? get unlockedAvatarRef => newUnlockedPremiumAvatarRefs.isEmpty
-      ? null
-      : newUnlockedPremiumAvatarRefs.first;
-
-  const _ProfileSetupResult({
-    required this.username,
-    required this.avatarRef,
-    required this.renameCoinSpent,
-    required this.avatarCoinSpent,
-    required this.consumeFreeRename,
-    required this.newUnlockedPremiumAvatarRefs,
-  });
-}
-
-class _ProfileSetupDialog extends StatefulWidget {
-  final bool forceComplete;
-  final String initialUsername;
-  final String? initialAvatarRef;
-  final String currentUserId;
-  final int currentCoins;
-  final int renameCoinCost;
-  final bool freeRenameUsed;
-  final Set<String> ownedPremiumAvatarRefs;
-
-  const _ProfileSetupDialog({
-    required this.forceComplete,
-    required this.initialUsername,
-    required this.initialAvatarRef,
-    required this.currentUserId,
-    required this.currentCoins,
-    required this.renameCoinCost,
-    required this.freeRenameUsed,
-    required this.ownedPremiumAvatarRefs,
-  });
-
-  @override
-  State<_ProfileSetupDialog> createState() => _ProfileSetupDialogState();
-}
-
-class _ProfileSetupDialogState extends State<_ProfileSetupDialog> {
-  late final TextEditingController usernameController;
-  late String selectedAvatarRef;
-  late Set<String> ownedPremiumAvatarRefs;
-  String? errorText;
-  bool _saving = false;
-
-  String get _initialUsername => widget.initialUsername.trim();
-
-  bool get _didUsernameChange =>
-      usernameController.text.trim() != _initialUsername;
-
-  AvatarPreset get _selectedPreset => avatarPresetByRef(selectedAvatarRef);
-
-  bool get _isSelectedPremiumLocked =>
-      _selectedPreset.isPremium &&
-      !ownedPremiumAvatarRefs.contains(_selectedPreset.id);
-
-  bool get _willConsumeFreeRename =>
-      _didUsernameChange && !widget.freeRenameUsed;
-
-  int get _renameCoinCostToCharge =>
-      (_didUsernameChange && widget.freeRenameUsed) ? widget.renameCoinCost : 0;
-
-  int get _avatarCoinCostToCharge =>
-      _isSelectedPremiumLocked ? _selectedPreset.unlockCost : 0;
-
-  int get _computedCoinCost {
-    return _renameCoinCostToCharge + _avatarCoinCostToCharge;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    usernameController = TextEditingController(text: widget.initialUsername);
-    selectedAvatarRef = avatarPresetByRef(widget.initialAvatarRef).id;
-    ownedPremiumAvatarRefs = {...widget.ownedPremiumAvatarRefs};
-    final initialPreset = avatarPresetByRef(widget.initialAvatarRef);
-    if (initialPreset.isPremium) {
-      ownedPremiumAvatarRefs.add(initialPreset.id);
-    }
-    usernameController.addListener(() {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    usernameController.dispose();
-    super.dispose();
-  }
-
-  Future<bool> _isUsernameTaken(String username) async {
-    final rows = await Supabase.instance.client
-        .from('users')
-        .select('id')
-        .ilike('username', username)
-        .limit(5);
-    for (final row in (rows as List)) {
-      final id = row['id']?.toString();
-      if (id != null && id != widget.currentUserId) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  Future<void> _save() async {
-    if (_saving) return;
-    final username = usernameController.text.trim();
-    if (username.isEmpty) {
-      setState(() => errorText = 'Kullanıcı adı zorunlu.');
-      return;
-    }
-
-    final renameCoinSpent = _renameCoinCostToCharge;
-    final avatarCoinSpent = _avatarCoinCostToCharge;
-    final spentCoins = renameCoinSpent + avatarCoinSpent;
-    if (spentCoins > widget.currentCoins) {
-      setState(() {
-        errorText =
-            'Yetersiz coin. Gereken: $spentCoins, mevcut: ${widget.currentCoins}.';
-      });
-      return;
-    }
-
-    if (_didUsernameChange) {
-      setState(() {
-        _saving = true;
-        errorText = null;
-      });
-      try {
-        final taken = await _isUsernameTaken(username);
-        if (taken) {
-          setState(() {
-            _saving = false;
-            errorText = 'Bu kullanıcı adı zaten kullanımda.';
-          });
-          return;
-        }
-      } catch (_) {
-        setState(() {
-          _saving = false;
-          errorText = 'Kullanıcı adı kontrol edilemedi. Tekrar dene.';
-        });
-        return;
-      }
-      if (!mounted) return;
-      setState(() => _saving = false);
-    }
-
-    final unlockedPremium = <String>{};
-    if (_isSelectedPremiumLocked) {
-      unlockedPremium.add(_selectedPreset.id);
-    }
-
-    Navigator.pop(
-      context,
-      _ProfileSetupResult(
-        username: username,
-        avatarRef: selectedAvatarRef,
-        renameCoinSpent: renameCoinSpent,
-        avatarCoinSpent: avatarCoinSpent,
-        consumeFreeRename: _willConsumeFreeRename,
-        newUnlockedPremiumAvatarRefs: unlockedPremium,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-
-    final title = widget.forceComplete
-        ? 'Profilini Tamamla'
-        : 'Profili Düzenle';
-
-    final viewInsets = MediaQuery.of(context).viewInsets;
-    final keyboardOpen = viewInsets.bottom > 0;
-    final maxDialogHeight = (size.height - viewInsets.bottom - 16).clamp(
-      300.0,
-      size.height * 0.94,
-    );
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      alignment: keyboardOpen ? Alignment.topCenter : Alignment.center,
-      insetPadding: EdgeInsets.fromLTRB(18, keyboardOpen ? 8 : 18, 18, 18),
-      child: Container(
-        width: isLandscape ? 720 : 520,
-        constraints: BoxConstraints(maxHeight: maxDialogHeight),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF17382E), Color(0xFF0D221B)],
-          ),
-          border: Border.all(color: const Color(0xD7D0A14A), width: 1.8),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0xB3000000),
-              blurRadius: 28,
-              offset: Offset(0, 14),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: const Color(0x2CECCB79),
-                    border: Border.all(color: const Color(0x66E9C46A)),
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: Color(0xFFFFE0A8),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const Text(
-                        'Kullanıcı bilgilerini ve avatarını güncelle',
-                        style: TextStyle(
-                          color: Color(0xFFBBD2C4),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0x221A2520),
-                    border: Border.all(color: const Color(0x55FFFFFF)),
-                  ),
-                  child: IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white70,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: isLandscape
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _usernameSection(),
-                        if (!keyboardOpen) ...[
-                          const SizedBox(width: 18),
-                          Expanded(child: _avatarGrid()),
-                        ],
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _usernameSection(),
-                        if (!keyboardOpen) ...[
-                          const SizedBox(height: 14),
-                          Expanded(child: _avatarGrid()),
-                        ],
-                      ],
-                    ),
-            ),
-            if (errorText != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  errorText!,
-                  style: const TextStyle(
-                    color: Color(0xFFFF8E8E),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            if (!keyboardOpen) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0x2A111A17),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0x4DE7C06A)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Color(0xFFE9C46A),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _computedCoinCost > 0
-                            ? 'Toplam maliyet: $_computedCoinCost coin'
-                            : (_didUsernameChange && !widget.freeRenameUsed)
-                            ? 'İlk isim değişikliği ücretsiz.'
-                            : 'Bu kayıt için coin harcanmayacak.',
-                        style: const TextStyle(
-                          color: Color(0xFFD9EBDD),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check_rounded),
-                      label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2B7B55),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(
-                            color: Color(0xFF8F6215),
-                            width: 1.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _usernameSection() {
-    final renameInfo = !widget.freeRenameUsed
-        ? 'İlk isim değişikliği ücretsiz. Sonrası ${widget.renameCoinCost} coin.'
-        : 'Her isim değişikliği ${widget.renameCoinCost} coin.';
-
-    return SizedBox(
-      width: 240,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Kullanıcı adı',
-            style: TextStyle(
-              color: Color(0xFFD9EBDD),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: usernameController,
-            maxLength: 20,
-            scrollPadding: const EdgeInsets.only(bottom: 240),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: 'Örnek: OkeyUstasi',
-              hintStyle: const TextStyle(color: Color(0x88D9EBDD)),
-              filled: true,
-              fillColor: const Color(0x33273830),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            renameInfo,
-            style: const TextStyle(
-              color: Color(0xFFB9CFBF),
-              fontSize: 12,
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _avatarGrid() {
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final crossAxisCount = isLandscape ? 5 : 4;
-
-    final freeWomen = freeAvatarPresetsByGender('female');
-    final freeMen = freeAvatarPresetsByGender('male');
-    final premiumWomen = premiumAvatarPresetsByGender('female');
-    final premiumMen = premiumAvatarPresetsByGender('male');
-
-    return ListView(
-      children: [
-        _avatarSection(
-          title: 'Standart Kadın Avatarları',
-          subtitle: 'Ücretsiz',
-          presets: freeWomen,
-          crossAxisCount: crossAxisCount,
-        ),
-        const SizedBox(height: 14),
-        _avatarSection(
-          title: 'Standart Erkek Avatarları',
-          subtitle: 'Ücretsiz',
-          presets: freeMen,
-          crossAxisCount: crossAxisCount,
-        ),
-        const SizedBox(height: 14),
-        _avatarSection(
-          title: 'Premium Kadın Avatarları',
-          subtitle: 'Coin ile açılır',
-          presets: premiumWomen,
-          crossAxisCount: crossAxisCount,
-          premiumHeader: true,
-        ),
-        const SizedBox(height: 14),
-        _avatarSection(
-          title: 'Premium Erkek Avatarları',
-          subtitle: 'Coin ile açılır',
-          presets: premiumMen,
-          crossAxisCount: crossAxisCount,
-          premiumHeader: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _avatarSection({
-    required String title,
-    required String subtitle,
-    required List<AvatarPreset> presets,
-    required int crossAxisCount,
-    bool premiumHeader = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: premiumHeader
-                    ? const Color(0xFFFFD27D)
-                    : const Color(0xFFE3F4E8),
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: premiumHeader
-                    ? const Color(0x33FFD27D)
-                    : const Color(0x3345B47A),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: premiumHeader
-                      ? const Color(0x66FFD27D)
-                      : const Color(0x6645B47A),
-                ),
-              ),
-              child: Text(
-                subtitle,
-                style: TextStyle(
-                  color: premiumHeader
-                      ? const Color(0xFFFFD27D)
-                      : const Color(0xFFBFE5CC),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          itemCount: presets.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-          ),
-          itemBuilder: (_, index) => _avatarTile(presets[index]),
-        ),
-      ],
-    );
-  }
-
-  Widget _avatarTile(AvatarPreset preset) {
-    final selected = selectedAvatarRef == preset.id;
-    final isLockedPremium =
-        preset.isPremium && !ownedPremiumAvatarRefs.contains(preset.id);
-
-    return InkWell(
-      onTap: () => setState(() => selectedAvatarRef = preset.id),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: preset.isPremium
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0x6640200D), Color(0x44401008)],
-                )
-              : null,
-          color: preset.isPremium ? null : const Color(0x44213129),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFFE8C36A)
-                : (preset.isPremium
-                      ? const Color(0x66FFD27D)
-                      : const Color(0x334F8F75)),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Stack(
-          children: [
-            Center(
-              child: CircleAvatar(
-                radius: 28,
-                backgroundImage: AssetImage(preset.imageUrl),
-              ),
-            ),
-            if (isLockedPremium)
-              Positioned(
-                left: 4,
-                right: 4,
-                bottom: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xCC111111),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${preset.unlockCost} coin',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFFFD27D),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            if (preset.isPremium)
-              const Positioned(
-                top: 4,
-                right: 4,
-                child: Icon(
-                  Icons.workspace_premium_rounded,
-                  size: 14,
-                  color: Color(0xFFFFD27D),
-                ),
-              ),
-            if (isLockedPremium)
-              const Positioned(
-                top: 4,
-                left: 4,
-                child: Icon(
-                  Icons.lock_rounded,
-                  size: 14,
-                  color: Color(0xFFFFD27D),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
