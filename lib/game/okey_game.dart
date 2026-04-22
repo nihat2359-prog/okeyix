@@ -2364,17 +2364,22 @@ class OkeyGame extends FlameGame {
     for (int i = 0; i < 26; i++) {
       final tile = slotMap[i];
 
-      result.add({
-        'i': i,
-        'tile': tile != null
-            ? {
-                'color': _tileColorToString(tile.colorType),
-                'number': tile.value,
-                'joker': tile.isJoker,
-                'fake_joker': tile.isFakeJoker,
-              }
-            : null,
-      });
+      if (tile != null) {
+        result.add({
+          'i': i,
+          'tile': {
+            'color': _tileColorToString(tile.colorType),
+            'number': tile.value.toInt(), // 🔥 FIX
+            'joker': tile.isJoker == true,
+            'fake_joker': tile.isFakeJoker == true,
+          },
+        });
+      } else {
+        result.add({
+          'i': i,
+          // 🔥 tile alanını tamamen kaldır
+        });
+      }
     }
 
     return result;
@@ -2474,84 +2479,6 @@ class OkeyGame extends FlameGame {
     }
 
     return result;
-  }
-
-  Future<void> _runClientTimeoutFallback() async {
-    try {
-      if (!_isMyTurn()) return;
-      Map<String, dynamic>? currentPlayer;
-
-      for (final p in playersWithProfiles) {
-        if (p['seat_index'] == currentTurn) {
-          currentPlayer = p;
-          break;
-        }
-      }
-
-      if (currentPlayer == null) return;
-
-      bool isBot = currentPlayer['is_bot'] == true;
-      if (isBot) return;
-      final uid = Supabase.instance.client.auth.currentUser?.id;
-      if (uid == null) return;
-
-      var rows = await Supabase.instance.client
-          .from('table_players')
-          .select('hand')
-          .eq('table_id', tableId)
-          .eq('user_id', uid)
-          .limit(1);
-      if (rows is! List || rows.isEmpty) return;
-      var hand = rows.first['hand'];
-      if (hand is! List) return;
-
-      if (hand.length == 14) {
-        await Supabase.instance.client.rpc(
-          'game_draw',
-          params: {
-            'p_table_id': tableId,
-            'p_user_id': uid,
-            'p_source': 'closed',
-            'p_from_seat': null,
-          },
-        );
-        rows = await Supabase.instance.client
-            .from('table_players')
-            .select('hand')
-            .eq('table_id', tableId)
-            .eq('user_id', uid)
-            .limit(1);
-        if (rows is! List || rows.isEmpty) return;
-        hand = rows.first['hand'];
-        if (hand is! List) return;
-      }
-
-      if (hand.length != 15) return;
-      final strategy = decideStrategy(hand);
-      final finishTile = _pickFinishDiscardTile(hand);
-      final tile =
-          finishTile ??
-          pickBestDiscardTile(hand, strategy, protectedKeys: const <String>{});
-      final safeTile = _ensureLooseDiscardWhenPossible(hand, tile, strategy);
-      final canFinish = finishTile != null;
-      final slots = _buildSlotsJsonFromHand(hand);
-
-      await Supabase.instance.client.rpc(
-        'game_discard',
-        params: {
-          'p_table_id': tableId,
-          'p_user_id': uid,
-          'p_tile': safeTile,
-          'p_slots': slots,
-          'p_finish': false,
-          'p_is_player_action': false,
-        },
-      );
-      hasDrawnThisTurn = false;
-      await _syncDiscardTopsFromServer();
-    } catch (e) {
-      debugPrint('TIMEOUT FALLBACK ERROR: $e');
-    }
   }
 
   int? getNearestSlotIndex(Vector2 pos) {

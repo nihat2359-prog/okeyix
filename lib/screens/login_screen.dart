@@ -264,10 +264,6 @@ class _LoginScreenState extends State<LoginScreen>
         accessToken: authCode,
         nonce: rawNonce, // 🔥 BU ÇOK ÖNEMLİ
       );
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("LOGIN SUCCESS")));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),
