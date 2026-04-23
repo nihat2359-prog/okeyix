@@ -179,11 +179,14 @@ class AvatarCard extends StatelessWidget {
 
   Widget _avatarImage() {
     final raw = player.avatarPath.trim();
+    final status = player.avatarStatus; // 🔥 bunu modelden al
+
+    Widget image;
+
     if (raw.startsWith('assets/')) {
-      return Image.asset(raw, width: 54, height: 54, fit: BoxFit.cover);
-    }
-    if (raw.startsWith('http')) {
-      return Image.network(
+      image = Image.asset(raw, width: 54, height: 54, fit: BoxFit.cover);
+    } else if (raw.startsWith('http')) {
+      image = Image.network(
         raw,
         width: 54,
         height: 54,
@@ -191,18 +194,44 @@ class AvatarCard extends StatelessWidget {
         filterQuality: FilterQuality.medium,
         errorBuilder: (context, error, stackTrace) => _avatarTextFallback(),
       );
-    }
-    if (isKnownAvatarPreset(raw)) {
+    } else if (isKnownAvatarPreset(raw)) {
       final img = avatarPresetByRef(raw);
-      return Image.asset(
+      image = Image.asset(
         img.imageUrl,
         width: 54,
         height: 54,
         fit: BoxFit.cover,
       );
+    } else {
+      image = _avatarTextFallback();
     }
 
-    return _avatarTextFallback();
+    // 🔥 STACK İLE WRAP
+    return Stack(
+      children: [
+        ClipOval(child: image),
+
+        // 🔥 PENDING BADGE
+        if (status == 'pending')
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.75),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFE9C46A), width: 1),
+              ),
+              child: const Icon(
+                Icons.schedule, // ⏳
+                size: 12,
+                color: Color(0xFFE9C46A),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _avatarTextFallback() {

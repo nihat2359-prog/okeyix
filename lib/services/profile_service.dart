@@ -99,8 +99,10 @@ class ProfileService {
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F2F2A).withOpacity(0.90),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xD7D0A14A),
+                    width: 0.5,
                   ),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
@@ -168,10 +170,6 @@ class ProfileService {
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFFE9C46A),
-                              width: 2,
-                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: const Color(0xFFE9C46A).withOpacity(.28),
@@ -184,6 +182,7 @@ class ProfileService {
                             avatarUrl: user['avatar_url'],
                             size: 46,
                             blocked: isBlocked,
+                            enablePreview: true,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -874,13 +873,26 @@ class ProfileService {
   }
 
   static void msg(String text) {
-    final context = navigatorKey.currentContext!;
+    final context = navigatorKey.currentContext;
 
     if (context == null) {
       print("❌ context yok");
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    // 🔥 önce eski snack'leri temizle
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(text),
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating, // 🔥 daha güzel görünür
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+    );
   }
 
   static Future<void> openProfileSetupDialog({
@@ -932,10 +944,17 @@ class ProfileService {
     if (result == null) return;
 
     try {
-      final payload = {
-        'username': result.username,
-        'avatar_url': normalizeAvatarForStorage(result.avatarRef),
-      };
+      final payload = {'username': result.username};
+
+      if (isCustomAvatar(result.avatarRef)) {
+        payload['avatar_pending_url'] = normalizeAvatarForStorage(
+          result.avatarRef,
+        );
+        payload['avatar_status'] = 'pending';
+        payload['avatar_updated_at'] = DateTime.now().toIso8601String();
+      } else {
+        payload['avatar_url'] = normalizeAvatarForStorage(result.avatarRef);
+      }
 
       final payloadprofiles = {'username': result.username};
       final targetId = UserState.userId ?? user.id;
@@ -1012,11 +1031,29 @@ class ProfileService {
         await onSuccess();
       }
 
-      if (result.spentCoins > 0) {
-        msg('Profil guncellendi. ${result.spentCoins} coin harcandi.');
+      String message;
+
+      final isCustom = isCustomAvatar(result.avatarRef);
+
+      if (isCustom) {
+        if (result.spentCoins > 0) {
+          message =
+              'Profil güncellendi. ${result.spentCoins} coin harcandı.\n⏳ Fotoğrafınız inceleniyor, onaylandıktan sonra diğer oyuncular görebilecek.';
+        } else {
+          message =
+              'Profil güncellendi.\n⏳ Fotoğrafınız inceleniyor, onaylandıktan sonra diğer oyuncular görebilecek.';
+          _checkAvatarApprovedLater();
+        }
       } else {
-        msg('Profil guncellendi.');
+        if (result.spentCoins > 0) {
+          message = 'Profil güncellendi. ${result.spentCoins} coin harcandı.';
+        } else {
+          message = 'Profil güncellendi.';
+        }
       }
+
+      msg(message);
+
       return;
     } catch (e) {
       if (e is PostgrestException && e.code == '23505') {
@@ -1026,6 +1063,26 @@ class ProfileService {
       }
       return;
     }
+  }
+
+  static Future<void> _checkAvatarApprovedLater() async {
+    final userId = UserState.userId;
+
+    if (userId == null) return;
+
+    await Future.delayed(const Duration(seconds: 40));
+
+    try {
+      final res = await supabase
+          .from('users')
+          .select('avatar_status')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (res != null && res['avatar_status'] == 'approved') {
+        msg("✅ Fotoğrafınız onaylandı ve artık diğer oyuncular görebilir.");
+      }
+    } catch (_) {}
   }
 
   static Future<bool> isFreeRenameUsed(String userId) async {

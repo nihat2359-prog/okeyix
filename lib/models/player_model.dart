@@ -2,6 +2,7 @@ class PlayerModel {
   final String id;
   final String name;
   final String avatarPath;
+  String? avatarStatus;
   int coins;
   int rating;
   bool isDoubleMode;

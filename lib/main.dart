@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
@@ -26,7 +28,20 @@ Future<void> main() async {
         : _supabaseAnonKey,
   );
 
-  runApp(const MyApp());
+  FlutterError.onError = (details) {
+    debugPrint("🔥 ERROR: ${details.exception}");
+    debugPrint("${details.stack}");
+  };
+
+  runZonedGuarded(
+    () {
+      runApp(const MyApp());
+    },
+    (error, stack) {
+      debugPrint("🔥 ZONE ERROR: $error");
+      debugPrint("$stack");
+    },
+  );
 }
 
 final supabase = Supabase.instance.client;
@@ -86,20 +101,40 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: ThemeData(
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF173C31),
-          elevation: 14,
+
+          // 🔥 hafif transparan + derin ton
+          backgroundColor: const Color(0xE61B2E28), // %90 opacity
+
+          elevation: 18,
+
+          // 🔥 daha yumuşak spacing
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+
+          // 🔥 text daha premium
           contentTextStyle: const TextStyle(
-            color: Color(0xFFF4F8F6),
+            color: Color(0xFFF1F5F3),
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            letterSpacing: 0.1,
+            letterSpacing: 0.2,
+            height: 1.3,
           ),
+
+          // 🔥 glass + gold border
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0x99E7C06A), width: 1.1),
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(
+              color: Color(0x66E9C46A), // daha soft gold
+              width: 1.2,
+            ),
           ),
+
+          // 🔥 action renkleri
           actionTextColor: const Color(0xFFF2C14E),
           disabledActionTextColor: const Color(0x80F2C14E),
+
           showCloseIcon: true,
           closeIconColor: const Color(0xFFEAF2EE),
         ),

@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/app_msg.dart';
 import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/game/components/closed_pile_component.dart';
 import 'package:okeyix/game/components/discard_slot_component.dart';
@@ -2387,13 +2388,16 @@ class OkeyGame extends FlameGame {
 
   Future<void> _serverDiscard(TileComponent tile, {bool finish = false}) async {
     if (_actionInFlight) return;
+
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
+
     _actionInFlight = true;
 
     final slots = finish ? _buildSlotsJson(occupiedSlots) : null;
+
     try {
-      await Supabase.instance.client.rpc(
+      final res = await Supabase.instance.client.rpc(
         'game_discard',
         params: {
           'p_table_id': tableId,
@@ -2412,17 +2416,53 @@ class OkeyGame extends FlameGame {
         },
       );
 
-      // Re-sync full state from server to avoid turn/desync deadlocks.
+      // 🔥 SERVER RESPONSE OKU
+      if (res != null && res is Map) {
+        final ok = res['ok'] == true;
+
+        if (!ok) {
+          final error = res['error'];
+
+          if (error == 'INVALID_HAND') {
+            AppMsg.show('El geçersiz');
+          } else if (error == 'NOT_YOUR_TURN') {
+            AppMsg.show('Sıra sende değil');
+          } else {
+            AppMsg.show('İşlem başarısız');
+          }
+
+          Future.delayed(const Duration(seconds: 2), _hideWaitingOverlay);
+          return;
+        }
+
+        // 🔥 BAŞARILI FINISH
+        if (res['finish'] == true) {
+          _showWaitingOverlay('Kazandın! 🎉');
+        }
+      }
+
+      // 🔥 STATE SYNC
       await _loadInitialState();
       await _syncDiscardTopsFromServer();
+
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
-      //_emitTileSfx();
     } catch (e) {
-      debugPrint('GAME_DISCARD RPC ERROR: $e');
-      if ('$e'.contains('NOT_YOUR_TURN')) {
+      final err = e.toString();
+
+      debugPrint('GAME_DISCARD RPC ERROR: $err');
+
+      if (err.contains('INVALID_FINISH')) {
+        AppMsg.show('El geçersiz');
+      } else if (err.contains('NOT_YOUR_TURN')) {
+        AppMsg.show('Sıra sende değil');
         await _pollLiveTableState();
+      } else {
+        AppMsg.show('İşlem başarısız');
       }
+
+      Future.delayed(const Duration(seconds: 2), _hideWaitingOverlay);
+
       await _loadInitialState();
     } finally {
       _actionInFlight = false;
@@ -2687,16 +2727,7 @@ class OkeyGame extends FlameGame {
     final virtualCount =
         occupiedSlots.length + (tile.currentSlotIndex == null ? 1 : 0);
     if (virtualCount != 15) return false;
-    final finishHand = _buildFinishCandidateHand();
-    if (!_isValidFinishHand(finishHand)) {
-      _showWaitingOverlay('Elin bitmiyor');
-      async.Timer(const Duration(seconds: 2), () {
-        if (_gameStarted) {
-          _hideWaitingOverlay();
-        }
-      });
-      return false;
-    }
+
     _serverDiscard(tile, finish: true);
     return true;
   }

@@ -1064,7 +1064,15 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                               ),
                             ),
 
-                            Positioned.fill(child: GameWidget(game: _game)),
+                            Positioned.fill(
+                              child: Transform.translate(
+                                offset: Offset(
+                                  0,
+                                  -(MediaQuery.of(context).padding.bottom + 10),
+                                ),
+                                child: GameWidget(game: _game),
+                              ),
+                            ),
 
                             if (!_showFinish)
                               Positioned.fill(

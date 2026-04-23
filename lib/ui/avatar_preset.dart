@@ -220,6 +220,14 @@ bool isKnownAvatarPreset(String? ref) {
   return false;
 }
 
+bool isCustomAvatar(String? ref) {
+  if (ref == null || ref.isEmpty) return false;
+  if (ref.startsWith('http')) {
+    return true;
+  }
+  return false;
+}
+
 String normalizeAvatarForStorage(String ref) {
   return avatarPresetByRef(ref).imageUrl;
 }

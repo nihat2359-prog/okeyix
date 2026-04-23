@@ -192,8 +192,8 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
           ),
           itemBuilder: (_, index) => _avatarTile(presets[index]),
         ),
@@ -261,9 +261,14 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
         child: Stack(
           children: [
             Center(
-              child: CircleAvatar(
-                radius: 28,
-                backgroundImage: AssetImage(preset.imageUrl),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  preset.imageUrl,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover, // 🔥 EN KRİTİK
+                ),
               ),
             ),
 

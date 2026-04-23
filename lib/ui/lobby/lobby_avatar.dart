@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../avatar_preset.dart';
 
@@ -6,13 +8,14 @@ class LobbyAvatar extends StatelessWidget {
   final String? avatarUrl;
   final double size;
   final bool blocked;
-
+  final bool enablePreview;
   const LobbyAvatar({
     super.key,
     required this.username,
     this.avatarUrl,
     this.size = 26,
     this.blocked = false,
+    this.enablePreview = false,
   });
 
   @override
@@ -33,7 +36,7 @@ class LobbyAvatar extends StatelessWidget {
       image = AssetImage(preset.imageUrl);
     }
 
-    return Stack(
+    final avatarContent = Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
@@ -70,6 +73,88 @@ class LobbyAvatar extends StatelessWidget {
             ),
           ),
       ],
+    );
+
+    if (enablePreview && image != null) {
+      final safeImage = image;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque, // 🔥 çok önemli
+        onTap: () => _showAvatarPreview(context, safeImage),
+        child: avatarContent,
+      );
+    }
+
+    return avatarContent;
+  }
+
+  void _showAvatarPreview(BuildContext context, ImageProvider image) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.55), // 🔥 transparan arka plan
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 60, // 🔥 sağ-sol boşluk
+            vertical: 40, // 🔥 üst-alt boşluk
+          ),
+          child: Stack(
+            children: [
+              // 🔥 MODAL PANEL
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B2E28).withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFE2B650),
+                    width: 0.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE2B650).withOpacity(0.25),
+                      blurRadius: 25,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(14),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+
+                  // 🔥 ZOOM
+                  child: InteractiveViewer(
+                    minScale: 1,
+                    maxScale: 3,
+                    child: Image(image: image, fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+
+              // 🔥 CLOSE BUTTON
+              Positioned(
+                right: 6,
+                top: 6,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFE2B650)),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

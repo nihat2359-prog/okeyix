@@ -94,7 +94,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
 
   Uint8List? selectedAvatarBytes; // 🔥 seçilen foto (preview için)
   bool isCustomAvatarSelected = false; // 🔥 foto seçildi mi
-  int customAvatarCost = 5000;
+  int customAvatarCost = 15000;
   int get _customAvatarCoinCost =>
       isCustomAvatarSelected ? customAvatarCost : 0;
 
@@ -685,13 +685,41 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
       selectedAvatarBytes = bytes;
       isCustomAvatarSelected = true;
     });
+    showTopBanner(context);
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Uygunsuz içerikler reddedilebilir."),
-        duration: Duration(seconds: 2),
+  OverlayEntry? entry;
+
+  void showTopBanner(BuildContext context) {
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 20,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Color(0xFFE9C46A)),
+            ),
+            child: const Text(
+              "Uygunsuz içerikler reddedilebilir.",
+              style: TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
       ),
     );
+
+    Overlay.of(context).insert(entry!);
+
+    Future.delayed(const Duration(seconds: 5), () {
+      entry?.remove();
+    });
   }
 }
 
