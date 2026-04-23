@@ -5,6 +5,7 @@ class AvatarPreset {
   final String gender;
   final bool isPremium;
   final int unlockCost;
+  final bool isCustom;
 
   const AvatarPreset({
     required this.id,
@@ -13,6 +14,7 @@ class AvatarPreset {
     required this.gender,
     this.isPremium = false,
     this.unlockCost = 0,
+    this.isCustom = false,
   });
 }
 
@@ -190,8 +192,24 @@ AvatarPreset avatarPresetByRef(String? ref) {
         return preset;
       }
     }
+
+    // 🔥 BURASI KRİTİK
+    if (ref.startsWith('http')) {
+      return buildCustomAvatar(ref);
+    }
   }
+
   return avatarPresets.first;
+}
+
+AvatarPreset buildCustomAvatar(String url) {
+  return AvatarPreset(
+    id: url, // 🔥 unique olması için
+    label: 'Custom',
+    imageUrl: url,
+    gender: 'all',
+    isCustom: true,
+  );
 }
 
 bool isKnownAvatarPreset(String? ref) {

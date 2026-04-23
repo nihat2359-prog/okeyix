@@ -52,7 +52,7 @@ class LobbyRightPanel extends StatelessWidget {
 
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
-
+                      color: const Color(0xFF0F2F2A).withOpacity(0.90),
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,

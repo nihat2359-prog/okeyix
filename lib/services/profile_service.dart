@@ -8,6 +8,7 @@ import 'package:okeyix/ui/avatar_preset.dart';
 import 'package:okeyix/ui/gift_selector_sheet.dart';
 import 'package:okeyix/ui/lobby/lobby_avatar.dart';
 import 'package:okeyix/ui/profile_setup_dialog.dart';
+import 'package:okeyix/ui/report_user_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -97,23 +98,15 @@ class ProfileService {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
+                  color: const Color(0xFF0F2F2A).withOpacity(0.90),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF17382E), Color(0xFF0D221B)],
+                    colors: [Color(0xEE13291F), Color(0xEE0C1712)],
                   ),
-                  border: Border.all(
-                    color: _goldBorderColor,
-                    width: _goldBorderWidth,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0xCC000000),
-                      blurRadius: 34,
-                      offset: Offset(0, 16),
-                    ),
-                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -367,204 +360,151 @@ class ProfileService {
 
                     const SizedBox(height: 10),
                     // BUTONLAR
-                    if (isSelf)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _modalActionButton(
-                              label: '✎ Düzenle',
-                              primary: true,
-                              onPressed: () async {
-                                final navigator = navigatorKey.currentState;
-                                navigator?.pop();
-
-                                await openProfileSetupDialog(
-                                  forceComplete: false,
-                                  onSuccess: onRefresh,
-                                );
-                              },
-                            ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // 👤 KENDİ PROFİLİ
+                        if (isSelf) ...[
+                          _iconBtn(
+                            Icons.edit,
+                            onPressed: () async {
+                              navigatorKey.currentState?.pop();
+                              await openProfileSetupDialog(
+                                forceComplete: false,
+                                onSuccess: onRefresh,
+                              );
+                            },
                           ),
 
-                          const SizedBox(width: 10),
-
-                          Expanded(
-                            child: _modalActionButton(
-                              label: '🎁 Hediyelerim',
-                              primary: false, // 🔥 secondary style olsun
-                              onPressed: () {
-                                final navigator = navigatorKey.currentState;
-                                navigator?.pop();
-
-                                // 👉 Gift history aç
-                                Navigator.push(
-                                  navigatorKey.currentContext!,
-                                  MaterialPageRoute(
-                                    builder: (_) => const GiftHistoryScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (!isSelf)
-                      Column(
-                        children: [
-                          // SATIR 1: Arkadaş Ekle + Hediye Gönder
-                          if (!isFriend && !incoming && !outgoing && !isBlocked)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _modalActionButton(
-                                      label: '👥 Arkadaş Ekle',
-                                      primary: true,
-                                      onPressed: () async {
-                                        final navigator =
-                                            navigatorKey.currentState;
-                                        navigator?.pop();
-                                        await sendFriendRequest(otherId);
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _modalActionButton(
-                                      label: '🎁 Hediye Gönder',
-                                      onPressed: () async {
-                                        final navigator =
-                                            navigatorKey.currentState;
-                                        navigator?.pop();
-                                        await showModalBottomSheet(
-                                          context: context,
-                                          backgroundColor: Colors.transparent,
-                                          isScrollControlled: true,
-                                          builder: (_) => GiftSelectorSheet(
-                                            receiverId: otherId,
-                                            receiverName: username,
-                                            onGiftSent: () {
-                                              debugPrint('Hediye gönderildi!');
-                                            },
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // SATIR 2: İstek Yanıtı (Kabul + Reddet)
-                          if (incoming)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _modalActionButton(
-                                      label: '✓ Kabul',
-                                      primary: true,
-                                      onPressed: () async {
-                                        final navigator =
-                                            navigatorKey.currentState;
-                                        navigator?.pop();
-                                        await acceptFriendRequest(otherId);
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _modalActionButton(
-                                      label: '✕ Reddet',
-                                      danger: true,
-                                      onPressed: () async {
-                                        final navigator =
-                                            navigatorKey.currentState;
-                                        navigator?.pop();
-                                        await rejectFriendRequest(otherId);
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // SATIR 3: Arkadaş Ise (Hediye + Çıkar)
-                          if (isFriend && !isBlocked)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _modalActionButton(
-                                      label: '🎁 Hediye Gönder',
-                                      primary: true,
-                                      onPressed: () async {
-                                        final navigator =
-                                            navigatorKey.currentState;
-                                        navigator?.pop();
-                                        await showModalBottomSheet(
-                                          context: context,
-                                          backgroundColor: Colors.transparent,
-                                          isScrollControlled: true,
-                                          builder: (_) => GiftSelectorSheet(
-                                            receiverId: otherId,
-                                            receiverName: username,
-                                            onGiftSent: () {
-                                              debugPrint('Hediye gönderildi!');
-                                            },
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _modalActionButton(
-                                      label: '👋 Çıkar',
-                                      onPressed: () async {
-                                        final navigator =
-                                            navigatorKey.currentState;
-                                        navigator?.pop();
-                                        await removeFriend(otherId);
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          // SATIR 4: İstek Gönderildiyse
-                          if (outgoing && !isBlocked)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: _modalActionButton(
-                                  label: '⏳ İstek Gönderildi',
-                                  onPressed: null,
+                          _iconBtn(
+                            Icons.card_giftcard,
+                            onPressed: () {
+                              navigatorKey.currentState?.pop();
+                              Navigator.push(
+                                navigatorKey.currentContext!,
+                                MaterialPageRoute(
+                                  builder: (_) => const GiftHistoryScreen(),
                                 ),
-                              ),
+                              );
+                            },
+                          ),
+                        ],
+
+                        // 👥 BAŞKA KULLANICI
+                        if (!isSelf) ...[
+                          // Arkadaş değil
+                          if (!isFriend &&
+                              !incoming &&
+                              !outgoing &&
+                              !isBlocked) ...[
+                            _iconBtn(
+                              Icons.person_add,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await sendFriendRequest(otherId);
+                              },
                             ),
 
-                          // SATIR 5: Engelle (Tek başına)
-                          if (!isBlocked)
-                            SizedBox(
-                              width: double.infinity,
-                              child: _modalActionButton(
-                                label: '🚫 Engelle',
-                                danger: true,
-                                onPressed: () async {
-                                  final navigator = navigatorKey.currentState;
-                                  navigator?.pop();
-                                  await blockUser(otherId);
-                                },
-                              ),
+                            _iconBtn(
+                              Icons.card_giftcard,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  isScrollControlled: true,
+                                  builder: (_) => GiftSelectorSheet(
+                                    receiverId: otherId,
+                                    receiverName: username,
+                                    onGiftSent: () {
+                                      debugPrint('Hediye gönderildi!');
+                                    },
+                                  ),
+                                );
+                              },
                             ),
+                          ],
+
+                          // Gelen istek
+                          if (incoming) ...[
+                            _iconBtn(
+                              Icons.check,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await acceptFriendRequest(otherId);
+                              },
+                            ),
+
+                            _iconBtn(
+                              Icons.close,
+                              color: Colors.red,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await rejectFriendRequest(otherId);
+                              },
+                            ),
+                          ],
+
+                          // Arkadaş ise
+                          if (isFriend && !isBlocked) ...[
+                            _iconBtn(
+                              Icons.card_giftcard,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: Colors.transparent,
+                                  isScrollControlled: true,
+                                  builder: (_) => GiftSelectorSheet(
+                                    receiverId: otherId,
+                                    receiverName: username,
+                                    onGiftSent: () {
+                                      debugPrint('Hediye gönderildi!');
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+
+                            _iconBtn(
+                              Icons.person_remove,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await removeFriend(otherId);
+                              },
+                            ),
+                          ],
+
+                          // Gönderilmiş istek
+                          if (outgoing && !isBlocked) ...[
+                            _iconBtn(Icons.hourglass_top, onPressed: null),
+                          ],
+
+                          // Engelle
+                          if (!isBlocked) ...[
+                            _iconBtn(
+                              Icons.block,
+                              color: Colors.red,
+                              onPressed: () async {
+                                navigatorKey.currentState?.pop();
+                                await blockUser(otherId);
+                              },
+                            ),
+                          ],
+                          if (!isSelf) ...[
+                            _iconBtn(
+                              Icons.flag,
+                              color: Colors.orange,
+                              onPressed: () {
+                                navigatorKey.currentState
+                                    ?.pop(); // profil modalı kapat
+                                _openReportSheet(context, otherId, username);
+                              },
+                            ),
+                          ],
                         ],
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -572,6 +512,42 @@ class ProfileService {
           ),
         );
       },
+    );
+  }
+
+  static void _openReportSheet(
+    BuildContext context,
+    String userId,
+    String username,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) =>
+          ReportUserSheet(reportedUserId: userId, reportedUsername: username),
+    );
+  }
+
+  static Widget _iconBtn(
+    IconData icon, {
+    VoidCallback? onPressed,
+    Color? color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 20, color: color ?? Colors.white),
+        ),
+      ),
     );
   }
 
@@ -960,8 +936,9 @@ class ProfileService {
         'username': result.username,
         'avatar_url': normalizeAvatarForStorage(result.avatarRef),
       };
+
       final payloadprofiles = {'username': result.username};
-      final targetId = UserState.userRowId ?? user.id;
+      final targetId = UserState.userId ?? user.id;
       final updated = await supabase
           .from('users')
           .update(payload)
@@ -978,6 +955,7 @@ class ProfileService {
 
       if ((updated as List).isEmpty) {
         final email = user.email?.trim();
+
         if (email != null && email.isNotEmpty) {
           final updatedByEmail = await supabase
               .from('users')
@@ -1106,13 +1084,21 @@ class ProfileService {
   static Future<void> ensureUserRow() async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
+
     try {
-      final existing = await findUserRow(
-        user,
-        columns: 'id,email,username,avatar_url',
-      );
+      final existing = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
       if (existing != null) return;
-      await supabase.from('users').insert({'id': user.id, 'email': user.email});
+
+      await supabase.from('users').insert({
+        'id': user.id,
+        'email': user.email,
+        'avatar_url': 'assets/images/avatars/avatar1.png',
+      });
     } catch (e) {
       debugPrint('ENSURE USER ROW ERROR: $e');
     }
@@ -1131,17 +1117,6 @@ class ProfileService {
       return Map<String, dynamic>.from(byId.first);
     }
 
-    final email = user.email?.trim();
-    if (email == null || email.isEmpty) return null;
-
-    final byEmail = await supabase
-        .from('users')
-        .select(columns)
-        .eq('email', email)
-        .limit(1);
-    if ((byEmail as List).isNotEmpty) {
-      return Map<String, dynamic>.from(byEmail.first);
-    }
     return null;
   }
 

@@ -16,6 +16,7 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
   final bool isWinner;
   final bool isSpectator;
   FinishRack(this.slots, this.winnerName, this.isWinner, this.isSpectator);
+
   Future<void> onLoad() async {
     _playResultSound();
     position = Vector2(
@@ -118,7 +119,9 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
 
     if (isSpectator || isWinner) {
       _player.play(jo.AssetSource('sounds/win.mp3'));
-      CelebrationService.showConfetti();
+      Future.delayed(const Duration(milliseconds: 80), () {
+        CelebrationService.showConfetti();
+      });
     } else {
       _player.play(jo.AssetSource('sounds/lose.mp3'));
     }

@@ -193,9 +193,9 @@ class AvatarCard extends StatelessWidget {
       );
     }
     if (isKnownAvatarPreset(raw)) {
-      final preset = avatarPresetByRef(raw);
+      final img = avatarPresetByRef(raw);
       return Image.asset(
-        preset.imageUrl,
+        img.imageUrl,
         width: 54,
         height: 54,
         fit: BoxFit.cover,

@@ -1,6 +1,13 @@
+import 'dart:typed_data';
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:okeyix/main.dart';
+import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/avatar_preset.dart';
+import 'package:okeyix/ui/avatar_selection_screen.dart' hide AvatarPreset;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> openProfileSetupDialog({
@@ -86,20 +93,33 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
   int get _avatarCoinCostToCharge =>
       _isSelectedPremiumLocked ? _selectedPreset.unlockCost : 0;
 
+  Uint8List? selectedAvatarBytes; // 🔥 seçilen foto (preview için)
+  bool isCustomAvatarSelected = false; // 🔥 foto seçildi mi
+  int customAvatarCost = 5000;
+  int get _customAvatarCoinCost =>
+      isCustomAvatarSelected ? customAvatarCost : 0;
+
   int get _computedCoinCost {
-    return _renameCoinCostToCharge + _avatarCoinCostToCharge;
+    return _renameCoinCostToCharge +
+        _avatarCoinCostToCharge +
+        _customAvatarCoinCost;
   }
+
+  get FlutterImageCompress => null;
 
   @override
   void initState() {
     super.initState();
     usernameController = TextEditingController(text: widget.initialUsername);
-    selectedAvatarRef = avatarPresetByRef(widget.initialAvatarRef).id;
+    selectedAvatarRef = selectedAvatarRef =
+        widget.initialAvatarRef ?? "assets/images/avatars/avatar11.png";
     ownedPremiumAvatarRefs = {...widget.ownedPremiumAvatarRefs};
+
     final initialPreset = avatarPresetByRef(widget.initialAvatarRef);
     if (initialPreset.isPremium) {
       ownedPremiumAvatarRefs.add(initialPreset.id);
     }
+
     usernameController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -126,9 +146,38 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     return false;
   }
 
+  Future<String?> _validateSelectedImage() async {
+    if (selectedAvatarBytes == null) return null;
+
+    final bytes = selectedAvatarBytes!;
+
+    // 🔥 1. boyut kontrol (çok küçük)
+    if (bytes.length < 5 * 1024) {
+      return "Seçilen görsel çok küçük veya geçersiz.";
+    }
+
+    // 🔥 3. çözünürlük kontrol (opsiyonel ama iyi)
+    try {
+      final codec = await instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+
+      if (image.width < 128 || image.height < 128) {
+        return "Görsel çözünürlüğü çok düşük.";
+      }
+    } catch (_) {
+      return "Görsel okunamadı.";
+    }
+
+    // 🔥 4. SOFT UYARI (her zaman gösterilebilir)
+    return null;
+  }
+
   Future<void> _save() async {
     if (_saving) return;
+
     final username = usernameController.text.trim();
+
     if (username.isEmpty) {
       setState(() => errorText = 'Kullanıcı adı zorunlu.');
       return;
@@ -136,7 +185,11 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
 
     final renameCoinSpent = _renameCoinCostToCharge;
     final avatarCoinSpent = _avatarCoinCostToCharge;
-    final spentCoins = renameCoinSpent + avatarCoinSpent;
+    final customAvatarCoinSpent = isCustomAvatarSelected ? customAvatarCost : 0;
+
+    final spentCoins =
+        renameCoinSpent + avatarCoinSpent + customAvatarCoinSpent;
+
     if (spentCoins > widget.currentCoins) {
       setState(() {
         errorText =
@@ -145,11 +198,13 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
       return;
     }
 
+    // 🔥 kullanıcı adı kontrol
     if (_didUsernameChange) {
       setState(() {
         _saving = true;
         errorText = null;
       });
+
       try {
         final taken = await _isUsernameTaken(username);
         if (taken) {
@@ -162,30 +217,69 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
       } catch (_) {
         setState(() {
           _saving = false;
-          errorText = 'Kullanıcı adı kontrol edilemedi. Tekrar dene.';
+          errorText = 'Kullanıcı adı kontrol edilemedi.';
         });
         return;
       }
+
       if (!mounted) return;
       setState(() => _saving = false);
     }
 
-    final unlockedPremium = <String>{};
-    if (_isSelectedPremiumLocked) {
-      unlockedPremium.add(_selectedPreset.id);
-    }
+    setState(() => _saving = true);
 
-    Navigator.pop(
-      context,
-      ProfileSetupResult(
-        username: username,
-        avatarRef: selectedAvatarRef,
-        renameCoinSpent: renameCoinSpent,
-        avatarCoinSpent: avatarCoinSpent,
-        consumeFreeRename: _willConsumeFreeRename,
-        newUnlockedPremiumAvatarRefs: unlockedPremium,
-      ),
-    );
+    try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      String? finalAvatarUrl = selectedAvatarRef;
+
+      // 🔥 CUSTOM AVATAR VARSA UPLOAD
+      if (selectedAvatarBytes != null) {
+        final path = "avatars/$userId/avatar.jpg";
+
+        try {
+          await supabase.storage
+              .from('avatars')
+              .uploadBinary(
+                path,
+                selectedAvatarBytes!,
+                fileOptions: const FileOptions(upsert: true),
+              );
+        } catch (e) {
+          print("UPLOAD ERROR: $e");
+        }
+
+        finalAvatarUrl = Supabase.instance.client.storage
+            .from('avatars')
+            .getPublicUrl(path);
+      }
+
+      // 🔥 PREMIUM UNLOCK
+      final unlockedPremium = <String>{};
+      if (_isSelectedPremiumLocked) {
+        unlockedPremium.add(_selectedPreset.id);
+      }
+
+      if (!mounted) return;
+
+      Navigator.pop(
+        context,
+        ProfileSetupResult(
+          username: username,
+          avatarRef: finalAvatarUrl,
+          renameCoinSpent: renameCoinSpent,
+          avatarCoinSpent: avatarCoinSpent + customAvatarCoinSpent,
+          consumeFreeRename: _willConsumeFreeRename,
+          newUnlockedPremiumAvatarRefs: unlockedPremium,
+        ),
+      );
+    } catch (e) {
+      print("SAVE ERROR: $e");
+      setState(() {
+        _saving = false;
+        errorText = "Kayıt sırasında hata oluştu.";
+      });
+    }
   }
 
   @override
@@ -217,9 +311,10 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF17382E), Color(0xFF0D221B)],
+            colors: [Color(0xEE13291F), Color(0xEE0C1712)],
           ),
-          border: Border.all(color: const Color(0xD7D0A14A), width: 1.8),
+          color: const Color(0xFF0F2F2A).withOpacity(0.70),
+          border: Border.all(color: const Color(0xD7D0A14A), width: 0.5),
           boxShadow: const [
             BoxShadow(
               color: Color(0xB3000000),
@@ -270,45 +365,35 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                     ],
                   ),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0x221A2520),
-                    border: Border.all(color: const Color(0x55FFFFFF)),
-                  ),
-                  child: IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white70,
+                if (!widget.forceComplete)
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0x221A2520),
+                      border: Border.all(color: const Color(0x55FFFFFF)),
+                    ),
+                    child: IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white70,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: isLandscape
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _usernameSection(),
-                        if (!keyboardOpen) ...[
-                          const SizedBox(width: 18),
-                          Expanded(child: _avatarGrid()),
-                        ],
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _usernameSection(),
-                        if (!keyboardOpen) ...[
-                          const SizedBox(height: 14),
-                          Expanded(child: _avatarGrid()),
-                        ],
-                      ],
-                    ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _usernameSection(),
+                  if (!keyboardOpen) ...[
+                    const SizedBox(width: 18),
+                    Expanded(child: _avatarPanel()),
+                  ],
+                ],
+              ),
             ),
             if (errorText != null)
               Padding(
@@ -386,6 +471,89 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     );
   }
 
+  Widget _avatarPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 🔥 avatar preview
+        Container(
+          width: 110,
+          height: 110,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Color(0xFFE9C46A), width: 2),
+          ),
+          child: ClipOval(
+            child: selectedAvatarBytes != null
+                ? Image.memory(selectedAvatarBytes!, fit: BoxFit.cover)
+                : selectedAvatarRef != null
+                ? Image.asset(selectedAvatarRef!, fit: BoxFit.cover)
+                : Container(
+                    color: Colors.white10,
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.white38,
+                      size: 40,
+                    ),
+                  ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _openAvatarGrid,
+                icon: const Icon(Icons.grid_view_rounded),
+                label: const Text("Avatar Seç"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF2B7B55),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _onUploadAvatar,
+                icon: const Icon(Icons.photo_camera),
+                label: const Text("Fotoğraf"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFFE9C46A)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _openAvatarGrid() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AvatarSelectionScreen(
+          ownedPremiumAvatarRefs: {...ownedPremiumAvatarRefs},
+          userCoins: widget.currentCoins,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        selectedAvatarRef = result;
+        selectedAvatarBytes = null;
+        isCustomAvatarSelected = false;
+      });
+    }
+  }
+
   Widget _usernameSection() {
     final renameInfo = !widget.freeRenameUsed
         ? 'İlk isim değişikliği ücretsiz. Sonrası ${widget.renameCoinCost} coin.'
@@ -437,200 +605,44 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     );
   }
 
-  Widget _avatarGrid() {
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final crossAxisCount = isLandscape ? 5 : 4;
+  Future<void> _onUploadAvatar() async {
+    final picker = ImagePicker();
 
-    final freeWomen = freeAvatarPresetsByGender('female');
-    final freeMen = freeAvatarPresetsByGender('male');
-    final premiumWomen = premiumAvatarPresetsByGender('female');
-    final premiumMen = premiumAvatarPresetsByGender('male');
-
-    return ListView(
-      children: [
-        _avatarSection(
-          title: 'Standart Kadın Avatarları',
-          subtitle: 'Ücretsiz',
-          presets: freeWomen,
-          crossAxisCount: crossAxisCount,
-        ),
-        const SizedBox(height: 14),
-        _avatarSection(
-          title: 'Standart Erkek Avatarları',
-          subtitle: 'Ücretsiz',
-          presets: freeMen,
-          crossAxisCount: crossAxisCount,
-        ),
-        const SizedBox(height: 14),
-        _avatarSection(
-          title: 'Premium Kadın Avatarları',
-          subtitle: 'Coin ile açılır',
-          presets: premiumWomen,
-          crossAxisCount: crossAxisCount,
-          premiumHeader: true,
-        ),
-        const SizedBox(height: 14),
-        _avatarSection(
-          title: 'Premium Erkek Avatarları',
-          subtitle: 'Coin ile açılır',
-          presets: premiumMen,
-          crossAxisCount: crossAxisCount,
-          premiumHeader: true,
-        ),
-      ],
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
     );
-  }
 
-  Widget _avatarSection({
-    required String title,
-    required String subtitle,
-    required List<AvatarPreset> presets,
-    required int crossAxisCount,
-    bool premiumHeader = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: premiumHeader
-                    ? const Color(0xFFFFD27D)
-                    : const Color(0xFFE3F4E8),
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: premiumHeader
-                    ? const Color(0x33FFD27D)
-                    : const Color(0x3345B47A),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: premiumHeader
-                      ? const Color(0x66FFD27D)
-                      : const Color(0x6645B47A),
-                ),
-              ),
-              child: Text(
-                subtitle,
-                style: TextStyle(
-                  color: premiumHeader
-                      ? const Color(0xFFFFD27D)
-                      : const Color(0xFFBFE5CC),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          itemCount: presets.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-          ),
-          itemBuilder: (_, index) => _avatarTile(presets[index]),
-        ),
-      ],
-    );
-  }
+    if (file == null) return;
 
-  Widget _avatarTile(AvatarPreset preset) {
-    final selected = selectedAvatarRef == preset.id;
-    final isLockedPremium =
-        preset.isPremium && !ownedPremiumAvatarRefs.contains(preset.id);
+    Uint8List? bytes;
 
-    return InkWell(
-      onTap: () => setState(() => selectedAvatarRef = preset.id),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: preset.isPremium
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0x6640200D), Color(0x44401008)],
-                )
-              : null,
-          color: preset.isPremium ? null : const Color(0x44213129),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFFE8C36A)
-                : (preset.isPremium
-                      ? const Color(0x66FFD27D)
-                      : const Color(0x334F8F75)),
-            width: selected ? 2 : 1,
-          ),
+    if (kIsWeb) {
+      bytes = await file.readAsBytes();
+    } else {
+      bytes = await FlutterImageCompress.compressWithFile(
+        file.path,
+        minWidth: 256,
+        minHeight: 256,
+        quality: 70,
+      );
+    }
+
+    if (bytes == null) return;
+
+    setState(() {
+      selectedAvatarBytes = bytes;
+      isCustomAvatarSelected = true;
+    });
+
+    if (selectedAvatarBytes != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Uygunsuz içerikler reddedilebilir."),
+          duration: Duration(seconds: 2),
         ),
-        child: Stack(
-          children: [
-            Center(
-              child: CircleAvatar(
-                radius: 28,
-                backgroundImage: AssetImage(preset.imageUrl),
-              ),
-            ),
-            if (isLockedPremium)
-              Positioned(
-                left: 4,
-                right: 4,
-                bottom: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xCC111111),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${preset.unlockCost} coin',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFFFD27D),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            if (preset.isPremium)
-              const Positioned(
-                top: 4,
-                right: 4,
-                child: Icon(
-                  Icons.workspace_premium_rounded,
-                  size: 14,
-                  color: Color(0xFFFFD27D),
-                ),
-              ),
-            if (isLockedPremium)
-              const Positioned(
-                top: 4,
-                left: 4,
-                child: Icon(
-                  Icons.lock_rounded,
-                  size: 14,
-                  color: Color(0xFFFFD27D),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+      );
+    }
   }
 }
 

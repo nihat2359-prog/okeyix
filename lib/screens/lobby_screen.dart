@@ -426,6 +426,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         await ProfileService.openProfileSetupDialog(
           forceComplete: true,
           onSuccess: () async {
+            await _loadUser();
             await _loadSocialData();
             await _loadTables();
           },
@@ -1384,10 +1385,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                   'category': category,
                   'message': message,
                   'status': 'open',
+                  'reported_user_id': '',
                 });
                 if (!mounted) return;
                 Navigator.pop(context);
-                _msg('Talebiniz al\u0131nm\u0131\u015Ft\u0131r.');
+                _msg('Talebiniz alınmıştır.');
               } catch (_) {
                 setLocalState(() {
                   sending = false;
@@ -1434,7 +1436,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'Destek / \u015Eikayet G\u00F6nder',
+                          'Destek Şikayet Gönder',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -2192,13 +2194,12 @@ class _LobbyScreenState extends State<LobbyScreen>
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(22),
 
-                        image: const DecorationImage(
-                          image: AssetImage("assets/images/lobby/lobby.png"),
-                          fit: BoxFit.cover,
-                          opacity: 0.38,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xEE13291F), Color(0xEE0C1712)],
                         ),
-
-                        color: const Color(0xCC102620),
+                        color: const Color(0xFF0F2F2A),
                       ),
 
                       child: Column(
@@ -4188,6 +4189,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             onRefresh: () async {
               await _loadSocialData();
               await _loadTables();
+              await _loadUser();
             },
           ),
           borderRadius: BorderRadius.circular(999),
