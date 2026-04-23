@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:okeyix/main.dart';
-import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/avatar_preset.dart';
 import 'package:okeyix/ui/avatar_selection_screen.dart' hide AvatarPreset;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -303,7 +302,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
       alignment: keyboardOpen ? Alignment.topCenter : Alignment.center,
       insetPadding: EdgeInsets.fromLTRB(18, keyboardOpen ? 8 : 18, 18, 18),
       child: Container(
-        width: isLandscape ? 720 : 520,
+        width: isLandscape ? 600 : 520,
         constraints: BoxConstraints(maxHeight: maxDialogHeight),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         decoration: BoxDecoration(
@@ -475,62 +474,88 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 🔥 avatar preview
-        Container(
-          width: 110,
-          height: 110,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Color(0xFFE9C46A), width: 2),
-          ),
-          child: ClipOval(
-            child: selectedAvatarBytes != null
-                ? Image.memory(selectedAvatarBytes!, fit: BoxFit.cover)
-                : selectedAvatarRef != null
-                ? Image.asset(selectedAvatarRef!, fit: BoxFit.cover)
-                : Container(
-                    color: Colors.white10,
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white38,
-                      size: 40,
-                    ),
-                  ),
+        // 🔥 avatar preview (yukarı alındı)
+        Transform.translate(
+          offset: const Offset(0, -15),
+          child: Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE9C46A), width: 2),
+            ),
+            child: ClipOval(
+              child: selectedAvatarBytes != null
+                  ? Image.memory(
+                      selectedAvatarBytes!,
+                      fit: BoxFit.cover,
+                      key: ValueKey(
+                        selectedAvatarBytes!.length,
+                      ), // 🔥 repaint fix
+                    )
+                  : selectedAvatarRef != null
+                  ? (selectedAvatarRef!.startsWith('http')
+                        ? Image.network(
+                            selectedAvatarRef!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _fallbackAvatar(),
+                          )
+                        : Image.asset(selectedAvatarRef!, fit: BoxFit.cover))
+                  : _fallbackAvatar(),
+            ),
           ),
         ),
 
-        const SizedBox(height: 16),
-
+        const SizedBox(height: 4), // 🔥 boşluk azaltıldı
+        // 🔥 BUTONLAR (compact hale getirildi)
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _openAvatarGrid,
-                icon: const Icon(Icons.grid_view_rounded),
-                label: const Text("Avatar Seç"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF2B7B55),
-                  foregroundColor: Colors.white,
+            ElevatedButton.icon(
+              onPressed: _openAvatarGrid,
+              icon: const Icon(Icons.grid_view_rounded, size: 18),
+              label: const Text("Avatar Seç"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2B7B55),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
 
             const SizedBox(width: 10),
 
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _onUploadAvatar,
-                icon: const Icon(Icons.photo_camera),
-                label: const Text("Fotoğraf"),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0xFFE9C46A)),
+            OutlinedButton.icon(
+              onPressed: _onUploadAvatar,
+              icon: const Icon(Icons.photo_camera, size: 18),
+              label: const Text("Fotoğraf"),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFFE9C46A)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _fallbackAvatar() {
+    return Container(
+      color: Colors.white10,
+      child: const Icon(Icons.person, color: Colors.white38, size: 40),
     );
   }
 
@@ -610,39 +635,63 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
 
     final file = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 85,
+      imageQuality: 85, // ilk seviye sıkıştırma
     );
 
     if (file == null) return;
 
-    Uint8List? bytes;
+    Uint8List bytes;
 
-    if (kIsWeb) {
-      bytes = await file.readAsBytes();
-    } else {
-      bytes = await FlutterImageCompress.compressWithFile(
-        file.path,
-        minWidth: 256,
-        minHeight: 256,
-        quality: 70,
-      );
+    // 🔥 1. HER ZAMAN OKU (GARANTİ)
+    bytes = await file.readAsBytes();
+
+    // 🔥 2. MOBİLDE GÜVENLİ COMPRESS (NULL DÖNMEZ)
+    if (!kIsWeb) {
+      try {
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 256,
+          minHeight: 256,
+          quality: 70,
+        );
+
+        if (compressed != null && compressed.isNotEmpty) {
+          bytes = compressed;
+        }
+      } catch (_) {
+        // fallback zaten bytes
+      }
     }
 
-    if (bytes == null) return;
+    // 🔥 3. SON GÜVENLİK (BOYUT KONTROL)
+    if (bytes.length > 1024 * 1024) {
+      // hala büyükse tekrar sıkıştır
+      try {
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 256,
+          minHeight: 256,
+          quality: 60,
+        );
+        if (compressed != null && compressed.isNotEmpty) {
+          bytes = compressed;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
 
     setState(() {
       selectedAvatarBytes = bytes;
       isCustomAvatarSelected = true;
     });
 
-    if (selectedAvatarBytes != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Uygunsuz içerikler reddedilebilir."),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Uygunsuz içerikler reddedilebilir."),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 }
 
