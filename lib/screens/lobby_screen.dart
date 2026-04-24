@@ -2148,18 +2148,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  String _leagueBadge(String name) {
-    final n = name.toLowerCase();
-
-    if (n.contains("standart")) return "assets/images/lobby/standart.png";
-    if (n.contains("bronz")) return "assets/images/lobby/bronz.png";
-    if (n.contains("gumus")) return "assets/images/lobby/gumus.png";
-    if (n.contains("altin")) return "assets/images/lobby/altin.png";
-    if (n.contains("elit")) return "assets/images/lobby/elit.png";
-
-    return "assets/images/lobby/standart.png";
-  }
-
   void _showCreateModal() {
     final league = leagues.firstWhere(
       (l) => l['id'] == selectedLeague,
@@ -2233,9 +2221,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                           /// LEAGUE INFO
                           Row(
                             children: [
-                              Image.asset(
-                                _leagueBadge(league['name']),
-                                width: 28,
+                              Icon(
+                                _leagueIcon(league['id']),
+                                size: 28,
+                                color: const Color(0xFFE0C48F),
                               ),
 
                               const SizedBox(width: 8),
@@ -2537,7 +2526,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             bottom: false,
             child: Column(
               children: [
-                const SizedBox(height: 0),
+                const SizedBox(height: 10),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -4030,21 +4019,15 @@ class _LobbyScreenState extends State<LobbyScreen>
 
               child: Column(
                 children: [
-                  /// ğŸ”¥ HEADER
+                  const SizedBox(height: 8),
                   Column(
                     children: [
-                      Image.asset(
-                        "assets/images/logo/okeyix_logo.png",
-                        height: 34,
-                        fit: BoxFit.contain,
-                      ),
-
                       const Text(
-                        "Adil Da\u011f\u0131t\u0131m \u2022 Ger\u00e7ek Rekabet",
+                        "Okey IX - Adil Dağıtım \u2022 Gerçek Rekabet",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFFD4A24C),
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.1,
                         ),
@@ -4052,7 +4035,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ],
                   ),
 
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 8),
 
                   /// ğŸ”¥ GOLD DIVIDER
                   Container(
@@ -4068,6 +4051,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
 
                   /// ğŸ”¥ LİG LİSTESİ
                   Expanded(
@@ -4303,6 +4287,23 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
       ],
     );
+  }
+
+  IconData _leagueIcon(String id) {
+    switch (id) {
+      case 'standard':
+        return Icons.star;
+      case 'bronze':
+        return Icons.extension; // puzzle hissi
+      case 'silver':
+        return Icons.build; // kalfa
+      case 'gold':
+        return Icons.workspace_premium; // usta
+      case 'elite':
+        return Icons.emoji_events; // şampiyon
+      default:
+        return Icons.circle;
+    }
   }
 
   void _openLeaderboard() {

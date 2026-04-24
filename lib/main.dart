@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
-import 'package:okeyix/services/auth_service.dart';
 import 'package:okeyix/services/gift_listener.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
@@ -28,20 +27,7 @@ Future<void> main() async {
         : _supabaseAnonKey,
   );
 
-  FlutterError.onError = (details) {
-    debugPrint("🔥 ERROR: ${details.exception}");
-    debugPrint("${details.stack}");
-  };
-
-  runZonedGuarded(
-    () {
-      runApp(const MyApp());
-    },
-    (error, stack) {
-      debugPrint("🔥 ZONE ERROR: $error");
-      debugPrint("$stack");
-    },
-  );
+  runApp(const MyApp());
 }
 
 final supabase = Supabase.instance.client;
@@ -164,6 +150,103 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
           return const AppRoot();
         },
+      ),
+    );
+  }
+}
+
+class AgeGateScreen extends StatelessWidget {
+  final VoidCallback onApproved;
+
+  const AgeGateScreen({super.key, required this.onApproved});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B0B), // 🔥 deep black
+      body: Center(
+        child: Container(
+          width: 340,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A), // card
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.amber.withOpacity(0.35),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.7),
+                blurRadius: 25,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 🔥 Logo / Title
+              Text(
+                "OkeyIX",
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 🔥 Welcome
+              Text(
+                "Hoş geldin",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 🔥 Message
+              Text(
+                "Bu oyun 13 yaş ve üzeri kullanıcılar içindir.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 🔥 Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onApproved,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: const Text(
+                    "Devam Et",
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

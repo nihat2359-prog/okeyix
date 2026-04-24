@@ -21,6 +21,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OkeyGame extends FlameGame {
   @override
+  Color backgroundColor() => const Color(0x00000000);
+
+  @override
   late final World world;
   late final CameraComponent cameraComponent;
 
@@ -261,98 +264,79 @@ class OkeyGame extends FlameGame {
   Future<void> _loadInitialState() async {
     final supabase = Supabase.instance.client;
 
-    final tableRow = await supabase
-        .from('tables')
-        .select(
-          'id, status, max_players, current_turn, deck, league_id, turn_started_at',
-        )
-        .eq('id', tableId)
-        .maybeSingle();
-    if (tableRow == null) {
-      return;
-    }
-    final table = Map<String, dynamic>.from(tableRow);
+    final res = await supabase.rpc(
+      'get_full_table_state',
+      params: {'p_table_id': tableId},
+    );
 
+    if (res == null) return;
+
+    final table = Map<String, dynamic>.from(res['table']);
+    final league = res['league'];
+    final rawPlayers = res['players'] as List;
+
+    //-------------------------------------------------
+    // TABLE
+    //-------------------------------------------------
     _maxPlayers = (table['max_players'] as int?) ?? 2;
+
     final nextTurn = (table['current_turn'] as int?) ?? 0;
     final serverTurnStartedAt = _parseServerTime(table['turn_started_at']);
+
     if (currentTurn != nextTurn) {
       _turnStartedAt = serverTurnStartedAt ?? DateTime.now();
       _lastTimeoutTurnToken = null;
     }
+
     currentTurn = nextTurn;
     _turnStartedAt = serverTurnStartedAt ?? _turnStartedAt ?? DateTime.now();
 
-    try {
-      final leagueId = table['league_id']?.toString();
-      if (leagueId != null && leagueId.isNotEmpty) {
-        final leagueRows = await supabase
-            .from('leagues')
-            .select('name, entry_coin, turn_seconds')
-            .eq('id', leagueId)
-            .limit(1);
-        if ((leagueRows as List).isNotEmpty) {
-          _turnSeconds =
-              (leagueRows.first['turn_seconds'] as int?) ?? _turnSeconds;
-          _league = Map<String, dynamic>.from(leagueRows.first);
-        }
+    //-------------------------------------------------
+    // LEAGUE + TURN SECONDS
+    //-------------------------------------------------
+    if (league != null) {
+      _league = Map<String, dynamic>.from(league);
+
+      final leagueTurn = league['turn_seconds'] as int?;
+      if (leagueTurn != null && leagueTurn > 0) {
+        _turnSeconds = leagueTurn;
       }
-      try {
-        final tableTurn = await supabase
-            .from('tables')
-            .select('turn_seconds')
-            .eq('id', tableId)
-            .limit(1);
-        if ((tableTurn as List).isNotEmpty) {
-          final override = tableTurn.first['turn_seconds'] as int?;
-          if (override != null && override > 0) {
-            _turnSeconds = override;
-          }
-        }
-      } catch (_) {}
-    } catch (_) {}
+    }
+
+    final override = table['turn_seconds'] as int?;
+    if (override != null && override > 0) {
+      _turnSeconds = override;
+    }
+
     _turnSeconds = _normalizeTurnSeconds(_turnSeconds);
 
-    final rawPlayers = await supabase
-        .from('table_players')
-        .select('''
-      seat_index,
-      user_id,
-      hand,
-      users (
-        id,
-        username,
-        rating,
-        avatar_url,
-        is_bot,
-        profiles (
-          coins
-        )
-      )
-    ''')
-        .eq('table_id', tableId);
+    //-------------------------------------------------
+    // PLAYERS (TEK LOOP OPTİMİZE)
+    //-------------------------------------------------
+    final uid = supabase.auth.currentUser?.id;
 
-    playersWithProfiles = (rawPlayers as List).map((p) {
-      final map = Map<String, dynamic>.from(p as Map);
+    bool stillInTable = false;
+    int? mySeat;
 
-      final user = map['users'];
+    final playersList = <Map<String, dynamic>>[];
 
-      if (user != null && user['profiles'] != null) {
-        user['coins'] = user['profiles']['coins'];
+    for (final p in rawPlayers) {
+      final map = p as Map<String, dynamic>;
+
+      if (map['user_id']?.toString() == uid) {
+        stillInTable = true;
+        mySeat = map['seat_index'];
       }
 
-      map['user'] = user;
-      map.remove('users');
+      playersList.add(map);
+    }
 
-      return map;
-    }).toList();
+    playersWithProfiles = playersList;
+    _mySeatIndexAbs = mySeat;
 
-    final uid = Supabase.instance.client.auth.currentUser?.id;
-
-    final stillInTable = playersWithProfiles.any(
-      (p) => p['user_id']?.toString() == uid,
-    );
-
+    //-------------------------------------------------
+    // KICK CONTROL
+    //-------------------------------------------------
     if (!stillInTable && !_kickedHandled) {
       _kickedHandled = true;
 
@@ -366,11 +350,15 @@ class OkeyGame extends FlameGame {
       return;
     }
 
+    //-------------------------------------------------
+    // MAPS
+    //-------------------------------------------------
     _playerSeatMap
       ..clear()
       ..addEntries(
         playersWithProfiles.map((p) => MapEntry((p['seat_index'] as int), p)),
       );
+
     _botSeats
       ..clear()
       ..addAll(
@@ -379,27 +367,26 @@ class OkeyGame extends FlameGame {
             .map((p) => p['seat_index'] as int),
       );
 
-    _mySeatIndexAbs = null;
-    for (final p in playersWithProfiles) {
-      if (p['user_id']?.toString() != uid) continue;
-      final seat = p['seat_index'];
-      if (seat is int) {
-        _mySeatIndexAbs = seat;
-        break;
-      }
-    }
-
+    //-------------------------------------------------
+    // RENDER
+    //-------------------------------------------------
     _renderSeats();
     _syncDeckFromTable(table['deck']);
 
+    //-------------------------------------------------
+    // STATUS
+    //-------------------------------------------------
     final status = table['status'] as String?;
+
     if (status != 'playing') {
       _gameStarted = false;
       _lastTimeoutTurnToken = null;
       _countdownTriggeredForThisFullState = false;
+
       _clearRenderedHand();
       _clearTableVisualState();
       _hideWaitingOverlay();
+
       await _ensureGameStartIfReady(
         knownStatus: status,
         knownPlayerCount: playersWithProfiles.length,
@@ -407,15 +394,23 @@ class OkeyGame extends FlameGame {
       return;
     }
 
+    //-------------------------------------------------
+    // GAME STARTED
+    //-------------------------------------------------
     _gameStarted = true;
     _cancelStartCountdown();
     _hideWaitingOverlay();
-    await _ensureFreshTurnStartedAt(
-      status: status,
-      serverTurnStartedAt: serverTurnStartedAt,
-    );
+
+    await Future.wait([
+      _ensureFreshTurnStartedAt(
+        status: status,
+        serverTurnStartedAt: serverTurnStartedAt,
+      ),
+      _syncDiscardTopsFromServer(),
+    ]);
+
     _turnStartedAt ??= DateTime.now();
-    await _syncDiscardTopsFromServer();
+
     _renderMyHand(playersWithProfiles);
   }
 
@@ -1901,6 +1896,7 @@ class OkeyGame extends FlameGame {
     required int toSeat,
     Map<String, dynamic>? tileData,
   }) {
+    if (!_isMyTurn()) return;
     final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
     final fromSlot = _discardSlotsByIndex[fromSlotIndex];
     if (fromSlot == null) return;
@@ -1933,14 +1929,51 @@ class OkeyGame extends FlameGame {
     transient.add(
       MoveEffect.to(
         target,
-        EffectController(duration: 0.28, curve: Curves.easeOutCubic),
+        EffectController(duration: 0.14, curve: Curves.easeOut),
+        onComplete: () {
+          transient.removeFromParent();
+
+          /// 🔥 RACK’E EKLE
+          _placeTileToRackFromDraw(
+            value: value,
+            colorType: colorType,
+            model: model,
+          );
+        },
       ),
     );
+  }
 
-    async.Timer(const Duration(milliseconds: 320), () {
-      transient.removeFromParent();
-      _emitTileSfx();
-    });
+  void _placeTileToRackFromDraw({
+    required int value,
+    required TileColorType colorType,
+    TileModel? model,
+  }) {
+    /// 🔥 boş slot bul
+    int? slotIndex;
+    for (int i = 0; i < slotPositions.length; i++) {
+      if (!occupiedSlots.containsKey(i)) {
+        slotIndex = i;
+        break;
+      }
+    }
+
+    if (slotIndex == null) return;
+
+    final pos = slotPositions[slotIndex];
+
+    final tile = TileComponent(
+      value: value,
+      colorType: colorType,
+      position: pos.clone(),
+      isJoker: model?.isJoker ?? false,
+      isFakeJoker: model?.isFakeJoker ?? false,
+    );
+
+    world.add(tile);
+
+    occupiedSlots[slotIndex] = tile;
+    tile.currentSlotIndex = slotIndex;
   }
 
   Vector2 _drawAnimationTargetForSeat(int absoluteSeat) {
@@ -2005,11 +2038,12 @@ class OkeyGame extends FlameGame {
       }
       transient.priority = 50;
       transient.position = slot.position.clone();
+
       _discardTopTilesBySeat[seat] = transient;
       slot.currentTile = transient;
       _discardAnimationInFlightSeats.remove(seat);
       _syncDiscardTopsFromServer();
-      _emitTileSfx();
+      // _emitTileSfx();
     });
   }
 
@@ -2421,6 +2455,9 @@ class OkeyGame extends FlameGame {
         final ok = res['ok'] == true;
 
         if (!ok) {
+          /// ❗ SADECE HATA DURUMUNDA SYNC
+          await _loadInitialState();
+
           final error = res['error'];
 
           if (error == 'INVALID_HAND') {
@@ -2431,22 +2468,19 @@ class OkeyGame extends FlameGame {
             AppMsg.show('İşlem başarısız');
           }
 
-          Future.delayed(const Duration(seconds: 2), _hideWaitingOverlay);
           return;
         }
 
-        // 🔥 BAŞARILI FINISH
+        /// 🔥 BAŞARILI → HİÇBİR ŞEY YAPMA
         if (res['finish'] == true) {
           _showWaitingOverlay('Kazandın! 🎉');
         }
       }
 
-      // 🔥 STATE SYNC
-      await _loadInitialState();
-      await _syncDiscardTopsFromServer();
-
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
+
+      // 🔥 STATE SYNC
     } catch (e) {
       final err = e.toString();
 

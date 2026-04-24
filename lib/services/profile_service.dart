@@ -695,15 +695,33 @@ class ProfileService {
       return msg('Engellediğin kullanıcıya istek gönderemezsin.');
     }
     try {
-      await supabase.from('friends').upsert({
-        'user_id': UserState.userId,
-        'friend_id': otherUserId,
-        'status': 'pending',
-      }, onConflict: 'user_id,friend_id');
-      if (onSuccess != null) {
-        await onSuccess();
+      final u1 = UserState.userId;
+      final u2 = otherUserId;
+
+      if (u1 == null || u2 == null) return;
+
+      final ids = [u1, u2]..sort();
+
+      final userA = ids[0];
+      final userB = ids[1];
+
+      final existing = await supabase
+          .from('friends')
+          .select('id')
+          .or(
+            'and(user_id.eq.$u1,friend_id.eq.$u2),and(user_id.eq.$u2,friend_id.eq.$u1)',
+          )
+          .maybeSingle();
+
+      if (existing == null) {
+        await supabase.from('friends').insert({
+          'user_id': userA,
+          'friend_id': userB,
+          'status': 'pending',
+        });
+
+        msg('Arkadaşlık isteği gönderildi.');
       }
-      msg('Arkadaşlık isteği gönderildi.');
     } catch (e) {
       debugPrint('FRIEND REQUEST ERROR: $e');
       msg('İstek gönderilemedi.');

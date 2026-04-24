@@ -179,6 +179,22 @@ const List<AvatarPreset> avatarPresets = <AvatarPreset>[
     isPremium: true,
     unlockCost: 2500,
   ),
+  AvatarPreset(
+    id: 'bot1',
+    label: 'Bot',
+    imageUrl: 'assets/images/avatars/bot1.png',
+    gender: 'bot',
+    isPremium: false,
+    unlockCost: 0,
+  ),
+  AvatarPreset(
+    id: 'bot2',
+    label: 'Bot',
+    imageUrl: 'assets/images/avatars/bot2.png',
+    gender: 'bot',
+    isPremium: false,
+    unlockCost: 0,
+  ),
 ];
 
 final List<String> avatarPresetIds = <String>[

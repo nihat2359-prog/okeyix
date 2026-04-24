@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/game.dart';
@@ -904,21 +905,97 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('\u00C7ifte Git'),
-        content: const Text(
-          '\u00C7ifte gidersen bu karar\u0131 geri alamazs\u0131n ve elde \u00E7iftten bitmek zorundas\u0131n. Onayl\u0131yor musun?',
+      barrierColor: Colors.black.withOpacity(0.7), // arka plan karartma
+      builder: (context) => Center(
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A), // koyu panel
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.amber.withOpacity(0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.6),
+                blurRadius: 20,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 🔥 Title
+              Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.amber,
+                    size: 22,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    "Çifte Git",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // 🔥 Content
+              Text(
+                "Bu kararı geri alamazsın.\nÇiftten bitmek zorundasın.\nDevam etmek istiyor musun?",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.4,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 🔥 Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        side: BorderSide(color: Colors.white24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text("Hayır"),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text("Evet"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hay\u0131r'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Evet'),
-          ),
-        ],
       ),
     );
 
@@ -1032,59 +1109,36 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               /// ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â® GAME STAGE (SADECE BURASI SCALE OLUR)
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final screenW = constraints.maxWidth;
-                  final screenH = constraints.maxHeight;
-
-                  const baseW = 1600.0;
-                  const baseH = 900.0;
-
-                  final scaleX = screenW / baseW;
-                  final scaleY = screenH / baseH;
-                  final scale = scaleX > scaleY ? scaleX : scaleY;
-
-                  final finalW = baseW * scale;
-                  final finalH = baseH * scale;
-                  final cropTop = ((finalH - screenH) / 2);
-                  final visibleCropTop = cropTop > 0 ? cropTop : 0.0;
-                  final avatarTopInset = 10.0;
-
                   return Stack(
                     children: [
-                      Positioned(
-                        left: (screenW - finalW) / 2,
-                        top: (screenH - finalH) / 2,
-                        width: finalW,
-                        height: finalH,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Image.asset(
-                                'assets/images/table.png',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-
-                            Positioned.fill(
-                              child: Transform.translate(
-                                offset: Offset(
-                                  0,
-                                  -(MediaQuery.of(context).padding.bottom + 10),
-                                ),
-                                child: GameWidget(game: _game),
-                              ),
-                            ),
-
-                            if (!_showFinish)
-                              Positioned.fill(
-                                child: overlay.GameAvatarOverlay(
-                                  tableId: widget.tableId,
-                                  topInset: avatarTopInset,
-                                  game: _game,
-                                ),
-                              ),
-                          ],
+                      /// 🔥 ARKA PLAN
+                      Positioned.fill(
+                        child: Image.asset(
+                          'assets/images/lobby/lobby.png',
+                          fit: BoxFit.cover,
                         ),
                       ),
+
+                      /// 🔥 MASA (FULL STRETCH)
+                      Positioned.fill(
+                        child: Image.asset(
+                          'assets/images/table.png',
+                          fit: BoxFit.fill, // 🔥 KRİTİK
+                        ),
+                      ),
+
+                      /// 🎮 GAME (FULL)
+                      Positioned.fill(child: GameWidget(game: _game)),
+
+                      /// 👤 AVATAR
+                      if (!_showFinish)
+                        Positioned.fill(
+                          child: overlay.GameAvatarOverlay(
+                            tableId: widget.tableId,
+                            topInset: 10,
+                            game: _game,
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -1210,7 +1264,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     }
 
     final entry = league['entry_coin'] ?? 0;
-    final name = league['name'];
+    final name = league['id'];
 
     final players = _game.getPlayerCount();
     final turn = _game.getTurnSeconds();
@@ -1228,8 +1282,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            /// league icon
-            Image.asset(_leagueBadge(name), width: 24),
+            Icon(_leagueIcon(name), size: 24, color: const Color(0xFFE0C48F)),
 
             const SizedBox(width: 6),
 
@@ -1290,16 +1343,21 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     );
   }
 
-  String _leagueBadge(String name) {
-    final n = name.toLowerCase();
-
-    if (n.contains("standart")) return "assets/images/lobby/standart.png";
-    if (n.contains("bronz")) return "assets/images/lobby/bronz.png";
-    if (n.contains("gumus")) return "assets/images/lobby/gumus.png";
-    if (n.contains("altin")) return "assets/images/lobby/altin.png";
-    if (n.contains("elit")) return "assets/images/lobby/elit.png";
-
-    return "assets/images/lobby/standart.png";
+  IconData _leagueIcon(String id) {
+    switch (id) {
+      case 'standard':
+        return Icons.star;
+      case 'bronze':
+        return Icons.extension; // puzzle hissi
+      case 'silver':
+        return Icons.build; // kalfa
+      case 'gold':
+        return Icons.workspace_premium; // usta
+      case 'elite':
+        return Icons.emoji_events; // şampiyon
+      default:
+        return Icons.circle;
+    }
   }
 
   Widget _topCircleButton({

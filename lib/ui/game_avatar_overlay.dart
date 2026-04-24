@@ -1,4 +1,5 @@
 ﻿import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:okeyix/game/okey_game.dart';
 
@@ -616,10 +617,23 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   }) {
     switch (relativeSeat) {
       case 0:
+        final scale = min(size.width / 1600, size.height / 900);
+
+        final gameHeight = 900 * scale;
+        final offsetY = (size.height - gameHeight) / 2;
+
+        final rackY = 720.0;
+        final rackHeight = 350.0;
+        final rackTop = rackY - rackHeight / 2;
+
+        final avatarWorldY = rackTop - 160;
+
+        final avatarScreenY = avatarWorldY * scale + offsetY;
+
         return Positioned(
           left: 0,
           right: 0,
-          bottom: 185,
+          top: avatarScreenY,
           child: Center(child: child),
         );
       case 1:
@@ -627,7 +641,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           return Positioned(
             left: 0,
             right: 0,
-            top: 26 + widget.topInset,
+            top: widget.topInset,
             child: Center(child: child),
           );
         }
@@ -636,7 +650,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         return Positioned(
           left: 0,
           right: 0,
-          top: 52 + widget.topInset,
+          top: widget.topInset,
           child: Center(child: child),
         );
       case 3:

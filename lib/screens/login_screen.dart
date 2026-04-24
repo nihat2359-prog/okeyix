@@ -41,7 +41,9 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAgeGate();
+    });
     bool _navigated = false;
 
     supabase.auth.onAuthStateChange.listen((data) {
@@ -641,6 +643,126 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _checkAgeGate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ageVerified = prefs.getBool("age_verified") ?? false;
+
+    //if (!ageVerified) {
+    Future.delayed(Duration.zero, () {
+      _showAgeDialog();
+    });
+    // }
+  }
+
+  void _showAgeDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (_) {
+        final screenWidth = MediaQuery.of(context).size.width;
+
+        return Center(
+          child: Container(
+            width: screenWidth * 0.6, // 🔥 yatayda geniş
+            constraints: const BoxConstraints(maxWidth: 600),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.amber.withOpacity(0.4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.7),
+                  blurRadius: 25,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+
+            // 🔥 underline fix (hepsine uygular)
+            child: DefaultTextStyle(
+              style: const TextStyle(decoration: TextDecoration.none),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 🔥 Title
+                  Text(
+                    "OkeyIX",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // 🔥 Welcome
+                  Text(
+                    "Hoş geldiniz",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 🔥 Message (daha düzgün metin)
+                  Text(
+                    "Bu oyun 13 yaş ve üzeri kullanıcılar içindir.\nDevam ederek bu şartı kabul etmiş olursunuz.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      height: 1.5,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // 🔥 Button
+                  SizedBox(
+                    width: 220,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool("age_verified", true);
+
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        "Devam Et",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

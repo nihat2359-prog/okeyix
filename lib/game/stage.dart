@@ -4,15 +4,15 @@ import 'okey_game.dart';
 class Stage extends Component with HasGameReference<OkeyGame> {
   @override
   Future<void> onLoad() async {
-    final image = await game.images.load('table.png');
+    final image = await game.images.load('rack.png');
 
-    final table = SpriteComponent(
+    final rack = SpriteComponent(
       sprite: Sprite(image),
-      size: Vector2(1600, 900),
-      position: Vector2(800, 450),
+      size: Vector2(1250, 350), // sahneye göre
+      position: Vector2(800, 900 - 180), // alt merkez
       anchor: Anchor.center,
     );
 
-    add(table);
+    add(rack);
   }
 }

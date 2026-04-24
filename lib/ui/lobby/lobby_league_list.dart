@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'lobby_shimmer_loaders.dart';
 
@@ -34,318 +36,347 @@ class LobbyLeagueList extends StatelessWidget {
         ),
       );
     }
+    return _buildLeagueGrid();
+  }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      physics: const BouncingScrollPhysics(),
-      itemCount: leagues.length,
-      itemBuilder: (context, i) {
-        final league = leagues[i];
+  Widget _buildLeagueGrid() {
+    if (leagues.length < 5) return const SizedBox();
 
-        final selected = league['id'] == selectedLeagueId;
-        final activePlayers = leagueActivePlayers[league['id']] ?? 0;
-        final entryCoin = league['entry_coin'] ?? 0;
-        final minRating = league['min_rating'] ?? 0;
-        final locked = userCoin < entryCoin || userRating < minRating;
-        final color = _leagueColor(league['icon']?.toString() ?? '');
+    return Column(
+      children: [
+        /// ROW 1
+        Row(
+          children: [
+            Expanded(child: _leagueItem(leagues[0])),
+            const SizedBox(width: 2),
+            Expanded(child: _leagueItem(leagues[1])),
+          ],
+        ),
 
-        return GestureDetector(
-          onTap: locked ? null : () => onSelect(league),
+        /// ROW 2
+        Row(
+          children: [
+            Expanded(child: _leagueItem(leagues[2])),
+            const SizedBox(width: 2),
+            Expanded(child: _leagueItem(leagues[3])),
+          ],
+        ),
 
-          child: Opacity(
-            opacity: locked ? 0.55 : 1,
-
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-
-              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-
-                color: selected
-                    ? const Color(0x221E3A28)
-                    : const Color(0x22111111),
-
-                border: Border.all(
-                  color: selected ? color : const Color(0x33FFFFFF),
-                  width: selected ? 2 : 1,
-                ),
-
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: color.withOpacity(0.45),
-                          blurRadius: 18,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                    : null,
-              ),
-
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  /// ANA KART
-                  Row(
-                    children: [
-                      const SizedBox(width: 50), // 👈 boşluk bırakıyoruz
-
-                      const SizedBox(width: 14),
-
-                      /// TEXTS
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            /// LEAGUE NAME
-                            Text(
-                              league['name'] ?? '',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-
-                            const SizedBox(height: 6),
-
-                            /// STATS
-                            Row(
-                              children: [
-                                _stat(
-                                  Icons.monetization_on,
-                                  entryCoin,
-                                  2500,
-                                  Colors.amber,
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                _stat(
-                                  Icons.star,
-                                  minRating,
-                                  2500,
-                                  Colors.orange,
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                _stat1(
-                                  Icons.people,
-                                  "$activePlayers",
-                                  Colors.white70,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      /// 🔥 BADGE (DIŞARI TAŞAN)
-                    ],
-                  ),
-                  Positioned(
-                    left: -6,
-                    top: -22, // 👈 yukarı taşıma
-                    child: _leagueBadgeWidget(
-                      league['name'] ?? '',
-                      color,
-                      selected,
-                    ),
-                  ),
-
-                  /// LOCK OVERLAY (AAA placement)
-                  if (locked)
-                    Positioned(
-                      top: -4,
-                      right: -4,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xCC000000),
-                        ),
-                        child: const Icon(
-                          Icons.lock,
-                          size: 12,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+        /// ROW 3 (ŞAMPİYON)
+        SizedBox(
+          width: double.infinity,
+          child: _leagueItem(leagues[4], isBig: true),
+        ),
+      ],
     );
   }
 
-  Widget _stat1(IconData icon, String text, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
-        Text(
+  Widget _leagueItem(Map league, {bool isBig = false}) {
+    final l = Map<String, dynamic>.from(league);
+
+    final selected = l['id'] == selectedLeagueId;
+    final activePlayers = leagueActivePlayers[l['id']] ?? 0;
+    //final activeTables = leagueActiveTables[l['id']] ?? 0;
+    final activeTables = 0;
+    final color = _leagueColorById(l['id']);
+
+    return GestureDetector(
+      onTap: () => onSelect(l),
+
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: isBig ? 68 : 60,
+
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: l['id'] == 'elite' ? 2 : 8, // 🔥 BURASI
+          vertical: 6,
+        ),
+
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: selected ? const Color(0x221E3A28) : const Color(0x22111111),
+          border: Border.all(
+            color: selected ? color : const Color(0x33FFFFFF),
+            width: selected ? 2 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.35),
+                    blurRadius: isBig ? 20 : 14,
+                  ),
+                ]
+              : null,
+        ),
+
+        child: l['id'] == 'elite'
+            ? _eliteCard(l, color, isBig)
+            : _normalCard(l, color, isBig),
+      ),
+    );
+  }
+
+  Widget _leagueTitle(String text, Color color, {bool isBig = false}) {
+    return Center(
+      child: ShaderMask(
+        shaderCallback: (bounds) {
+          return LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white, // üst highlight
+              color.withOpacity(0.9), // ana renk
+              color.withOpacity(0.6), // alt gölge
+            ],
+          ).createShader(bounds);
+        },
+        child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white70,
-            fontWeight: FontWeight.w600,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: isBig ? 20 : 17,
+            letterSpacing: 0.6,
+            color: Colors.white, // shader için gerekli
+
+            shadows: [
+              /// derinlik
+              Shadow(
+                color: Colors.black.withOpacity(0.7),
+                offset: const Offset(0, 1),
+                blurRadius: 3,
+              ),
+
+              /// hafif glow (abartma)
+              Shadow(color: color.withOpacity(0.25), blurRadius: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _leagueColorById(String id) {
+    switch (id) {
+      case 'standard': // Acemiler
+        return const Color(0xFF6FAF8F); // soft green (uyumlu)
+
+      case 'bronze': // Çıraklar
+        return const Color(0xFFB07A4A); // muted bronze
+
+      case 'silver': // Kalfalar
+        return const Color(0xFF9EA7AD); // koyu silver
+
+      case 'gold': // Ustalar
+        return const Color(0xFFD6A84A); // rich gold
+
+      case 'elite': // Şampiyonlar
+        return const Color(0xFFFFD166); // elite gold (🔥)
+
+      default:
+        return const Color(0xFFD6A84A);
+    }
+  }
+
+  Widget _leagueMiniBadge(Map l) {
+    final id = l['id'];
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20), // biraz düşürdük
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            /// ❌ artık background yok
+            color: Colors.transparent,
+
+            borderRadius: BorderRadius.circular(12),
+
+            /// 🔥 çok hafif çizgi bırak (opsiyonel ama öneririm)
+            border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
+          ),
+          child: Center(
+            child: Icon(
+              _leagueIcon(id),
+              size: 12,
+              color: const Color(0xFFE0C48F),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _eliteCard(Map l, Color color, bool isBig) {
+    final activePlayers = leagueActivePlayers[l['id']] ?? 0;
+    final activeTables = 0;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        /// 🏆 SOL ARKA PLAN ICON
+        Positioned(
+          left: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: Opacity(
+              opacity: 0.12, // 🔥 transparan (çok önemli)
+              child: Icon(
+                Icons.emoji_events,
+                size: isBig ? 55 : 45,
+                color: const Color(0xFFE0C48F),
+              ),
+            ),
+          ),
+        ),
+
+        /// 🔥 ANA CONTENT (ORTALI)
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              /// LIG ADI
+              _leagueTitle(l['name'] ?? '', color, isBig: isBig),
+
+              const SizedBox(height: 4),
+
+              /// ALT BİLGİ
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.people, size: 14, color: Colors.white60),
+                  const SizedBox(width: 4),
+                  Text(
+                    "$activePlayers",
+                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  ),
+
+                  const SizedBox(width: 6),
+                  const Text("•", style: TextStyle(color: Colors.white38)),
+                  const SizedBox(width: 6),
+
+                  const Icon(Icons.table_bar, size: 14, color: Colors.white60),
+                  const SizedBox(width: 4),
+                  Text(
+                    "$activeTables",
+                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _stat(IconData icon, int value, int max, Color color) {
-    final progress = (value / max).clamp(0.0, 1.0);
+  Widget _normalCard(Map l, Color color, bool isBig) {
+    final selected = l['id'] == selectedLeagueId;
+    final activePlayers = leagueActivePlayers[l['id']] ?? 0;
+    final activeTables = 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Row(
+        /// ANA KART
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              value.toString(),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: 60,
-          height: 7,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x331D2C24), Color(0x66455E52)],
-            ),
-            border: Border.all(color: const Color(0x3DFFFFFF), width: 0.6),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Stack(
+            /// LIG ADI (ORTALI)
+            _leagueTitle(l['name'] ?? '', color, isBig: isBig),
+
+            const Spacer(),
+
+            /// ALT BİLGİ
+            Row(
               children: [
-                FractionallySizedBox(
-                  widthFactor: progress,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          color.withOpacity(0.55),
-                          color,
-                          color.withOpacity(0.88),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withOpacity(0.55),
-                          blurRadius: 8,
-                          spreadRadius: 0.8,
+                Expanded(
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        /// 👥 OYUNCU
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.people,
+                              size: 14,
+                              color: Colors.white60,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "$activePlayers",
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(width: 6),
+
+                        /// AYIRICI
+                        const Text(
+                          "•",
+                          style: TextStyle(color: Colors.white38),
+                        ),
+
+                        const SizedBox(width: 6),
+
+                        /// 🪑 MASA
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.table_bar,
+                              size: 14,
+                              color: Colors.white60,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "$activeTables",
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ),
-                if (progress > 0)
-                  FractionallySizedBox(
-                    widthFactor: progress,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Container(
-                        height: 1.4,
-                        color: Colors.white.withOpacity(0.28),
-                      ),
-                    ),
-                  ),
               ],
             ),
-          ),
+          ],
         ),
+
+        /// 🔥 BADGE (SAĞ ÜST)
+        Positioned(top: -3, right: -3, child: _leagueMiniBadge(l)),
       ],
     );
   }
-  Widget _leagueBadgeWidget(String name, Color color, bool selected) {
-    return SizedBox(
-      width: 66,
-      height: 66,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          /// Glow ring
-          if (selected)
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.55),
-                    blurRadius: 18,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-            ),
 
-          /// Badge image
-          Image.asset(
-            _leagueBadge(name),
-            width: 66,
-            height: 66,
-            fit: BoxFit.contain,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _leagueColor(String type) {
-    switch (type) {
-      case "workspace":
-        return const Color(0xFFCD7F32); // bronze
-
-      case "military":
-        return const Color(0xFFC0C0C0); // silver
-
-      case "emoji":
-        return const Color(0xFFE7B95A); // gold
-
-      case "auto":
-        return const Color(0xFF8A63FF); // elite
-
+  IconData _leagueIcon(String id) {
+    switch (id) {
+      case 'standard':
+        return Icons.star;
+      case 'bronze':
+        return Icons.extension; // puzzle hissi
+      case 'silver':
+        return Icons.build; // kalfa
+      case 'gold':
+        return Icons.workspace_premium; // usta
+      case 'elite':
+        return Icons.emoji_events; // şampiyon
       default:
-        return const Color(0xFFE7B95A);
+        return Icons.circle;
     }
   }
-
-  String _leagueBadge(String name) {
-    final n = name.toLowerCase();
-
-    if (n.contains("Standart")) return "assets/images/lobby/standart.png";
-    if (n.contains("bronz")) return "assets/images/lobby/bronz.png";
-    if (n.contains("gümüş")) return "assets/images/lobby/gumus.png";
-    if (n.contains("altın")) return "assets/images/lobby/altin.png";
-    if (n.contains("elit")) return "assets/images/lobby/elit.png";
-
-    return "assets/images/lobby/standart.png";
-  }
 }
-
