@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
+import 'package:okeyix/screens/store_screen.dart';
+import 'package:okeyix/services/user_state.dart';
 import 'lobby_table_card.dart';
 import 'lobby_shimmer_loaders.dart';
 
@@ -12,6 +15,12 @@ class LobbyTableWheel extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final bool loading;
 
+  final bool isLocked;
+  final dynamic lockedLeague;
+  final int playerCoin;
+  final int playerRating;
+  final Future<void> Function()? onNeedRefreshUser;
+
   const LobbyTableWheel({
     super.key,
     required this.tables,
@@ -22,6 +31,11 @@ class LobbyTableWheel extends StatefulWidget {
     required this.onUserTap,
     required this.onRefresh,
     required this.loading,
+    this.isLocked = false, // 🔥 BURASI KRİTİK
+    this.lockedLeague,
+    required this.playerCoin,
+    required this.playerRating,
+    this.onNeedRefreshUser,
   });
 
   @override
@@ -49,6 +63,14 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     /// 🔥 LOADING
     if (widget.loading) {
       return const Center(child: LobbyLoading());
+    }
+
+    if (widget.isLocked) {
+      return _buildLockedLeagueCard(
+        league: widget.lockedLeague,
+        playerCoin: widget.playerCoin,
+        playerRating: widget.playerRating,
+      );
     }
 
     /// 🔥 EMPTY
@@ -132,6 +154,154 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               },
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLockedLeagueCard({
+    required dynamic league,
+    required int playerCoin,
+    required int playerRating,
+  }) {
+    final minCoin = league['min_coin'];
+    final minRating = league['min_rating'];
+
+    return Center(
+      // 🔥 ORTALA
+      child: ConstrainedBox(
+        // 🔥 MAX GENİŞLİK VER
+        constraints: const BoxConstraints(maxWidth: 340),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+
+            gradient: LinearGradient(
+              colors: [
+                Colors.black.withOpacity(0.75),
+                Colors.black.withOpacity(0.55),
+              ],
+            ),
+
+            border: Border.all(
+              color: Colors.amber.withOpacity(0.4),
+              width: 1.2,
+            ),
+
+            boxShadow: [
+              BoxShadow(color: Colors.amber.withOpacity(0.25), blurRadius: 12),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // 🔥 BOYUTU İÇERİĞE GÖRE
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lock, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Text(
+                    "${league['name']} Kilitli",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _reqItem("Coin", Format.coin(minCoin), playerCoin >= minCoin),
+                  _reqItem(
+                    "Rating",
+                    Format.rating(minRating),
+                    playerRating >= minRating,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: _buildCoinButton(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reqItem(String title, String value, bool ok) {
+    return Row(
+      children: [
+        Icon(
+          ok ? Icons.check_circle : Icons.cancel,
+          color: ok ? Colors.green : Colors.red,
+          size: 16,
+        ),
+        const SizedBox(width: 6),
+        Text("$title: $value", style: TextStyle(color: Colors.white70)),
+      ],
+    );
+  }
+
+  Widget _buildCoinButton() {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
+          ),
+        );
+
+        if (result == true && widget.onNeedRefreshUser != null) {
+          await widget.onNeedRefreshUser!(); // 🔥 parent tetiklenir
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+
+          /// 🔥 GOLD GRADIENT
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF2C14E), Color(0xFFD4A24C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+
+          /// 🔥 GLOW
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF2C14E).withOpacity(0.5),
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.monetization_on, color: Colors.black, size: 18),
+            SizedBox(width: 6),
+            Text(
+              "Coin Al",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -96,10 +96,6 @@ class OkeyGame extends FlameGame {
   bool get gameStarted => _gameStarted;
   bool _kickedHandled = false;
 
-  void _emitTileSfx() {
-    onTileSfx?.call();
-  }
-
   @override
   Future<void> onLoad() async {
     await super.onLoad();

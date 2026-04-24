@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/services/auth_service.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -24,19 +25,33 @@ class _StoreScreenState extends State<StoreScreen> {
   List<ProductDetails> products = [];
 
   late StreamSubscription<List<PurchaseDetails>> _subscription;
-  final Map<String, int> coinRewards = {
-    // ANDROID
-    "coin_pack_baslangic": 10000,
-    "coin_pack_standart": 30000,
-    "coin_pack_elit": 80000,
-    "coin_pack_mega": 200000,
+  // final Map<String, int> coinRewards = {
+  //   // ANDROID
+  //   "coin_pack_baslangic": 10000,
+  //   "coin_pack_standart": 30000,
+  //   "coin_pack_elit": 80000,
+  //   "coin_pack_mega": 200000,
 
-    // iOS
-    "coin_pack_baslangic_ios": 10000,
-    "coin_pack_standart_ios": 30000,
-    "coin_pack_elit_ios": 80000,
-    "coin_pack_mega_ios": 200000,
-  };
+  //   // iOS
+  //   "coin_pack_baslangic_ios": 10000,
+  //   "coin_pack_standart_ios": 30000,
+  //   "coin_pack_elit_ios": 80000,
+  //   "coin_pack_mega_ios": 200000,
+  // };
+
+  //   final Map<String, int> coinRewards = {
+  //   // ANDROID
+  //   "coin_pack_baslangic": 80000,    // $0.99
+  //   "coin_pack_standart": 200000,    // $1.99
+  //   "coin_pack_elit": 600000,        // $3.99
+  //   "coin_pack_mega": 2000000,       // $8.99
+
+  //   // iOS
+  //   "coin_pack_baslangic_ios": 80000,
+  //   "coin_pack_standart_ios": 200000,
+  //   "coin_pack_elit_ios": 600000,
+  //   "coin_pack_mega_ios": 2000000,
+  // };
 
   @override
   void initState() {
@@ -265,7 +280,7 @@ class _StoreScreenState extends State<StoreScreen> {
                 const SizedBox(height: 10),
 
                 Text(
-                  "+${formatCoins(coins)}",
+                  "+${Format.coin(coins)}",
                   style: const TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w900,
@@ -289,16 +304,6 @@ class _StoreScreenState extends State<StoreScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) Navigator.pop(context);
     });
-  }
-
-  String formatCoins(int value) {
-    if (value >= 1000000) {
-      return "${(value / 1000000).toStringAsFixed(1)}M";
-    }
-    if (value >= 1000) {
-      return "${(value / 1000).toStringAsFixed(1)}K";
-    }
-    return value.toString();
   }
 
   String normalizeId(String id) {
@@ -385,7 +390,7 @@ class _StoreScreenState extends State<StoreScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              formatCoins(widget.initialCoin),
+                              Format.coin(widget.initialCoin),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
@@ -427,7 +432,7 @@ class _StoreScreenState extends State<StoreScreen> {
                         Expanded(
                           child: CoinCard(
                             title: "BAŞLANGIÇ",
-                            coins: "10.000",
+                            coins: Format.coin(80000),
                             price: packBaslangic?.price ?? "...",
                             asset: "assets/images/coins/coins_small.png",
                             onTap: () {
@@ -443,7 +448,7 @@ class _StoreScreenState extends State<StoreScreen> {
                         Expanded(
                           child: CoinCard(
                             title: "STANDART",
-                            coins: "30.000",
+                            coins: Format.coin(200000),
                             price: packStandart?.price ?? "...",
                             asset: "assets/images/coins/coins_medium.png",
                             onTap: () {
@@ -459,7 +464,7 @@ class _StoreScreenState extends State<StoreScreen> {
                         Expanded(
                           child: CoinCard(
                             title: "ELİT",
-                            coins: "80.000",
+                            coins: Format.coin(600000),
                             price: packElit?.price ?? "...",
                             best: true,
                             asset: "assets/images/coins/coins_large.png",
@@ -476,7 +481,7 @@ class _StoreScreenState extends State<StoreScreen> {
                         Expanded(
                           child: CoinCard(
                             title: "MEGA",
-                            coins: "200.000",
+                            coins: Format.coin(2000000),
                             price: packMega?.price ?? "...",
                             asset: "assets/images/coins/coins_huge.png",
                             onTap: () {
@@ -503,16 +508,6 @@ class _PurchaseSuccessCard extends StatelessWidget {
   final int coins;
 
   const _PurchaseSuccessCard({required this.coins});
-
-  String formatCoins(int value) {
-    if (value >= 1000000) {
-      return "${(value / 1000000).toStringAsFixed(1)}M";
-    }
-    if (value >= 1000) {
-      return "${(value / 1000).toStringAsFixed(1)}K";
-    }
-    return value.toString();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -558,7 +553,7 @@ class _PurchaseSuccessCard extends StatelessWidget {
             const SizedBox(height: 10),
 
             Text(
-              "+${formatCoins(coins)} COIN",
+              "+${Format.coin(coins)} COIN",
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,

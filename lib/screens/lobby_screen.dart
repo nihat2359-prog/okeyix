@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -68,11 +69,11 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? selectedLeague = "standart";
   int createMaxPlayer = 2;
   int createTurnSeconds = 15;
-
+  int draftTurnSeconds = 15;
   List<Map<String, dynamic>> leagues = [];
   List<Map<String, dynamic>> tables = [];
   Map<String, int> leagueActivePlayers = {};
-
+  List<int> coinOptions = [];
   bool loadingLeagues = true;
   bool loadingTables = true;
   bool _tablesInitialized = false;
@@ -112,6 +113,11 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _lastSystemToastMessageId;
   DateTime? _globalSpectatorPassUntil;
   bool _campaignChecked = false;
+
+  int selectedIndex = 0;
+  bool isLeagueLocked = false;
+  dynamic lockedLeague;
+
   @override
   void initState() {
     super.initState();
@@ -888,8 +894,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       (l) => l['id'] == selectedLeague,
       orElse: () => leagues.first,
     );
-    final entry = (league['entry_coin'] as int?) ?? 100;
-    final effectiveTurnSeconds = createTurnSeconds;
+
+    final effectiveTurnSeconds = draftTurnSeconds;
+    final entry = coinOptions[selectedIndex];
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
       return _msg('Bu lig için rating yetersiz.');
@@ -2148,7 +2155,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  void _showCreateModal() {
+  Future<void> _showCreateModal() async {
     final league = leagues.firstWhere(
       (l) => l['id'] == selectedLeague,
       orElse: () => leagues.first,
@@ -2156,8 +2163,60 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     final entry = (league['entry_coin'] as int?) ?? 100;
 
-    int draftPlayers = 2;
-    int draftTurnSeconds = createTurnSeconds;
+    final playerCoin = UserState.userCoin;
+    final playerRating = UserState.userRating;
+
+    final minCoin = league['min_coin'];
+    final minRating = league['min_rating'];
+
+    final eligible = playerCoin >= minCoin && playerRating >= minRating;
+
+    final maxCoin = league['max_coin'];
+    bool isDragging = false;
+
+    /// 🔥 PRESET COIN LİSTESİ
+
+    int current = minCoin;
+    coinOptions = [];
+    selectedIndex = 0;
+    draftTurnSeconds = 20;
+    while (current < maxCoin) {
+      coinOptions.add(current);
+
+      if (current < 100000) {
+        current *= 2;
+      } else if (current < 1000000) {
+        current = (current * 2.5).toInt();
+      } else {
+        current = (current * 2).toInt();
+      }
+
+      if (coinOptions.length > 8) break;
+    }
+
+    if (!coinOptions.contains(maxCoin)) {
+      coinOptions.add(maxCoin);
+    }
+
+    // normal default
+    /// 🔴 KİLİTLİYSE → DİREKT SATIN ALMA
+    if (!eligible) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
+        ),
+      );
+
+      /// 🔥 widget hala aktif mi?
+      if (!mounted) return;
+
+      if (result == true) {
+        await _loadUser();
+      }
+
+      return;
+    }
 
     showDialog(
       context: context,
@@ -2178,10 +2237,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                     return Container(
                       width: width,
                       height: height,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(22),
-
+                        border: Border.all(
+                          color: const Color(0xD7D0A14A),
+                          width: 0.5,
+                        ),
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -2204,29 +2266,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 ),
                               ),
 
-                              const Spacer(),
-
-                              InkWell(
-                                onTap: () => Navigator.pop(context),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          /// LEAGUE INFO
-                          Row(
-                            children: [
-                              Icon(
-                                _leagueIcon(league['id']),
-                                size: 28,
-                                color: const Color(0xFFE0C48F),
-                              ),
-
                               const SizedBox(width: 8),
 
                               Text(
@@ -2239,187 +2278,470 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                               const Spacer(),
 
-                              Image.asset(
-                                "assets/images/lobby/store.png",
-                                width: 18,
-                              ),
-
-                              const SizedBox(width: 4),
-
-                              Text(
-                                "$entry",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
+                              InkWell(
+                                onTap: () => Navigator.pop(context),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white70,
                                 ),
                               ),
                             ],
                           ),
 
-                          const SizedBox(height: 14),
+                          /// LEAGUE INFO
 
                           /// PICKERS YAN YANA
                           Expanded(
-                            child: Row(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                /// PLAYERS
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: const [
-                                          Icon(
-                                            Icons.group,
-                                            color: Colors.white70,
-                                            size: 18,
+                                /// 💰 SEÇİLEN COIN (HERO)
+
+                                /// 🔥 SLIDER (AAA)
+                                SizedBox(
+                                  height: 90,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final width = constraints.maxWidth;
+
+                                      const handleWidth = 120.0;
+                                      const sidePadding = 58.0;
+
+                                      final usableWidth =
+                                          width - (sidePadding * 2);
+                                      final percent =
+                                          selectedIndex /
+                                          (coinOptions.length - 1);
+                                      final left =
+                                          sidePadding +
+                                          (usableWidth - handleWidth) * percent;
+
+                                      return Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          /// 🔹 TRACK
+                                          Positioned.fill(
+                                            child: Container(
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 18,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                                color: Colors.white.withOpacity(
+                                                  0.05,
+                                                ),
+                                                border: Border.all(
+                                                  color: Colors.white
+                                                      .withOpacity(0.15),
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            "Oyuncu",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w800,
+
+                                          /// 🔹 - BUTTON
+                                          Positioned(
+                                            left: 6,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: Center(
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setDialogState(() {
+                                                    selectedIndex =
+                                                        (selectedIndex - 1)
+                                                            .clamp(
+                                                              0,
+                                                              coinOptions
+                                                                      .length -
+                                                                  1,
+                                                            );
+                                                  });
+                                                },
+                                                child: _circleButton(
+                                                  Icons.remove,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                          Positioned(
+                                            right: 6,
+                                            top: 0,
+                                            bottom: 0,
+                                            child: Center(
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setDialogState(() {
+                                                    selectedIndex =
+                                                        (selectedIndex + 1)
+                                                            .clamp(
+                                                              0,
+                                                              coinOptions
+                                                                      .length -
+                                                                  1,
+                                                            );
+                                                  });
+                                                },
+                                                child: _circleButton(Icons.add),
+                                              ),
+                                            ),
+                                          ),
+
+                                          /// 🔥 HANDLE + DRAG
+                                          Positioned(
+                                            left: left,
+                                            top: 22,
+                                            child: GestureDetector(
+                                              onHorizontalDragStart: (_) {
+                                                setDialogState(
+                                                  () => isDragging = true,
+                                                );
+                                              },
+                                              onHorizontalDragUpdate: (details) {
+                                                final dx = details
+                                                    .localPosition
+                                                    .dx
+                                                    .clamp(0, usableWidth);
+                                                final newIndex =
+                                                    ((dx / usableWidth) *
+                                                            (coinOptions
+                                                                    .length -
+                                                                1))
+                                                        .round();
+
+                                                setDialogState(() {
+                                                  selectedIndex = newIndex
+                                                      .clamp(
+                                                        0,
+                                                        coinOptions.length - 1,
+                                                      );
+                                                });
+                                              },
+                                              onHorizontalDragEnd: (_) {
+                                                setDialogState(
+                                                  () => isDragging = false,
+                                                );
+                                              },
+
+                                              child: Stack(
+                                                clipBehavior: Clip.none,
+                                                children: [
+                                                  /// 🔥 BALON (SADECE DRAG SIRASINDA)
+                                                  if (isDragging)
+                                                    Positioned(
+                                                      top: -46,
+                                                      left: 0,
+                                                      right: 0,
+                                                      child: Center(
+                                                        child: Column(
+                                                          children: [
+                                                            /// 🔥 BALON
+                                                            Container(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        14,
+                                                                    vertical: 7,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      12,
+                                                                    ),
+
+                                                                /// 🔥 MODERN DARK GLASS
+                                                                gradient: LinearGradient(
+                                                                  colors: [
+                                                                    Colors.black
+                                                                        .withOpacity(
+                                                                          0.85,
+                                                                        ),
+                                                                    Colors.black
+                                                                        .withOpacity(
+                                                                          0.65,
+                                                                        ),
+                                                                  ],
+                                                                ),
+
+                                                                border: Border.all(
+                                                                  color: Colors
+                                                                      .white
+                                                                      .withOpacity(
+                                                                        0.15,
+                                                                      ),
+                                                                ),
+
+                                                                boxShadow: [
+                                                                  /// glow
+                                                                  BoxShadow(
+                                                                    color: Colors
+                                                                        .amber
+                                                                        .withOpacity(
+                                                                          0.4,
+                                                                        ),
+                                                                    blurRadius:
+                                                                        12,
+                                                                  ),
+
+                                                                  /// depth
+                                                                  BoxShadow(
+                                                                    color: Colors
+                                                                        .black
+                                                                        .withOpacity(
+                                                                          0.6,
+                                                                        ),
+                                                                    blurRadius:
+                                                                        8,
+                                                                    offset:
+                                                                        const Offset(
+                                                                          0,
+                                                                          4,
+                                                                        ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              child: Text(
+                                                                Format.coin(
+                                                                  coinOptions[selectedIndex],
+                                                                ),
+                                                                style: const TextStyle(
+                                                                  color: Color(
+                                                                    0xFFF2C14E,
+                                                                  ),
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w900,
+                                                                  fontSize: 13,
+                                                                  letterSpacing:
+                                                                      0.5,
+                                                                ),
+                                                              ),
+                                                            ),
+
+                                                            /// 🔻 POINTER
+                                                            Container(
+                                                              width: 10,
+                                                              height: 6,
+                                                              decoration: BoxDecoration(
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                      0.8,
+                                                                    ),
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      2,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+
+                                                  /// 🔥 HANDLE
+                                                  AnimatedContainer(
+                                                    duration: const Duration(
+                                                      milliseconds: 120,
+                                                    ),
+                                                    width: handleWidth,
+                                                    height: 44,
+                                                    alignment: Alignment.center,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+
+                                                      gradient:
+                                                          const LinearGradient(
+                                                            colors: [
+                                                              Color(0xFFFFE082),
+                                                              Color(0xFFF2C14E),
+                                                              Color(0xFFD4A24C),
+                                                            ],
+                                                            begin: Alignment
+                                                                .topCenter,
+                                                            end: Alignment
+                                                                .bottomCenter,
+                                                          ),
+
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black
+                                                              .withOpacity(0.6),
+                                                          blurRadius: 10,
+                                                          offset: const Offset(
+                                                            0,
+                                                            4,
+                                                          ),
+                                                        ),
+                                                        BoxShadow(
+                                                          color: const Color(
+                                                            0xFFF2C14E,
+                                                          ).withOpacity(0.5),
+                                                          blurRadius: 12,
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    child: Text(
+                                                      Format.coin(
+                                                        coinOptions[selectedIndex],
+                                                      ),
+                                                      style: const TextStyle(
+                                                        color: Color(
+                                                          0xFF1A1A1A,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        fontSize: 15,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+
+                                /// ⚡ OYUN HIZI (AAA SEGMENTED)
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+                                    color: Colors.white.withOpacity(0.05),
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      /// ⚡ HIZLI
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setDialogState(() {
+                                              draftTurnSeconds = 15;
+                                            });
+                                          },
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              color: draftTurnSeconds == 15
+                                                  ? Colors.amber.withOpacity(
+                                                      0.2,
+                                                    )
+                                                  : Colors.transparent,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.flash_on,
+                                                  size: 16,
+                                                  color: draftTurnSeconds == 15
+                                                      ? Colors.amber
+                                                      : Colors.white54,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  "Hızlı",
+                                                  style: TextStyle(
+                                                    color:
+                                                        draftTurnSeconds == 15
+                                                        ? Colors.amber
+                                                        : Colors.white70,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
                                       ),
 
-                                      const SizedBox(height: 4),
-
-                                      gamePicker(
-                                        controller: FixedExtentScrollController(
-                                          initialItem: 0,
+                                      /// 🎯 NORMAL
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setDialogState(() {
+                                              draftTurnSeconds = 20;
+                                            });
+                                          },
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              color: draftTurnSeconds == 20
+                                                  ? Colors.blue.withOpacity(0.2)
+                                                  : Colors.transparent,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.schedule,
+                                                  size: 16,
+                                                  color: draftTurnSeconds == 20
+                                                      ? Colors.blue
+                                                      : Colors.white54,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  "Normal",
+                                                  style: TextStyle(
+                                                    color:
+                                                        draftTurnSeconds == 20
+                                                        ? Colors.blue
+                                                        : Colors.white70,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                        onChanged: (i) {
-                                          if (i == 1) {
-                                            return; // 4 oyuncu kilitli
-                                          }
-
-                                          setDialogState(() {
-                                            draftPlayers = 2;
-                                          });
-                                        },
-                                        children: const [
-                                          Center(
-                                            child: Text(
-                                              "2 Oyuncu",
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ),
-
-                                          Center(
-                                            child: Text(
-                                              "4 Oyuncu • Yakında",
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Color(0x66FFFFFF),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
 
-                                const SizedBox(width: 10),
+                                const SizedBox(height: 10),
 
-                                /// TURN TIME
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      /// TITLE
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: const [
-                                          Icon(
-                                            Icons.timer,
-                                            color: Colors.white70,
-                                            size: 18,
-                                          ),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            "Hamle Süresi",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 4),
-
-                                      /// PICKER
-                                      gamePicker(
-                                        controller: FixedExtentScrollController(
-                                          initialItem: [
-                                            20,
-                                            15,
-                                            10,
-                                          ].indexOf(draftTurnSeconds),
-                                        ),
-                                        onChanged: (i) {
-                                          setDialogState(() {
-                                            draftTurnSeconds = [20, 15, 10][i];
-                                          });
-                                        },
-                                        children: const [
-                                          Center(
-                                            child: Text(
-                                              "20 sn  Yavaş",
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-
-                                          Center(
-                                            child: Text(
-                                              "15 sn  Normal",
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-
-                                          Center(
-                                            child: Text(
-                                              "10 sn  Hızlı",
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                /// ALT AÇIKLAMA
+                                Text(
+                                  draftTurnSeconds == 15
+                                      ? "Daha hızlı oyun • kısa hamle süresi"
+                                      : "Standart tempo",
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 6),
 
                           /// CREATE BUTTON
@@ -2459,6 +2781,23 @@ class _LobbyScreenState extends State<LobbyScreen>
           },
         );
       },
+    );
+  }
+
+  Widget _circleButton(IconData icon) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF2C14E), Color(0xFFD4A24C)],
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8),
+        ],
+      ),
+      child: Icon(icon, color: Colors.black),
     );
   }
 
@@ -4065,18 +4404,39 @@ class _LobbyScreenState extends State<LobbyScreen>
                           userRating: UserState.userRating,
                           loading: loadingLeagues,
                           onSelect: (league) {
-                            final newLeague = league['id'];
+                            final playerCoin = UserState.userCoin;
+                            final playerRating = UserState.userRating;
 
-                            if (newLeague != selectedLeague) {
-                              setState(() {
-                                selectedLeague = newLeague;
+                            final minCoin = league['min_coin'];
+                            final minRating = league['min_rating'];
 
-                                /// ğŸ”¥ HARD RESET
+                            final eligible =
+                                playerCoin >= minCoin &&
+                                playerRating >= minRating;
+
+                            setState(() {
+                              selectedLeague = league['id'];
+
+                              if (!eligible) {
+                                isLeagueLocked = true;
+                                lockedLeague = league;
+
                                 tables = [];
-                                loadingTables = true;
-                                _tablesInitialized = false;
-                              });
+                                loadingTables = false;
+                                _tablesInitialized = true;
+                                return;
+                              }
 
+                              /// 🟢 NORMAL
+                              isLeagueLocked = false;
+                              lockedLeague = null;
+
+                              tables = [];
+                              loadingTables = true;
+                              _tablesInitialized = false;
+                            });
+
+                            if (eligible) {
                               _loadTables();
                             }
                           },
@@ -4096,9 +4456,18 @@ class _LobbyScreenState extends State<LobbyScreen>
             tables: tables,
             loading: loadingTables,
             blockedUserIds: UserState.blockedUserIds,
+            isLocked: isLeagueLocked,
+            lockedLeague: lockedLeague,
+            playerCoin: UserState.userCoin,
+            playerRating: UserState.userRating,
             onJoin: (table) => _joinTable(table),
             onSpectate: (table) => _handleSpectateTap(table),
             canSpectateAll: true,
+            onNeedRefreshUser: () async {
+              await _loadUser();
+              await _loadTables(); // 🔥 coin değişti → listeler değişebilir
+            },
+
             onUserTap: (user) async {
               await ProfileService.showUserCard(
                 user,

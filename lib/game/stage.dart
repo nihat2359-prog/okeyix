@@ -8,7 +8,7 @@ class Stage extends Component with HasGameReference<OkeyGame> {
 
     final rack = SpriteComponent(
       sprite: Sprite(image),
-      size: Vector2(1250, 350), // sahneye göre
+      size: Vector2(1500, 350), // sahneye göre
       position: Vector2(800, 900 - 180), // alt merkez
       anchor: Anchor.center,
     );

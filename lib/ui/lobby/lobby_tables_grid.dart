@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'lobby_table_card.dart';
 import 'lobby_shimmer_loaders.dart';
 
@@ -47,18 +48,7 @@ class LobbyTablesGrid extends StatelessWidget {
 
         itemCount: tables.length,
 
-        itemBuilder: (context, i) {
-          final table = tables[i];
-
-          return LobbyTableCard(
-            table: table,
-            blockedUserIds: blockedUserIds,
-            onJoin: onJoin,
-            onSpectate: onSpectate,
-            canSpectateAll: canSpectateAll,
-            onUserTap: onUserTap,
-          );
-        },
+        itemBuilder: (context, i) {},
       ),
     );
   }

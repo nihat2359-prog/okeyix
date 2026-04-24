@@ -125,9 +125,9 @@ class LobbyLeagueList extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.white, // üst highlight
-              color.withOpacity(0.9), // ana renk
-              color.withOpacity(0.6), // alt gölge
+              const Color(0xFFFFF3C4), // ✨ sıcak highlight (beyaz değil!)
+              color, // ana gold
+              const Color(0xFF7A5A1A), // 🔥 koyu gold (kontrast)
             ],
           ).createShader(bounds);
         },
@@ -140,18 +140,21 @@ class LobbyLeagueList extends StatelessWidget {
             fontWeight: FontWeight.w900,
             fontSize: isBig ? 20 : 17,
             letterSpacing: 0.6,
-            color: Colors.white, // shader için gerekli
+            color: Colors.white,
 
             shadows: [
-              /// derinlik
+              // 🔥 bu en kritik
               Shadow(
-                color: Colors.black.withOpacity(0.7),
-                offset: const Offset(0, 1),
-                blurRadius: 3,
+                color: Colors.black.withOpacity(0.9),
+                offset: const Offset(0, 2),
+                blurRadius: 6,
               ),
 
-              /// hafif glow (abartma)
-              Shadow(color: color.withOpacity(0.25), blurRadius: 6),
+              // hafif sıcak glow
+              Shadow(
+                color: const Color(0xFFFFD54F).withOpacity(0.4),
+                blurRadius: 8,
+              ),
             ],
           ),
         ),
@@ -162,22 +165,22 @@ class LobbyLeagueList extends StatelessWidget {
   Color _leagueColorById(String id) {
     switch (id) {
       case 'standard': // Acemiler
-        return const Color(0xFF6FAF8F); // soft green (uyumlu)
+        return const Color(0xFFFFD54F); // neon green
 
       case 'bronze': // Çıraklar
-        return const Color(0xFFB07A4A); // muted bronze
+        return const Color(0xFFFFD54F); // canlı bronze (turuncuya yakın)
 
       case 'silver': // Kalfalar
-        return const Color(0xFF9EA7AD); // koyu silver
+        return const Color(0xFFFFD54F); // açık silver (parlak)
 
       case 'gold': // Ustalar
-        return const Color(0xFFD6A84A); // rich gold
+        return const Color(0xFFFFD54F); // vivid gold
 
       case 'elite': // Şampiyonlar
-        return const Color(0xFFFFD166); // elite gold (🔥)
+        return const Color(0xFFFFD54F); // premium neon gold (🔥)
 
       default:
-        return const Color(0xFFD6A84A);
+        return const Color(0xFFFFD54F);
     }
   }
 
@@ -226,7 +229,7 @@ class LobbyLeagueList extends StatelessWidget {
           bottom: 0,
           child: Center(
             child: Opacity(
-              opacity: 0.12, // 🔥 transparan (çok önemli)
+              opacity: 0.32, // 🔥 transparan (çok önemli)
               child: Icon(
                 Icons.emoji_events,
                 size: isBig ? 55 : 45,
