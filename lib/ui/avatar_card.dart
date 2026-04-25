@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'avatar_preset.dart';
 import '../models/player_model.dart';
 
@@ -9,23 +10,38 @@ class AvatarCard extends StatelessWidget {
   final PlayerModel player;
   final AvatarPosition position;
   final double progress;
+  final VoidCallback? onTap;
   const AvatarCard({
     super.key,
     required this.player,
     required this.position,
     required this.progress,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget content;
+
     switch (position) {
       case AvatarPosition.bottom:
       case AvatarPosition.top:
-        return _buildHorizontal();
+        content = _buildHorizontal();
+        break;
       case AvatarPosition.left:
       case AvatarPosition.right:
-        return _buildVertical();
+        content = _buildVertical();
+        break;
     }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap, // 🔥 burada yakalanıyor
+        borderRadius: BorderRadius.circular(16), // kart radius ile uyumlu olsun
+        child: content,
+      ),
+    );
   }
 
   Widget _buildHorizontal() {
@@ -77,7 +93,7 @@ class AvatarCard extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          player.coins.toString(),
+          Format.coin(player.coins),
           style: const TextStyle(
             fontSize: 11,
             color: Color(0xFFD4AF37),
@@ -86,7 +102,7 @@ class AvatarCard extends StatelessWidget {
         ),
         const SizedBox(height: 1),
         Text(
-          'R: ${player.rating}',
+          'R: ${Format.rating(player.rating)}',
           style: const TextStyle(
             fontSize: 10,
             color: Color(0xFFBBD0E4),

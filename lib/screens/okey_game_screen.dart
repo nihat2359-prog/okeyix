@@ -1294,20 +1294,21 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             onTap: () => _confirmLeaveTable(),
           ),
           const SizedBox(width: 10),
+
           _topCircleButton(
-            icon: Icons.view_week,
+            type: 0,
             active: _menuOpen,
             onTap: () => _game.arrangeSerial(),
           ),
           const SizedBox(width: 10),
           _topCircleButton(
-            icon: Icons.grid_view,
+            type: 1,
             active: _menuOpen,
             onTap: () => _game.arrangePairs(),
           ),
           const SizedBox(width: 10),
           _topCircleButton(
-            icon: Icons.flash_on,
+            type: 2,
             active: _menuOpen,
             onTap: () => _toggleDoubleMode(),
           ),
@@ -1465,46 +1466,140 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     String? asset,
     bool active = false,
     bool highlight = false,
+    int? type,
     required VoidCallback onTap,
   }) {
     final isExit = icon == Icons.logout || icon == Icons.exit_to_app;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
+    /// 🔥 ICON SEÇİMİ (öncelik sırası önemli)
+    Widget iconWidget;
 
-          /// 🔥 EXIT FARKLI RENK
-          color: isExit
-              ? const Color(0xFF3A1F1F) // koyu kırmızı
-              : (active ? const Color(0xFF2A3440) : const Color(0xCC0F141A)),
+    if (type != null) {
+      iconWidget = buildActionIcon(type); // 👈 senin metod
+    } else if (asset != null) {
+      iconWidget = Image.asset(asset, width: 22, height: 22);
+    } else if (icon != null) {
+      iconWidget = Icon(
+        icon,
+        size: 20,
+        color: isExit ? Colors.redAccent : Colors.white70,
+      );
+    } else {
+      iconWidget = const SizedBox(); // 👈 null crash önler
+    }
 
-          border: Border.all(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+
+            /// 🔥 EXIT STYLE
             color: isExit
-                ? Colors.red.withOpacity(0.6) // kırmızı border
-                : const Color.fromARGB(102, 134, 131, 126),
-            width: 0.9,
-          ),
+                ? const Color(0xFF3A1F1F)
+                : (active ? const Color(0xFF2A3440) : const Color(0xCC0F141A)),
 
-          boxShadow: isExit
-              ? [
-                  /// 🔥 hafif kırmızı glow
-                  BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 8),
-                ]
-              : [],
+            border: Border.all(
+              color: isExit
+                  ? Colors.red.withOpacity(0.6)
+                  : (highlight
+                        ? Colors.amber.withOpacity(0.8) // 👈 highlight aktif
+                        : const Color.fromARGB(102, 134, 131, 126)),
+              width: 0.9,
+            ),
+
+            boxShadow: [
+              if (isExit)
+                BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 8),
+
+              /// 🔥 highlight glow (premium)
+              if (highlight && !isExit)
+                BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 10),
+            ],
+          ),
+          child: Center(child: iconWidget),
         ),
-        child: Center(
-          child: asset != null
-              ? Image.asset(asset, width: 22, height: 22)
-              : Icon(
-                  icon,
-                  size: 20,
-                  color: isExit ? Colors.redAccent : Colors.white70,
-                ),
+      ),
+    );
+  }
+
+  Widget buildActionIcon(int type) {
+    final color = Colors.amber;
+
+    switch (type) {
+      /// 1️⃣ SERİ DİZ → yan yana
+      case 0:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _tile("1", color),
+            const SizedBox(width: 2),
+            _tile("2", color),
+          ],
+        );
+
+      /// 2️⃣ ÇİFTE DİZ → üst üste (stack)
+      case 1:
+        return SizedBox(
+          width: 22,
+          height: 20,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(left: 2, child: _tile("1", color)),
+              Positioned(left: 8, child: _tile("2", color)),
+            ],
+          ),
+        );
+
+      /// 3️⃣ ÇİFTE GİT → üst üste + ok
+      case 2:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 22,
+              height: 18,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(left: 2, child: _tile("1", color)),
+                  Positioned(left: 8, child: _tile("2", color)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 2),
+            Icon(Icons.arrow_downward, size: 12, color: color),
+          ],
+        );
+
+      default:
+        return const SizedBox();
+    }
+  }
+
+  Widget _tile(String text, Color color) {
+    return Container(
+      width: 14,
+      height: 18,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E232A),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: Colors.white24, width: 0.6),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.25), blurRadius: 3)],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          color: color,
         ),
       ),
     );

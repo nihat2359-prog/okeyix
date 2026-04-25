@@ -85,7 +85,7 @@ class LobbyLeagueList extends StatelessWidget {
 
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        height: isBig ? 58 : 58,
+        height: isBig ? 70 : 58,
 
         margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         padding: EdgeInsets.symmetric(
@@ -232,7 +232,7 @@ class LobbyLeagueList extends StatelessWidget {
               opacity: 0.32, // 🔥 transparan (çok önemli)
               child: Icon(
                 Icons.emoji_events,
-                size: 40,
+                size: 50,
                 color: const Color(0xFFE0C48F),
               ),
             ),

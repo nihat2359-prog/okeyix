@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/okey_game.dart';
+import 'package:okeyix/services/profile_service.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/player_model.dart';
@@ -533,6 +534,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               player: me.player,
               position: AvatarPosition.bottom,
               progress: widget.game.getTurnProgress(),
+              onTap: () {
+                ProfileService.showUserCard({'id': me.player.id});
+              },
             ),
           ),
         );
@@ -550,6 +554,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                     0.0,
                     1.0,
                   ),
+                  onTap: () {
+                    ProfileService.showUserCard({'id': opponent.player.id});
+                  },
                 )
               : (_tableStatus == 'playing'
                     ? const SizedBox.shrink()
@@ -663,6 +670,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
   Future<void> _showInviteDialogForSeat(int seatIndex) async {
     final candidates = await _loadEligiblePlayers();
+    final _controller = ScrollController();
 
     if (!mounted) return;
 
@@ -733,10 +741,12 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                       child: Stack(
                         children: [
                           Scrollbar(
+                            controller: _controller,
                             thumbVisibility: true,
                             thickness: 4,
                             radius: const Radius.circular(8),
                             child: ListView.separated(
+                              controller: _controller,
                               physics: const BouncingScrollPhysics(),
                               padding: const EdgeInsets.only(bottom: 30),
                               itemCount: candidates.length,

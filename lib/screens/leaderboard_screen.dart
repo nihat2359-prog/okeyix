@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
+import 'package:okeyix/services/profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../ui/lobby/lobby_shimmer_loaders.dart';
 
@@ -52,15 +54,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       }
     }
 
-    players = ranked.map((r) {
-      final id = r['id']?.toString();
-      final user = id == null ? null : usersById[id];
-      return <String, dynamic>{
-        'username': user?['username'] ?? 'Oyuncu',
-        'avatar_url': user?['avatar_url'],
-        'rating': r['rating'] ?? 1200,
-      };
-    }).toList(growable: false);
+    players = ranked
+        .map((r) {
+          final id = r['id']?.toString();
+          final user = id == null ? null : usersById[id];
+          return <String, dynamic>{
+            'username': user?['username'] ?? 'Oyuncu',
+            'avatar_url': user?['avatar_url'],
+            'rating': r['rating'] ?? 1200,
+            'id': user?['id'],
+          };
+        })
+        .toList(growable: false);
 
     setState(() {
       loading = false;
@@ -151,64 +156,155 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       avatar = AssetImage(avatarUrl);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    final name = p['username'] ?? '';
+    final rating = Format.rating(p['rating']);
 
-      decoration: BoxDecoration(
-        color: const Color(0xFF17191F).withOpacity(0.5),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
 
-      child: Row(
-        children: [
-          /// SIRA
-          Text(
-            "#${index + 1}",
-            style: const TextStyle(
-              color: Colors.amber,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
+      /// 🔥 CLICK + RIPPLE
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _onPlayerTap(p),
 
-          const SizedBox(width: 12),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
 
-          /// AVATAR
-          CircleAvatar(
-            radius: 20,
-            backgroundImage: avatar,
-            backgroundColor: Colors.grey[700],
-          ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
 
-          const SizedBox(width: 12),
-
-          /// USERNAME
-          Expanded(
-            child: Text(
-              p['username'] ?? '',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+              /// 🔥 GLASS + GRADIENT
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF1B2A24).withOpacity(0.85),
+                  const Color(0xFF0F1B17).withOpacity(0.85),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+
+              /// 🔥 DEPTH
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.6),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+
+            child: Row(
+              children: [
+                /// 🔥 RANK BADGE
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE7C66A), Color(0xFFB9932F)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE7C66A).withOpacity(0.6),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    "${index + 1}",
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                /// 🔥 AVATAR (GLOW)
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE7C66A).withOpacity(0.4),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundImage: avatar,
+                    backgroundColor: Colors.grey[800],
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                /// 🔥 USER INFO
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.emoji_events,
+                            size: 14,
+                            color: Color(0xFFE7C66A),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            rating,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                /// 🔥 RIGHT SIDE ICON (action hint)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Colors.white.withOpacity(0.4),
+                ),
+              ],
             ),
           ),
-
-          /// COIN ICON
-          const Icon(Icons.emoji_events, color: Colors.amber, size: 20),
-
-          const SizedBox(width: 6),
-
-          /// RATING
-          Text(
-            "${p['rating']}",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  void _onPlayerTap(dynamic p) {
+    final userId = p['id'];
+    if (userId == null) return;
+    ProfileService.showUserCard({'id': userId});
   }
 }

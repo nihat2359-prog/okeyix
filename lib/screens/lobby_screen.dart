@@ -1124,142 +1124,254 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<void> _showSpectatorPassOfferDialog(String tableId) async {
     final shouldBuy = await showDialog<bool>(
       context: context,
+      barrierColor: Colors.black.withOpacity(0.75),
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(18),
-          child: Container(
-            width: 560,
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
-              ),
-              border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 22,
-                  offset: Offset(0, 10),
+          child: TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 220),
+            tween: Tween(begin: 0.92, end: 1),
+            curve: Curves.easeOut,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child);
+            },
+
+            child: Container(
+              width: 560,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+
+                /// 🔥 GLASS + DEPTH
+                color: const Color(0xFF0F1B17).withOpacity(0.92),
+
+                border: Border.all(
+                  color: const Color(0xFFE7C06A).withOpacity(0.7),
+                  width: 1.3,
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.workspace_premium_rounded,
-                      color: Color(0xFFFFE0A8),
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Genel Seyirci Geçişi',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
+
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.75),
+                    blurRadius: 30,
+                    offset: const Offset(0, 14),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFFE7C06A).withOpacity(0.15),
+                    blurRadius: 20,
+                  ),
+                ],
+              ),
+
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// 🔥 HEADER
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFE7C06A), Color(0xFFB9932F)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFE7C06A).withOpacity(0.6),
+                              blurRadius: 16,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.visibility_rounded,
+                          color: Colors.black,
+                          size: 18,
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0x33273830),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0x334F8F75)),
-                  ),
-                  child: const Text(
-                    'Sadece arkadaşı olduğun kullanıcının masasını ücretsiz izleyebilirsin.\n\n'
-                    '24 saat boyunca tüm oynanan masaları izlemek için '
-                    '10.000 coin ile Genel Seyirci Geçişi açabilirsin.',
-                    style: TextStyle(
-                      color: Color(0xFFD9EBDD),
-                      height: 1.35,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF24563F), Color(0xFF1B4232)],
-                    ),
-                    border: Border.all(color: const Color(0x66E7C06A)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_filled_rounded,
-                        size: 16,
-                        color: Color(0xFFFFE0A8),
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
+
+                      const SizedBox(width: 10),
+
+                      const Expanded(
                         child: Text(
-                          'Süre: 24 saat  •  Ücret: 10.000 coin',
+                          'Genel Seyirci Geçişi',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFE7C06A),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .4,
+                          ),
+                        ),
+                      ),
+
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => Navigator.pop(context, false),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Vazgeç'),
+
+                  const SizedBox(height: 12),
+
+                  /// 🔥 INFO BOX
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: Colors.white.withOpacity(0.03),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.pop(context, true),
-                      icon: const Icon(Icons.visibility_rounded),
-                      label: const Text('10.000 coin ile Aç'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2B7B55),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
+                    child: const Text(
+                      'Sadece arkadaşlarının masasını ücretsiz izleyebilirsin.\n\n'
+                      '24 saat boyunca tüm masaları izlemek için bu geçişi açabilirsin.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        height: 1.4,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  /// 🔥 PRICE CARD (ÇOK ÖNEMLİ)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1F4D3A), Color(0xFF153B2D)],
+                      ),
+                      border: Border.all(
+                        color: const Color(0xFFE7C06A).withOpacity(0.5),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(
+                          Icons.access_time_filled,
+                          color: Color(0xFFE7C06A),
+                          size: 16,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          '24 Saat',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Spacer(),
+                        Icon(
+                          Icons.monetization_on,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          '10.000',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  /// 🔥 BUTTONS
+                  Row(
+                    children: [
+                      /// CANCEL
+                      Expanded(
+                        child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(
-                            color: Color(0xFF8F6215),
-                            width: 1.2,
+                          onTap: () => Navigator.pop(context, false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white.withOpacity(0.03),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.08),
+                              ),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Vazgeç",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+
+                      const SizedBox(width: 12),
+
+                      /// 🔥 BUY BUTTON
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFE7C06A), Color(0xFFB9932F)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFE7C06A).withOpacity(0.6),
+                                blurRadius: 14,
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => Navigator.pop(context, true),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Center(
+                                  child: Text(
+                                    "Satın Al",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -4366,7 +4478,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFFD4A24C),
-                          fontSize: 12,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.1,
                         ),
@@ -4374,7 +4486,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ],
                   ),
 
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
 
                   /// ğŸ”¥ GOLD DIVIDER
                   Container(
@@ -4390,7 +4502,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 10),
 
                   /// ğŸ”¥ LİG LİSTESİ
                   Expanded(

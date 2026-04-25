@@ -45,16 +45,14 @@ class ProfileService {
 
     final userinfo = await supabase
         .from('users')
-        .select('username, wins,losses')
+        .select('username, wins,losses,avatar_url')
         .eq('id', otherId)
         .single();
 
     final coins = profile['coins'] ?? 0;
     final rating = (profile['rating'] as int?) ?? 1200;
 
-    final username = (user['username']?.toString().trim().isNotEmpty ?? false)
-        ? user['username'].toString().trim()
-        : 'Oyuncu';
+    final username = userinfo['username'];
 
     final statusText = isSelf
         ? 'Bu senin profilin'
@@ -186,7 +184,7 @@ class ProfileService {
                           ),
                           child: LobbyAvatar(
                             username: username,
-                            avatarUrl: user['avatar_url'],
+                            avatarUrl: userinfo['avatar_url'],
                             size: 46,
                             blocked: isBlocked,
                             enablePreview: true,

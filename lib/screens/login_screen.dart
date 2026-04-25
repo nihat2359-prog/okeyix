@@ -267,9 +267,9 @@ class _LoginScreenState extends State<LoginScreen>
         nonce: rawNonce, // 🔥 BU ÇOK ÖNEMLİ
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),
+      // );
     }
   }
 
