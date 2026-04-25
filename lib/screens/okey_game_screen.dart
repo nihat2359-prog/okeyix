@@ -678,83 +678,173 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   Future<void> _confirmLeaveTable() async {
     final shouldLeave = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withOpacity(0.7),
       builder: (context) {
         return Center(
-          child: Container(
-            width: 340,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1A2328), Color(0xFF12181C)],
-              ),
-              border: Border.all(color: const Color(0x55E7C06A)),
-              boxShadow: [
-                BoxShadow(color: const Color(0x26E7C06A), blurRadius: 20),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.logout_rounded,
-                    size: 42,
-                    color: Color(0xFFE7C06A),
+          child: TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 220),
+            tween: Tween(begin: 0.9, end: 1),
+            curve: Curves.easeOut,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Container(
+              width: 360,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+
+                /// 🔥 GLASS EFFECT
+                color: const Color(0xFF0F1B17).withOpacity(0.88),
+
+                border: Border.all(
+                  color: const Color(0xFFE7C06A).withOpacity(0.7),
+                  width: 1.2,
+                ),
+
+                /// 🔥 DEPTH + GLOW
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.7),
+                    blurRadius: 25,
+                    offset: const Offset(0, 10),
                   ),
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    "Masadan Ayr\u0131l",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    "Masadan ayr\u0131lmak istedi\u011Fine emin misin?",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0x33E7C06A)),
-                          ),
-                          child: const Text(
-                            "Vazge\u00E7",
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE7C06A),
-                            foregroundColor: Colors.black,
-                          ),
-                          child: const Text("Ayr\u0131l"),
-                        ),
-                      ),
-                    ],
+                  BoxShadow(
+                    color: const Color(0xFFE7C06A).withOpacity(0.15),
+                    blurRadius: 20,
+                    spreadRadius: 1,
                   ),
                 ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    /// 🔥 ICON + GLOW
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE7C06A), Color(0xFFB9932F)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFE7C06A).withOpacity(0.6),
+                            blurRadius: 20,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.logout_rounded,
+                        size: 28,
+                        color: Colors.black,
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    /// 🔥 TITLE
+                    const Text(
+                      "Masadan Ayrıl",
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFE7C06A),
+                        letterSpacing: .5,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    /// 🔥 DESC
+                    const Text(
+                      "Masadan ayrılmak istediğine emin misin?",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13.5,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    /// 🔥 BUTTONS
+                    Row(
+                      children: [
+                        /// ❌ CANCEL (glass button)
+                        Expanded(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => Navigator.pop(context, false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.08),
+                                ),
+                                color: Colors.white.withOpacity(0.03),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  "Vazgeç",
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        /// 🔥 CONFIRM (premium)
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFE7C06A), Color(0xFFB9932F)],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFFE7C06A,
+                                  ).withOpacity(0.5),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => Navigator.pop(context, true),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Center(
+                                    child: Text(
+                                      "Ayrıl",
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

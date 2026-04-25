@@ -85,7 +85,7 @@ class LobbyLeagueList extends StatelessWidget {
 
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        height: isBig ? 68 : 60,
+        height: isBig ? 58 : 58,
 
         margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         padding: EdgeInsets.symmetric(
@@ -138,7 +138,7 @@ class LobbyLeagueList extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontWeight: FontWeight.w900,
-            fontSize: isBig ? 20 : 14,
+            fontSize: isBig ? 16 : 14,
             letterSpacing: 0.6,
             color: Colors.white,
 
@@ -232,7 +232,7 @@ class LobbyLeagueList extends StatelessWidget {
               opacity: 0.32, // 🔥 transparan (çok önemli)
               child: Icon(
                 Icons.emoji_events,
-                size: isBig ? 55 : 45,
+                size: 40,
                 color: const Color(0xFFE0C48F),
               ),
             ),
@@ -247,8 +247,6 @@ class LobbyLeagueList extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _leagueTitle(l['name'] ?? '', color, isBig: isBig),
-
-                const SizedBox(height: 4),
 
                 Row(
                   mainAxisSize: MainAxisSize.min,

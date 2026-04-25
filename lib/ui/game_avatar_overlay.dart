@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/okey_game.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -670,11 +671,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       barrierColor: Colors.black.withOpacity(.75),
       builder: (context) {
         return Dialog(
-          backgroundColor: const Color(0xFF0F1B17),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFB9932F), width: 1.4),
-          ),
+          backgroundColor: Colors.transparent,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 440,
@@ -683,105 +680,269 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             child: Container(
               width: 420,
               padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(
+                  0xFF0F1B17,
+                ).withOpacity(0.88), // 🔥 transparan
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: const Color(0xFFB9932F).withOpacity(0.7),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    "Oyuncu Davet Et",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFE7C66A),
-                      letterSpacing: .5,
-                    ),
+                  /// 🔥 HEADER
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.group, color: Color(0xFFE7C66A)),
+                      SizedBox(width: 8),
+                      Text(
+                        "Oyuncu Davet Et",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFE7C66A),
+                          letterSpacing: .6,
+                        ),
+                      ),
+                    ],
                   ),
+
                   const SizedBox(height: 14),
+
                   if (candidates.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(16),
                       child: Text(
-                        "Bu lig için uygun ve aktif oyuncu bulunamadı.",
+                        "Bu lig için uygun oyuncu bulunamadı.",
                         style: TextStyle(color: Colors.white70),
                       ),
                     )
                   else
                     Expanded(
-                      child: ListView.separated(
-                        itemCount: candidates.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(color: Colors.white10),
-                        itemBuilder: (_, i) {
-                          final p = candidates[i];
-                          final name = p['username']?.toString() ?? "Oyuncu";
-                          final rating = p['rating']?.toString() ?? "-";
-                          final coins = p['coins']?.toString() ?? "0";
-                          final userId = p['id']?.toString();
-                          final avatarUrl = p['avatar_url'];
+                      child: Stack(
+                        children: [
+                          Scrollbar(
+                            thumbVisibility: true,
+                            thickness: 4,
+                            radius: const Radius.circular(8),
+                            child: ListView.separated(
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.only(bottom: 30),
+                              itemCount: candidates.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (_, i) {
+                                final p = candidates[i];
 
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                _inviteAvatar(avatarUrl?.toString(), name),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                final name =
+                                    p['username']?.toString() ?? "Oyuncu";
+                                final rating = p['rating'];
+                                final coins = p['coins'] ?? 0;
+                                final userId = p['id']?.toString();
+                                final avatarUrl = p['avatar_url'];
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(
+                                          0xFF16251F,
+                                        ).withOpacity(0.9),
+                                        const Color(
+                                          0xFF0F1B17,
+                                        ).withOpacity(0.9),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.05),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
+                                      /// 🔥 AVATAR
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFFB9932F,
+                                              ).withOpacity(0.4),
+                                              blurRadius: 8,
+                                            ),
+                                          ],
+                                        ),
+                                        child: _inviteAvatar(
+                                          avatarUrl?.toString(),
+                                          name,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        "Rating $rating - $coins coin",
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white60,
+
+                                      const SizedBox(width: 12),
+
+                                      /// 🔥 TEXT
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.emoji_events,
+                                                  size: 14,
+                                                  color: Color(0xFFE7C66A),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  Format.rating(rating),
+                                                  style: const TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                const Icon(
+                                                  Icons.monetization_on,
+                                                  size: 14,
+                                                  color: Colors.amber,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  Format.coin(coins),
+                                                  style: const TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      const SizedBox(width: 8),
+
+                                      /// 🔥 BUTTON
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFFE7C66A),
+                                              Color(0xFFB9932F),
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFFB9932F,
+                                              ).withOpacity(0.5),
+                                              blurRadius: 8,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            onTap: userId == null
+                                                ? null
+                                                : () async {
+                                                    await _sendInvite(
+                                                      userId: userId,
+                                                      isBot:
+                                                          p['is_bot'] == true,
+                                                    );
+                                                    if (!mounted) return;
+                                                    Navigator.pop(context);
+                                                  },
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                                vertical: 8,
+                                              ),
+                                              child: Text(
+                                                "Davet",
+                                                style: TextStyle(
+                                                  color: Colors.black,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFB9932F),
-                                    foregroundColor: Colors.black,
-                                    visualDensity: VisualDensity.compact,
-                                    minimumSize: const Size(72, 34),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                  onPressed: userId == null
-                                      ? null
-                                      : () async {
-                                          await _sendInvite(
-                                            userId: userId,
-                                            isBot: p['is_bot'] == true,
-                                          );
-                                          if (!mounted) return;
-                                          Navigator.pop(context);
-                                        },
-                                  child: const Text("Davet"),
-                                ),
-                              ],
+                                );
+                              },
                             ),
-                          );
-                        },
+                          ),
+
+                          /// 🔥 ALT FADE
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: IgnorePointer(
+                              child: Container(
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      const Color(0xFF0F1B17).withOpacity(0.9),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],

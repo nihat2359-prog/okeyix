@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/main.dart';
-import 'package:okeyix/services/celebration_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/avatar_preset.dart';
 import 'package:okeyix/ui/gift_selector_sheet.dart';
@@ -167,7 +166,7 @@ class ProfileService {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
 
                     // AVATAR & İSİM
                     Row(
@@ -238,7 +237,7 @@ class ProfileService {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
 
                     // RATING & COIN
                     Container(
@@ -326,7 +325,7 @@ class ProfileService {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
                     // BUTONLAR
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,

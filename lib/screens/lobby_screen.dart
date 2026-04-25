@@ -4492,7 +4492,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
-  Widget statChip(IconData icon, String value) {
+  Widget statChip(IconData icon, int value, bool coin) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -4508,7 +4508,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           Icon(icon, size: 12, color: const Color(0xFFE7C06A)),
           const SizedBox(width: 4),
           Text(
-            value,
+            coin ? Format.coin(value) : Format.rating(value),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 10,
@@ -4571,11 +4571,11 @@ class _LobbyScreenState extends State<LobbyScreen>
 
             Row(
               children: [
-                statChip(Icons.star, UserState.userRating.toString()),
+                statChip(Icons.star, UserState.userRating, true),
 
                 const SizedBox(width: 10),
 
-                statChip(Icons.monetization_on, UserState.userCoin.toString()),
+                statChip(Icons.monetization_on, UserState.userCoin, false),
               ],
             ),
           ],
