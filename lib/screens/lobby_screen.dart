@@ -4374,7 +4374,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ],
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
 
                   /// ğŸ”¥ GOLD DIVIDER
                   Container(
@@ -4390,7 +4390,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 7),
 
                   /// ğŸ”¥ LİG LİSTESİ
                   Expanded(

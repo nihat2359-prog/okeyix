@@ -6,10 +6,12 @@ import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/components/radial_quick_chat.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
+import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/game_avatar_overlay.dart' as overlay;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -1157,7 +1159,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   children: [
                     _buildTopButtons(),
                     _buildTopRightLeague(),
-                    _buildRackSideButtons(),
+
                     if (showWaitingOverlay) _buildWaitingOverlay(),
                     if (_menuOpen) _buildMenuPanel(),
                     if (_chatOpen) _buildChatPanel(),
@@ -1190,152 +1192,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     );
   }
 
-  Widget _buildRackSideButtons() {
-    const baseWidth = 1600.0;
-    const baseHeight = 900.0;
-    final screen = MediaQuery.of(context).size;
-
-    /// 🔥 SCALE (fit)
-    final scale = math.min(
-      screen.width / baseWidth,
-      screen.height / baseHeight,
-    );
-
-    /// 🔥 ORTALAMA OFFSET (letterbox fix)
-    final offsetX = (screen.width - baseWidth * scale) / 2;
-    final offsetY = (screen.height - baseHeight * scale) / 2;
-
-    final rackCenter = Offset(800, 720);
-    const rackSize = Size(1250, 350);
-
-    final rackLeft = rackCenter.dx - rackSize.width / 2;
-    final rackRight = rackCenter.dx + rackSize.width / 2;
-    final rackCenterY = rackCenter.dy;
-
-    double toScreenX(double x) => offsetX + x * scale;
-    double toScreenY(double y) => offsetY + y * scale;
-
-    /// 🔥 SCREEN’E ÇEVİR
-    final leftX = toScreenX(rackLeft);
-    final rightX = toScreenX(rackRight);
-    final centerY = toScreenY(rackCenterY);
-    double toX(double x) => offsetX + x * scale;
-    double toY(double y) => offsetY + y * scale;
-    final rackTop = rackCenter.dy - rackSize.height / 2;
-
-    /// 🔥 hotspot boyutu
-    const w = 40.0;
-    const h = 30.0;
-
-    return Stack(
-      children: [
-        /// 🔻 SOL ÜST (Çifte Git)
-        Positioned(
-          left: toX(rackLeft - 60),
-          top: toY(rackTop + 60),
-          child: _hitBox(w, h, _git),
-        ),
-
-        /// 🔻 SOL ALT (Konuş)
-        Positioned(
-          left: toX(rackLeft - 60),
-          top: toY(rackTop + 190),
-          child: _hitBox(w, h, _mic),
-        ),
-
-        /// 🔻 SAĞ ÜST (Seri Diz)
-        Positioned(
-          left: toX(rackLeft + rackSize.width - 20),
-          top: toY(rackTop + 60),
-          child: _hitBox(w, h, _seri),
-        ),
-
-        /// 🔻 SAĞ ALT (Çifte Diz)
-        Positioned(
-          left: toX(rackLeft + rackSize.width - 20),
-          top: toY(rackTop + 190),
-          child: _hitBox(w, h, _cifte),
-        ),
-      ],
-    );
-
-    // return Stack(
-    //   children: [
-    //     /// SOL
-    //     Positioned(
-    //       left: leftX - 95,
-    //       top: centerY - 70,
-    //       child: Column(
-    //         children: [
-    //           _topCircleButton(
-    //             icon: Icons.view_week,
-    //             onTap: () async {
-    //               _game.arrangeSerial();
-    //             },
-    //           ),
-    //           const SizedBox(height: 5),
-    //           _topCircleButton(
-    //             icon: Icons.grid_view,
-    //             onTap: () async {
-    //               _game.arrangePairs();
-    //             },
-    //           ),
-    //         ],
-    //       ),
-    //     ),
-
-    //     /// SAĞ
-    //     Positioned(
-    //       left: rightX + 60,
-    //       top: centerY - 40,
-    //       child: Column(
-    //         children: [
-    //           _topCircleButton(
-    //             icon: Icons.flash_on,
-    //             highlight: true,
-    //             onTap: () async {
-    //               await _toggleDoubleMode();
-    //             },
-    //           ),
-    //           const SizedBox(height: 5),
-    //           _topCircleButton(icon: Icons.mic, onTap: () async {}),
-    //         ],
-    //       ),
-    //     ),
-    //   ],
-    // );
-  }
-
-  Widget _hitBox(double w, double h, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-
-      /// 🔥 debug için aç kapat
-      child: Container(
-        width: w,
-        height: h,
-        color: Colors.transparent,
-        // color: Colors.red.withOpacity(0.8),
-      ),
-    );
-  }
-
-  void _seri() {
-    _game.arrangeSerial();
-  }
-
-  void _cifte() {
-    _game.arrangePairs();
-  }
-
-  void _git() {
-    _toggleDoubleMode();
-  }
-
-  void _mic() {}
-
   Widget _buildTopButtons() {
-    final myCoins = _game.getMyCoins();
     return Positioned(
       top: 18,
       left: 16,
@@ -1346,47 +1203,28 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             active: _menuOpen,
             onTap: () => _confirmLeaveTable(),
           ),
-
           const SizedBox(width: 10),
-          GestureDetector(
-            key: _quickChatBtnKey,
-            onTap: () {
-              _closeQuickChat();
-              setState(() => _chatOpen = true);
-            },
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF1A222A),
-                border: Border.all(
-                  color: const Color.fromARGB(102, 134, 131, 126),
-                  width: 0.8,
-                ),
-              ),
-              child: Icon(Icons.chat, color: Colors.white),
-            ),
+          _topCircleButton(
+            icon: Icons.view_week,
+            active: _menuOpen,
+            onTap: () => _game.arrangeSerial(),
           ),
+          const SizedBox(width: 10),
+          _topCircleButton(
+            icon: Icons.grid_view,
+            active: _menuOpen,
+            onTap: () => _game.arrangePairs(),
+          ),
+          const SizedBox(width: 10),
+          _topCircleButton(
+            icon: Icons.flash_on,
+            active: _menuOpen,
+            onTap: () => _toggleDoubleMode(),
+          ),
+
           const SizedBox(width: 10),
 
           /// STORE (dock icon ile)
-          _topCircleButton(
-            asset: "assets/images/lobby/store.png",
-            highlight: true,
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StoreScreen(initialCoin: myCoins),
-                ),
-              );
-
-              if (result == true) {
-                _game.reloadInitialState();
-              }
-            },
-          ),
           if (_doubleMode) ...[
             const SizedBox(width: 10),
             Container(
@@ -1417,12 +1255,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       return const SizedBox();
     }
 
-    final entry = league['entry_coin'] ?? 0;
+    final entry = _game.getTableEntry();
     final name = league['id'];
-
-    final players = _game.getPlayerCount();
+    final fullname = league['name'];
     final turn = _game.getTurnSeconds();
-
+    final myCoins = _game.getMyCoins();
     return Positioned(
       top: 18,
       right: 16,
@@ -1442,7 +1279,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
             /// league name
             Text(
-              name,
+              fullname,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -1451,20 +1288,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             ),
 
             const SizedBox(width: 12),
-
-            /// player count
-            const Icon(Icons.group, size: 16, color: Colors.white70),
-            const SizedBox(width: 4),
-            Text(
-              "$players",
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-
-            const SizedBox(width: 10),
 
             /// turn seconds
             const Icon(Icons.timer_outlined, size: 16, color: Colors.white70),
@@ -1480,15 +1303,48 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
             const SizedBox(width: 10),
 
-            /// entry coin
-            Image.asset("assets/images/lobby/store.png", width: 16),
-            const SizedBox(width: 4),
             Text(
-              "$entry",
+              Format.coin(entry),
               style: const TextStyle(
-                color: Color(0xFFD4A24C),
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
+                fontFamily: "Orbitron", // 🔥 EKLEDİK
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFF2C14E),
+                fontSize: 14,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        StoreScreen(initialCoin: UserState.userCoin),
+                  ),
+                );
+              },
+              child: Image.asset("assets/images/lobby/store.png", width: 20),
+            ),
+
+            /// entry coin
+            const SizedBox(width: 10),
+            GestureDetector(
+              key: _quickChatBtnKey,
+              onTap: () {
+                _closeQuickChat();
+                setState(() => _chatOpen = true);
+              },
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    // color: const Color.fromARGB(102, 134, 131, 126),
+                    width: 0.8,
+                  ),
+                ),
+                child: Icon(Icons.chat, color: Colors.white),
               ),
             ),
           ],
@@ -2281,11 +2137,21 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               Text(
                 text,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  fontFamily: "Montserrat", // 🔥 EKLEDİK
+                  fontWeight: FontWeight.w600,
                   fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.4,
+                  letterSpacing: 0.3,
+                  color: Colors.white,
+
+                  /// 🔥 okunabilirlik + depth
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.7),
+                      offset: const Offset(0, 2),
+                      blurRadius: 6,
+                    ),
+                  ],
                 ),
               ),
 
@@ -2296,7 +2162,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                 const Text(
                   "Diğer oyuncuları davet edebilirsin",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 13),
+                  style: TextStyle(
+                    fontFamily: "Montserrat",
+                    fontWeight: FontWeight.w400,
+                    fontSize: 13,
+                    color: Colors.white60,
+                  ),
                 ),
             ],
           ),

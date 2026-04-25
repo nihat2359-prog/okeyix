@@ -48,7 +48,7 @@ class LobbyLeagueList extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _leagueItem(leagues[0])),
-            const SizedBox(width: 2),
+
             Expanded(child: _leagueItem(leagues[1])),
           ],
         ),
@@ -57,7 +57,7 @@ class LobbyLeagueList extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _leagueItem(leagues[2])),
-            const SizedBox(width: 2),
+
             Expanded(child: _leagueItem(leagues[3])),
           ],
         ),
@@ -138,7 +138,7 @@ class LobbyLeagueList extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontWeight: FontWeight.w900,
-            fontSize: isBig ? 20 : 17,
+            fontSize: isBig ? 20 : 14,
             letterSpacing: 0.6,
             color: Colors.white,
 
@@ -241,38 +241,49 @@ class LobbyLeagueList extends StatelessWidget {
 
         /// 🔥 ANA CONTENT (ORTALI)
         Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              /// LIG ADI
-              _leagueTitle(l['name'] ?? '', color, isBig: isBig),
+          child: Padding(
+            padding: EdgeInsets.only(left: isBig ? 50 : 40), // 🔥 boşluk
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _leagueTitle(l['name'] ?? '', color, isBig: isBig),
 
-              const SizedBox(height: 4),
+                const SizedBox(height: 4),
 
-              /// ALT BİLGİ
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.people, size: 14, color: Colors.white60),
-                  const SizedBox(width: 4),
-                  Text(
-                    "$activePlayers",
-                    style: const TextStyle(color: Colors.white60, fontSize: 12),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.people, size: 14, color: Colors.white60),
+                    const SizedBox(width: 4),
+                    Text(
+                      "$activePlayers",
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
 
-                  const SizedBox(width: 6),
-                  const Text("•", style: TextStyle(color: Colors.white38)),
-                  const SizedBox(width: 6),
+                    const SizedBox(width: 6),
+                    const Text("•", style: TextStyle(color: Colors.white38)),
+                    const SizedBox(width: 6),
 
-                  const Icon(Icons.table_bar, size: 14, color: Colors.white60),
-                  const SizedBox(width: 4),
-                  Text(
-                    "$activeTables",
-                    style: const TextStyle(color: Colors.white60, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
+                    const Icon(
+                      Icons.table_bar,
+                      size: 14,
+                      color: Colors.white60,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      "$activeTables",
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ],

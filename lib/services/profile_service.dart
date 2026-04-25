@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/main.dart';
 import 'package:okeyix/services/celebration_service.dart';
 import 'package:okeyix/services/user_state.dart';
@@ -23,6 +24,7 @@ class ProfileService {
     Future<void> Function()? onRefresh,
   }) async {
     final otherId = user['id']?.toString() ?? user['user_id']?.toString();
+
     if (otherId == null) return;
     final context = navigatorKey.currentContext!;
 
@@ -39,6 +41,12 @@ class ProfileService {
     final profile = await supabase
         .from('profiles')
         .select('coins, rating')
+        .eq('id', otherId)
+        .single();
+
+    final userinfo = await supabase
+        .from('users')
+        .select('username, wins,losses')
         .eq('id', otherId)
         .single();
 
@@ -233,125 +241,86 @@ class ProfileService {
                     const SizedBox(height: 10),
 
                     // RATING & COIN
-
-                    // 🏆 İSTATİSTİKLER (KOMPAKT)
                     Container(
-                      padding: const EdgeInsets.all(9),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF1a2f2a).withOpacity(0.6),
-                            const Color(0xFF0d1f1a).withOpacity(0.8),
+                            const Color(0xFF1a2f2a).withOpacity(0.10),
+                            const Color(0xFF0d1f1a).withOpacity(0.10),
                           ],
                         ),
                         border: Border.all(
-                          color: const Color(0xFFD4AF37).withOpacity(0.3),
+                          color: const Color(0xFFD4AF37).withOpacity(0.35),
                           width: 1.2,
                         ),
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          Row(
+                          /// 🔥 SOL PANEL (COIN + RATING)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFD4AF37),
-                                      Color(0xFFA68B3A),
-                                    ],
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.emoji_events_rounded,
-                                  color: Colors.white,
-                                  size: 11,
-                                ),
+                              _infoTile(
+                                icon: Icons.star_rounded,
+                                value: Format.coin(rating),
                               ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                'Oyun İstatistikleri',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                              const SizedBox(height: 10),
+                              _infoTile(
+                                icon: Icons.monetization_on_rounded,
+                                value: Format.coin(coins),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
 
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _statPanel(
-                                  icon: Icons.star_rounded,
-                                  value: rating,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _statPanel(
-                                  icon: Icons.monetization_on_rounded,
-                                  value: coins,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          // İSTATİSTİK KARTLARI (3 KOLON)
-                          Row(
-                            children: [
-                              // KAZANILAN
-                              Expanded(
-                                child: _statPanel(
-                                  icon: Icons.emoji_events,
-                                  value: (user['wins'] ?? 0),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // KAYBEDILEN
-                              Expanded(
-                                child: _statPanel(
-                                  icon: Icons.trending_down,
-                                  value: (user['losses'] ?? 0),
-                                  color: StatPanelColor.red,
-                                ),
-                              ),
+                          const SizedBox(width: 16),
 
-                              const SizedBox(width: 10),
-
-                              // TOPLAM
-                              Expanded(
-                                child: _statPanel(
-                                  icon: Icons.casino,
+                          /// 🔥 SAĞ PANEL (DİKEY BARLAR)
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _statBarVertical(
+                                  label: "Win",
+                                  value: userinfo['wins'] ?? 0,
+                                  total:
+                                      (userinfo['wins'] ?? 0) +
+                                      (userinfo['losses'] ?? 0),
+                                  color: Colors.green,
+                                ),
+                                _statBarVertical(
+                                  label: "Lose",
+                                  value: userinfo['losses'] ?? 0,
+                                  total:
+                                      (userinfo['wins'] ?? 0) +
+                                      (userinfo['losses'] ?? 0),
+                                  color: Colors.red,
+                                ),
+                                _statBarVertical(
+                                  label: "Total",
                                   value:
-                                      ((user['wins'] ?? 0) +
-                                      (user['losses'] ?? 0)),
-                                  color: StatPanelColor.gold,
+                                      (userinfo['wins'] ?? 0) +
+                                      (userinfo['losses'] ?? 0),
+                                  total:
+                                      (userinfo['wins'] ?? 0) +
+                                      (userinfo['losses'] ?? 0),
+                                  color: const Color(0xFFD4AF37),
                                 ),
-                              ),
-
-                              const SizedBox(width: 10),
-
-                              // TOPLAM
-                              Expanded(
-                                child: _statPanel(
-                                  icon: Icons.percent_rounded,
+                                _statBarVertical(
+                                  label: "%",
                                   value: _getWinRateValue(
-                                    user['wins'] ?? 0,
-                                    user['losses'] ?? 0,
+                                    userinfo['wins'] ?? 0,
+                                    userinfo['losses'] ?? 0,
                                   ),
-                                  color: StatPanelColor.yellow,
+                                  total: 100,
+                                  color: const Color(0xFFE9C46A),
+                                  isPercent: true,
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -511,6 +480,143 @@ class ProfileService {
           ),
         );
       },
+    );
+  }
+
+  static Widget _infoTile({required IconData icon, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.black.withOpacity(0.4),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Color(0xFFD4A24C)),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: "Orbitron",
+              color: Color(0xFFF2C14E),
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _statBarVertical({
+    required String label,
+    required int value,
+    required int total,
+    required Color color,
+    bool isPercent = false,
+  }) {
+    final safeTotal = total == 0 ? 1 : total;
+    final percent = isPercent
+        ? value / 100
+        : value.toDouble() / safeTotal.toDouble();
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        /// 🔥 BAR
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: percent.clamp(0, 1)),
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeOutCubic,
+          builder: (context, val, _) {
+            return Container(
+              width: 40, // 🔥 daha ince
+              height: 110,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6), // 🔥 radius düşürdük
+                color: Colors.black.withOpacity(0.15), // 🔥 daha derin track
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  /// 🔥 DOLAN KISIM
+                  FractionallySizedBox(
+                    heightFactor: val,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            color.withOpacity(0.9),
+                            color.withOpacity(0.6),
+                          ],
+                        ),
+
+                        /// 🔥 glow
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withOpacity(0.35),
+                            blurRadius: 10,
+                            spreadRadius: 0.5,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  /// 🔥 ÜST HIGHLIGHT (çok premium fark yaratır)
+                  if (val > 0)
+                    Positioned(
+                      top: 0,
+                      child: Container(
+                        width: 20,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.25),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  /// 🔥 ORTADA VALUE
+                  Positioned(
+                    bottom: 4,
+                    child: Text(
+                      isPercent ? "${value.toInt()}%" : value.toString(),
+                      style: const TextStyle(
+                        fontFamily: "Orbitron",
+                        fontSize: 9,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 6),
+
+        /// LABEL
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.white.withOpacity(0.6),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 

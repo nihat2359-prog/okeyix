@@ -650,11 +650,11 @@ class _LoginScreenState extends State<LoginScreen>
     final prefs = await SharedPreferences.getInstance();
     final ageVerified = prefs.getBool("age_verified") ?? false;
 
-    //if (!ageVerified) {
-    Future.delayed(Duration.zero, () {
-      _showAgeDialog();
-    });
-    // }
+    if (!ageVerified) {
+      Future.delayed(Duration.zero, () {
+        _showAgeDialog();
+      });
+    }
   }
 
   void _showAgeDialog() {

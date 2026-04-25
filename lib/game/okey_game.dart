@@ -43,6 +43,7 @@ class OkeyGame extends FlameGame {
   bool _countdownInProgress = false;
   bool _countdownTriggeredForThisFullState = false;
   int _maxPlayers = 2;
+  int _tableEntry = 0;
   int _countdownSecondsLeft = 0;
   int _turnSeconds = 15;
   int? _mySeatIndexAbs;
@@ -276,6 +277,8 @@ class OkeyGame extends FlameGame {
     //-------------------------------------------------
     _maxPlayers = (table['max_players'] as int?) ?? 2;
 
+    _tableEntry = (table['entry_coin'] as int?) ?? 0;
+
     final nextTurn = (table['current_turn'] as int?) ?? 0;
     final serverTurnStartedAt = _parseServerTime(table['turn_started_at']);
 
@@ -418,6 +421,10 @@ class OkeyGame extends FlameGame {
     return _maxPlayers;
   }
 
+  int getTableEntry() {
+    return _tableEntry;
+  }
+
   int getTurnSeconds() {
     return _turnSeconds;
   }
@@ -429,6 +436,8 @@ class OkeyGame extends FlameGame {
     _mySeatIndexAbs = null;
     _maxPlayers = 2;
     _gameStarted = false;
+
+    _tableEntry = 0;
   }
 
   Future<void> _tryStartGameOnServer() async {

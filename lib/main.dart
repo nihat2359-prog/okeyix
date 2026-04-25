@@ -124,6 +124,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           showCloseIcon: true,
           closeIconColor: const Color(0xFFEAF2EE),
         ),
+        fontFamily: "Montserrat",
       ),
 
       home: StreamBuilder<AuthState>(
