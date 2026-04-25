@@ -2876,44 +2876,83 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   ],
                                 ),
 
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: canCreate
+                                        ? () {
+                                            createMaxPlayer = 2;
+                                            createTurnSeconds =
+                                                draftTurnSeconds;
 
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Positioned(
-                                        top: 2,
-                                        left: 12,
-                                        right: 12,
-                                        child: Container(
-                                          height: 10,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                Colors.white.withOpacity(0.18),
-                                                Colors.transparent,
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                            Navigator.pop(context);
+                                            _createTable();
+                                          }
+                                        : null,
 
-                                      const Text(
-                                        "MASAYI AÇ",
-                                        style: TextStyle(
+                                    child: Ink(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(14),
+
+                                        border: Border.all(
                                           color: Color(0xFFE7C66A),
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 0.6,
+                                          width: 0.5,
+                                        ),
+
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Color(
+                                              0xFFE7C66A,
+                                            ).withOpacity(0.3),
+                                            blurRadius: 12,
+                                          ),
+                                        ],
+                                      ),
+
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            Positioned(
+                                              top: 2,
+                                              left: 12,
+                                              right: 12,
+                                              child: Container(
+                                                height: 10,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                  gradient: LinearGradient(
+                                                    colors: [
+                                                      Colors.white.withOpacity(
+                                                        0.18,
+                                                      ),
+                                                      Colors.transparent,
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+
+                                            const Text(
+                                              "MASAYI AÇ",
+                                              style: TextStyle(
+                                                color: Color(0xFFE7C66A),
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.6,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
