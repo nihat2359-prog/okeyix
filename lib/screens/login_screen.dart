@@ -1,18 +1,20 @@
 ﻿import 'dart:math' as math;
 import 'dart:math';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/widgets/aaa_button.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'lobby_screen.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../ui/lobby/lobby_shimmer_loaders.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? error;
@@ -309,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen>
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          /// BACKGROUND
+          /// 🔥 BACKGROUND
           Positioned.fill(
             child: Image.asset(
               "assets/images/lobby/lobby.png",
@@ -317,42 +319,62 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          /// CONTENT
+          /// 🔥 DARK OVERLAY (focus verir)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0.4, 0),
+                  radius: 1.2,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
+                ),
+              ),
+            ),
+          ),
+
           SafeArea(
-            bottom: false,
             child: Padding(
               padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
+                left: 24,
+                right: 24,
                 bottom: isKeyboardOpen ? keyboard + 20 : 20,
               ),
               child: Row(
                 children: [
-                  /// ğŸ”¥ SOL PANEL (LOGO + SOCIAL)
+                  /// 🔥 SOL (LOGO)
                   Expanded(
                     flex: 4,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 250),
-                      opacity: isKeyboardOpen ? 0.4 : 1,
+                      opacity: isKeyboardOpen ? 0.3 : 1,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          /// LOGO ANİMASYON
-                          AnimatedScale(
-                            scale: isKeyboardOpen ? 0.8 : 1,
-                            duration: const Duration(milliseconds: 250),
-                            child: const OkeyixLogo(),
+                          /// 🔥 LOGO (daha dramatik)
+                          Transform.translate(
+                            offset: const Offset(0, -10),
+                            child: AnimatedScale(
+                              scale: isKeyboardOpen ? 0.75 : 1,
+                              duration: const Duration(milliseconds: 250),
+                              child: Column(
+                                children: [
+                                  const OkeyixLogo(),
+                                  const SizedBox(height: 18),
+                                  const OkeyixLegalBlock(),
+                                ],
+                              ),
+                            ),
                           ),
 
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                         ],
                       ),
                     ),
                   ),
 
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 24),
 
-                  /// SAĞ PANEL (FORM)
+                  /// 🔥 SAĞ PANEL (LOGIN CARD)
                   Expanded(
                     flex: 5,
                     child: Center(
@@ -361,70 +383,134 @@ class _LoginScreenState extends State<LoginScreen>
                           duration: const Duration(milliseconds: 250),
                           width: 420,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 18,
+                            horizontal: 22,
+                            vertical: 22,
                           ),
+
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(
-                              0.55,
-                            ), // 🔥 daha premium cam hissi
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(26),
+
+                            /// 🔥 GLASS DEPTH
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.35),
+                                Colors.black.withOpacity(0.75),
+                              ],
+                            ),
 
                             border: Border.all(
-                              color: Colors.amber.withOpacity(0.35),
-                              width: 1.2,
+                              color: const Color(0xFFE7C66A).withOpacity(0.4),
+                              width: 1.3,
                             ),
 
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.8),
-                                blurRadius: 40,
-                                offset: Offset(0, 20),
+                                color: Colors.black.withOpacity(0.9),
+                                blurRadius: 60,
+                                offset: const Offset(0, 25),
                               ),
                               BoxShadow(
-                                color: Colors.amber.withOpacity(0.15),
-                                blurRadius: 25,
+                                color: const Color(
+                                  0xFFE7C66A,
+                                ).withOpacity(0.15),
+                                blurRadius: 30,
                               ),
                             ],
                           ),
+
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                "MASAYA KATIL",
-                                style: TextStyle(
+                              /// 🔥 HEADER BLOCK
+                              Column(
+                                children: [
+                                  Text(
+                                    "MASAYA KATIL",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.4,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.amber.withOpacity(0.6),
+                                          blurRadius: 12,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 6),
+
+                                  const Text(
+                                    "Gerçek oyuncularla rekabet et",
+                                    style: TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 14),
+
+                                  /// 🔥 ALTIN SEPARATOR
+                                  Container(
+                                    width: 60,
+                                    height: 2,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFD4AF37),
+                                          Color(0xFFFFD700),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              /// 🔥 BUTON ALANI (senin butonlar aynen kalacak)
+                              AuthButton(
+                                icon: const Icon(
+                                  Icons.apple,
                                   color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
+                                  size: 22,
                                 ),
+                                text: "Apple ile devam et",
+                                type: AuthButtonType.apple,
+                                onTap: _loginWithApple,
                               ),
-                              SizedBox(height: 6),
-
-                              Text(
-                                "Gerçek oyuncularla rekabet et",
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 14,
-                                ),
-                              ),
-
-                              SizedBox(height: 18),
-
-                              /// GUEST
-                              _appleButton(),
                               const SizedBox(height: 12),
 
-                              _googleButton(),
-
+                              AuthButton(
+                                icon: Image.asset(
+                                  "assets/images/google.png",
+                                  height: 20,
+                                ),
+                                text: "Google ile devam et",
+                                type: AuthButtonType.google,
+                                onTap: _loginWithGoogle,
+                              ),
                               const SizedBox(height: 12),
 
-                              _guestButton(),
+                              AuthButton(
+                                icon: const Icon(
+                                  Icons.person_outline,
+                                  color: Color(0xFFE7C66A),
+                                ),
+                                text: "Misafir olarak oyna",
+                                type: AuthButtonType.guest,
+                                onTap: _loadingGuest ? null : _playAsGuest,
+                                loading: _loadingGuest,
+                              ),
+
                               const SizedBox(height: 12),
 
                               _errorBox(),
-
-                              const SizedBox(height: 14),
                             ],
                           ),
                         ),
@@ -856,6 +942,74 @@ class OkeyixLogo extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class OkeyixLegalBlock extends StatelessWidget {
+  const OkeyixLegalBlock({super.key});
+
+  Future<void> _openPrivacy() async {
+    final uri = Uri.parse("https://www.okeyix.com/gizlilik-politikasi");
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _openWebsite() async {
+    final uri = Uri.parse("https://www.okeyix.com");
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        /// 🔹 GİZLİLİK METNİ
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 11,
+                height: 1.4,
+              ),
+              children: [
+                const TextSpan(text: "Giriş yaparak "),
+                TextSpan(
+                  text: "Gizlilik Politikası",
+                  style: const TextStyle(
+                    color: Color(0xFFE7C66A),
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                  ),
+                  recognizer: TapGestureRecognizer()..onTap = _openPrivacy,
+                ),
+                const TextSpan(text: "’nı kabul etmiş olursun."),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        /// 🔹 WEBSITE (DAHA SAKİN)
+        GestureDetector(
+          onTap: _openWebsite,
+          child: Text(
+            "www.okeyix.com",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.35),
+              fontSize: 11,
+              letterSpacing: 0.5,
+            ),
+          ),
         ),
       ],
     );

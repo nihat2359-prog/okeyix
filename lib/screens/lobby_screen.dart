@@ -15,6 +15,8 @@ import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
+import 'package:okeyix/widgets/create_button.dart';
+import 'package:okeyix/widgets/dock_icon.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -591,32 +593,27 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _cleanupOrphanTables(List<String> orphanTableIds) async {
     if (orphanTableIds.isEmpty) return;
+
     try {
-      try {
-        await supabase
-            .from('match_moves')
-            .delete()
-            .inFilter('table_id', orphanTableIds);
-      } catch (_) {}
-      try {
-        await supabase
-            .from('table_discard_tops')
-            .delete()
-            .inFilter('table_id', orphanTableIds);
-      } catch (_) {}
-      try {
-        await supabase
-            .from('table_discards')
-            .delete()
-            .inFilter('table_id', orphanTableIds);
-      } catch (_) {}
-      try {
-        await supabase
-            .from('table_players')
-            .delete()
-            .inFilter('table_id', orphanTableIds);
-      } catch (_) {}
+      await supabase
+          .from('match_moves')
+          .delete()
+          .inFilter('table_id', orphanTableIds);
+
+      /// 🔥 BURASI SİLİNDİ (view olduğu için)
+
+      await supabase
+          .from('table_discards')
+          .delete()
+          .inFilter('table_id', orphanTableIds);
+
+      await supabase
+          .from('table_players')
+          .delete()
+          .inFilter('table_id', orphanTableIds);
+
       await supabase.from('tables').delete().inFilter('id', orphanTableIds);
+
       debugPrint(
         'ORPHAN TABLE CLEANUP: ${orphanTableIds.length} masa temizlendi.',
       );
@@ -2861,13 +2858,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                             width: double.infinity,
                             height: 52,
                             child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFE7B95A),
-                                foregroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
                               onPressed: canCreate
                                   ? () {
                                       createMaxPlayer = 2;
@@ -2877,9 +2867,110 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       _createTable();
                                     }
                                   : null,
-                              child: const Text(
-                                "MASAYI AÇ",
-                                style: TextStyle(fontWeight: FontWeight.w900),
+
+                              style: ButtonStyle(
+                                padding: MaterialStateProperty.all(
+                                  const EdgeInsets.symmetric(vertical: 14),
+                                ),
+
+                                shape: MaterialStateProperty.all(
+                                  RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+
+                                elevation: MaterialStateProperty.resolveWith((
+                                  states,
+                                ) {
+                                  if (states.contains(MaterialState.pressed))
+                                    return 2;
+                                  return 8;
+                                }),
+
+                                shadowColor: MaterialStateProperty.all(
+                                  Colors.black.withOpacity(0.7),
+                                ),
+
+                                backgroundColor: MaterialStateProperty.all(
+                                  Colors.transparent,
+                                ),
+
+                                overlayColor: MaterialStateProperty.all(
+                                  Colors.white.withOpacity(0.05),
+                                ),
+                              ),
+
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+
+                                  /// 🔥 AAA GREEN SURFACE
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF1F5A43),
+                                      Color(0xFF0F2A20),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+
+                                  /// 🔥 GOLD BORDER
+                                  border: Border.all(
+                                    color: Color(0xFFE7C66A),
+                                    width: 1.2,
+                                  ),
+
+                                  /// 🔥 GLOW
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0xFFE7C66A).withOpacity(0.3),
+                                      blurRadius: 12,
+                                    ),
+                                  ],
+                                ),
+
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      /// 🔥 TOP LIGHT (çok yumuşak)
+                                      Positioned(
+                                        top: 2,
+                                        left: 12,
+                                        right: 12,
+                                        child: Container(
+                                          height: 10,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Colors.white.withOpacity(0.18),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      /// 🔥 TEXT
+                                      const Text(
+                                        "MASAYI AÇ",
+                                        style: TextStyle(
+                                          color: Color(0xFFE7C66A),
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -4697,18 +4788,72 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _dockCenter() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        lobbyAssetIconCreateTable(
-          asset: "assets/images/lobby/create_table1.png",
-          onTap: _showCreateModal,
-        ),
-      ],
+    return Transform.translate(
+      offset: const Offset(0, -20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [CreateButton(onTap: _showCreateModal)],
+      ),
     );
   }
 
   Widget _dockRight() {
+    return Row(
+      children: [
+        AaaDockIcon(
+          icon: Icons.play_arrow,
+          onTap: () {
+            if (tables.isNotEmpty) {
+              _joinTable(tables.first);
+            } else {
+              _showCreateModal();
+            }
+          },
+        ),
+        const SizedBox(width: 10),
+        AaaDockIcon(
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
+              ),
+            );
+
+            if (result == true) {
+              await _loadUser(); // coin yeniden yüklenir
+            }
+          },
+          child: Pulse(
+            child: ShimmerIcon(
+              child: Image.asset(
+                "assets/images/lobby/coin_stack.png",
+                width: 24,
+                height: 24,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        AaaDockIcon(
+          icon: Icons.emoji_events,
+          onTap: () {
+            _openLeaderboard();
+          },
+        ),
+        const SizedBox(width: 10),
+        AaaDockIcon(
+          icon: Icons.people,
+          onTap: () => _openRightPanel(_RightPanelType.friends),
+        ),
+        const SizedBox(width: 10),
+        AaaDockIcon(
+          icon: Icons.mail,
+          onTap: () => _openRightPanel(_RightPanelType.messages),
+        ),
+      ],
+    );
+
     return Row(
       children: [
         lobbyDockIcon(

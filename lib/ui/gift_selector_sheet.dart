@@ -206,37 +206,20 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(28),
                   ),
 
-                  // 🔥 CAM EFEKTİ (gradient)
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.12), // üst daha şeffaf
-                      Colors.black.withOpacity(0.25), // alt daha koyu
-                    ],
-                  ),
-
+                  /// 🔥 AAA GLASS
                   border: Border(
                     top: BorderSide(
-                      color: const Color(0xFFD4AF37).withOpacity(0.25),
+                      color: const Color(0xFFE7C66A).withOpacity(0.35),
                       width: 1.5,
                     ),
                   ),
-
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.6),
-                      blurRadius: 30,
-                      offset: const Offset(0, -10),
-                    ),
-                  ],
                 ),
 
                 child: SingleChildScrollView(
@@ -250,23 +233,23 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // 🔹 HANDLE
+                        /// 🔹 HANDLE
                         Container(
-                          width: 42,
-                          height: 4,
+                          width: 50,
+                          height: 5,
                           decoration: BoxDecoration(
-                            color: Colors.white30,
-                            borderRadius: BorderRadius.circular(2),
+                            color: Colors.white.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(3),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
 
-                        // 🔥 HEADER
+                        /// 🔥 HEADER
                         Row(
                           children: [
                             Container(
-                              width: 34,
-                              height: 34,
+                              width: 36,
+                              height: 36,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: const LinearGradient(
@@ -277,8 +260,8 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.amber.withOpacity(0.4),
-                                    blurRadius: 10,
+                                    color: Colors.amber.withOpacity(0.6),
+                                    blurRadius: 16,
                                   ),
                                 ],
                               ),
@@ -293,18 +276,24 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Hediye Gönder',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w900,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.amber.withOpacity(0.6),
+                                          blurRadius: 10,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Text(
                                     widget.receiverName,
                                     style: const TextStyle(
-                                      color: Color(0xFFD4AF37),
+                                      color: Color(0xFFE7C66A),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -315,9 +304,9 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                           ],
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 18),
 
-                        // ❗ ERROR
+                        /// ❗ ERROR
                         if (_errorMessage != null)
                           Container(
                             padding: const EdgeInsets.all(10),
@@ -340,16 +329,16 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
 
                         if (_errorMessage != null) const SizedBox(height: 12),
 
-                        // 🎁 GRID (KÜÇÜLTÜLDÜ)
+                        /// 🎁 GRID
                         GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 6, // 🔥 en önemli
-                                mainAxisSpacing: 8,
-                                crossAxisSpacing: 8,
-                                childAspectRatio: 0.9, // 🔥 dikey kart küçültme
+                                crossAxisCount: 6,
+                                mainAxisSpacing: 10,
+                                crossAxisSpacing: 10,
+                                childAspectRatio: 0.9,
                               ),
                           itemCount: gifts.length,
                           itemBuilder: (context, index) {
@@ -366,7 +355,7 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                                     },
                               child: AnimatedScale(
                                 duration: const Duration(milliseconds: 150),
-                                scale: isSelected ? 1.06 : 1.0,
+                                scale: isSelected ? 1.08 : 1.0,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 6,
@@ -374,20 +363,33 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                                   ),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(14),
-                                    color: Colors.white.withOpacity(0.04),
+
+                                    /// 🔥 CHIP STYLE
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(
+                                          0xFF1F5A43,
+                                        ).withOpacity(0.25),
+                                        const Color(
+                                          0xFF0F2A20,
+                                        ).withOpacity(0.45),
+                                      ],
+                                    ),
+
                                     border: Border.all(
                                       color: isSelected
                                           ? gift['color']
                                           : gift['color'].withOpacity(0.25),
                                       width: isSelected ? 2 : 1,
                                     ),
+
                                     boxShadow: isSelected
                                         ? [
                                             BoxShadow(
                                               color: gift['color'].withOpacity(
-                                                0.4,
+                                                0.6,
                                               ),
-                                              blurRadius: 16,
+                                              blurRadius: 20,
                                             ),
                                           ]
                                         : [],
@@ -398,12 +400,12 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                                       Text(
                                         gift['emoji'],
                                         style: TextStyle(
-                                          fontSize: 22,
+                                          fontSize: 26,
                                           shadows: isSelected
                                               ? [
                                                   Shadow(
                                                     color: gift['color'],
-                                                    blurRadius: 10,
+                                                    blurRadius: 12,
                                                   ),
                                                 ]
                                               : [],
@@ -421,7 +423,7 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                                       ),
                                       const SizedBox(height: 4),
 
-                                      // 💰 COST
+                                      /// 💰 COST
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
@@ -431,12 +433,15 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                                           borderRadius: BorderRadius.circular(
                                             6,
                                           ),
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFD4AF37),
-                                              Color(0xFFFFD700),
-                                            ],
-                                          ),
+
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.amber.withOpacity(
+                                                0.6,
+                                              ),
+                                              blurRadius: 10,
+                                            ),
+                                          ],
                                         ),
                                         child: Text(
                                           "${gift['cost']}",
@@ -455,92 +460,177 @@ class _GiftSelectorSheetState extends State<GiftSelectorSheet>
                           },
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 20),
 
-                        // 🔥 BUTTONS
+                        /// 🔥 BUTTONS
                         Row(
                           children: [
                             Expanded(
-                              child: TextButton(
+                              child: ElevatedButton(
                                 onPressed: _isLoading
                                     ? null
                                     : () => Navigator.pop(context),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
+
+                                style: ButtonStyle(
+                                  elevation: MaterialStateProperty.resolveWith((
+                                    states,
+                                  ) {
+                                    if (states.contains(MaterialState.pressed))
+                                      return 1;
+                                    return 4;
+                                  }),
+
+                                  backgroundColor: MaterialStateProperty.all(
+                                    Colors.transparent,
                                   ),
-                                  backgroundColor: Colors.white10,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: const BorderSide(
-                                      color: Colors.white24,
+
+                                  shadowColor: MaterialStateProperty.all(
+                                    Colors.black.withOpacity(0.6),
+                                  ),
+
+                                  shape: MaterialStateProperty.all(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
+
+                                  padding: MaterialStateProperty.all(
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+
+                                  overlayColor: MaterialStateProperty.all(
+                                    Colors.white.withOpacity(0.05),
+                                  ),
                                 ),
-                                child: const Text(
-                                  'İptal',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
+
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+
+                                    /// 🔥 DOLU YÜZEY (AMA SAKİN)
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color.fromARGB(255, 92, 15, 2),
+                                        Color.fromARGB(255, 68, 8, 1),
+                                      ],
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                    ),
+
+                                    /// 🔥 HAFİF BORDER
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.08),
+                                      width: 1,
+                                    ),
+                                  ),
+
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+
+                                    child: const Text(
+                                      'İptal',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
 
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
 
                             Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFD4AF37),
-                                      Color(0xFFFFD700),
-                                    ],
+                              child: ElevatedButton(
+                                onPressed:
+                                    (_selectedGiftIndex == -1 || _isLoading)
+                                    ? null
+                                    : () =>
+                                          _sendGift(gifts[_selectedGiftIndex]),
+
+                                style: ButtonStyle(
+                                  elevation: MaterialStateProperty.resolveWith((
+                                    states,
+                                  ) {
+                                    if (states.contains(MaterialState.pressed))
+                                      return 1;
+                                    return 6;
+                                  }),
+
+                                  backgroundColor: MaterialStateProperty.all(
+                                    Colors.transparent,
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.amber.withOpacity(0.5),
-                                      blurRadius: 12,
+                                  shadowColor: MaterialStateProperty.all(
+                                    Colors.black.withOpacity(0.6),
+                                  ),
+
+                                  shape: MaterialStateProperty.all(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
-                                  ],
+                                  ),
+
+                                  overlayColor: MaterialStateProperty.all(
+                                    Colors.white.withOpacity(0.04),
+                                  ),
+
+                                  padding: MaterialStateProperty.all(
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                  ),
                                 ),
-                                child: ElevatedButton(
-                                  onPressed:
-                                      _selectedGiftIndex == -1 || _isLoading
-                                      ? null
-                                      : () => _sendGift(
-                                          gifts[_selectedGiftIndex],
-                                        ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+
+                                    /// 🔥 TEMİZ CAM YÜZEY
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF1A3F31),
+                                        Color(0xFF0F2A20),
+                                      ],
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
+
+                                    /// 🔥 İNCE GOLD BORDER
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFFE7C66A,
+                                      ).withOpacity(0.8),
+                                      width: 1,
                                     ),
                                   ),
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
+
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Color(0xFFE7C66A),
+                                            ),
+                                          )
+                                        : const Text(
+                                            "Gönder",
+                                            style: TextStyle(
+                                              color: Color(0xFFE7C66A),
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.3,
+                                            ),
                                           ),
-                                        )
-                                      : const Text(
-                                          'Gönder',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
+                                  ),
                                 ),
                               ),
                             ),

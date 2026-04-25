@@ -972,13 +972,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     try {
       await _supabase
-          .from('table_discard_tops')
-          .delete()
-          .eq('table_id', widget.tableId);
-    } catch (_) {}
-
-    try {
-      await _supabase
           .from('table_discards')
           .delete()
           .eq('table_id', widget.tableId);

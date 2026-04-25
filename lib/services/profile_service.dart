@@ -19,10 +19,11 @@ class ProfileService {
   static const int _renameCoinCost = 1000;
 
   static Future<void> showUserCard(
-    Map<String, dynamic> user, {
+    Map<String, dynamic> userinfo, {
     Future<void> Function()? onRefresh,
   }) async {
-    final otherId = user['id']?.toString() ?? user['user_id']?.toString();
+    final otherId =
+        userinfo['id']?.toString() ?? userinfo['user_id']?.toString();
 
     if (otherId == null) return;
     final context = navigatorKey.currentContext!;
@@ -31,28 +32,31 @@ class ProfileService {
       print("❌ context yok");
       return;
     }
-    final isSelf = otherId == UserState.userId;
-    final isFriend = UserState.friendIds.contains(otherId);
-    final isBlocked = UserState.blockedUserIds.contains(otherId);
-    final incoming = UserState.incomingRequestIds.contains(otherId);
-    final outgoing = UserState.outgoingRequestIds.contains(otherId);
 
-    final profile = await supabase
+    final userId = otherId ?? '';
+    if (userId.isEmpty) return;
+
+    final isSelf = userId == UserState.userId;
+    final isFriend = UserState.friendIds?.contains(userId) ?? false;
+    final isBlocked = UserState.blockedUserIds?.contains(userId) ?? false;
+    final incoming = UserState.incomingRequestIds?.contains(userId) ?? false;
+    final outgoing = UserState.outgoingRequestIds?.contains(userId) ?? false;
+
+    final data = await supabase
         .from('profiles')
-        .select('coins, rating')
-        .eq('id', otherId)
-        .single();
+        .select('coins, rating, users(username, wins, losses, avatar_url)')
+        .eq('id', userId)
+        .maybeSingle();
 
-    final userinfo = await supabase
-        .from('users')
-        .select('username, wins,losses,avatar_url')
-        .eq('id', otherId)
-        .single();
+    final coins = (data?['coins'] as int?) ?? 0;
+    final rating = (data?['rating'] as int?) ?? 1200;
 
-    final coins = profile['coins'] ?? 0;
-    final rating = (profile['rating'] as int?) ?? 1200;
+    final user = data?['users'] as Map<String, dynamic>?;
 
-    final username = userinfo['username'];
+    final username = (user?['username'] as String?) ?? "Oyuncu";
+    final wins = (user?['wins'] as int?) ?? 0;
+    final losses = (user?['losses'] as int?) ?? 0;
+    final avatarUrl = user?['avatar_url'] as String?;
 
     final statusText = isSelf
         ? 'Bu senin profilin'
@@ -184,7 +188,7 @@ class ProfileService {
                           ),
                           child: LobbyAvatar(
                             username: username,
-                            avatarUrl: userinfo['avatar_url'],
+                            avatarUrl: avatarUrl,
                             size: 46,
                             blocked: isBlocked,
                             enablePreview: true,
@@ -282,36 +286,25 @@ class ProfileService {
                               children: [
                                 _statBarVertical(
                                   label: "Win",
-                                  value: userinfo['wins'] ?? 0,
-                                  total:
-                                      (userinfo['wins'] ?? 0) +
-                                      (userinfo['losses'] ?? 0),
+                                  value: wins,
+                                  total: wins + losses,
                                   color: Colors.green,
                                 ),
                                 _statBarVertical(
                                   label: "Lose",
-                                  value: userinfo['losses'] ?? 0,
-                                  total:
-                                      (userinfo['wins'] ?? 0) +
-                                      (userinfo['losses'] ?? 0),
+                                  value: losses,
+                                  total: wins + losses,
                                   color: Colors.red,
                                 ),
                                 _statBarVertical(
                                   label: "Total",
-                                  value:
-                                      (userinfo['wins'] ?? 0) +
-                                      (userinfo['losses'] ?? 0),
-                                  total:
-                                      (userinfo['wins'] ?? 0) +
-                                      (userinfo['losses'] ?? 0),
+                                  value: wins + losses,
+                                  total: wins + losses,
                                   color: const Color(0xFFD4AF37),
                                 ),
                                 _statBarVertical(
                                   label: "%",
-                                  value: _getWinRateValue(
-                                    userinfo['wins'] ?? 0,
-                                    userinfo['losses'] ?? 0,
-                                  ),
+                                  value: _getWinRateValue(wins, losses),
                                   total: 100,
                                   color: const Color(0xFFE9C46A),
                                   isPercent: true,
