@@ -2857,70 +2857,17 @@ class _LobbyScreenState extends State<LobbyScreen>
                           SizedBox(
                             width: double.infinity,
                             height: 52,
-                            child: ElevatedButton(
-                              onPressed: canCreate
-                                  ? () {
-                                      createMaxPlayer = 2;
-                                      createTurnSeconds = draftTurnSeconds;
-
-                                      Navigator.pop(context);
-                                      _createTable();
-                                    }
-                                  : null,
-
-                              style: ButtonStyle(
-                                padding: MaterialStateProperty.all(
-                                  const EdgeInsets.symmetric(vertical: 14),
-                                ),
-
-                                shape: MaterialStateProperty.all(
-                                  RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-
-                                elevation: MaterialStateProperty.resolveWith((
-                                  states,
-                                ) {
-                                  if (states.contains(MaterialState.pressed))
-                                    return 2;
-                                  return 8;
-                                }),
-
-                                shadowColor: MaterialStateProperty.all(
-                                  Colors.black.withOpacity(0.7),
-                                ),
-
-                                backgroundColor: MaterialStateProperty.all(
-                                  Colors.transparent,
-                                ),
-
-                                overlayColor: MaterialStateProperty.all(
-                                  Colors.white.withOpacity(0.05),
-                                ),
-                              ),
-
+                            child: Material(
+                              color: Colors.transparent,
                               child: Ink(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(14),
 
-                                  /// 🔥 AAA GREEN SURFACE
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF1F5A43),
-                                      Color(0xFF0F2A20),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-
-                                  /// 🔥 GOLD BORDER
                                   border: Border.all(
                                     color: Color(0xFFE7C66A),
                                     width: 1.2,
                                   ),
 
-                                  /// 🔥 GLOW
                                   boxShadow: [
                                     BoxShadow(
                                       color: Color(0xFFE7C66A).withOpacity(0.3),
@@ -2938,7 +2885,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   child: Stack(
                                     alignment: Alignment.center,
                                     children: [
-                                      /// 🔥 TOP LIGHT (çok yumuşak)
                                       Positioned(
                                         top: 2,
                                         left: 12,
@@ -2959,7 +2905,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                                         ),
                                       ),
 
-                                      /// 🔥 TEXT
                                       const Text(
                                         "MASAYI AÇ",
                                         style: TextStyle(
