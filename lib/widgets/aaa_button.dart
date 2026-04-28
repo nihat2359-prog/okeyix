@@ -292,3 +292,124 @@ class AuthButton extends StatelessWidget {
     );
   }
 }
+
+class PremiumCoinButton extends StatefulWidget {
+  const PremiumCoinButton({super.key});
+
+  @override
+  State<PremiumCoinButton> createState() => _PremiumCoinButtonState();
+}
+
+class _PremiumCoinButtonState extends State<PremiumCoinButton>
+    with TickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_pulseController, _glowController]),
+      builder: (context, child) {
+        final scale = 1 + (_pulseController.value * 0.08);
+        final glow = 0.4 + (_pulseController.value * 0.6);
+        const goldGradient = LinearGradient(
+          colors: [
+            Color(0xFFFFF3B0), // highlight
+            Color(0xFFFFD54F), // light gold
+            Color(0xFFFFB300), // main gold
+            Color(0xFFFF8F00), // deep gold
+            Color(0xFFB26A00), // shadow
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        return Transform.scale(
+          scale: scale,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              /// 🔥 GLOW
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.amber.withOpacity(glow),
+                      blurRadius: 18,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+
+              /// 🔥 ICON
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: goldGradient,
+                ),
+                child: Stack(
+                  children: [
+                    Image.asset(
+                      "assets/images/lobby/coin_stack.png",
+                      width: 24,
+                      height: 24,
+                    ),
+
+                    /// ✨ SWEEP
+                    Positioned.fill(
+                      child: ShaderMask(
+                        shaderCallback: (rect) {
+                          return LinearGradient(
+                            begin: Alignment(
+                              -1 + _glowController.value * 2,
+                              -1,
+                            ),
+                            end: Alignment(1 + _glowController.value * 2, 1),
+                            colors: [
+                              Colors.transparent,
+                              Colors.white.withOpacity(0.6),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.3, 0.5, 0.7],
+                          ).createShader(rect);
+                        },
+                        blendMode: BlendMode.srcATop,
+                        child: const SizedBox(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

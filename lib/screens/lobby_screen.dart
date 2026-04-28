@@ -15,6 +15,7 @@ import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
+import 'package:okeyix/widgets/aaa_button.dart';
 import 'package:okeyix/widgets/create_button.dart';
 import 'package:okeyix/widgets/dock_icon.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -75,6 +76,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   List<Map<String, dynamic>> leagues = [];
   List<Map<String, dynamic>> tables = [];
   Map<String, int> leagueActivePlayers = {};
+  Map<String, int> leagueActiveTables = {};
   List<int> coinOptions = [];
   bool loadingLeagues = true;
   bool loadingTables = true;
@@ -502,7 +504,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     try {
       final activeTables = await supabase
           .from('tables')
-          .select('id,league_id,status')
+          .select('id, league_id, status')
           .inFilter('status', ['waiting', 'playing']);
 
       final tableRows = (activeTables as List)
@@ -510,9 +512,19 @@ class _LobbyScreenState extends State<LobbyScreen>
           .toList();
 
       final usersByLeague = <String, Set<String>>{};
+      final tableCountByLeague = <String, int>{};
 
       if (tableRows.isNotEmpty) {
         final tableIds = tableRows.map((e) => e['id'] as String).toList();
+
+        /// ✅ gerçek masa sayısı
+        for (final row in tableRows) {
+          final leagueId = row['league_id']?.toString();
+          if (leagueId == null) continue;
+
+          tableCountByLeague[leagueId] =
+              (tableCountByLeague[leagueId] ?? 0) + 1;
+        }
 
         final players = await supabase
             .from('table_players')
@@ -525,6 +537,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           final tableId = row['id']?.toString();
           final leagueId = row['league_id']?.toString();
           if (tableId == null || leagueId == null) continue;
+
           leagueByTable[tableId] = leagueId;
         }
 
@@ -544,7 +557,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       }
 
       final rnd = Random();
-      final result = <String, int>{};
+
+      final playersResult = <String, int>{};
+      final tablesResult = <String, int>{};
 
       for (final league in leagues) {
         final id = league['id']?.toString();
@@ -555,17 +570,28 @@ class _LobbyScreenState extends State<LobbyScreen>
         final realPlayers = usersByLeague[id]?.length ?? 0;
         final basePlayers = minPlayersByName[name] ?? 50;
 
-        final fluctuation = rnd.nextInt(25); // 0-24
+        /// 🔥 akıllı fake
+        final fluctuation = rnd.nextInt(20); // küçük oynama
 
-        result[id] =
+        final boostedPlayers =
             (realPlayers > basePlayers ? realPlayers : basePlayers) +
             fluctuation;
+
+        playersResult[id] = boostedPlayers;
+        final realTables = tableCountByLeague[id] ?? 0;
+
+        if (realTables == 0) {
+          tablesResult[id] = 1 + rnd.nextInt(2); // 1-2 masa
+        } else {
+          tablesResult[id] = realTables;
+        }
       }
 
       if (!mounted) return;
 
       setState(() {
-        leagueActivePlayers = result;
+        leagueActivePlayers = playersResult;
+        leagueActiveTables = tablesResult;
       });
     } catch (e) {
       debugPrint('LEAGUE ACTIVITY ERROR: $e');
@@ -4587,6 +4613,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           leagues: leagues,
                           selectedLeagueId: selectedLeague,
                           leagueActivePlayers: leagueActivePlayers,
+                          leagueActiveTables: leagueActiveTables,
                           userCoin: UserState.userCoin,
                           userRating: UserState.userRating,
                           loading: loadingLeagues,
@@ -4758,11 +4785,11 @@ class _LobbyScreenState extends State<LobbyScreen>
 
             Row(
               children: [
-                statChip(Icons.star, UserState.userRating, true),
+                statChip(Icons.star, UserState.userRating, false),
 
                 const SizedBox(width: 10),
 
-                statChip(Icons.monetization_on, UserState.userCoin, false),
+                statChip(Icons.monetization_on, UserState.userCoin, true),
               ],
             ),
           ],
@@ -4784,17 +4811,18 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _dockRight() {
     return Row(
       children: [
-        AaaDockIcon(
-          icon: Icons.play_arrow,
-          onTap: () {
-            if (tables.isNotEmpty) {
-              _joinTable(tables.first);
-            } else {
-              _showCreateModal();
-            }
-          },
-        ),
-        const SizedBox(width: 10),
+        // AaaDockIcon(
+        //   icon: Icons.play_arrow,
+        //   onTap: () {
+        //     print(tables.isNotEmpty);
+        //     if (tables.isNotEmpty) {
+        //       _joinTable(tables.first);
+        //     } else {
+        //       _showCreateModal();
+        //     }
+        //   },
+        // ),
+        // const SizedBox(width: 10),
         AaaDockIcon(
           onTap: () async {
             final result = await Navigator.push(
@@ -4808,15 +4836,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               await _loadUser(); // coin yeniden yüklenir
             }
           },
-          child: Pulse(
-            child: ShimmerIcon(
-              child: Image.asset(
-                "assets/images/lobby/coin_stack.png",
-                width: 24,
-                height: 24,
-              ),
-            ),
-          ),
+          child: const PremiumCoinButton(),
         ),
         const SizedBox(width: 10),
         AaaDockIcon(

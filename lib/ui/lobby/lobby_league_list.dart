@@ -7,6 +7,7 @@ class LobbyLeagueList extends StatelessWidget {
   final List<Map<String, dynamic>> leagues;
   final dynamic selectedLeagueId;
   final Map<String, int> leagueActivePlayers;
+  final Map<String, int> leagueActiveTables;
   final Function(Map<String, dynamic>) onSelect;
   final int userCoin;
   final int userRating;
@@ -16,6 +17,7 @@ class LobbyLeagueList extends StatelessWidget {
     required this.leagues,
     required this.selectedLeagueId,
     required this.leagueActivePlayers,
+    required this.leagueActiveTables,
     required this.onSelect,
     required this.userCoin,
     required this.userRating,
@@ -75,9 +77,7 @@ class LobbyLeagueList extends StatelessWidget {
     final l = Map<String, dynamic>.from(league);
 
     final selected = l['id'] == selectedLeagueId;
-    final activePlayers = leagueActivePlayers[l['id']] ?? 0;
-    //final activeTables = leagueActiveTables[l['id']] ?? 0;
-    final activeTables = 0;
+
     final color = _leagueColorById(l['id']);
 
     return GestureDetector(
@@ -217,7 +217,7 @@ class LobbyLeagueList extends StatelessWidget {
 
   Widget _eliteCard(Map l, Color color, bool isBig) {
     final activePlayers = leagueActivePlayers[l['id']] ?? 0;
-    final activeTables = 0;
+    final activeTables = leagueActiveTables[l['id']] ?? 0;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -291,7 +291,7 @@ class LobbyLeagueList extends StatelessWidget {
   Widget _normalCard(Map l, Color color, bool isBig) {
     final selected = l['id'] == selectedLeagueId;
     final activePlayers = leagueActivePlayers[l['id']] ?? 0;
-    final activeTables = 0;
+    final activeTables = leagueActiveTables[l['id']] ?? 0;
 
     return Stack(
       clipBehavior: Clip.none,
