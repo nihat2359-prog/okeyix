@@ -13,7 +13,7 @@ class LobbyAvatar extends StatelessWidget {
     super.key,
     required this.username,
     this.avatarUrl,
-    this.size = 26,
+    this.size = 30,
     this.blocked = false,
     this.enablePreview = false,
   });

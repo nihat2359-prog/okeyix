@@ -4752,13 +4752,13 @@ class _LobbyScreenState extends State<LobbyScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: const Color(0xFFE7C06A)),
+          Icon(icon, size: 16, color: const Color(0xFFE7C06A)),
           const SizedBox(width: 4),
           Text(
             coin ? Format.coin(value) : Format.rating(value),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 10,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -4814,7 +4814,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ),
             ),
 
-            const SizedBox(height: 10), // ğŸ”¥ BURASI
+            const SizedBox(height: 5), // ğŸ”¥ BURASI
 
             Row(
               children: [
