@@ -354,31 +354,19 @@ class _PremiumCoinButtonState extends State<PremiumCoinButton>
               Container(
                 width: 46,
                 height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.amber.withOpacity(glow),
-                      blurRadius: 18,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle),
               ),
 
               /// 🔥 ICON
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: goldGradient,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle),
                 child: Stack(
                   children: [
                     Image.asset(
-                      "assets/images/lobby/coin_stack.png",
-                      width: 24,
-                      height: 24,
+                      "assets/images/coins/coin.png",
+                      width: 48,
+                      height: 48,
                     ),
 
                     /// ✨ SWEEP
