@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 class CreateButton extends StatefulWidget {
   final VoidCallback onTap;
@@ -127,7 +128,19 @@ class _CreateButtonState extends State<CreateButton>
                   ),
 
                   /// ICON
-                  const AaaPlus(),
+                  Transform.translate(
+                    offset: Offset(
+                      0,
+                      math.sin(_glowController.value * 2 * math.pi) * 1.5,
+                    ),
+                    child: Transform.scale(
+                      scale:
+                          1 +
+                          (math.sin(_glowController.value * 2 * math.pi) *
+                              0.05),
+                      child: const AaaPlus(),
+                    ),
+                  ),
                 ],
               ),
             );

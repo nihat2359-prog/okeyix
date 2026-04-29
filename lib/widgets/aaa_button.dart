@@ -301,101 +301,124 @@ class PremiumCoinButton extends StatefulWidget {
 }
 
 class _PremiumCoinButtonState extends State<PremiumCoinButton>
-    with TickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late AnimationController _glowController;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
 
-    _pulseController = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
-    _glowController.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_pulseController, _glowController]),
-      builder: (context, child) {
-        final scale = 1 + (_pulseController.value * 0.08);
-        final glow = 0.4 + (_pulseController.value * 0.6);
-        const goldGradient = LinearGradient(
-          colors: [
-            Color(0xFFFFF3B0), // highlight
-            Color(0xFFFFD54F), // light gold
-            Color(0xFFFFB300), // main gold
-            Color(0xFFFF8F00), // deep gold
-            Color(0xFFB26A00), // shadow
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        return Transform.scale(
-          scale: scale,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              /// 🔥 GLOW
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(shape: BoxShape.circle),
+      animation: _ctrl,
+      builder: (_, __) {
+        final t = _ctrl.value;
+
+        final glow = 0.4 + (t * 0.6);
+        final floatY = -2 + (t * 4); // yukarı aşağı
+        final scale = 0.95 + (t * 0.1); // nefes efekti
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            /// 🔥 GLOW
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFE7C66A).withOpacity(glow * 0.6),
+                    blurRadius: 14,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
+            ),
 
-              /// 🔥 ICON
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(shape: BoxShape.circle),
-                child: Stack(
-                  children: [
-                    Image.asset(
-                      "assets/images/coins/coin.png",
-                      width: 48,
-                      height: 48,
-                    ),
-
-                    /// ✨ SWEEP
-                    Positioned.fill(
-                      child: ShaderMask(
-                        shaderCallback: (rect) {
-                          return LinearGradient(
-                            begin: Alignment(
-                              -1 + _glowController.value * 2,
-                              -1,
-                            ),
-                            end: Alignment(1 + _glowController.value * 2, 1),
-                            colors: [
-                              Colors.transparent,
-                              Colors.white.withOpacity(0.6),
-                              Colors.transparent,
-                            ],
-                            stops: const [0.3, 0.5, 0.7],
-                          ).createShader(rect);
-                        },
-                        blendMode: BlendMode.srcATop,
-                        child: const SizedBox(),
-                      ),
-                    ),
+            /// 🔥 BUTTON
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF3E3212), // çok koyu edge
+                    Color(0xFFB8962E), // mid gold
+                    Color(0xFFFFD76A), // highlight
+                    Color(0xFFB8962E), // geri dönüş
                   ],
+                  stops: [0.0, 0.35, 0.55, 1.0],
+                ),
+                border: Border.all(
+                  color: Color(0xFFFFE9A0), // sıcak highlight
+                  width: 1.2,
                 ),
               ),
-            ],
-          ),
+
+              child: Center(
+                child: Transform.translate(
+                  offset: Offset(0, floatY),
+                  child: Transform.scale(
+                    scale: scale,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        /// 💰 COIN
+                        Image.asset(
+                          "assets/images/lobby/coin_stack.png",
+                          width: 32,
+                        ),
+
+                        /// ✨ SHIMMER (ince ışık sweep)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: 0.25,
+                              child: Transform.translate(
+                                offset: Offset(20 * (t - 0.5), 0),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.white.withOpacity(0.8),
+                                        Colors.transparent,
+                                      ],
+                                      stops: const [0.3, 0.5, 0.7],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

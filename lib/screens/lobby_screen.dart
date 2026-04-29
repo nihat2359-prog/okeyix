@@ -4844,18 +4844,6 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _dockRight() {
     return Row(
       children: [
-        // AaaDockIcon(
-        //   icon: Icons.play_arrow,
-        //   onTap: () {
-        //     print(tables.isNotEmpty);
-        //     if (tables.isNotEmpty) {
-        //       _joinTable(tables.first);
-        //     } else {
-        //       _showCreateModal();
-        //     }
-        //   },
-        // ),
-        // const SizedBox(width: 10),
         AaaDockIcon(
           onTap: () async {
             final result = await Navigator.push(
@@ -4886,66 +4874,6 @@ class _LobbyScreenState extends State<LobbyScreen>
         const SizedBox(width: 10),
         AaaDockIcon(
           icon: Icons.mail,
-          onTap: () => _openRightPanel(_RightPanelType.messages),
-        ),
-      ],
-    );
-
-    return Row(
-      children: [
-        lobbyDockIcon(
-          asset: "assets/images/lobby/quick_play.png",
-          onTap: () {
-            if (tables.isNotEmpty) {
-              _joinTable(tables.first);
-            } else {
-              _showCreateModal();
-            }
-          },
-        ),
-        const SizedBox(width: 6),
-
-        ScaleTransition(
-          scale: Tween<double>(begin: 1.0, end: 1.08).animate(
-            CurvedAnimation(parent: _storePulse, curve: Curves.easeInOut),
-          ),
-          child: lobbyDockIcon(
-            asset: "assets/images/lobby/store.png",
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
-                ),
-              );
-
-              if (result == true) {
-                await _loadUser(); // coin yeniden yüklenir
-              }
-            },
-          ),
-        ),
-
-        const SizedBox(width: 6),
-
-        lobbyDockIcon(
-          asset: "assets/images/lobby/leaderboard.png",
-          onTap: _openLeaderboard,
-        ),
-
-        const SizedBox(width: 3),
-
-        lobbyDockIcon(
-          asset: "assets/images/lobby/friends.png",
-          badgeValue: _friendCount > 0 ? '$_friendCount' : null,
-          onTap: () => _openRightPanel(_RightPanelType.friends),
-        ),
-
-        const SizedBox(width: 3),
-
-        lobbyDockIcon(
-          asset: "assets/images/lobby/messages.png",
-          badgeValue: _unreadTotal > 0 ? '$_unreadTotal' : null,
           onTap: () => _openRightPanel(_RightPanelType.messages),
         ),
       ],
