@@ -1,15 +1,30 @@
 import 'package:intl/intl.dart';
 
 class Format {
-  static String coin(int value) {
+  static String coin(num value) {
     if (value >= 1000000) {
       final v = value / 1000000;
-      return v % 1 == 0 ? "${v.toInt()}M" : "${v.toStringAsFixed(1)}M";
-    } else if (value >= 1000) {
-      final v = value / 1000;
-      return v % 1 == 0 ? "${v.toInt()}K" : "${v.toStringAsFixed(1)}K";
+      return "${_formatShort(v)}M";
     }
+
+    if (value >= 1000) {
+      final v = value / 1000;
+
+      /// 🔥 CRITICAL FIX
+      if (v >= 999.5) {
+        return "1M";
+      }
+
+      return "${_formatShort(v)}K";
+    }
+
     return value.toString();
+  }
+
+  static String _formatShort(num v) {
+    if (v >= 100) return v.toStringAsFixed(0);
+    if (v >= 10) return v.toStringAsFixed(1);
+    return v.toStringAsFixed(1);
   }
 
   /// 🔥 İleride lazım olacak

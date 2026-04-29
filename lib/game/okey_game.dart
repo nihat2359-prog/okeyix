@@ -1,4 +1,5 @@
 ﻿import 'dart:async' as async;
+import 'dart:async';
 import 'dart:convert';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
@@ -30,7 +31,6 @@ class OkeyGame extends FlameGame {
   final String tableId;
   final bool isCreator;
   final VoidCallback? onTileSfx;
-
   bool isTempShiftActive = false;
   int? tempShiftIndex;
 
@@ -55,7 +55,13 @@ class OkeyGame extends FlameGame {
   int? _pendingPreferredDrawSlot;
   String? _lastTimeoutTurnToken;
   String? _lastBotTurnToken;
-
+  Function()? onFinish;
+  int? _hoverIndex;
+  Timer? _hoverTimer;
+  bool _uiLocked = false;
+  bool _networkInFlight = false;
+  final List<Map<String, dynamic>> _moveQueue = [];
+  bool _processingQueue = false;
   final List<Vector2> slotPositions = [];
   final Map<int, TileComponent> occupiedSlots = {};
   final Map<int, Map<String, dynamic>> _playerSeatMap = {};
@@ -127,6 +133,7 @@ class OkeyGame extends FlameGame {
     _finishRack = FinishRack(slots, name, isWinner, isSpectator);
 
     world.add(_finishRack!);
+    onFinish?.call();
   }
 
   void hideFinish() {
@@ -251,6 +258,53 @@ class OkeyGame extends FlameGame {
     final elapsed = DateTime.now().difference(startAt).inMilliseconds / 1000.0;
 
     return ((_turnSeconds - elapsed) / _turnSeconds).clamp(0.0, 1.0);
+  }
+
+  void onTileDoubleTap(TileComponent tile) {
+    if (_actionInFlight) return;
+
+    if (!_isMyTurn()) return;
+
+    if (occupiedSlots.length != 15) return;
+
+    autoDiscard(tile);
+  }
+
+  Future<void> autoDiscard(TileComponent tile) async {
+    if (_uiLocked) return;
+
+    _uiLocked = true;
+
+    final originalPos = tile.position.clone();
+    final targetPos = getMyDiscardPosition(tile);
+
+    tile.add(
+      MoveEffect.to(
+        targetPos,
+        EffectController(duration: 0.18, curve: Curves.easeOut),
+        onComplete: () async {
+          final success = await _serverDiscard(tile);
+          _isAnimatingRemoteMove = false;
+          if (success) {
+            occupiedSlots.remove(tile.currentSlotIndex);
+            tile.removeFromParent();
+          } else {
+            tile.add(
+              MoveEffect.to(originalPos, EffectController(duration: 0.2)),
+            );
+          }
+
+          _uiLocked = false;
+        },
+      ),
+    );
+  }
+
+  Vector2 getMyDiscardPosition(TileComponent tile) {
+    final pos =
+        bottomRightDiscard.absolutePosition + bottomRightDiscard.size / 2;
+
+    return pos - tile.size / 2;
   }
 
   void scheduleTileRemoval(TileComponent tile) {
@@ -669,39 +723,80 @@ class OkeyGame extends FlameGame {
         return;
       }
 
-      try {
+      if (canFinish) {
+        try {
+          final res = await Supabase.instance.client.rpc(
+            'game_finish',
+            params: {
+              'p_table_id': tableId,
+              'p_user_id': botUserId,
+              'p_slots': botSlots,
+            },
+          );
+
+          if (res != null && res['ok'] == true) {
+            // 🎉 başarı
+            final snapshot = await _loadFinishSnapshot();
+
+            if (snapshot != null) {
+              final winnerId = res['winner_user_id'];
+
+              final isWinner = isMeWinner(winnerId);
+
+              final playersWrapper = snapshot['players'];
+
+              if (playersWrapper == null) return;
+
+              final players = playersWrapper['players'];
+
+              if (players == null || players is! List) return;
+
+              final winner = players.firstWhere(
+                (p) => p['is_winner'] == true,
+                orElse: () => null,
+              );
+
+              if (winner == null) return;
+
+              final rawSlots = winner['slots'];
+
+              if (rawSlots == null || rawSlots is! List) return;
+
+              final slots = List<Map<String, dynamic>>.from(rawSlots);
+
+              showFinish(slots, "Oyuncu", isWinner, false);
+
+              Future.delayed(const Duration(seconds: 4), () {
+                hideFinish();
+              });
+            }
+          }
+        } catch (e) {
+          debugPrint("BOT FINISH ERROR: $e");
+
+          if (e.toString().contains("INVALID_FINISH")) {
+            // 🔥 fallback → discard
+            await Supabase.instance.client.rpc(
+              'game_discard_fast',
+              params: {
+                'p_table_id': tableId,
+                'p_user_id': botUserId,
+                'p_tile': tile,
+              },
+            );
+          } else {
+            rethrow;
+          }
+        }
+      } else {
         await Supabase.instance.client.rpc(
-          'game_discard',
+          'game_discard_fast',
           params: {
             'p_table_id': tableId,
             'p_user_id': botUserId,
             'p_tile': tile,
-            'p_slots': botSlots,
-            'p_finish': canFinish,
-            'p_is_player_action': false,
           },
         );
-      } catch (e) {
-        debugPrint("BOT DISCARD ERROR: $e");
-
-        // 🔥 KRİTİK: INVALID_FINISH fallback
-        if (canFinish && e.toString().contains("INVALID_FINISH")) {
-          debugPrint("⚠️ Bot finish geçersiz → normal discard'a dönüyor");
-
-          await Supabase.instance.client.rpc(
-            'game_discard',
-            params: {
-              'p_table_id': tableId,
-              'p_user_id': botUserId,
-              'p_tile': tile,
-              'p_slots': botSlots,
-              'p_finish': false, // 👈 EN KRİTİK SATIR
-              'p_is_player_action': false,
-            },
-          );
-        } else {
-          rethrow;
-        }
       }
 
       _rememberBotDiscard(botUserId, tile);
@@ -1829,6 +1924,8 @@ class OkeyGame extends FlameGame {
     return null;
   }
 
+  bool _isAnimatingRemoteMove = false;
+
   void _onMatchMove(Map<String, dynamic> move) {
     final moveKey = _moveDedupeKey(move);
     if (moveKey != null) {
@@ -1841,10 +1938,46 @@ class OkeyGame extends FlameGame {
       }
     }
 
+    _moveQueue.add(move);
+
+    // 🔥 created_at göre sırala (EN KRİTİK)
+    _moveQueue.sort((a, b) {
+      final t1 = DateTime.parse(a['created_at']);
+      final t2 = DateTime.parse(b['created_at']);
+      return t1.compareTo(t2);
+    });
+
+    _processMoveQueue();
+  }
+
+  Future<void> _processMoveQueue() async {
+    if (_processingQueue) return;
+
+    _processingQueue = true;
+
+    while (_moveQueue.isNotEmpty) {
+      final move = _moveQueue.removeAt(0);
+      await _handleMove(move); // 🔥 sırayla işlenir
+    }
+
+    _processingQueue = false;
+  }
+
+  Future<void> _handleMove(Map<String, dynamic> move) async {
     final type = move['move_type']?.toString();
     final playerId = move['player_id'];
+
+    final seat = _seatFromUserId(playerId);
+    if (seat == null) return;
+
+    final mySeat = _resolveMySeatIndex();
+
+    // 🔥 kendi hareketini ignore
+    if (mySeat != null && seat == mySeat) return;
+
     final rawTile = move['tile_data'];
     Map<String, dynamic>? tile;
+
     if (rawTile is String) {
       final decoded = jsonDecode(rawTile);
       if (decoded is Map) tile = Map<String, dynamic>.from(decoded);
@@ -1852,20 +1985,12 @@ class OkeyGame extends FlameGame {
       tile = Map<String, dynamic>.from(rawTile);
     }
 
-    final seat = _seatFromUserId(playerId);
-    if (seat == null) return;
-
     if (type == 'draw_discard') {
-      final mySeat = _resolveMySeatIndex();
-      if (mySeat != null && seat == mySeat) {
-        return;
-      }
-      final rawFromSeat = move['from_seat'] ?? move['source_seat'];
-      final fromSeat = rawFromSeat is int
-          ? rawFromSeat
-          : int.tryParse('$rawFromSeat');
-      _animateDiscardToPlayer(
-        fromSeat: fromSeat ?? ((seat - 1 + _maxPlayers) % _maxPlayers),
+      final fromSeat = move['from_seat'];
+      if (fromSeat == null) return;
+
+      await _animateDiscardToPlayer(
+        fromSeat: fromSeat,
         toSeat: seat,
         tileData: tile,
       );
@@ -1873,11 +1998,71 @@ class OkeyGame extends FlameGame {
     }
 
     if (type == 'discard') {
-      final mySeat = _resolveMySeatIndex();
-      // Local player's manual drag already gives enough feedback.
-      if (mySeat != null && seat == mySeat) return;
       _animatePlayerToDiscard(seat: seat, tileData: tile);
+      return;
     }
+  }
+
+  Future<void> _animateDiscardToPlayer({
+    required int fromSeat,
+    required int toSeat,
+    Map<String, dynamic>? tileData,
+  }) async {
+    final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
+    final fromSlot = _discardSlotsByIndex[fromSlotIndex];
+    if (fromSlot == null) return;
+
+    final model = tileData != null ? _tileModelFromPayload(tileData) : null;
+    final fallbackTop =
+        _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
+
+    final value = model?.value ?? fallbackTop?.value;
+    final colorType = model != null
+        ? mapTileColor(model.color)
+        : fallbackTop?.colorType;
+
+    if (value == null || colorType == null) return;
+
+    // 🔥 başlangıç: discard slotu (SENDE VAR)
+    final start = fromSlot.position.clone();
+
+    // 🔥 hedef: oyuncunun çekme noktası (SENDE VAR)
+    final end = _drawAnimationTargetForSeat(toSeat);
+
+    final transient = TileComponent(
+      value: value,
+      colorType: colorType,
+      position: start,
+      isJoker: model?.isJoker ?? fallbackTop?.isJoker ?? false,
+      isFakeJoker: model?.isFakeJoker ?? fallbackTop?.isFakeJoker ?? false,
+    )..priority = 79;
+
+    transient.isLocked = true;
+    world.add(transient);
+
+    // 🔥 discard üstündeki taşı kaldır (çok önemli)
+    final previousTop = _discardTopTilesBySeat[fromSeat];
+    if (previousTop != null) {
+      previousTop.removeFromParent();
+      _discardTopTilesBySeat.remove(fromSeat);
+      fromSlot.currentTile = null;
+    }
+
+    final completer = Completer<void>();
+
+    transient.add(
+      MoveEffect.to(
+        end,
+        EffectController(duration: 0.28, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    async.Timer(const Duration(milliseconds: 320), () {
+      transient.removeFromParent();
+      completer.complete();
+    });
+
+    return completer.future;
   }
 
   String? _moveDedupeKey(Map<String, dynamic> move) {
@@ -1894,59 +2079,6 @@ class OkeyGame extends FlameGame {
         : (tileData?.toString() ?? '');
     final key = '$createdAt|$player|$type|$fromSeat|$tileSig';
     return key == '||||' ? null : key;
-  }
-
-  void _animateDiscardToPlayer({
-    required int fromSeat,
-    required int toSeat,
-    Map<String, dynamic>? tileData,
-  }) {
-    if (!_isMyTurn()) return;
-    final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
-    final fromSlot = _discardSlotsByIndex[fromSlotIndex];
-    if (fromSlot == null) return;
-
-    final sourceTop = _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
-    final model = tileData != null ? _tileModelFromPayload(tileData) : null;
-
-    final value = model?.value ?? sourceTop?.value;
-    final colorType = model != null
-        ? mapTileColor(model.color)
-        : sourceTop?.colorType;
-    if (value == null || colorType == null) return;
-
-    final transient = TileComponent(
-      value: value,
-      colorType: colorType,
-      position: fromSlot.position.clone(),
-      isJoker: model?.isJoker ?? sourceTop?.isJoker ?? false,
-      isFakeJoker: model?.isFakeJoker ?? sourceTop?.isFakeJoker ?? false,
-    )..priority = 80;
-    transient.isLocked = true;
-    world.add(transient);
-
-    // Remove old top immediately so it is clear that the tile was taken.
-    _discardTopTilesBySeat[fromSeat]?.removeFromParent();
-    _discardTopTilesBySeat.remove(fromSeat);
-    fromSlot.currentTile = null;
-
-    final target = _drawAnimationTargetForSeat(toSeat);
-    transient.add(
-      MoveEffect.to(
-        target,
-        EffectController(duration: 0.14, curve: Curves.easeOut),
-        onComplete: () {
-          transient.removeFromParent();
-
-          /// 🔥 RACK’E EKLE
-          _placeTileToRackFromDraw(
-            value: value,
-            colorType: colorType,
-            model: model,
-          );
-        },
-      ),
-    );
   }
 
   void _placeTileToRackFromDraw({
@@ -2139,7 +2271,7 @@ class OkeyGame extends FlameGame {
   void _updateClosedPile(int count) {
     if (closedPileComponent == null) {
       closedPileComponent = ClosedPileComponent(
-        position: Vector2(750, 300),
+        position: Vector2(750, 270),
         initialCount: count,
       );
       world.add(closedPileComponent!);
@@ -2158,7 +2290,7 @@ class OkeyGame extends FlameGame {
     final tile = TileComponent(
       value: indicator.value,
       colorType: mapTileColor(indicator.color),
-      position: Vector2(860, 300),
+      position: Vector2(860, 270),
       isJoker: indicator.isJoker,
       isFakeJoker: indicator.isFakeJoker,
     )..isLocked = true;
@@ -2190,10 +2322,10 @@ class OkeyGame extends FlameGame {
     _updateClosedPile(0);
 
     final discardPositions = [
-      Vector2(350, 300),
-      Vector2(1250, 300),
-      Vector2(350, 475),
-      Vector2(1250, 475),
+      Vector2(350, 285),
+      Vector2(1250, 285),
+      Vector2(350, 460),
+      Vector2(1250, 460),
     ];
 
     for (int i = 0; i < 4; i++) {
@@ -2425,19 +2557,99 @@ class OkeyGame extends FlameGame {
     return result;
   }
 
-  Future<void> _serverDiscard(TileComponent tile, {bool finish = false}) async {
-    if (_actionInFlight) return;
+  // Future<bool> _serverDiscard(TileComponent tile, {bool finish = false}) async {
+  //   // if (_actionInFlight) return false;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+  //   final userId = Supabase.instance.client.auth.currentUser?.id;
+  //   if (userId == null) return false;
 
-    _actionInFlight = true;
+  //   _actionInFlight = true;
 
-    final slots = finish ? _buildSlotsJson(occupiedSlots) : null;
+  //   final slots = finish ? _buildSlotsJson(occupiedSlots) : null;
+
+  //   try {
+  //     final res = await Supabase.instance.client.rpc(
+  //       'game_discard_fast',
+  //       params: {
+  //         'p_table_id': tableId,
+  //         'p_user_id': userId,
+  //         'p_tile': {
+  //           'color': _tileColorToString(tile.colorType),
+  //           'number': tile.value,
+  //           'joker': tile.isJoker,
+  //           'is_joker': tile.isJoker,
+  //           'fake_joker': tile.isFakeJoker,
+  //           'is_fake_joker': tile.isFakeJoker,
+  //         },
+  //       },
+  //     );
+
+  //     // 🔥 SERVER RESPONSE OKU
+  //     if (res != null && res is Map) {
+  //       final ok = res['ok'] == true;
+
+  //       if (!ok) {
+  //         /// ❗ SADECE HATA DURUMUNDA SYNC
+  //         await _loadInitialState();
+
+  //         final error = res['error'];
+
+  //         if (error == 'INVALID_HAND') {
+  //           AppMsg.show('El geçersiz');
+  //         } else if (error == 'NOT_YOUR_TURN') {
+  //           AppMsg.show('Sıra sende değil');
+  //         } else {
+  //           AppMsg.show('İşlem başarısız');
+  //         }
+
+  //         return false;
+  //       }
+
+  //       /// 🔥 BAŞARILI → HİÇBİR ŞEY YAPMA
+  //       if (res['finish'] == true) {
+  //         _showWaitingOverlay('Kazandın! 🎉');
+  //       }
+  //     }
+
+  //     hasDrawnThisTurn = false;
+  //     _pendingPreferredDrawSlot = null;
+  //     return true;
+  //     // 🔥 STATE SYNC
+  //   } catch (e) {
+  //     final err = e.toString();
+
+  //     debugPrint('GAME_DISCARD RPC ERROR: $err');
+
+  //     if (err.contains('INVALID_FINISH')) {
+  //       AppMsg.show('El geçersiz');
+  //     } else if (err.contains('NOT_YOUR_TURN')) {
+  //       AppMsg.show('Sıra sende değil');
+  //       await _pollLiveTableState();
+  //     } else {
+  //       AppMsg.show('İşlem başarısız');
+  //     }
+
+  //     Future.delayed(const Duration(seconds: 2), _hideWaitingOverlay);
+
+  //     await _loadInitialState();
+  //     return false;
+  //   } finally {
+  //     _actionInFlight = false;
+  //   }
+  // }
+
+  Future<bool> _serverDiscard(TileComponent tile, {bool finish = false}) async {
+    if (_networkInFlight) return false;
+
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return false;
+
+    _networkInFlight = true;
 
     try {
-      final res = await Supabase.instance.client.rpc(
-        'game_discard',
+      final res = await client.rpc(
+        'game_discard_fast',
         params: {
           'p_table_id': tableId,
           'p_user_id': userId,
@@ -2449,62 +2661,30 @@ class OkeyGame extends FlameGame {
             'fake_joker': tile.isFakeJoker,
             'is_fake_joker': tile.isFakeJoker,
           },
-          'p_slots': slots,
-          'p_finish': finish,
-          'p_is_player_action': true,
         },
       );
 
-      // 🔥 SERVER RESPONSE OKU
-      if (res != null && res is Map) {
-        final ok = res['ok'] == true;
-
-        if (!ok) {
-          /// ❗ SADECE HATA DURUMUNDA SYNC
-          await _loadInitialState();
-
-          final error = res['error'];
-
-          if (error == 'INVALID_HAND') {
-            AppMsg.show('El geçersiz');
-          } else if (error == 'NOT_YOUR_TURN') {
-            AppMsg.show('Sıra sende değil');
-          } else {
-            AppMsg.show('İşlem başarısız');
-          }
-
-          return;
-        }
-
-        /// 🔥 BAŞARILI → HİÇBİR ŞEY YAPMA
-        if (res['finish'] == true) {
-          _showWaitingOverlay('Kazandın! 🎉');
-        }
+      if (res == null || res is! Map || res['ok'] != true) {
+        await _loadInitialState();
+        return false;
       }
 
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
 
-      // 🔥 STATE SYNC
-    } catch (e) {
-      final err = e.toString();
+      await Future.delayed(const Duration(milliseconds: 120));
+      await _loadInitialState();
 
-      debugPrint('GAME_DISCARD RPC ERROR: $err');
-
-      if (err.contains('INVALID_FINISH')) {
-        AppMsg.show('El geçersiz');
-      } else if (err.contains('NOT_YOUR_TURN')) {
-        AppMsg.show('Sıra sende değil');
-        await _pollLiveTableState();
-      } else {
-        AppMsg.show('İşlem başarısız');
+      if (res['finish'] == true) {
+        _showWaitingOverlay('Kazandın! 🎉');
       }
 
-      Future.delayed(const Duration(seconds: 2), _hideWaitingOverlay);
-
+      return true;
+    } catch (e) {
       await _loadInitialState();
+      return false;
     } finally {
-      _actionInFlight = false;
+      _networkInFlight = false;
     }
   }
 
@@ -2535,10 +2715,22 @@ class OkeyGame extends FlameGame {
 
   List<Map<String, dynamic>> _buildSlotsJsonFromHand(List hand) {
     final result = <Map<String, dynamic>>[];
+
     final normalized = hand
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
-        .toList(growable: false);
+        .toList();
+
+    // 🔥 BOT İÇİN DÜZENLE
+    normalized.sort((a, b) {
+      final colorCompare = (a['color'] ?? '').compareTo(b['color'] ?? '');
+      if (colorCompare != 0) return colorCompare;
+
+      final numA = (a['number'] ?? a['value'] ?? 0) as int;
+      final numB = (b['number'] ?? b['value'] ?? 0) as int;
+
+      return numA.compareTo(numB);
+    });
 
     for (int i = 0; i < 26; i++) {
       if (i < normalized.length) {
@@ -2614,19 +2806,86 @@ class OkeyGame extends FlameGame {
 
   void updatePreview(Vector2 pos) {
     final index = getNearestSlotIndex(pos);
-    if (index != null) {
-      previewBox.position = slotPositions[index];
-      previewBox.isVisible = true;
-      applyTemporaryShift(index);
+
+    if (index == null) {
+      previewBox.isVisible = false;
+      _cancelHover();
+      clearTemporaryShift();
       return;
     }
 
-    previewBox.isVisible = false;
-    clearTemporaryShift();
+    previewBox.position = slotPositions[index];
+    previewBox.isVisible = true;
+
+    // 🔥 aynı yerdeyse hiçbir şey yapma
+    if (_hoverIndex == index) return;
+
+    _cancelHover();
+
+    _hoverIndex = index;
+
+    // 🔥 gecikmeli shift
+    _hoverTimer = Timer(
+      0.14, // 🔥 140ms → sweet spot
+      onTick: () {
+        if (_hoverIndex == index) {
+          applyTemporaryShift(index);
+        }
+      },
+    )..start();
+  }
+
+  void _cancelHover() {
+    _hoverTimer?.stop();
+    _hoverTimer = null;
+    _hoverIndex = null;
   }
 
   void clearPreview() {
     previewBox.isVisible = false;
+  }
+
+  void moveTileSmooth(PositionComponent tile, Vector2 target) {
+    if (tile is TileComponent) {
+      tile.currentTarget = target.clone();
+    }
+
+    // 🔥 sadece mevcut move effect'i kaldır
+    tile.children.whereType<MoveEffect>().toList().forEach(
+      (e) => e.removeFromParent(),
+    );
+
+    tile.add(
+      MoveEffect.to(
+        target,
+        EffectController(duration: 0.16, curve: Curves.easeOutBack),
+      ),
+    );
+  }
+
+  int? _lastPreviewIndex;
+
+  void applyPreviewShift(int targetIndex, TileComponent draggingTile) {
+    if (_lastPreviewIndex == targetIndex) return;
+
+    _lastPreviewIndex = targetIndex;
+
+    for (final entry in occupiedSlots.entries) {
+      final i = entry.key;
+      final tile = entry.value;
+
+      if (tile == draggingTile) continue; // 🔥 önemli
+
+      int newIndex = i;
+
+      if (i >= targetIndex) {
+        newIndex = i + 1;
+      }
+
+      final targetPos = slotPositions[newIndex];
+
+      moveTileSmooth(tile, targetPos); // 🔥 BURASI
+    }
   }
 
   void insertIntoRow(int targetIndex, TileComponent tile) {
@@ -2640,9 +2899,9 @@ class OkeyGame extends FlameGame {
 
     if (!occupiedSlots.containsKey(targetIndex)) {
       occupiedSlots[targetIndex] = tile;
-      tile.position = slotPositions[targetIndex];
       tile.currentSlotIndex = targetIndex;
-      // _emitTileSfx();
+
+      moveTileSmooth(tile, slotPositions[targetIndex]); // ✅
       return;
     }
 
@@ -2659,20 +2918,22 @@ class OkeyGame extends FlameGame {
       return;
     }
 
+    // 🔥 SHIFT ANİMASYONU
     for (int i = emptyIndex; i > targetIndex; i--) {
       final movingTile = occupiedSlots[i - 1];
       if (movingTile != null) {
         occupiedSlots[i] = movingTile;
-        movingTile.position = slotPositions[i];
         movingTile.currentSlotIndex = i;
+
+        moveTileSmooth(movingTile, slotPositions[i]); // ✅ BURASI
       }
     }
 
     occupiedSlots.remove(targetIndex);
     occupiedSlots[targetIndex] = tile;
-    tile.position = slotPositions[targetIndex];
     tile.currentSlotIndex = targetIndex;
-    // _emitTileSfx();
+
+    moveTileSmooth(tile, slotPositions[targetIndex]); // ✅ BURASI
   }
 
   void _restoreTileToOriginalSlot(TileComponent tile) {
@@ -2699,11 +2960,9 @@ class OkeyGame extends FlameGame {
   }
 
   void applyTemporaryShift(int targetIndex) {
-    if (isTempShiftActive && tempShiftIndex == targetIndex) {
-      return;
-    }
+    if (_lastPreviewIndex == targetIndex) return; // 🔥 jitter fix
 
-    clearTemporaryShift();
+    _lastPreviewIndex = targetIndex;
 
     final row = targetIndex ~/ RackConfig.columns;
     final rowStart = row * RackConfig.columns;
@@ -2725,7 +2984,9 @@ class OkeyGame extends FlameGame {
     for (int i = emptyIndex; i > targetIndex; i--) {
       final tile = occupiedSlots[i - 1];
       if (tile != null) {
-        tile.position = slotPositions[i];
+        if (tile == activeDraggedTile) continue; // 🔥 önemli
+
+        moveTileSmooth(tile, slotPositions[i]); // 🔥 ANİMASYON
       }
     }
 
@@ -2744,7 +3005,7 @@ class OkeyGame extends FlameGame {
     tempShiftIndex = null;
   }
 
-  bool discardTile(TileComponent tile) {
+  Future<bool> discardTile(TileComponent tile) async {
     if (!_isMyTurn()) {
       _pollLiveTableState();
       return false;
@@ -2753,8 +3014,8 @@ class OkeyGame extends FlameGame {
     final virtualCount =
         occupiedSlots.length + (tile.currentSlotIndex == null ? 1 : 0);
     if (virtualCount != 15) return false;
-    _serverDiscard(tile);
-    return true;
+    final success = await _serverDiscard(tile);
+    return success;
   }
 
   bool finishWithTile(TileComponent tile) {
@@ -2762,13 +3023,95 @@ class OkeyGame extends FlameGame {
       _pollLiveTableState();
       return false;
     }
+
     if (_actionInFlight) return false;
+
     final virtualCount =
         occupiedSlots.length + (tile.currentSlotIndex == null ? 1 : 0);
+
     if (virtualCount != 15) return false;
 
-    _serverDiscard(tile, finish: true);
+    _tryFinish(tile); // 🔥 BURASI DEĞİŞTİ
+
     return true;
+  }
+
+  Future<void> _tryFinish(TileComponent tile) async {
+    _actionInFlight = true;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      _actionInFlight = false;
+      return;
+    }
+
+    final slots = _buildSlotsJson(occupiedSlots);
+
+    try {
+      final res = await Supabase.instance.client.rpc(
+        'game_finish',
+        params: {'p_table_id': tableId, 'p_user_id': userId, 'p_slots': slots},
+      );
+
+      if (res != null && res['ok'] == true) {
+        // 🎉 başarı
+        final snapshot = await _loadFinishSnapshot();
+
+        if (snapshot != null) {
+          final winnerId = res['winner_user_id'];
+
+          final isWinner = isMeWinner(winnerId);
+
+          final playersWrapper = snapshot['players'];
+
+          if (playersWrapper == null) return;
+
+          final players = playersWrapper['players'];
+
+          if (players == null || players is! List) return;
+
+          final winner = players.firstWhere(
+            (p) => p['is_winner'] == true,
+            orElse: () => null,
+          );
+
+          if (winner == null) return;
+
+          final rawSlots = winner['slots'];
+
+          if (rawSlots == null || rawSlots is! List) return;
+
+          final slots = List<Map<String, dynamic>>.from(rawSlots);
+
+          showFinish(slots, "Oyuncu", isWinner, false);
+
+          Future.delayed(const Duration(seconds: 4), () {
+            hideFinish();
+          });
+        }
+      } else {
+        AppMsg.show('El geçersiz');
+
+        _loadInitialState(); // ❗ geri koy
+      }
+    } catch (e) {
+      AppMsg.show('Bitirme başarısız');
+      _loadInitialState();
+    } finally {
+      _actionInFlight = false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _loadFinishSnapshot() async {
+    final res = await supabase
+        .from('table_finish_snapshots')
+        .select()
+        .eq('table_id', tableId)
+        .order('finished_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    return res;
   }
 
   void placeDrawnTileIntoRack(TileComponent tile) {

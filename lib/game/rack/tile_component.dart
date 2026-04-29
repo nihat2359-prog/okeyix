@@ -35,9 +35,12 @@ class TileComponent extends PositionComponent
   bool isFaceDown = false;
   Vector2? dragOffset;
   Vector2 originalPosition = Vector2.zero();
+  Vector2? currentTarget;
   int? currentSlotIndex;
   int? originalSlotIndex;
   bool isLocked = false;
+  DateTime? _lastTap;
+
   TileComponent({
     required this.value,
     required this.colorType,
@@ -140,57 +143,40 @@ class TileComponent extends PositionComponent
     // NORMAL TAŞ İÇERİĞİ
 
     final inkColor = _getInkColor();
-    final badgeColors = _getBadgeColors();
+    final badgeColors = _getInkColor();
 
     // Surface polish and bevel for a more premium tile body.
     add(TileSurfaceFx(size: size, position: size / 2));
 
     // Number emboss shadow.
-    add(
-      TextComponent(
-        text: value.toString(),
-        textRenderer: TextPaint(
-          style: TextStyle(
-            fontSize: 49,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.0,
-            color: const Color(0x50000000),
-          ),
-        ),
-        anchor: Anchor.center,
-        position: Vector2(size.x / 2 + 1.4, size.y * 0.345 + 2.0),
-      ),
-    );
-
-    // Number crisp edge.
-    add(
-      TextComponent(
-        text: value.toString(),
-        textRenderer: TextPaint(
-          style: TextStyle(
-            fontSize: 49,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.0,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.2
-              ..color = const Color(0xE6FFFFFF),
-          ),
-        ),
-        anchor: Anchor.center,
-        position: Vector2(size.x / 2, size.y * 0.345),
-      ),
-    );
 
     // Main number fill.
     numberText = TextComponent(
       text: value.toString(),
       textRenderer: TextPaint(
         style: TextStyle(
-          fontSize: 47,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.8,
+          fontFamily: 'Montserrat',
+          fontWeight: FontWeight.w700,
+          fontSize: 56,
+          letterSpacing: -0.4,
+
           color: inkColor,
+
+          shadows: [
+            // 🔥 alt gölge
+            Shadow(
+              offset: Offset(0, 1.2),
+              blurRadius: 1.2,
+              color: Colors.black.withOpacity(0.3),
+            ),
+
+            // 🔥 üst highlight
+            Shadow(
+              offset: Offset(0, -0.5),
+              blurRadius: 0.5,
+              color: Colors.white.withOpacity(0.15),
+            ),
+          ],
         ),
       ),
       anchor: Anchor.center,
@@ -203,10 +189,38 @@ class TileComponent extends PositionComponent
       TileGemBadge(
         radius: 10.5,
         center: Vector2(size.x / 2, size.y * 0.74),
-        coreColor: badgeColors[0],
-        rimColor: badgeColors[1],
+        coreColor: badgeColors,
+        rimColor: badgeColors,
       ),
     );
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    final now = DateTime.now();
+
+    if (_lastTap != null &&
+        now.difference(_lastTap!) < const Duration(milliseconds: 250)) {
+      _onDoubleTap();
+    }
+
+    _lastTap = now;
+  }
+
+  void _onDoubleTap() {
+    final gameRef = game as OkeyGame;
+
+    gameRef.onTileDoubleTap(this);
+  }
+
+  Color _lighten(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness + amount).clamp(0, 1)).toColor();
+  }
+
+  Color _darken(Color color, double amount) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness - amount).clamp(0, 1)).toColor();
   }
 
   void toggleFace() {
@@ -295,12 +309,7 @@ class TileComponent extends PositionComponent
             gameRef.hasDrawnThisTurn ||
             (gameRef.occupiedSlots.length + 1 == 15);
         if (canDiscardNow) {
-          final accepted = gameRef.discardTile(this);
-          if (!accepted) {
-            _restoreToOriginalSlot();
-          } else {
-            gameRef.scheduleTileRemoval(this);
-          }
+          _handleDiscard(gameRef); // 🔥 await YOK
         } else {
           _restoreToOriginalSlot();
         }
@@ -336,6 +345,16 @@ class TileComponent extends PositionComponent
     }
   }
 
+  Future<void> _handleDiscard(OkeyGame gameRef) async {
+    final accepted = await gameRef.discardTile(this);
+
+    if (!accepted) {
+      _restoreToOriginalSlot();
+    } else {
+      gameRef.scheduleTileRemoval(this);
+    }
+  }
+
   void _restoreToOriginalSlot() {
     final slot = originalSlotIndex;
     if (slot != null) {
@@ -362,30 +381,19 @@ class TileComponent extends PositionComponent
   }
 
   // =============================
-
   Color _getInkColor() {
     switch (colorType) {
       case TileColorType.red:
-        return const Color(0xFFA3171B);
-      case TileColorType.blue:
-        return const Color(0xFF1B4FB5);
-      case TileColorType.black:
-        return const Color(0xFF151515);
-      case TileColorType.yellow:
-        return const Color(0xFF9F7600);
-    }
-  }
+        return const Color(0xFFD32F2F); // gerçek okey kırmızısı
 
-  List<Color> _getBadgeColors() {
-    switch (colorType) {
-      case TileColorType.red:
-        return [const Color(0xFFC62828), const Color(0xFF6B1111)];
       case TileColorType.blue:
-        return [const Color(0xFF2B6DE8), const Color(0xFF173D83)];
+        return const Color(0xFF2F5BFF); // canlı royal blue
+
       case TileColorType.black:
-        return [const Color(0xFF2C2C2C), const Color(0xFF0E0E0E)];
+        return const Color(0xFF1A1A1A); // saf siyah değil, daha doğal
+
       case TileColorType.yellow:
-        return [const Color(0xFFD8A719), const Color(0xFF7C5D00)];
+        return const Color(0xFFF4A622); // sıcak okey sarısı
     }
   }
 }
@@ -460,7 +468,11 @@ class TileGemBadge extends PositionComponent {
     canvas.drawCircle(Offset.zero, radius - 0.9, ring);
 
     final gleam = Paint()..color = const Color(0xA6FFFFFF);
-    canvas.drawCircle(Offset(-radius * 0.3, -radius * 0.35), radius * 0.28, gleam);
+    canvas.drawCircle(
+      Offset(-radius * 0.3, -radius * 0.35),
+      radius * 0.28,
+      gleam,
+    );
   }
 }
 

@@ -111,6 +111,17 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       isCreator: widget.isCreator,
       onTileSfx: _playTileSfx,
     );
+
+    _game.onFinish = () async {
+      if (_showFinish) return; // 🔥 double trigger engelle
+
+      setState(() {
+        _showFinish = true;
+      });
+
+      _autoCloseFinish();
+    };
+
     _myUserId = _supabase.auth.currentUser?.id;
     _bootstrap();
     _loadChatMessages();
@@ -1225,7 +1236,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                         Positioned.fill(
                           child: overlay.GameAvatarOverlay(
                             tableId: widget.tableId,
-                            topInset: 10,
+                            topInset: 5,
                             game: _game,
                           ),
                         ),

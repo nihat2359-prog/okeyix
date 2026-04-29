@@ -2902,84 +2902,15 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   ],
                                 ),
 
-                                child: Material(
-                                  color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(14),
-                                    onTap: canCreate
-                                        ? () {
-                                            createMaxPlayer = 2;
-                                            createTurnSeconds =
-                                                draftTurnSeconds;
+                                child: buildCreateButton(
+                                  canCreate: canCreate,
+                                  onTap: () {
+                                    createMaxPlayer = 2;
+                                    createTurnSeconds = draftTurnSeconds;
 
-                                            Navigator.pop(context);
-                                            _createTable();
-                                          }
-                                        : null,
-
-                                    child: Ink(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
-
-                                        border: Border.all(
-                                          color: Color(0xFFE7C66A),
-                                          width: 0.5,
-                                        ),
-
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Color(
-                                              0xFFE7C66A,
-                                            ).withOpacity(0.3),
-                                            blurRadius: 12,
-                                          ),
-                                        ],
-                                      ),
-
-                                      child: Container(
-                                        alignment: Alignment.center,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                        ),
-
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            Positioned(
-                                              top: 2,
-                                              left: 12,
-                                              right: 12,
-                                              child: Container(
-                                                height: 10,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(20),
-                                                  gradient: LinearGradient(
-                                                    colors: [
-                                                      Colors.white.withOpacity(
-                                                        0.18,
-                                                      ),
-                                                      Colors.transparent,
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-
-                                            const Text(
-                                              "MASAYI AÇ",
-                                              style: TextStyle(
-                                                color: Color(0xFFE7C66A),
-                                                fontWeight: FontWeight.w900,
-                                                letterSpacing: 0.6,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                    Navigator.pop(context);
+                                    _createTable();
+                                  },
                                 ),
                               ),
                             ),
@@ -2994,6 +2925,108 @@ class _LobbyScreenState extends State<LobbyScreen>
           },
         );
       },
+    );
+  }
+
+  Widget buildCreateButton({
+    required bool canCreate,
+    required VoidCallback onTap,
+  }) {
+    return Opacity(
+      opacity: canCreate ? 1 : 0.55,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: canCreate ? onTap : null,
+          splashColor: Colors.white.withOpacity(0.08),
+          highlightColor: Colors.transparent,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+
+              // 🔥 Daha temiz ve koyu altın (kontrast için)
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFE6C56A),
+                  Color(0xFFC79A2B),
+                  Color(0xFF7A5A12),
+                ],
+              ),
+
+              // 🔥 İnce ve sakin border
+              border: Border.all(
+                color: const Color(0xFFFFF0B0).withOpacity(0.4),
+                width: 0.8,
+              ),
+
+              boxShadow: [
+                // hafif glow
+                BoxShadow(
+                  color: const Color(0xFFC79A2B).withOpacity(0.25),
+                  blurRadius: 10,
+                ),
+                // derinlik
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.6),
+                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  // 🔥 Üst highlight'ı azalt (yazıyı boğmasın)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.12),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 🔥 TEXT (asıl fix burada)
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: const Text(
+                      "MASAYI AÇ",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white, // 🔥 sarı değil → beyaz
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.1,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            offset: Offset(0, 1),
+                            blurRadius: 3,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

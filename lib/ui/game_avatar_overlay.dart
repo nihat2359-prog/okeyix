@@ -631,10 +631,10 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         final offsetY = (size.height - gameHeight) / 2;
 
         final rackY = 720.0;
-        final rackHeight = 350.0;
+        final rackHeight = 400.0;
         final rackTop = rackY - rackHeight / 2;
 
-        final avatarWorldY = rackTop - 160;
+        final avatarWorldY = rackTop - 170;
 
         final avatarScreenY = avatarWorldY * scale + offsetY;
 
@@ -653,7 +653,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             child: Center(child: child),
           );
         }
-        return Positioned(left: 20, top: size.height * 0.32, child: child);
+        return Positioned(left: 20, top: size.height, child: child);
       case 2:
         return Positioned(
           left: 0,
@@ -662,7 +662,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           child: Center(child: child),
         );
       case 3:
-        return Positioned(right: 20, top: size.height * 0.32, child: child);
+        return Positioned(right: 20, top: size.height * 0.42, child: child);
       default:
         return const SizedBox.shrink();
     }
@@ -967,143 +967,30 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   Future<List<Map<String, dynamic>>> _loadEligiblePlayers() async {
     final myUserId = _myUserId;
     final leagueId = _leagueId;
+
     if (myUserId == null || leagueId == null) return [];
+
     try {
-      final tablePlayers = await _supabase
-          .from('table_players')
-          .select('user_id')
-          .eq('table_id', widget.tableId);
-      final excludedIds = (tablePlayers as List)
-          .map((r) => (r as Map)['user_id']?.toString())
-          .whereType<String>()
-          .toSet();
-      excludedIds.add(myUserId);
-
-      final pendingInvites = await _supabase
-          .from('table_invites')
-          .select('to_user')
-          .eq('table_id', widget.tableId)
-          .eq('status', 'pending');
-      for (final raw in (pendingInvites as List)) {
-        final uid = (raw as Map)['to_user']?.toString();
-        if (uid != null && uid.isNotEmpty) excludedIds.add(uid);
-      }
-
-      int minRating = 0;
-      try {
-        final league = await _supabase
-            .from('leagues')
-            .select('min_rating')
-            .eq('id', leagueId)
-            .maybeSingle();
-        minRating = (league?['min_rating'] as int?) ?? 0;
-      } catch (_) {}
-
-      final activeTables = await _supabase.from('tables').select('id').inFilter(
-        'status',
-        ['waiting', 'playing'],
+      final res = await _supabase.rpc(
+        'get_invitable_players',
+        params: {
+          'p_table_id': widget.tableId,
+          'p_user_id': myUserId,
+          'p_league_id': leagueId,
+          'p_entry_coin': _entryCoin,
+        },
       );
-      final activeTableIds = (activeTables as List)
-          .map((r) => (r as Map)['id']?.toString())
-          .whereType<String>()
-          .toList();
-      if (activeTableIds.isEmpty) return [];
 
-      final activePlayers = await _supabase
-          .from('table_players')
-          .select('user_id')
-          .inFilter('table_id', activeTableIds);
-      final activeUserIds = (activePlayers as List)
-          .map((r) => (r as Map)['user_id']?.toString())
-          .whereType<String>()
-          .toSet();
-      if (activeUserIds.isEmpty) return [];
+      final list = List<Map<String, dynamic>>.from(res ?? []);
 
-      final profileRows = await _supabase
-          .from('profiles')
-          .select('id, username, rating, coins, avatar')
-          .inFilter('id', activeUserIds.toList())
-          .gte('rating', minRating)
-          .gte('coins', _entryCoin)
-          .limit(80);
-
-      final userRows = await _supabase
-          .from('users')
-          .select('id, avatar_url')
-          .inFilter('id', activeUserIds.toList());
-      final avatarById = <String, String?>{};
-      for (final raw in (userRows as List)) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final id = row['id']?.toString();
-        if (id == null) continue;
-        avatarById[id] = row['avatar_url']?.toString();
-      }
-
-      final regular = (profileRows as List)
-          .map((r) => Map<String, dynamic>.from(r as Map))
-          .where((p) {
-            final id = p['id']?.toString();
-            return id != null && !excludedIds.contains(id);
-          })
-          .map((p) {
-            final id = p['id']?.toString();
-            if (id != null) {
-              p['avatar_url'] = avatarById[id] ?? p['avatar']?.toString();
-            }
-            return p;
-          })
-          .toList();
-
-      regular.sort((a, b) {
+      // ekstra güvenlik: rating'e göre sırala
+      list.sort((a, b) {
         final ar = (a['rating'] as int?) ?? 0;
         final br = (b['rating'] as int?) ?? 0;
         return br.compareTo(ar);
       });
 
-      final bots = <Map<String, dynamic>>[];
-      try {
-        final botRows = await _supabase
-            .from('users')
-            .select('id, username, avatar_url, is_bot')
-            .eq('is_bot', true)
-            .limit(30);
-        final botIds = (botRows as List)
-            .map((r) => (r as Map)['id']?.toString())
-            .whereType<String>()
-            .where((id) => id.isNotEmpty)
-            .toList();
-        final botRatingById = <String, int>{};
-        if (botIds.isNotEmpty) {
-          final botProfiles = await _supabase
-              .from('profiles')
-              .select('id,rating')
-              .inFilter('id', botIds);
-          for (final raw in (botProfiles as List)) {
-            final row = Map<String, dynamic>.from(raw as Map);
-            final id = row['id']?.toString();
-            if (id == null || id.isEmpty) continue;
-            botRatingById[id] = (row['rating'] as int?) ?? 1200;
-          }
-        }
-        for (final raw in (botRows as List)) {
-          final row = Map<String, dynamic>.from(raw as Map);
-          final id = row['id']?.toString();
-          if (id == null || id.isEmpty || excludedIds.contains(id)) continue;
-          final rating = botRatingById[id] ?? 1200;
-          if (rating < minRating) continue;
-          bots.add({
-            'id': id,
-            'username': row['username'] ?? 'Standart Bot',
-            'rating': rating,
-            'coins': 999999,
-            'avatar_url': row['avatar_url']?.toString(),
-            'is_bot': true,
-          });
-          if (bots.length >= 5) break;
-        }
-      } catch (_) {}
-
-      return [...bots, ...regular];
+      return list;
     } catch (e) {
       debugPrint('ELIGIBLE PLAYERS ERROR: $e');
       return [];

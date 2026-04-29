@@ -15,6 +15,7 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
   final String winnerName;
   final bool isWinner;
   final bool isSpectator;
+
   FinishRack(this.slots, this.winnerName, this.isWinner, this.isSpectator);
 
   Future<void> onLoad() async {

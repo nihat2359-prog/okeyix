@@ -14,7 +14,7 @@ class ClosedPileComponent extends PositionComponent
     : _currentCount = initialCount {
     this.position = position;
     anchor = Anchor.center;
-    size = Vector2(90, 140);
+    size = Vector2(100, 140);
     priority = 50;
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
 
 class LobbyTableCard extends StatelessWidget {
@@ -67,7 +68,7 @@ class LobbyTableCard extends StatelessWidget {
             left: 10,
             top: 8,
             child: Text(
-              'Masa Coin\n${_formatEntryShort((table['entry_coin'] as int?) ?? 0)}',
+              'Masa Coin\n${Format.coin((table['entry_coin'] as int?) ?? 0)}',
               style: const TextStyle(
                 color: Colors.white,
                 height: 1.02,

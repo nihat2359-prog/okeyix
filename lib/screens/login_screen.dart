@@ -934,7 +934,7 @@ class OkeyixLogo extends StatelessWidget {
                 "ADİL DAĞITIM • GERÇEK REKABET",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
                   color: Colors.white,
