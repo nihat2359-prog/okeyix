@@ -167,71 +167,126 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     final minCoin = league['min_coin'];
     final minRating = league['min_rating'];
 
-    return Center(
-      // 🔥 ORTALA
-      child: ConstrainedBox(
-        // 🔥 MAX GENİŞLİK VER
-        constraints: const BoxConstraints(maxWidth: 340),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+    final coinOk = playerCoin >= minCoin;
+    final ratingOk = playerRating >= minRating;
 
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+
+            // 🔥 DARK GLASS + DEPTH
             gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                Colors.black.withOpacity(0.75),
-                Colors.black.withOpacity(0.55),
+                const Color(0xFF1A1A1A).withOpacity(0.95),
+                const Color(0xFF0D0D0D).withOpacity(0.95),
               ],
             ),
 
-            border: Border.all(
-              color: Colors.amber.withOpacity(0.4),
-              width: 1.2,
-            ),
+            border: Border.all(color: Colors.amber.withOpacity(0.35), width: 1),
 
             boxShadow: [
-              BoxShadow(color: Colors.amber.withOpacity(0.25), blurRadius: 12),
+              // glow
+              BoxShadow(
+                color: Colors.amber.withOpacity(0.18),
+                blurRadius: 20,
+                spreadRadius: 1,
+              ),
+
+              // depth
+              BoxShadow(
+                color: Colors.black.withOpacity(0.8),
+                offset: const Offset(0, 10),
+                blurRadius: 18,
+              ),
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // 🔥 BOYUTU İÇERİĞE GÖRE
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              /// 🔥 HEADER
               Row(
                 children: [
-                  Icon(Icons.lock, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${league['name']} Kilitli",
-                    style: const TextStyle(
-                      color: Colors.white,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.amber.shade300, Colors.orange.shade700],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.amber.withOpacity(0.4),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.lock,
+                      size: 18,
+                      color: Colors.black,
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: Text(
+                      "${league['name']}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+
+                  const Text(
+                    "Kilitli",
+                    style: TextStyle(
+                      color: Colors.redAccent,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 18),
 
+              /// 🔥 REQUIREMENTS (CARD STYLE)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _reqItem("Coin", Format.coin(minCoin), playerCoin >= minCoin),
-                  _reqItem(
-                    "Rating",
-                    Format.rating(minRating),
-                    playerRating >= minRating,
+                  Expanded(
+                    child: _premiumReqItem(
+                      icon: Icons.monetization_on,
+                      title: "Coin",
+                      value: Format.coin(minCoin),
+                      ok: coinOk,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _premiumReqItem(
+                      icon: Icons.star,
+                      title: "Rating",
+                      value: Format.rating(minRating),
+                      ok: ratingOk,
+                    ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 18),
 
-              Align(
-                alignment: Alignment.centerRight,
-                child: _buildCoinButton(),
-              ),
+              /// 🔥 CTA
+              SizedBox(width: double.infinity, child: _buildCoinButton()),
             ],
           ),
         ),
@@ -239,17 +294,80 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     );
   }
 
-  Widget _reqItem(String title, String value, bool ok) {
-    return Row(
-      children: [
-        Icon(
-          ok ? Icons.check_circle : Icons.cancel,
-          color: ok ? Colors.green : Colors.red,
-          size: 16,
+  Widget _premiumReqItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required bool ok,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+
+        gradient: LinearGradient(
+          colors: ok
+              ? [const Color(0xFF1F3D2B), const Color(0xFF13251B)]
+              : [const Color(0xFF3A1F1F), const Color(0xFF261313)],
         ),
-        const SizedBox(width: 6),
-        Text("$title: $value", style: TextStyle(color: Colors.white70)),
-      ],
+
+        border: Border.all(
+          color: ok
+              ? Colors.greenAccent.withOpacity(0.35)
+              : Colors.redAccent.withOpacity(0.35),
+        ),
+      ),
+
+      child: Center(
+        // 🔥 TÜM İÇERİĞİ ORTALAR
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // 🔥 içerik kadar yer kaplar
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            /// 🔥 ICON
+            Container(
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: (ok ? Colors.greenAccent : Colors.redAccent).withOpacity(
+                  0.12,
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 16,
+                color: ok ? Colors.greenAccent : Colors.redAccent,
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            /// 🔥 TEXTLER
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start, // soldan hizalı metin
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -289,7 +407,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center, // 🔥 ORTALA
           children: const [
             Icon(Icons.monetization_on, color: Colors.black, size: 18),
             SizedBox(width: 6),

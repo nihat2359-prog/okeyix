@@ -4608,11 +4608,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                   Column(
                     children: [
                       const Text(
-                        "Okey IX - Adil Dağıtım \u2022 Gerçek Rekabet",
+                        "Adil Dağıtım \u2022 Gerçek Rekabet",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFFD4A24C),
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.1,
                         ),
@@ -4620,7 +4620,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ],
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   /// ğŸ”¥ GOLD DIVIDER
                   Container(

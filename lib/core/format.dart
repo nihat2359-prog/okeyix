@@ -22,8 +22,14 @@ class Format {
   }
 
   static String _formatShort(num v) {
+    // 🔥 tam sayıysa .0 gösterme
+    if (v % 1 == 0) {
+      return v.toStringAsFixed(0);
+    }
+
     if (v >= 100) return v.toStringAsFixed(0);
     if (v >= 10) return v.toStringAsFixed(1);
+
     return v.toStringAsFixed(1);
   }
 

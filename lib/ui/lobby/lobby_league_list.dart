@@ -44,32 +44,71 @@ class LobbyLeagueList extends StatelessWidget {
   Widget _buildLeagueGrid() {
     if (leagues.length < 5) return const SizedBox();
 
-    return Column(
-      children: [
-        /// ROW 1
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = MediaQuery.of(context).size;
+        final isTablet = size.shortestSide >= 600;
+
+        if (isTablet) {
+          /// 🔥 TABLET → ALT ALTA (büyük kartlar)
+          return Column(
+            children: List.generate(leagues.length, (i) {
+              return AnimatedLeagueItem(
+                index: i,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: _leagueItem(leagues[i], isBig: true),
+                ),
+              );
+            }),
+          );
+        }
+
+        /// 🔥 MOBILE → 2x2 + 1
+        return Column(
           children: [
-            Expanded(child: _leagueItem(leagues[0])),
-
-            Expanded(child: _leagueItem(leagues[1])),
+            Row(
+              children: [
+                Expanded(
+                  child: AnimatedLeagueItem(
+                    index: 0,
+                    child: _leagueItem(leagues[0]),
+                  ),
+                ),
+                Expanded(
+                  child: AnimatedLeagueItem(
+                    index: 1,
+                    child: _leagueItem(leagues[1]),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: AnimatedLeagueItem(
+                    index: 2,
+                    child: _leagueItem(leagues[2]),
+                  ),
+                ),
+                Expanded(
+                  child: AnimatedLeagueItem(
+                    index: 3,
+                    child: _leagueItem(leagues[3]),
+                  ),
+                ),
+              ],
+            ),
+            AnimatedLeagueItem(
+              index: 4,
+              child: SizedBox(
+                width: double.infinity,
+                child: _leagueItem(leagues[4], isBig: true),
+              ),
+            ),
           ],
-        ),
-
-        /// ROW 2
-        Row(
-          children: [
-            Expanded(child: _leagueItem(leagues[2])),
-
-            Expanded(child: _leagueItem(leagues[3])),
-          ],
-        ),
-
-        /// ROW 3 (ŞAMPİYON)
-        SizedBox(
-          width: double.infinity,
-          child: _leagueItem(leagues[4], isBig: true),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -119,44 +158,30 @@ class LobbyLeagueList extends StatelessWidget {
 
   Widget _leagueTitle(String text, Color color, {bool isBig = false}) {
     return Center(
-      child: ShaderMask(
-        shaderCallback: (bounds) {
-          return LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFFFFF3C4), // ✨ sıcak highlight (beyaz değil!)
-              color, // ana gold
-              const Color(0xFF7A5A1A), // 🔥 koyu gold (kontrast)
-            ],
-          ).createShader(bounds);
-        },
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: isBig ? 16 : 14,
-            letterSpacing: 0.6,
-            color: Colors.white,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: isBig ? 18 : 14,
+          letterSpacing: 0.6,
 
-            shadows: [
-              // 🔥 bu en kritik
-              Shadow(
-                color: Colors.black.withOpacity(0.9),
-                offset: const Offset(0, 2),
-                blurRadius: 6,
-              ),
+          // 🔥 ANA RENK (gradient yok)
+          color: const Color(0xFFFFE6A0),
 
-              // hafif sıcak glow
-              Shadow(
-                color: const Color(0xFFFFD54F).withOpacity(0.4),
-                blurRadius: 8,
-              ),
-            ],
-          ),
+          shadows: [
+            // 🔥 NETLİK SHADOW (en önemli)
+            Shadow(
+              color: Colors.black.withOpacity(0.9),
+              offset: const Offset(0, 1),
+              blurRadius: 2,
+            ),
+
+            // 🔥 ÇOK HAFİF GOLD GLOW
+            Shadow(color: color.withOpacity(0.25), blurRadius: 4),
+          ],
         ),
       ),
     );
@@ -390,5 +415,64 @@ class LobbyLeagueList extends StatelessWidget {
       default:
         return Icons.circle;
     }
+  }
+}
+
+class AnimatedLeagueItem extends StatefulWidget {
+  final Widget child;
+  final int index;
+
+  const AnimatedLeagueItem({
+    super.key,
+    required this.child,
+    required this.index,
+  });
+
+  @override
+  State<AnimatedLeagueItem> createState() => _AnimatedLeagueItemState();
+}
+
+class _AnimatedLeagueItemState extends State<AnimatedLeagueItem>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _c;
+  late Animation<double> _opacity;
+  late Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    _opacity = Tween(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOut));
+
+    _offset = Tween(
+      begin: const Offset(0, 0.08), // 🔥 aşağıdan gelsin
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+
+    Future.delayed(Duration(milliseconds: widget.index * 80), () {
+      if (mounted) _c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _offset, child: widget.child),
+    );
   }
 }
