@@ -182,10 +182,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF1A1A1A).withOpacity(0.95),
-                const Color(0xFF0D0D0D).withOpacity(0.95),
-              ],
+              colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
             ),
 
             border: Border.all(color: Colors.amber.withOpacity(0.35), width: 1),

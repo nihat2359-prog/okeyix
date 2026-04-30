@@ -4590,18 +4590,38 @@ class _LobbyScreenState extends State<LobbyScreen>
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
             child: Container(
               /// ğŸ”¥ biraz daha geniş
-              width: leagueWidth + 60,
+              width: leagueWidth + 80,
 
-              margin: const EdgeInsets.fromLTRB(10, 2, 6, 8),
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+              margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
+              padding: const EdgeInsets.fromLTRB(6, 8, 14, 8),
 
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
 
-                /// ğŸ”¥ cam rengi (çok kritik)
-                border: Border.all(color: const Color(0x33FFFFFF), width: 1.2),
-              ),
+                /// 🔥 ANA BORDER (daha koyu + classy)
+                border: Border.all(
+                  color: const Color(0x33FFEBC6), // 🔥 opacity düşürüldü
+                  width: 1.0,
+                ),
 
+                /// 🔥 SOFT SHADOW SYSTEM
+                boxShadow: [
+                  /// çok hafif dış glow
+                  BoxShadow(
+                    color: const Color(0xFFFFD76A).withOpacity(0.10),
+                    blurRadius: 10,
+                    spreadRadius: 0,
+                  ),
+
+                  /// ambient shadow
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 12,
+                  ),
+
+                  /// iç derinlik
+                ],
+              ),
               child: Column(
                 children: [
                   const SizedBox(height: 8),

@@ -173,25 +173,25 @@ class AuthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color bg;
+    List<Color> bg;
     Color border;
     Color textColor;
 
     switch (type) {
       case AuthButtonType.apple:
-        bg = const Color(0xFF0A0A0A);
+        bg = [Color(0xFF0F2A1E), Color.fromARGB(255, 2, 17, 11)];
         border = Colors.white.withOpacity(0.12);
         textColor = Colors.white;
         break;
 
       case AuthButtonType.google:
-        bg = const Color(0xFF0F2A20);
+        bg = [Color(0xFF0F2A1E), Color(0xFF071A12)];
         border = const Color(0xFFE7C66A).withOpacity(0.5);
         textColor = const Color(0xFFE7C66A);
         break;
 
       case AuthButtonType.guest:
-        bg = const Color(0xFF0F2A20);
+        bg = [Color(0xFF0F2A1E), Color(0xFF071A12)];
         border = const Color(0xFFE7C66A).withOpacity(0.35);
         textColor = const Color(0xFFE7C66A);
         break;
@@ -220,7 +220,7 @@ class AuthButton extends StatelessWidget {
 
         child: Ink(
           decoration: BoxDecoration(
-            color: bg, // 🔥 ANA YÜZEY
+            // color: bg, // 🔥 ANA YÜZEY
             borderRadius: BorderRadius.circular(10),
 
             border: Border.all(color: border, width: 1),
@@ -233,6 +233,11 @@ class AuthButton extends StatelessWidget {
                 offset: const Offset(0, 4),
               ),
             ],
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: bg,
+            ),
           ),
 
           child: Stack(
@@ -361,8 +366,8 @@ class _PremiumCoinButtonState extends State<PremiumCoinButton>
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFF3E3212), // çok koyu edge
-                    Color(0xFFB8962E), // mid gold
-                    Color(0xFFFFD76A), // highlight
+                    Color(0xFF0F2A1E), // mid gold
+                    Color(0xFF071A12), // highlight
                     Color(0xFFB8962E), // geri dönüş
                   ],
                   stops: [0.0, 0.35, 0.55, 1.0],
@@ -382,10 +387,7 @@ class _PremiumCoinButtonState extends State<PremiumCoinButton>
                       alignment: Alignment.center,
                       children: [
                         /// 💰 COIN
-                        Image.asset(
-                          "assets/images/lobby/coin_stack.png",
-                          width: 32,
-                        ),
+                        Image.asset("assets/images/lobby/store.png", width: 32),
 
                         /// ✨ SHIMMER (ince ışık sweep)
                         Positioned.fill(
