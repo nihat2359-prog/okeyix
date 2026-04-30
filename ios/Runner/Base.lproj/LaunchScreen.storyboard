@@ -13,15 +13,7 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
 
                         <subviews>
-
-                            <!-- 🔥 FULL BACKGROUND -->
-                            <imageView
-                                clipsSubviews="YES"
-                                userInteractionEnabled="NO"
-                                contentMode="scaleToFill"
-                                image="LaunchBackground"
-                                translatesAutoresizingMaskIntoConstraints="NO"
-                                id="BG-IMG"/>
+                         
 
                             <!-- 🔥 CENTER LOGO -->
                             <imageView
