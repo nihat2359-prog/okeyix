@@ -84,12 +84,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final session = event.session;
       if (session != null) {
         await PresenceService.instance.startForCurrentUser();
+        try {
+          await DeviceRegistrationService.registerCurrentDevice();
+          _showPushDebug('PUSH: register_device auth event calisti');
+        } catch (e) {
+          _showPushDebug('PUSH: register_device auth event hata: $e');
+        }
       } else {
         await PresenceService.instance.stopForCurrentUser();
       }
     });
     if (supabase.auth.currentSession != null) {
       PresenceService.instance.startForCurrentUser();
+      unawaited(
+        DeviceRegistrationService.registerCurrentDevice().then((_) {
+          _showPushDebug('PUSH: register_device startup calisti');
+        }).catchError((e) {
+          _showPushDebug('PUSH: register_device startup hata: $e');
+        }),
+      );
     }
   }
 

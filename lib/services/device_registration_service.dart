@@ -14,12 +14,18 @@ class DeviceRegistrationService {
     final supabase = Supabase.instance.client;
     final session = supabase.auth.currentSession;
     final user = supabase.auth.currentUser;
-    if (session == null || user == null) return;
+    if (session == null || user == null) {
+      debugPrint('REGISTER_DEVICE SKIP: no session');
+      return;
+    }
 
     final deviceId = await DeviceIdentityService.getStableInstallId();
     final packageInfo = await PackageInfo.fromPlatform();
     final pushToken =
         pushTokenOverride ?? await PushNotificationService.instance.getToken();
+    debugPrint(
+      'REGISTER_DEVICE START: user=${user.id} token=${pushToken == null ? "YOK" : "VAR"}',
+    );
 
     String platform = "web";
     String deviceModel = "";
@@ -44,7 +50,7 @@ class DeviceRegistrationService {
       }
     }
 
-    await supabase.functions.invoke(
+    final res = await supabase.functions.invoke(
       'register_device',
       body: {
         "user_id": user.id,
@@ -56,6 +62,6 @@ class DeviceRegistrationService {
         "push_token": pushToken,
       },
     );
+    debugPrint('REGISTER_DEVICE DONE: ${res.data}');
   }
 }
-
