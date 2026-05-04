@@ -525,7 +525,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           ),
                         ),
                         child: const Text(
-                          'Masaya Kat�l',
+                          'Masaya Katıl',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -554,7 +554,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             .eq('id', tableId)
             .maybeSingle();
         if (table == null) {
-          _msg('Masa art�k bulunam�yor.');
+          _msg('Masa artık bulunamıyor.');
           return;
         }
         await _joinTable(Map<String, dynamic>.from(table));
@@ -566,7 +566,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             .eq('status', 'pending');
       }
     } catch (e) {
-      _msg('Davet i�lenemedi.');
+      _msg('Davet işlenemedi.');
       debugPrint('TABLE INVITE HANDLE ERROR: $e');
     }
   }
@@ -703,8 +703,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     final minPlayersByName = {
       'Standart': 180,
       'Bronz': 120,
-      'G�m��': 80,
-      'Alt�n': 40,
+      'Gümüş': 80,
+      'Altın': 40,
     };
 
     if (leagues.isEmpty) return;
@@ -1130,7 +1130,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final entry = coinOptions[selectedIndex];
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
-      return _msg('Bu lig i�in rating yetersiz.');
+      return _msg('Bu lig için rating yetersiz.');
     }
 
     final table = await supabase
@@ -1161,7 +1161,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _joinTable(Map<String, dynamic> table) async {
     if (table['is_fake'] == true) {
-      _msg('Bu masa vitrin masas�d�r. Kat�l�m kapal�.');
+      _msg('Bu masa vitrin masasıdır. Katılım kapalı.');
       return;
     }
     final user = supabase.auth.currentUser;
@@ -1181,7 +1181,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if ((tableRating as List).isNotEmpty) {
       final minRating = (tableRating.first['min_rating'] as int?) ?? 0;
       if (UserState.userRating < minRating) {
-        return _msg('Bu lig i�in rating yetersiz.');
+        return _msg('Bu lig için rating yetersiz.');
       }
     }
 
@@ -1427,7 +1427,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                       const Expanded(
                         child: Text(
-                          'Genel Seyirci Ge�i�i',
+                          'Genel Seyirci Geçişi',
                           style: TextStyle(
                             color: Color(0xFFE7C06A),
                             fontSize: 20,
@@ -1462,8 +1462,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                       border: Border.all(color: Colors.white.withOpacity(0.06)),
                     ),
                     child: const Text(
-                      'Sadece arkada�lar�n�n masas�n� �cretsiz izleyebilirsin.\n\n'
-                      '24 saat boyunca t�m masalar� izlemek i�in bu ge�i�i a�abilirsin.',
+                      'Sadece arkadaşlarının masasını ücretsiz izleyebilirsin.\n\n'
+                      '24 saat boyunca tüm masaları izlemek için bu geçişi açabilirsin.',
                       style: TextStyle(
                         color: Colors.white70,
                         height: 1.4,
@@ -1550,7 +1550,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                             ),
                             child: const Center(
                               child: Text(
-                                "Vazge�",
+                                "Vazgeç",
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.w600,
@@ -1587,7 +1587,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Center(
                                   child: Text(
-                                    "Sat�n Al",
+                                    "Satın Al",
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontWeight: FontWeight.w800,
@@ -1739,7 +1739,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 });
                 if (!mounted) return;
                 Navigator.pop(context);
-                _msg('Talebiniz al�nm��t�r.');
+                _msg('Talebiniz alınmıştır.');
               } catch (_) {
                 setLocalState(() {
                   sending = false;
@@ -1786,7 +1786,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'Destek �ikayet G�nder',
+                          'Destek Şikayet Gönder',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -1874,7 +1874,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           onPressed: sending
                               ? null
                               : () => Navigator.pop(context),
-                          child: const Text('Vazge�'),
+                          child: const Text('Vazgeç'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
@@ -2488,7 +2488,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final text = _chatController.text.trim();
     if (uid == null || otherId == null || text.isEmpty) return;
     if (!UserState.friendIds.contains(otherId)) {
-      return _msg('Sadece arkada�lara mesaj g�nderebilirsin.');
+      return _msg('Sadece arkadaşlara mesaj gönderebilirsin.');
     }
     try {
       await supabase.from('messages').insert({
@@ -2502,7 +2502,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         _scrollToBottom();
       });
     } catch (e) {
-      _msg('Mesaj g�nderilemedi.');
+      _msg('Mesaj gönderilemedi.');
       debugPrint('SEND MESSAGE ERROR: $e');
     }
   }
@@ -2696,7 +2696,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                     BorderRadius.circular(30),
                                                 color: const Color(0x26111915),
                                                 border: Border.all(
-                                                  color: const Color(0x446E8F7F),
+                                                  color: const Color(
+                                                    0x446E8F7F,
+                                                  ),
                                                   width: 1.2,
                                                 ),
                                                 boxShadow: const [
@@ -3034,7 +3036,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                   style: TextStyle(
                                                     color:
                                                         draftTurnSeconds == 15
-                                                        ? const Color(0xFFF2D38D)
+                                                        ? const Color(
+                                                            0xFFF2D38D,
+                                                          )
                                                         : Colors.white70,
                                                     fontWeight: FontWeight.w700,
                                                   ),
@@ -3178,10 +3182,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   Color(0xFFBB8321),
                 ],
               ),
-              border: Border.all(
-                color: const Color(0xFFF9E2A8),
-                width: 1.1,
-              ),
+              border: Border.all(color: const Color(0xFFF9E2A8), width: 1.1),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0x99B1771C),
@@ -3419,7 +3420,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final body = _friends.isEmpty
         ? const Center(
             child: Text(
-              'Hen�z arkada��n yok.',
+              'Henüz arkadaşın yok.',
               style: TextStyle(color: Colors.white70),
             ),
           )
@@ -3427,113 +3428,117 @@ class _LobbyScreenState extends State<LobbyScreen>
             itemCount: _friends.length,
             separatorBuilder: (_, index) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
-        final friend = _friends[i];
-        final blocked = UserState.blockedUserIds.contains(friend['id']);
-        final tableId = friend['table_id'];
+              final friend = _friends[i];
+              final blocked = UserState.blockedUserIds.contains(friend['id']);
+              final tableId = friend['table_id'];
 
-        return InkWell(
-          onTap: () async {
-            await ProfileService.showUserCard(
-              friend,
-              onRefresh: () async {
-                await _loadSocialData();
-                await _loadTables();
-              },
-            );
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: const Color(0x6624362E),
-              border: Border.all(color: const Color(0x444F8F75)),
-            ),
-            child: Row(
-              children: [
-                _statusAvatar(
-                  username: friend['username']?.toString() ?? 'Oyuncu',
-                  avatarUrl: friend['avatar_url']?.toString(),
-                  isOnline: (friend['is_online'] as bool?) ?? false,
-                  size: 15,
-                  blocked: blocked,
-                ),
-                const SizedBox(width: 10),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+              return InkWell(
+                onTap: () async {
+                  await ProfileService.showUserCard(
+                    friend,
+                    onRefresh: () async {
+                      await _loadSocialData();
+                      await _loadTables();
+                    },
+                  );
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: const Color(0x6624362E),
+                    border: Border.all(color: const Color(0x444F8F75)),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        friend['username']?.toString() ?? 'Oyuncu',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
+                      _statusAvatar(
+                        username: friend['username']?.toString() ?? 'Oyuncu',
+                        avatarUrl: friend['avatar_url']?.toString(),
+                        isOnline: (friend['is_online'] as bool?) ?? false,
+                        size: 15,
+                        blocked: blocked,
+                      ),
+                      const SizedBox(width: 10),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              friend['username']?.toString() ?? 'Oyuncu',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              ((friend['is_online'] as bool?) ?? false)
+                                  ? 'Çevrimiçi'
+                                  : _formatLastSeen(friend['last_seen_at']),
+                              style: TextStyle(
+                                color: ((friend['is_online'] as bool?) ?? false)
+                                    ? const Color(0xFF7DDA8F)
+                                    : Colors.white60,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        ((friend['is_online'] as bool?) ?? false)
-                            ? '�evrimi�i'
-                            : _formatLastSeen(friend['last_seen_at']),
-                        style: TextStyle(
-                          color: ((friend['is_online'] as bool?) ?? false)
-                              ? const Color(0xFF7DDA8F)
-                              : Colors.white60,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+
+                      /// MASADAYSA KATIL BUTONU
+                      if (tableId != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      SpectatorScreen(tableId: tableId),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E6F5C),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Text(
+                                "Katıl",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+
+                      if (blocked)
+                        const Icon(
+                          Icons.block_rounded,
+                          size: 18,
+                          color: Color(0xFFFFB3B3),
+                        ),
                     ],
                   ),
                 ),
-
-                /// MASADAYSA KATIL BUTONU
-                if (tableId != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SpectatorScreen(tableId: tableId),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E6F5C),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          "Kat�l",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (blocked)
-                  const Icon(
-                    Icons.block_rounded,
-                    size: 18,
-                    color: Color(0xFFFFB3B3),
-                  ),
-              ],
-            ),
-          ),
-        );
+              );
             },
           );
 
@@ -3569,574 +3574,608 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _messagesPanel() {
     final body = _friends.isEmpty
         ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.group_off, color: Colors.white30, size: 42),
-            SizedBox(height: 10),
-            Text(
-              'Mesajla�mak i�in arkada� eklemelisin',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      )
-        : Row(
-      children: [
-        /// SOL ARKADAŞ L�STES�
-        Container(
-          width: 230,
-          decoration: BoxDecoration(
-            color: const Color(0x4424362E),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0x334F8F75)),
-          ),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(8),
-            itemCount: _friends.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 6),
-            itemBuilder: (_, i) {
-              final friend = _friends[i];
-              final friendId = friend['id']?.toString();
-              final selected = friendId == _activeChatUserId;
-              final unread = _unreadByUser[friendId] ?? 0;
-              final friendtableid = friend['friendid']?.toString() ?? "";
-              return InkWell(
-                onTap: friendId == null
-                    ? null
-                    : () => _loadMessagesWith(
-                        friendId,
-                        friendtableid,
-                        markRead: true,
-                      ),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: selected
-                        ? const Color(0xAA2E7752)
-                        : const Color(0x6624362E),
-                    border: Border.all(
-                      color: selected
-                          ? const Color(0x88E7C06A)
-                          : const Color(0x334F8F75),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      /// AVATAR + ONLINE
-                      _statusAvatar(
-                        username: friend['username']?.toString() ?? 'Oyuncu',
-                        avatarUrl: friend['avatar_url']?.toString(),
-                        isOnline: (friend['is_online'] as bool?) ?? false,
-                        size: 16,
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      /// �S�M + SON G�R�LME
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              friend['username']?.toString() ?? 'Oyuncu',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            if (!((friend['is_online'] as bool?) ?? false))
-                              Text(
-                                _formatLastSeen(friend['last_seen_at']),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-
-                      if (unread > 0) _badge(unread.toString()),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        /// MESAJ PANEL�
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: const Color(0x5524362E),
-              border: Border.all(color: const Color(0x334F8F75)),
-            ),
             child: Column(
-              children: [
-                /// MESAJ L�STES�
-                Expanded(
-                  child: Stack(
-                    children: [
-                      /// 💬 MESAJ L�STES�
-                      _rightPanelLoading
-                          ? Center(child: _premiumLoader(size: 32))
-                          : ListView.builder(
-                              controller: _chatScrollController,
-                              padding: const EdgeInsets.all(12),
-                              itemCount: _activeChatMessages.length,
-                              itemBuilder: (_, i) {
-                                final msg = _activeChatMessages[i];
-                                final senderId = msg['sender_id']?.toString();
-                                final mine =
-                                    msg['sender_id'] == UserState.userId;
-
-                                final isVoice = msg['type'] == 'voice';
-                                final friendData = senderId == null
-                                    ? null
-                                    : _friends
-                                          .cast<Map<String, dynamic>?>()
-                                          .firstWhere(
-                                            (f) =>
-                                                f?['id']?.toString() ==
-                                                senderId,
-                                            orElse: () => null,
-                                          );
-                                final senderName = mine
-                                    ? (UserState.userName.isEmpty
-                                          ? 'Sen'
-                                          : UserState.userName)
-                                    : (friendData?['username']?.toString() ??
-                                          'Oyuncu');
-                                final senderAvatar = mine
-                                    ? UserState.userAvatarUrl
-                                    : friendData?['avatar_url']?.toString();
-                                final senderOnline = mine
-                                    ? true
-                                    : ((friendData?['is_online'] as bool?) ??
-                                          false);
-
-                                final bubble = AnimatedContainer(
-                                  duration: const Duration(milliseconds: 180),
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 260,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(.25),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                    gradient: mine
-                                        ? const LinearGradient(
-                                            colors: [
-                                              Color(0xFF2E7752),
-                                              Color(0xFF1F5A40),
-                                            ],
-                                          )
-                                        : const LinearGradient(
-                                            colors: [
-                                              Color(0xFF3A4A43),
-                                              Color(0xFF2C3934),
-                                            ],
-                                          ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: mine
-                                        ? CrossAxisAlignment.end
-                                        : CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        senderName,
-                                        style: const TextStyle(
-                                          color: Color(0xFFD4AF37),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      isVoice
-                                          ? _voiceBubble(msg, mine)
-                                          : Text(
-                                              msg['content']?.toString() ?? '',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 13,
-                                                height: 1.35,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                    ],
-                                  ),
-                                );
-
-                                return Align(
-                                  alignment: mine
-                                      ? Alignment.centerRight
-                                      : Alignment.centerLeft,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: mine
-                                        ? [
-                                            bubble,
-                                            const SizedBox(width: 8),
-                                            _statusAvatar(
-                                              username: senderName,
-                                              avatarUrl: senderAvatar,
-                                              isOnline: senderOnline,
-                                              size: 12,
-                                            ),
-                                          ]
-                                        : [
-                                            _statusAvatar(
-                                              username: senderName,
-                                              avatarUrl: senderAvatar,
-                                              isOnline: senderOnline,
-                                              size: 12,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            bubble,
-                                          ],
-                                  ),
-                                );
-                              },
-                            ),
-
-                      /// 🔥 FLOATING MENU (Ş�MD� �ALIŞIR)
-                      Positioned(top: 8, right: 8, child: _floatingMenu()),
-                    ],
-                  ),
-                ),
-                if (_showPreview && _previewPath != null)
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF151A18),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(.4),
-                          blurRadius: 12,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        /// ▶️ PLAY
-                        GestureDetector(
-                          onTap: () async {
-                            if (_previewPlaying) {
-                              await _audioPlayer.stop();
-                              setState(() => _previewPlaying = false);
-                            } else {
-                              if (!FeedbackSettingsService.soundEnabled) {
-                                await FeedbackSettingsService.triggerHaptic();
-                                return;
-                              }
-                              await _audioPlayer.setFilePath(_previewPath!);
-                              await _audioPlayer.play();
-                              await FeedbackSettingsService.triggerHaptic();
-                              setState(() => _previewPlaying = true);
-
-                              _audioPlayer.playerStateStream.listen((state) {
-                                if (state.processingState ==
-                                    ProcessingState.completed) {
-                                  setState(() => _previewPlaying = false);
-                                }
-                              });
-                            }
-                          },
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _previewPlaying
-                                  ? const Color(0xFFE7C06A)
-                                  : Colors.white24,
-                            ),
-                            child: Icon(
-                              _previewPlaying ? Icons.pause : Icons.play_arrow,
-                              color: _previewPlaying
-                                  ? Colors.black
-                                  : Colors.white,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 10),
-
-                        /// 🔊 WAVE
-                        Expanded(child: _waveform(_previewPlaying)),
-
-                        const SizedBox(width: 8),
-
-                        /// ❌ DELETE
-                        IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            color: Colors.redAccent,
-                          ),
-                          onPressed: () async {
-                            final path = _previewPath;
-
-                            if (path == null) return;
-
-                            await File(path).delete();
-
-                            if (mounted) {
-                              setState(() {
-                                _previewPath = null;
-                                _showPreview = false;
-                              });
-                            }
-                          },
-                        ),
-
-                        /// ✅ SEND
-                        IconButton(
-                          icon: const Icon(
-                            Icons.send,
-                            color: Colors.greenAccent,
-                          ),
-                          onPressed: () async {
-                            final path = _previewPath;
-
-                            if (path == null) return;
-
-                            await _sendVoiceMessage(path);
-
-                            if (mounted) {
-                              setState(() {
-                                _previewPath = null;
-                                _showPreview = false;
-                              });
-                            }
-
-                            await File(path).delete();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_isRecording)
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF151A18),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.redAccent.withOpacity(.4),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        /// 🎤 ICON
-                        const Icon(
-                          Icons.mic,
-                          color: Colors.redAccent,
-                          size: 18,
-                        ),
-
-                        const SizedBox(width: 10),
-
-                        /// TEXT
-                        const Text(
-                          "Recording...",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        /// 🔴 BLINK DOT
-                        _recordDot(),
-
-                        const SizedBox(width: 6),
-
-                        /// ⏱️ TIMER
-                        Text(
-                          _recordDuration,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                /// MESAJ G�NDERME ALANI
-                Container(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: Color(0x334F8F75))),
-                  ),
-                  child: Row(
-                    children: [
-                      Listener(
-                        onPointerDown: (_) async {
-                          print("DOWN");
-
-                          _pressStartTime = DateTime.now();
-
-                          await Future.delayed(
-                            const Duration(milliseconds: 250),
-                          );
-
-                          // hala bas�l�ysa ba�lat
-                          if (_isPressing) {
-                            print("START RECORD");
-                            await _startRecording();
-                          }
-                        },
-
-                        onPointerUp: (_) async {
-                          print("UP");
-
-                          _isPressing = false;
-
-                          await _stopRecording(send: true);
-                        },
-
-                        onPointerCancel: (_) async {
-                          print("CANCEL");
-
-                          _isPressing = false;
-
-                          await _stopRecording(send: false);
-                        },
-
-                        child: GestureDetector(
-                          onTapDown: (_) {
-                            _isPressing = true;
-                          },
-                          onTapUp: (_) {
-                            _isPressing = false;
-                          },
-                          child: _recordButton(),
-                        ),
-                      ),
-
-                      /// 🎤 VOICE BUTTON
-                      const SizedBox(width: 8),
-
-                      /// TEXTFIELD
-                      Expanded(
-                        child: TextField(
-                          controller: _chatController,
-                          style: const TextStyle(
-                            color: Color(0xFFF3FFF9),
-                            fontWeight: FontWeight.w600,
-                          ),
-                          cursorColor: const Color(0xFFE7C06A),
-                          decoration: InputDecoration(
-                            hintText: 'Mesaj yaz...',
-                            hintStyle: const TextStyle(
-                              color: Color(0x8FB8CEC3),
-                            ),
-                            filled: true,
-                            fillColor: const Color(0x5524362E),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: Color(0x3359A588),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: Color(0x3359A588),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: Color(0x88E7C06A),
-                                width: 1.3,
-                              ),
-                            ),
-                          ),
-                          onSubmitted: (_) => _sendMessage(),
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      /// G�NDER BUTONU
-                      Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFE7C06A), Color(0xFF9C7A2B)],
-                          ),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: _sendMessage,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Center(
-                                child: Icon(
-                                  Icons.send,
-                                  color: Colors.black,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.group_off, color: Colors.white30, size: 42),
+                SizedBox(height: 10),
+                Text(
+                  'Mesajlaşmak için arkadaş eklemelisin',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-      ],
-    );
+          )
+        : Row(
+            children: [
+              /// SOL ARKADAŞ L�STES�
+              Container(
+                width: 230,
+                decoration: BoxDecoration(
+                  color: const Color(0x4424362E),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0x334F8F75)),
+                ),
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _friends.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final friend = _friends[i];
+                    final friendId = friend['id']?.toString();
+                    final selected = friendId == _activeChatUserId;
+                    final unread = _unreadByUser[friendId] ?? 0;
+                    final friendtableid = friend['friendid']?.toString() ?? "";
+                    return InkWell(
+                      onTap: friendId == null
+                          ? null
+                          : () => _loadMessagesWith(
+                              friendId,
+                              friendtableid,
+                              markRead: true,
+                            ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: selected
+                              ? const Color(0xAA2E7752)
+                              : const Color(0x6624362E),
+                          border: Border.all(
+                            color: selected
+                                ? const Color(0x88E7C06A)
+                                : const Color(0x334F8F75),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            /// AVATAR + ONLINE
+                            _statusAvatar(
+                              username:
+                                  friend['username']?.toString() ?? 'Oyuncu',
+                              avatarUrl: friend['avatar_url']?.toString(),
+                              isOnline: (friend['is_online'] as bool?) ?? false,
+                              size: 16,
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            /// �S�M + SON G�R�LME
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    friend['username']?.toString() ?? 'Oyuncu',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  if (!((friend['is_online'] as bool?) ??
+                                      false))
+                                    Text(
+                                      _formatLastSeen(friend['last_seen_at']),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            if (unread > 0) _badge(unread.toString()),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              /// MESAJ PANEL�
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: const Color(0x5524362E),
+                    border: Border.all(color: const Color(0x334F8F75)),
+                  ),
+                  child: Column(
+                    children: [
+                      /// MESAJ L�STES�
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            /// 💬 MESAJ L�STES�
+                            _rightPanelLoading
+                                ? Center(child: _premiumLoader(size: 32))
+                                : ListView.builder(
+                                    controller: _chatScrollController,
+                                    padding: const EdgeInsets.all(12),
+                                    itemCount: _activeChatMessages.length,
+                                    itemBuilder: (_, i) {
+                                      final msg = _activeChatMessages[i];
+                                      final senderId = msg['sender_id']
+                                          ?.toString();
+                                      final mine =
+                                          msg['sender_id'] == UserState.userId;
+
+                                      final isVoice = msg['type'] == 'voice';
+                                      final friendData = senderId == null
+                                          ? null
+                                          : _friends
+                                                .cast<Map<String, dynamic>?>()
+                                                .firstWhere(
+                                                  (f) =>
+                                                      f?['id']?.toString() ==
+                                                      senderId,
+                                                  orElse: () => null,
+                                                );
+                                      final senderName = mine
+                                          ? (UserState.userName.isEmpty
+                                                ? 'Sen'
+                                                : UserState.userName)
+                                          : (friendData?['username']
+                                                    ?.toString() ??
+                                                'Oyuncu');
+                                      final senderAvatar = mine
+                                          ? UserState.userAvatarUrl
+                                          : friendData?['avatar_url']
+                                                ?.toString();
+                                      final senderOnline = mine
+                                          ? true
+                                          : ((friendData?['is_online']
+                                                    as bool?) ??
+                                                false);
+
+                                      final bubble = AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 180,
+                                        ),
+                                        margin: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 260,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                .25,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 3),
+                                            ),
+                                          ],
+                                          gradient: mine
+                                              ? const LinearGradient(
+                                                  colors: [
+                                                    Color(0xFF2E7752),
+                                                    Color(0xFF1F5A40),
+                                                  ],
+                                                )
+                                              : const LinearGradient(
+                                                  colors: [
+                                                    Color(0xFF3A4A43),
+                                                    Color(0xFF2C3934),
+                                                  ],
+                                                ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: mine
+                                              ? CrossAxisAlignment.end
+                                              : CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              senderName,
+                                              style: const TextStyle(
+                                                color: Color(0xFFD4AF37),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            isVoice
+                                                ? _voiceBubble(msg, mine)
+                                                : Text(
+                                                    msg['content']
+                                                            ?.toString() ??
+                                                        '',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 13,
+                                                      height: 1.35,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                          ],
+                                        ),
+                                      );
+
+                                      return Align(
+                                        alignment: mine
+                                            ? Alignment.centerRight
+                                            : Alignment.centerLeft,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: mine
+                                              ? [
+                                                  bubble,
+                                                  const SizedBox(width: 8),
+                                                  _statusAvatar(
+                                                    username: senderName,
+                                                    avatarUrl: senderAvatar,
+                                                    isOnline: senderOnline,
+                                                    size: 12,
+                                                  ),
+                                                ]
+                                              : [
+                                                  _statusAvatar(
+                                                    username: senderName,
+                                                    avatarUrl: senderAvatar,
+                                                    isOnline: senderOnline,
+                                                    size: 12,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  bubble,
+                                                ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+
+                            /// 🔥 FLOATING MENU (Ş�MD� �ALIŞIR)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: _floatingMenu(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_showPreview && _previewPath != null)
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF151A18),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(.4),
+                                blurRadius: 12,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              /// ▶️ PLAY
+                              GestureDetector(
+                                onTap: () async {
+                                  if (_previewPlaying) {
+                                    await _audioPlayer.stop();
+                                    setState(() => _previewPlaying = false);
+                                  } else {
+                                    if (!FeedbackSettingsService.soundEnabled) {
+                                      await FeedbackSettingsService.triggerHaptic();
+                                      return;
+                                    }
+                                    await _audioPlayer.setFilePath(
+                                      _previewPath!,
+                                    );
+                                    await _audioPlayer.play();
+                                    await FeedbackSettingsService.triggerHaptic();
+                                    setState(() => _previewPlaying = true);
+
+                                    _audioPlayer.playerStateStream.listen((
+                                      state,
+                                    ) {
+                                      if (state.processingState ==
+                                          ProcessingState.completed) {
+                                        setState(() => _previewPlaying = false);
+                                      }
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _previewPlaying
+                                        ? const Color(0xFFE7C06A)
+                                        : Colors.white24,
+                                  ),
+                                  child: Icon(
+                                    _previewPlaying
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
+                                    color: _previewPlaying
+                                        ? Colors.black
+                                        : Colors.white,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              /// 🔊 WAVE
+                              Expanded(child: _waveform(_previewPlaying)),
+
+                              const SizedBox(width: 8),
+
+                              /// ❌ DELETE
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.redAccent,
+                                ),
+                                onPressed: () async {
+                                  final path = _previewPath;
+
+                                  if (path == null) return;
+
+                                  await File(path).delete();
+
+                                  if (mounted) {
+                                    setState(() {
+                                      _previewPath = null;
+                                      _showPreview = false;
+                                    });
+                                  }
+                                },
+                              ),
+
+                              /// ✅ SEND
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.send,
+                                  color: Colors.greenAccent,
+                                ),
+                                onPressed: () async {
+                                  final path = _previewPath;
+
+                                  if (path == null) return;
+
+                                  await _sendVoiceMessage(path);
+
+                                  if (mounted) {
+                                    setState(() {
+                                      _previewPath = null;
+                                      _showPreview = false;
+                                    });
+                                  }
+
+                                  await File(path).delete();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (_isRecording)
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF151A18),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.redAccent.withOpacity(.4),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              /// 🎤 ICON
+                              const Icon(
+                                Icons.mic,
+                                color: Colors.redAccent,
+                                size: 18,
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              /// TEXT
+                              const Text(
+                                "Recording...",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+
+                              const Spacer(),
+
+                              /// 🔴 BLINK DOT
+                              _recordDot(),
+
+                              const SizedBox(width: 6),
+
+                              /// ⏱️ TIMER
+                              Text(
+                                _recordDuration,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      /// MESAJ G�NDERME ALANI
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: Color(0x334F8F75)),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Listener(
+                              onPointerDown: (_) async {
+                                print("DOWN");
+
+                                _pressStartTime = DateTime.now();
+
+                                await Future.delayed(
+                                  const Duration(milliseconds: 250),
+                                );
+
+                                // hala bas�l�ysa ba�lat
+                                if (_isPressing) {
+                                  print("START RECORD");
+                                  await _startRecording();
+                                }
+                              },
+
+                              onPointerUp: (_) async {
+                                print("UP");
+
+                                _isPressing = false;
+
+                                await _stopRecording(send: true);
+                              },
+
+                              onPointerCancel: (_) async {
+                                print("CANCEL");
+
+                                _isPressing = false;
+
+                                await _stopRecording(send: false);
+                              },
+
+                              child: GestureDetector(
+                                onTapDown: (_) {
+                                  _isPressing = true;
+                                },
+                                onTapUp: (_) {
+                                  _isPressing = false;
+                                },
+                                child: _recordButton(),
+                              ),
+                            ),
+
+                            /// 🎤 VOICE BUTTON
+                            const SizedBox(width: 8),
+
+                            /// TEXTFIELD
+                            Expanded(
+                              child: TextField(
+                                controller: _chatController,
+                                style: const TextStyle(
+                                  color: Color(0xFFF3FFF9),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                cursorColor: const Color(0xFFE7C06A),
+                                decoration: InputDecoration(
+                                  hintText: 'Mesaj yaz...',
+                                  hintStyle: const TextStyle(
+                                    color: Color(0x8FB8CEC3),
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0x5524362E),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0x3359A588),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0x3359A588),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0x88E7C06A),
+                                      width: 1.3,
+                                    ),
+                                  ),
+                                ),
+                                onSubmitted: (_) => _sendMessage(),
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            /// G�NDER BUTONU
+                            Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFE7C06A),
+                                    Color(0xFF9C7A2B),
+                                  ],
+                                ),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: _sendMessage,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.send,
+                                        color: Colors.black,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
 
     return Column(
       children: [
@@ -4302,7 +4341,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   /// ⚠️ DESCRIPTION
                   const Text(
-                    "Bu kullan�c�yla t�m mesajlar ve ses kay�tlar� silinecek.",
+                    "Bu kullanıcıyla tüm mesajlar ve ses kayıtları silinecek.",
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 13),
                   ),
@@ -4328,7 +4367,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ),
                             ),
                             child: const Text(
-                              "�ptal",
+                              "İptal",
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontWeight: FontWeight.w600,
@@ -4402,7 +4441,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       _msg("Sohbet silindi");
     } catch (e) {
       debugPrint("DELETE CHAT ERROR: $e");
-      _msg("Silme hatas�");
+      _msg("Silme hatası");
     }
   }
 
@@ -4441,7 +4480,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       /// 🔄 4. CHAT REFRESH (senin sistem)
       await _loadMessagesWith(otherId, ftableid, markRead: false);
     } catch (e) {
-      _msg('Sesli mesaj g�nderilemedi.');
+      _msg('Sesli mesaj gönderilemedi.');
       debugPrint('VOICE MESSAGE ERROR: $e');
     }
   }
@@ -4718,7 +4757,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 inactiveThumbColor: const Color(0xFF8EA79A),
                 inactiveTrackColor: const Color(0x334E6A5D),
                 title: const Text(
-                  'Titre�im',
+                  'Titreşim',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -4759,7 +4798,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         const SizedBox(height: 6),
         lobbySideMenuButton(
           icon: Icons.person_rounded,
-          label: 'Profil Kart�m',
+          label: 'Profil Kartım',
           onTap: () => ProfileService.showUserCard(
             {
               'id': UserState.userId,
@@ -4781,7 +4820,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         // 🔥 YEN� EKLED�Ğ�M�Z
         lobbySideMenuButton(
           icon: Icons.delete_forever_rounded,
-          label: 'Hesab� Sil',
+          label: 'Hesabı Sil',
           danger: true,
           onTap: () async {
             _closeRightPanel();
@@ -4797,13 +4836,13 @@ class _LobbyScreenState extends State<LobbyScreen>
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Hesab� Sil"),
+          title: Text("Hesabı Sil"),
           content: Text(
-            "Bu i�lem geri al�namaz. Hesab�n�z ve t�m verileriniz silinecek. Emin misiniz?",
+            "Bu işlem geri alınamaz. Hesabınız ve tüm verileriniz silinecek. Emin misiniz?",
           ),
           actions: [
             TextButton(
-              child: Text("�ptal"),
+              child: Text("İptal"),
               onPressed: () => Navigator.pop(context, false),
             ),
             TextButton(
@@ -4839,7 +4878,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       print("DELETE ERROR: $e");
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Hesap silinirken hata olu�tu")));
+      ).showSnackBar(SnackBar(content: Text("Hesap silinirken hata oluştu")));
     }
   }
 
@@ -5391,7 +5430,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         GiftOverlay.show(
           senderName: senderName,
           emoji: "??",
-          giftName: "${gifts.length} hediye g�nderdi!",
+          giftName: "${gifts.length} hediye gönderdi!",
           senderId: senderId,
         );
       }

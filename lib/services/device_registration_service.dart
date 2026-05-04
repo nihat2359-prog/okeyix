@@ -10,7 +10,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class DeviceRegistrationService {
   DeviceRegistrationService._();
 
-  static Future<void> registerCurrentDevice({String? pushTokenOverride}) async {
+  static Future<void> registerCurrentDevice({
+    String? pushTokenOverride,
+    bool lookupPushToken = true,
+  }) async {
     final supabase = Supabase.instance.client;
     final session = supabase.auth.currentSession;
     final user = supabase.auth.currentUser;
@@ -21,8 +24,10 @@ class DeviceRegistrationService {
 
     final deviceId = await DeviceIdentityService.getStableInstallId();
     final packageInfo = await PackageInfo.fromPlatform();
-    final pushToken =
-        pushTokenOverride ?? await PushNotificationService.instance.getToken();
+    final pushToken = pushTokenOverride ??
+        (lookupPushToken
+            ? await PushNotificationService.instance.getToken()
+            : null);
     debugPrint(
       'REGISTER_DEVICE START: user=${user.id} token=${pushToken == null ? "YOK" : "VAR"}',
     );

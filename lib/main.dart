@@ -87,7 +87,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (session != null) {
         await PresenceService.instance.startForCurrentUser();
         try {
-          await DeviceRegistrationService.registerCurrentDevice();
+          await DeviceRegistrationService.registerCurrentDevice(
+            lookupPushToken: false,
+          );
           _showPushDebug('PUSH: register_device auth event calisti');
         } catch (e) {
           final msg = e.toString();
@@ -105,7 +107,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (supabase.auth.currentSession != null) {
       PresenceService.instance.startForCurrentUser();
       unawaited(
-        DeviceRegistrationService.registerCurrentDevice().then((_) {
+        DeviceRegistrationService.registerCurrentDevice(
+          lookupPushToken: false,
+        ).then((_) {
           _showPushDebug('PUSH: register_device startup calisti');
         }).catchError((e) {
           final msg = e.toString();
@@ -155,7 +159,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _registerRetryTimer?.cancel();
     _registerRetryTimer = Timer(const Duration(seconds: 4), () async {
       try {
-        await DeviceRegistrationService.registerCurrentDevice();
+        await DeviceRegistrationService.registerCurrentDevice(
+          lookupPushToken: false,
+        );
         _showPushDebug('PUSH: register_device retry basarili');
       } catch (e) {
         _showPushDebug('PUSH: register_device retry hata: $e');
@@ -180,14 +186,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _showPushDebug(String message) {
     debugPrint(message);
-    final ctx = navigatorKey.currentContext;
-    if (ctx == null) return;
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
-        duration: const Duration(seconds: 4),
-      ),
-    );
   }
 
   Widget build(BuildContext context) {
