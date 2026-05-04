@@ -79,13 +79,31 @@ class PushNotificationService {
       );
 
       if (Platform.isIOS) {
-        final apns = await messaging.getAPNSToken();
+        String? apns;
+        for (int i = 0; i < 6; i++) {
+          try {
+            apns = await messaging.getAPNSToken();
+          } catch (_) {
+            apns = null;
+          }
+          if (apns != null && apns.isNotEmpty) break;
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
         await onDebug?.call(
-          'PUSH: APNS token ${apns == null ? "YOK" : "VAR"}',
+          'PUSH: APNS token ${apns == null ? "YOK (bekleniyor)" : "VAR"}',
         );
       }
 
-      final token = await messaging.getToken();
+      String? token;
+      for (int i = 0; i < 8; i++) {
+        try {
+          token = await messaging.getToken();
+        } catch (_) {
+          token = null;
+        }
+        if (token != null && token.isNotEmpty) break;
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
       await onDebug?.call('PUSH: FCM token ${token == null ? "YOK" : "VAR"}');
       if (token != null && token.isNotEmpty && onToken != null) {
         await onToken(token);
