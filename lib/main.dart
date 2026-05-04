@@ -57,6 +57,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSub;
+  Timer? _registerRetryTimer;
 
   @override
   void initState() {
@@ -71,7 +72,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             );
           } catch (e) {
             debugPrint('TOKEN REGISTER ERROR: $e');
-            _showPushDebug('TOKEN REGISTER ERROR: $e');
+            _showPushDebug('PUSH: token geldi, register beklemede');
+            _scheduleRegisterRetry();
           }
         },
         onDebug: _showPushDebug,
@@ -88,7 +90,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           await DeviceRegistrationService.registerCurrentDevice();
           _showPushDebug('PUSH: register_device auth event calisti');
         } catch (e) {
-          _showPushDebug('PUSH: register_device auth event hata: $e');
+          final msg = e.toString();
+          if (msg.contains('apns-token-not-set')) {
+            _showPushDebug('PUSH: APNS token bekleniyor, tekrar denenecek');
+            _scheduleRegisterRetry();
+          } else {
+            _showPushDebug('PUSH: register_device auth event hata: $e');
+          }
         }
       } else {
         await PresenceService.instance.stopForCurrentUser();
@@ -100,7 +108,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         DeviceRegistrationService.registerCurrentDevice().then((_) {
           _showPushDebug('PUSH: register_device startup calisti');
         }).catchError((e) {
-          _showPushDebug('PUSH: register_device startup hata: $e');
+          final msg = e.toString();
+          if (msg.contains('apns-token-not-set')) {
+            _showPushDebug('PUSH: APNS token bekleniyor, tekrar denenecek');
+            _scheduleRegisterRetry();
+          } else {
+            _showPushDebug('PUSH: register_device startup hata: $e');
+          }
         }),
       );
     }
@@ -130,10 +144,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _authSub?.cancel();
+    _registerRetryTimer?.cancel();
     PushNotificationService.instance.dispose();
     PresenceService.instance.onAppBackgrounded();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _scheduleRegisterRetry() {
+    _registerRetryTimer?.cancel();
+    _registerRetryTimer = Timer(const Duration(seconds: 4), () async {
+      try {
+        await DeviceRegistrationService.registerCurrentDevice();
+        _showPushDebug('PUSH: register_device retry basarili');
+      } catch (e) {
+        _showPushDebug('PUSH: register_device retry hata: $e');
+      }
+    });
   }
 
   Future<void> _handlePushTapData(Map<String, dynamic> data) async {

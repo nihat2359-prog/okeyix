@@ -146,7 +146,17 @@ class PushNotificationService {
     if (!Platform.isAndroid && !Platform.isIOS) return null;
     try {
       await _ensureFirebaseReady();
-      return FirebaseMessaging.instance.getToken();
+      final messaging = FirebaseMessaging.instance;
+      if (Platform.isIOS) {
+        for (int i = 0; i < 8; i++) {
+          try {
+            final apns = await messaging.getAPNSToken();
+            if (apns != null && apns.isNotEmpty) break;
+          } catch (_) {}
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      return messaging.getToken();
     } catch (_) {
       return null;
     }
