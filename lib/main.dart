@@ -17,14 +17,13 @@ const _defaultSupabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzcXBndGVkbW9qcnpvZnRjaGlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMjEyMTIsImV4cCI6MjA4Nzg5NzIxMn0.-XiDoQJtwn_I3PHTc3wxHD_3jhrwoPIqTLpKomOR74o';
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-String? _startupFirebaseError;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
   } catch (e) {
-    _startupFirebaseError = e.toString();
+    debugPrint('STARTUP FIREBASE INIT ERROR: $e');
   }
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
@@ -211,22 +210,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           supabase.auth.currentSession,
         ),
         builder: (context, snapshot) {
-          if (_startupFirebaseError != null) {
-            return Scaffold(
-              backgroundColor: const Color(0xFF121212),
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Firebase baslatma hatasi:\n$_startupFirebaseError',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            );
-          }
-
           final session =
               snapshot.data?.session ?? supabase.auth.currentSession;
 
