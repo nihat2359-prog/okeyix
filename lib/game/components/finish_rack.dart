@@ -3,6 +3,7 @@
 import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -95,15 +96,10 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
       final x = startX + col * (tileWidth + spacing);
       final y = isTop ? 60.0 : -60.0;
 
-      add(
-        TileComponent(
-          position: Vector2(x, y),
-          colorType: _stringToTileColor(tile['color']),
-          value: tile['number'],
-          isJoker: tile['joker'] ?? false,
-          isFakeJoker: tile['fake_joker'] ?? false,
-        ),
-      );
+      final model = _tileModelFromPayload(tile);
+      if (model == null) return;
+
+      add(TileComponent(tile: model, position: Vector2(x, y)));
     }
   }
 
@@ -143,6 +139,61 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
       default:
         return TileColorType.red;
     }
+  }
+
+  TileModel? _tileModelFromPayload(Map<String, dynamic> raw) {
+    // 🔥 ID ZORUNLU
+    final id = raw['id'];
+    if (id == null || id.toString().isEmpty) {
+      print("Tile payload missing id: $raw");
+      return null;
+    }
+
+    // value / number
+    final valueRaw = raw['number'] ?? raw['value'];
+    final value = valueRaw is int ? valueRaw : int.tryParse('$valueRaw');
+
+    // color
+    final colorRaw = raw['color'];
+    TileColor? color;
+
+    if (colorRaw is int) {
+      color = TileColor.values[colorRaw];
+    } else if (colorRaw is String) {
+      switch (colorRaw) {
+        case 'red':
+          color = TileColor.red;
+          break;
+        case 'blue':
+          color = TileColor.blue;
+          break;
+        case 'black':
+          color = TileColor.black;
+          break;
+        case 'yellow':
+          color = TileColor.yellow;
+          break;
+      }
+    }
+
+    if (value == null || color == null) {
+      print("Invalid tile payload: $raw");
+      return null;
+    }
+
+    return TileModel(
+      id: id.toString(), // 🔥 EN KRİTİK
+      value: value,
+      color: color,
+      isJoker:
+          raw['joker'] == true ||
+          raw['is_joker'] == true ||
+          raw['isJoker'] == true,
+      isFakeJoker:
+          raw['fake_joker'] == true ||
+          raw['is_fake_joker'] == true ||
+          raw['isFakeJoker'] == true,
+    );
   }
 }
 

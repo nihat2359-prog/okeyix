@@ -374,7 +374,7 @@ class _PremiumCoinButtonState extends State<PremiumCoinButton>
                 ),
                 border: Border.all(
                   color: Color(0xFFFFE9A0), // sıcak highlight
-                  width: 1.2,
+                  width: 2.2,
                 ),
               ),
 

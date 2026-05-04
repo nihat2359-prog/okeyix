@@ -46,6 +46,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   DateTime? _turnStartedAt;
   Timer? _tickerTimer;
   bool _hasLoadedPlayersOnce = false;
+  final List<_FlyAwayFx> _flyAwayFx = <_FlyAwayFx>[];
 
   @override
   void initState() {
@@ -236,9 +237,15 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           .firstWhere((v) => v != null, orElse: () => null);
 
       if (!mounted) return;
+      final previousPlayers = List<_SeatPlayer>.from(players);
       final previousIds = players.map((p) => p.player.id).toSet();
       final joinedPlayers = _hasLoadedPlayersOnce
           ? mapped.where((p) => !previousIds.contains(p.player.id)).toList()
+          : const <_SeatPlayer>[];
+      final removedPlayers = _hasLoadedPlayersOnce
+          ? previousPlayers
+              .where((p) => !mapped.any((m) => m.player.id == p.player.id))
+              .toList(growable: false)
           : const <_SeatPlayer>[];
 
       setState(() {
@@ -248,9 +255,30 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       });
 
       _showJoinedPlayersSnack(joinedPlayers);
+      _showRemovedPlayersFx(removedPlayers, mySeat);
     } catch (e) {
       debugPrint('OVERLAY ERROR: $e');
     }
+  }
+
+  void _showRemovedPlayersFx(List<_SeatPlayer> removedPlayers, int? mySeat) {
+    if (!mounted || removedPlayers.isEmpty) return;
+    final baseSeat = mySeat ?? _mySeatIndex ?? 0;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    setState(() {
+      for (int i = 0; i < removedPlayers.length; i++) {
+        final p = removedPlayers[i];
+        final relative = (p.seatIndex - baseSeat + _tableSize) % _tableSize;
+        _flyAwayFx.add(
+          _FlyAwayFx(
+            key: '${p.player.id}_$nowMs\_$i',
+            relativeSeat: relative,
+            name: p.player.name,
+            avatarPath: p.player.avatarPath,
+          ),
+        );
+      }
+    });
   }
 
   void _showJoinedPlayersSnack(List<_SeatPlayer> joinedPlayers) {
@@ -567,7 +595,14 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         ),
       );
 
-      return Stack(children: items);
+      return Stack(
+        children: [
+          ...items,
+          ..._flyAwayFx
+              .map((fx) => _buildFlyAwayFx(size: size, fx: fx))
+              .toList(growable: false),
+        ],
+      );
     }
 
     for (int absoluteSeat = 0; absoluteSeat < _tableSize; absoluteSeat++) {
@@ -597,7 +632,97 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       );
     }
 
-    return Stack(children: items);
+    return Stack(
+      children: [
+        ...items,
+        ..._flyAwayFx
+            .map((fx) => _buildFlyAwayFx(size: size, fx: fx))
+            .toList(growable: false),
+      ],
+    );
+  }
+
+  Widget _buildFlyAwayFx({required Size size, required _FlyAwayFx fx}) {
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(fx.key),
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 900),
+      onEnd: () {
+        if (!mounted) return;
+        setState(() {
+          _flyAwayFx.removeWhere((e) => e.key == fx.key);
+        });
+      },
+      builder: (context, t, child) {
+        final anchor = _seatAnchor(size, fx.relativeSeat);
+        final dx = 220.0 * t;
+        final dy = -260.0 * t;
+        final opacity = (1 - t).clamp(0.0, 1.0);
+        final scale = (1 - 0.7 * t).clamp(0.2, 1.0);
+        final angle = 0.45 * t;
+
+        return Positioned(
+          left: anchor.dx + dx - 48,
+          top: anchor.dy + dy - 48,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: opacity,
+              child: Transform.rotate(
+                angle: angle,
+                child: Transform.scale(
+                  scale: scale,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _inviteAvatar(fx.avatarPath, fx.name),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xCC2A1313),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0x66FFB085),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'Masa disi!',
+                          style: TextStyle(
+                            color: Color(0xFFFFE0D2),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Offset _seatAnchor(Size size, int relativeSeat) {
+    switch (relativeSeat) {
+      case 0:
+        return Offset(size.width * 0.5, size.height * 0.72);
+      case 1:
+        if (_tableSize == 2) return Offset(size.width * 0.5, size.height * 0.17);
+        return Offset(size.width * 0.2, size.height * 0.45);
+      case 2:
+        return Offset(size.width * 0.5, size.height * 0.17);
+      case 3:
+        return Offset(size.width * 0.8, size.height * 0.45);
+      default:
+        return Offset(size.width * 0.5, size.height * 0.5);
+    }
   }
 
   int _relativeSeat(int absoluteSeat) {
@@ -1042,6 +1167,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       ).showSnackBar(const SnackBar(content: Text('Davet Gönderildi')));
     } catch (e) {
       if (!mounted) return;
+
       final err = e.toString();
       final message =
           (isBot &&
@@ -1062,6 +1188,20 @@ class _SeatPlayer {
   final PlayerModel player;
 
   _SeatPlayer({required this.seatIndex, required this.player});
+}
+
+class _FlyAwayFx {
+  final String key;
+  final int relativeSeat;
+  final String name;
+  final String? avatarPath;
+
+  _FlyAwayFx({
+    required this.key,
+    required this.relativeSeat,
+    required this.name,
+    required this.avatarPath,
+  });
 }
 
 class _InviteSeatCard extends StatelessWidget {

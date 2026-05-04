@@ -2,6 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/engine/models/tile.dart';
 import '../okey_game.dart';
 import 'rack_config.dart';
 import 'dart:math' as math;
@@ -25,10 +26,8 @@ extension TileColorTypeStyle on TileColorType {
 
 class TileComponent extends PositionComponent
     with HasGameReference<FlameGame>, DragCallbacks, TapCallbacks {
-  final int value;
-  final TileColorType colorType;
-  final bool isJoker;
-  final bool isFakeJoker;
+  final TileModel tile;
+
   late SpriteComponent baseSprite;
   late TextComponent numberText;
   late SpriteComponent backSprite;
@@ -41,13 +40,15 @@ class TileComponent extends PositionComponent
   bool isLocked = false;
   DateTime? _lastTap;
 
-  TileComponent({
-    required this.value,
-    required this.colorType,
-    required Vector2 position,
-    this.isJoker = false,
-    this.isFakeJoker = false,
-  }) {
+  int get value => tile.value;
+  TileColor get color => tile.color;
+  bool get isJoker => tile.isJoker;
+  bool get isFakeJoker => tile.isFakeJoker;
+  String get id => tile.id;
+
+  TileComponent({required TileModel tile, required Vector2 position})
+    : tile = tile,
+      super() {
     this.position = position;
     size = Vector2(RackConfig.tileWidth, RackConfig.tileHeight);
     anchor = Anchor.center;
@@ -282,7 +283,7 @@ class TileComponent extends PositionComponent
   }
 
   @override
-  void onDragEnd(DragEndEvent event) {
+  Future<void> onDragEnd(DragEndEvent event) async {
     super.onDragEnd(event);
     try {
       final gameRef = _tryGame();
@@ -290,7 +291,8 @@ class TileComponent extends PositionComponent
       final worldPos = absolutePosition;
       // 0) Kapali desteye birakildiysa bitirme denemesi
       if (gameRef.isPointNearClosedPile(worldPos)) {
-        final accepted = gameRef.finishWithTile(this);
+        final accepted = await gameRef.finishWithTile(this);
+
         if (!accepted) {
           _restoreToOriginalSlot();
         } else {
@@ -306,8 +308,7 @@ class TileComponent extends PositionComponent
       if (gameRef.bottomRightDiscard.containsPoint(worldPos) ||
           gameRef.isPointNearBottomDiscard(worldPos)) {
         final canDiscardNow =
-            gameRef.hasDrawnThisTurn ||
-            (gameRef.occupiedSlots.length + 1 == 15);
+            gameRef.hasDrawnThisTurn || gameRef.getMyHandCount() == 15;
         if (canDiscardNow) {
           _handleDiscard(gameRef); // 🔥 await YOK
         } else {
@@ -382,19 +383,29 @@ class TileComponent extends PositionComponent
 
   // =============================
   Color _getInkColor() {
-    switch (colorType) {
-      case TileColorType.red:
-        return const Color(0xFFD32F2F); // gerçek okey kırmızısı
+    switch (tile.color) {
+      case TileColor.red:
+        return const Color(0xFFD32F2F);
 
-      case TileColorType.blue:
-        return const Color(0xFF2F5BFF); // canlı royal blue
+      case TileColor.blue:
+        return const Color(0xFF2F5BFF);
 
-      case TileColorType.black:
-        return const Color(0xFF1A1A1A); // saf siyah değil, daha doğal
+      case TileColor.black:
+        return const Color(0xFF1A1A1A);
 
-      case TileColorType.yellow:
-        return const Color(0xFFF4A622); // sıcak okey sarısı
+      case TileColor.yellow:
+        return const Color(0xFFF4A622);
     }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "color": color.index, // veya string
+      "number": value,
+      "is_joker": isJoker,
+      "is_fake_joker": isFakeJoker,
+    };
   }
 }
 
@@ -510,3 +521,4 @@ class StarComponent extends PositionComponent {
     canvas.drawPath(path, paint);
   }
 }
+

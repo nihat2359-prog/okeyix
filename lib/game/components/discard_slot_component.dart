@@ -10,7 +10,7 @@ class DiscardSlotComponent extends PositionComponent
   final int playerIndex;
   TileComponent? currentTile;
   SpriteComponent? tileSprite;
-
+  bool hidden = false;
   DiscardSlotComponent({required this.playerIndex, required Vector2 position}) {
     this.position = position;
     size = Vector2(RackConfig.tileWidth, RackConfig.tileHeight);
@@ -19,6 +19,7 @@ class DiscardSlotComponent extends PositionComponent
 
   @override
   Future<void> onLoad() async {
+    if (hidden) return;
     await super.onLoad();
 
     // Premium arka plan (şimdilik yarı transparan)
@@ -45,7 +46,28 @@ class DiscardSlotComponent extends PositionComponent
     );
   }
 
+  @override
+  void render(Canvas canvas) {
+    if (hidden) return;
+    super.render(canvas);
+  }
+
+  @override
+  void update(double dt) {
+    if (hidden) return;
+    super.update(dt);
+  }
+
+  void setHidden(bool value) {
+    hidden = value;
+
+    for (final c in children) {
+      c.removeFromParent(); // 🔥 kesin çözüm
+    }
+  }
+
   void setDiscard(Sprite sprite) {
+    if (hidden) return;
     tileSprite?.removeFromParent();
 
     tileSprite = SpriteComponent(
@@ -60,6 +82,7 @@ class DiscardSlotComponent extends PositionComponent
 
   @override
   void onTapUp(TapUpEvent event) {
+    if (hidden) return;
     super.onTapUp(event);
     if (!isMounted) return;
     game.takeFromDiscardTap(this);
@@ -67,6 +90,7 @@ class DiscardSlotComponent extends PositionComponent
 
   @override
   void onDragStart(DragStartEvent event) {
+    if (hidden) return;
     super.onDragStart(event);
     if (!isMounted) return;
     game.takeFromDiscardDrag(this, absolutePosition);
@@ -74,6 +98,7 @@ class DiscardSlotComponent extends PositionComponent
 
   @override
   void onDragUpdate(DragUpdateEvent event) {
+    if (hidden) return;
     super.onDragUpdate(event);
     if (!isMounted) return;
     game.updateSourceDrawDrag(event.localDelta);
@@ -81,6 +106,7 @@ class DiscardSlotComponent extends PositionComponent
 
   @override
   void onDragEnd(DragEndEvent event) {
+    if (hidden) return;
     super.onDragEnd(event);
     if (!isMounted) return;
     game.endSourceDrawDrag();

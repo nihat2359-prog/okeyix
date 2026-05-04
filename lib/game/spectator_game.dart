@@ -4,6 +4,7 @@ import 'package:flame/effects.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/game/rack/rack_config.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
@@ -168,7 +169,7 @@ class SpectatorGame extends FlameGame {
 
     indicatorTile?.removeFromParent();
 
-    indicatorTile = _createTile(tile, indicatorPos);
+    indicatorTile = _createTileFromModel(tile, indicatorPos);
     indicatorTile!.priority = 500;
 
     world.add(indicatorTile!);
@@ -194,7 +195,7 @@ class SpectatorGame extends FlameGame {
 
       final stack = seat == 0 ? discardRightStack : discardLeftStack;
 
-      final newTile = _createTile(tile, pos);
+      final newTile = _createTileFromModel(tile, pos);
 
       /// 🔥 STACK OFFSET (üst üste dizilim)
       final offset = Vector2(0, -2.0 * stack.length.toDouble());
@@ -413,10 +414,17 @@ class SpectatorGame extends FlameGame {
 
   void _animateDiscard(Map tile, int seat) {
     final start = seat == 0 ? bottomAvatarPos : topAvatarPos;
-
     final end = seat == 0 ? discardRightPos : discardLeftPos;
 
-    final t = _createTile(tile, start.clone());
+    // 🔥 önce parse et
+    final model = _tileModelFromPayload(Map<String, dynamic>.from(tile));
+    if (model == null) {
+      print("Invalid discard tile: $tile");
+      return;
+    }
+
+    // 🔥 artık model ile çalış
+    final t = _createTileFromModel(model, start.clone());
 
     world.add(t);
 
@@ -427,8 +435,8 @@ class SpectatorGame extends FlameGame {
         onComplete: () {
           t.removeFromParent();
 
-          // ✅ BURAYA ALDIK
-          _setDiscard(tile, seat);
+          // 🔥 burada da model kullan
+          _setDiscard(model, seat);
         },
       ),
     );
@@ -438,10 +446,11 @@ class SpectatorGame extends FlameGame {
   // ANIMATIONS
   // =========================
 
-  void _setDiscard(Map tile, int seat) {
+  void _setDiscard(TileModel tile, int seat) {
     final pos = seat == 0 ? discardRightPos : discardLeftPos;
 
-    final newTile = _createTile(tile, pos);
+    final newTile = _createTileFromModel(tile, pos);
+
     newTile.priority =
         100 + (seat == 0 ? discardRightStack.length : discardLeftStack.length);
 
@@ -458,23 +467,19 @@ class SpectatorGame extends FlameGame {
   // TILE
   // =========================
 
-  TileComponent _createTile(Map tile, Vector2 pos) {
-    return TileComponent(
-      value: tile['number'] ?? 0,
-      colorType: _mapColor(tile['color'] ?? "red"),
-      position: pos,
-      isJoker: tile['is_joker'] ?? false,
-      isFakeJoker: tile['is_fake_joker'] ?? false,
-    )..isLocked = true;
+  TileComponent _createTileFromModel(TileModel model, Vector2 pos) {
+    return TileComponent(tile: model, position: pos)..isLocked = true;
   }
 
   TileComponent _createBackTile(Vector2 pos) {
-    return TileComponent(
+    final fakeModel = TileModel(
+      id: "BACK", // ⚠️ özel id
       value: 0,
-      colorType: TileColorType.red,
-      position: pos,
+      color: TileColor.red,
       isJoker: true,
-    )..isLocked = true;
+    );
+
+    return TileComponent(tile: fakeModel, position: pos)..isLocked = true;
   }
 
   TileColorType _mapColor(String c) {
@@ -490,6 +495,61 @@ class SpectatorGame extends FlameGame {
       default:
         return TileColorType.red;
     }
+  }
+
+  TileModel? _tileModelFromPayload(Map<String, dynamic> raw) {
+    // 🔥 ID ZORUNLU
+    final id = raw['id'];
+    if (id == null || id.toString().isEmpty) {
+      print("Tile payload missing id: $raw");
+      return null;
+    }
+
+    // value / number
+    final valueRaw = raw['number'] ?? raw['value'];
+    final value = valueRaw is int ? valueRaw : int.tryParse('$valueRaw');
+
+    // color
+    final colorRaw = raw['color'];
+    TileColor? color;
+
+    if (colorRaw is int) {
+      color = TileColor.values[colorRaw];
+    } else if (colorRaw is String) {
+      switch (colorRaw) {
+        case 'red':
+          color = TileColor.red;
+          break;
+        case 'blue':
+          color = TileColor.blue;
+          break;
+        case 'black':
+          color = TileColor.black;
+          break;
+        case 'yellow':
+          color = TileColor.yellow;
+          break;
+      }
+    }
+
+    if (value == null || color == null) {
+      print("Invalid tile payload: $raw");
+      return null;
+    }
+
+    return TileModel(
+      id: id.toString(), // 🔥 EN KRİTİK
+      value: value,
+      color: color,
+      isJoker:
+          raw['joker'] == true ||
+          raw['is_joker'] == true ||
+          raw['isJoker'] == true,
+      isFakeJoker:
+          raw['fake_joker'] == true ||
+          raw['is_fake_joker'] == true ||
+          raw['isFakeJoker'] == true,
+    );
   }
 
   Future<Sprite> loadAvatarFromAsset(String fullPath) async {

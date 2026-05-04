@@ -5,6 +5,7 @@ import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
+import 'package:okeyix/game/components/finish_screen.dart';
 import 'package:okeyix/game/components/radial_quick_chat.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
@@ -111,6 +112,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       isCreator: widget.isCreator,
       onTileSfx: _playTileSfx,
     );
+
+    _game.onHudChanged = () {
+      if (mounted) setState(() {});
+    };
 
     _game.onFinish = () async {
       if (_showFinish) return; // 🔥 double trigger engelle
@@ -440,7 +445,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     try {
       final row = await _supabase
           .from('tables')
-          .select('status,max_players,last_finish_at,last_winner_user_id')
+          .select(
+            'status,max_players,ready_since,last_finish_at,last_winner_user_id',
+          )
           .eq('id', widget.tableId)
           .maybeSingle();
 
@@ -449,6 +456,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       final status = row['status']?.toString() ?? 'waiting';
       final maxPlayers = (row['max_players'] as int?) ?? 2;
       final winner = row['last_winner_user_id']?.toString();
+      final readySince = _parseServerTime(row['ready_since']);
       final finishAt = _parseServerTime(row['last_finish_at']);
 
       final shouldShowFinishFx =
@@ -459,9 +467,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       _maxPlayers = maxPlayers;
       _lastFinishAt = finishAt;
 
-      if (_tableStatus == 'playing') {
-        _readySince = null;
-      }
+      _readySince = (_tableStatus == 'waiting' || _tableStatus == 'start')
+          ? readySince
+          : null;
 
       if (shouldShowFinishFx) {
         final winnerName = winner == null
@@ -998,125 +1006,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     } catch (_) {}
   }
 
-  Future<void> _toggleDoubleMode() async {
-    if (_doubleMode) {
-      _showSnack('\u00C7ifte git se\u00E7imi geri al\u0131namaz.');
-      return;
-    }
-
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.7), // arka plan karartma
-      builder: (context) => Center(
-        child: Container(
-          width: 320,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A), // koyu panel
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.amber.withOpacity(0.4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.6),
-                blurRadius: 20,
-                offset: Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 🔥 Title
-              Row(
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.amber,
-                    size: 22,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    "Çifte Git",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // 🔥 Content
-              Text(
-                "Bu kararı geri alamazsın.\nÇiftten bitmek zorundasın.\nDevam etmek istiyor musun?",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.4,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // 🔥 Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(color: Colors.white24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context, false),
-                      child: Text("Hayır"),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context, true),
-                      child: Text("Evet"),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (ok != true) return;
-
-    setState(() => _doubleMode = true);
-
-    final userId = _myUserId;
-    if (userId == null) return;
-    try {
-      await _supabase
-          .from('table_players')
-          .update({'is_double_mode': true})
-          .eq('table_id', widget.tableId)
-          .eq('user_id', userId);
-    } catch (_) {
-      // optional column, ignore
-    }
-  }
-
   void _showFinishMessage(String text) {
     _finishFxText = text;
     _showFinishFx = true;
@@ -1135,7 +1024,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   int get _joinCountdown {
-    if (_tableStatus != 'waiting' || _playerCount < _maxPlayers) return 0;
+    if ((_tableStatus != 'waiting' && _tableStatus != 'start') ||
+        _playerCount < _maxPlayers) {
+      return 0;
+    }
     if (_readySince == null) return 5;
     final elapsed = DateTime.now().difference(_readySince!).inSeconds;
     final remain = 5 - elapsed;
@@ -1145,7 +1037,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   @override
   Widget build(BuildContext context) {
-    final showWaitingOverlay = _tableStatus == 'waiting' && !_game.gameStarted;
+    final showWaitingOverlay =
+        (_tableStatus == 'waiting' || _tableStatus == 'start') &&
+        !_game.gameStarted;
 
     if (!_visualReady) {
       return Scaffold(
@@ -1229,17 +1123,32 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                       ),
 
                       /// 🎮 GAME (FULL)
-                      Positioned.fill(child: GameWidget(game: _game)),
+                      Positioned.fill(
+                        child: GameWidget<OkeyGame>(
+                          game: _game,
 
-                      /// 👤 AVATAR
-                      if (!_showFinish)
-                        Positioned.fill(
-                          child: overlay.GameAvatarOverlay(
-                            tableId: widget.tableId,
-                            topInset: 5,
-                            game: _game,
-                          ),
+                          overlayBuilderMap: {
+                            'Avatars': (context, game) {
+                              // 🔥 FINISH AÇIKKEN GÖSTERME
+                              if (_game.isFinishOpen) {
+                                return const SizedBox.shrink();
+                              }
+                              return overlay.GameAvatarOverlay(
+                                tableId: widget.tableId,
+                                topInset: 5,
+                                game: game,
+                              );
+                            },
+                            'DoubleConfirm': (context, game) {
+                              return DoubleConfirmDialog(game: game);
+                            },
+                          },
+
+                          initialActiveOverlays: const [
+                            'Avatars',
+                          ], // 🔥 başlangıçta avatar açık
                         ),
+                      ),
                     ],
                   );
                 },
@@ -1249,7 +1158,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               SafeArea(
                 child: Stack(
                   children: [
-                    _buildTopButtons(),
+                    _buildTopLeftPanel(),
                     _buildTopRightLeague(),
 
                     if (showWaitingOverlay) _buildWaitingOverlay(),
@@ -1284,61 +1193,140 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     );
   }
 
-  Widget _buildTopButtons() {
+  Widget _buildTopLeftPanel() {
+    final round = _game.getRound();
+    final pot = _game.getPot();
+
     return Positioned(
       top: 18,
       left: 16,
-      child: Row(
-        children: [
-          _topCircleButton(
-            icon: Icons.logout,
-            active: _menuOpen,
-            onTap: () => _confirmLeaveTable(),
-          ),
-          const SizedBox(width: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xCC0F141A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x33FFFFFF)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            /// 🔥 EXIT (gold minimal)
+            _exitButton(),
 
-          _topCircleButton(
-            type: 0,
-            active: _menuOpen,
-            onTap: () => _game.arrangeSerial(),
-          ),
-          const SizedBox(width: 10),
-          _topCircleButton(
-            type: 1,
-            active: _menuOpen,
-            onTap: () => _game.arrangePairs(),
-          ),
-          const SizedBox(width: 10),
-          _topCircleButton(
-            type: 2,
-            active: _menuOpen,
-            onTap: () => _toggleDoubleMode(),
-          ),
+            _divider(),
 
-          const SizedBox(width: 10),
-
-          /// STORE (dock icon ile)
-          if (_doubleMode) ...[
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xCC8B1538),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Text(
-                '\u00C7ifte',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+            /// 🔥 ROUND
+            Row(
+              children: [
+                const Icon(Icons.flag_rounded, size: 18, color: Colors.white70),
+                const SizedBox(width: 4),
+                Text(
+                  "$round",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
+              ],
+            ),
+
+            _divider(),
+
+            /// 🔥 POT (ÇANAK - PREMIUM)
+            Row(
+              children: [
+                /// 🔥 COIN ICON (büyük, sade)
+                const Icon(
+                  Icons.monetization_on,
+                  size: 20,
+                  color: Color(0xFFFFC107), // hafif gold ama glow yok
+                ),
+
+                const SizedBox(width: 6),
+
+                /// 🔥 VALUE
+                Text(
+                  Format.coin(pot),
+                  style: const TextStyle(
+                    fontFamily: "Orbitron",
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFFD56A),
+                    fontSize: 15,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
             ),
           ],
-
-          const SizedBox(width: 10),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _exitButton() {
+    return GestureDetector(
+      onTap: () => _confirmLeaveTable(),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+
+          /// 🔥 BASE (dark glass)
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1A1F26), Color(0xFF0D1117)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+
+          /// 🔥 OUTER RING (red metal)
+          border: Border.all(color: const Color(0x88FF4C4C), width: 1.2),
+
+          boxShadow: [
+            /// 🔥 dış glow (soft red)
+            BoxShadow(
+              color: const Color(0xFFB71C1C).withOpacity(0.5),
+              blurRadius: 14,
+              spreadRadius: 1,
+            ),
+
+            /// 🔥 inner shadow hissi
+            const BoxShadow(
+              color: Colors.black54,
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            /// 🔥 iç parlak halka
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0x22FFFFFF), width: 1),
+              ),
+            ),
+
+            /// 🔥 icon (asıl vurgu)
+            const Icon(Icons.close_rounded, size: 18, color: Color(0xFFFF6B6B)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      width: 1,
+      height: 18,
+      color: Colors.white.withOpacity(0.22),
     );
   }
 
@@ -2274,7 +2262,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   Widget _buildWaitingOverlay() {
     final full = _playerCount >= _maxPlayers;
-    final count = _joinCountdown;
+    final gameCount = _game.getCountdown();
+    final count = gameCount > 0 ? gameCount : _joinCountdown;
 
     final text = full
         ? (count > 0
@@ -2643,5 +2632,107 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   void _closeQuickChat() {
     _quickChatOverlay?.remove();
     _quickChatOverlay = null;
+  }
+}
+
+class DoubleConfirmDialog extends StatelessWidget {
+  final OkeyGame game;
+
+  const DoubleConfirmDialog({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        /// 🔥 BACKDROP BLUR
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () {},
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Container(color: Colors.black.withOpacity(0.5)),
+            ),
+          ),
+        ),
+
+        /// 🔥 CENTER PANEL
+        Center(
+          child: Container(
+            width: 320,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [Color(0xFF1A1A1A), Color(0xFF0F0F0F)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: Color(0xFFE7C66A).withOpacity(0.5)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0xFFE7C66A).withOpacity(0.25),
+                  blurRadius: 30,
+                ),
+              ],
+            ),
+
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                /// TITLE
+                Row(
+                  children: const [
+                    Icon(Icons.warning_amber_rounded, color: Color(0xFFE7C66A)),
+                    SizedBox(width: 8),
+                    Text(
+                      "Çifte Git",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                const Text(
+                  "Bu kararı geri alamazsın.\nÇiftten bitmek zorundasın.",
+                  style: TextStyle(color: Colors.white70, height: 1.4),
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => game.overlays.remove('DoubleConfirm'),
+                        child: const Text("Hayır"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFFE7C66A),
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () async {
+                          game.overlays.remove('DoubleConfirm');
+                          await game.confirmDoubleMode();
+                        },
+                        child: const Text("Evet"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

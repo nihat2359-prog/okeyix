@@ -9,7 +9,7 @@ class ClosedPileComponent extends PositionComponent
   TextComponent? countText;
 
   int _currentCount;
-
+  int _lastTapTime = 0;
   ClosedPileComponent({required Vector2 position, required int initialCount})
     : _currentCount = initialCount {
     this.position = position;
@@ -51,6 +51,8 @@ class ClosedPileComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    final gameRef = findGame() as OkeyGame;
+    if (gameRef.isFinishOpen) return;
     // Stack efekti render içinde
     for (int i = 0; i < 3; i++) {
       backSprite.render(canvas, size: size, position: Vector2(i * 3, -i * 3));
@@ -62,39 +64,86 @@ class ClosedPileComponent extends PositionComponent
   @override
   void onDragStart(DragStartEvent event) {
     super.onDragStart(event);
-    try {
-      final gameRef = findGame() as OkeyGame;
-      gameRef.drawFromClosedPileDrag(absolutePosition);
-    } catch (_) {}
+
+    final gameRef = findGame() as OkeyGame;
+    gameRef.drawFromClosedPileDrag(absolutePosition);
   }
 
   @override
   void onDragUpdate(DragUpdateEvent event) {
-    final gameRef = findGame() as OkeyGame;
     super.onDragUpdate(event);
+
+    final gameRef = findGame() as OkeyGame;
     gameRef.updateSourceDrawDrag(event.localDelta);
   }
 
   @override
   void onDragEnd(DragEndEvent event) {
     super.onDragEnd(event);
-    try {
-      final gameRef = findGame() as OkeyGame;
-      gameRef.endSourceDrawDrag();
-    } catch (_) {}
+
+    final gameRef = findGame() as OkeyGame;
+    gameRef.endSourceDrawDrag(); // 🔥 sadece bu
   }
 
   @override
-  void onTapUp(TapUpEvent event) {
-    try {
+  void onTapDown(TapDownEvent event) {
+    super.onTapDown(event);
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (now - _lastTapTime < 250) {
       final gameRef = findGame() as OkeyGame;
       gameRef.drawFromClosedPile();
-    } catch (_) {}
+    }
+
+    _lastTapTime = now;
   }
 
   void updateCount(int newCount) {
     _currentCount = newCount;
 
     countText?.text = newCount.toString();
+  }
+
+  void setHidden(bool hidden) {
+    if (hidden) {
+      countText?.removeFromParent(); // 🔥 text'i kaldır
+    } else {
+      if (countText != null && !countText!.isMounted) {
+        add(countText!); // 🔥 geri ekle
+      }
+    }
+  }
+}
+
+class RackActionsComponent extends PositionComponent {
+  RackActionsComponent()
+    : super(
+        size: Vector2(600, 60), // 🔥 GENİŞ ALAN
+        anchor: Anchor.center,
+      );
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+
+    add(_action("Seri Diz", Vector2(-200, 0)));
+    add(_action("Çifte Diz", Vector2(0, 0)));
+    add(_action("Çifte Git", Vector2(200, 0)));
+  }
+
+  TextComponent _action(String text, Vector2 pos) {
+    return TextComponent(
+      text: text,
+      position: pos,
+      anchor: Anchor.center,
+      textRenderer: TextPaint(
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withOpacity(0.9),
+        ),
+      ),
+    );
   }
 }

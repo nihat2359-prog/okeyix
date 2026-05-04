@@ -18,15 +18,52 @@ extension TileColorStyle on TileColor {
 }
 
 class TileModel {
+  final String id;
   final int value; // 1–13
   final TileColor color;
   final bool isJoker;
   final bool isFakeJoker;
 
   const TileModel({
+    required this.id,
     required this.value,
     required this.color,
     this.isJoker = false,
     this.isFakeJoker = false,
   });
+
+  factory TileModel.fromJson(Map<String, dynamic> json) {
+    return TileModel(
+      id: json['id'],
+      value: json['value'],
+      color: TileColor.values[json['color']],
+      isJoker: json['isJoker'] ?? false,
+      isFakeJoker: json['isFakeJoker'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'value': value,
+      'color': color.index,
+      'isJoker': isJoker,
+      'isFakeJoker': isFakeJoker,
+    };
+  }
+
+  bool isSameTile(TileModel other) {
+    return id == other.id;
+  }
+
+  void validateNoDuplicateTiles(List<TileModel> tiles) {
+    final seen = <String>{};
+
+    for (var t in tiles) {
+      if (seen.contains(t.id)) {
+        throw Exception("Duplicate tile detected!");
+      }
+      seen.add(t.id);
+    }
+  }
 }
