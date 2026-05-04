@@ -25,6 +25,8 @@ class PushNotificationService {
   StreamSubscription<RemoteMessage>? _onMessageSub;
   PushDataCallback? _onNotificationTapData;
   Future<void>? _firebaseInitFuture;
+  Timer? _iosTokenRetryTimer;
+  bool _tokenDelivered = false;
 
   Future<void> _ensureFirebaseReady() {
     if (Firebase.apps.isNotEmpty) {
@@ -64,6 +66,7 @@ class PushNotificationService {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
+      await messaging.setAutoInitEnabled(true);
       final before = await messaging.getNotificationSettings();
       await onDebug?.call(
         'PUSH: Izin (once): ${before.authorizationStatus.name}',
@@ -78,6 +81,7 @@ class PushNotificationService {
         'PUSH: Izin (sonra): ${permission.authorizationStatus.name}',
       );
 
+      String? apnsForDiag;
       if (Platform.isIOS) {
         String? apns;
         for (int i = 0; i < 6; i++) {
@@ -89,6 +93,7 @@ class PushNotificationService {
           if (apns != null && apns.isNotEmpty) break;
           await Future.delayed(const Duration(milliseconds: 500));
         }
+        apnsForDiag = apns;
         await onDebug?.call(
           'PUSH: APNS token ${apns == null ? "YOK (bekleniyor)" : "VAR"}',
         );
@@ -107,12 +112,24 @@ class PushNotificationService {
       await onDebug?.call('PUSH: FCM token ${token == null ? "YOK" : "VAR"}');
       if (token != null && token.isNotEmpty && onToken != null) {
         await onToken(token);
+        _tokenDelivered = true;
         await onDebug?.call('PUSH: Token server kaydi tetiklendi');
+      }
+      await onDebug?.call(
+        'PUSH_DIAG auth=${permission.authorizationStatus.name} '
+        'apns=${(apnsForDiag != null && apnsForDiag.isNotEmpty) ? "VAR" : "YOK"} '
+        'fcm=${(token != null && token.isNotEmpty) ? "VAR" : "YOK"}',
+      );
+
+      if (Platform.isIOS && !_tokenDelivered) {
+        _startIosTokenRetry(onToken, onDebug);
       }
 
       _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) async {
         if (newToken.isNotEmpty && onToken != null) {
           await onToken(newToken);
+          _tokenDelivered = true;
+          _iosTokenRetryTimer?.cancel();
           await onDebug?.call('PUSH: Token yenilendi ve kaydedildi');
         }
       });
@@ -162,13 +179,53 @@ class PushNotificationService {
     }
   }
 
+  void _startIosTokenRetry(
+    PushTokenCallback? onToken,
+    PushDebugCallback? onDebug,
+  ) {
+    _iosTokenRetryTimer?.cancel();
+    int attempts = 0;
+    _iosTokenRetryTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      attempts++;
+      try {
+        final messaging = FirebaseMessaging.instance;
+        final apns = await messaging.getAPNSToken();
+        final token = await messaging.getToken();
+        if (apns != null &&
+            apns.isNotEmpty &&
+            token != null &&
+            token.isNotEmpty &&
+            onToken != null) {
+          await onToken(token);
+          _tokenDelivered = true;
+          await onDebug?.call('PUSH_DIAG auth=authorized apns=VAR fcm=VAR retry=OK');
+          await onDebug?.call('PUSH: iOS retry ile token alindi');
+          timer.cancel();
+          return;
+        }
+      } catch (_) {}
+
+      if (attempts % 6 == 0) {
+        await onDebug?.call('PUSH: iOS token bekleniyor (retry $attempts)');
+      }
+      if (attempts >= 36) {
+        await onDebug?.call('PUSH_DIAG auth=authorized apns=YOK fcm=YOK retry=TIMEOUT');
+        await onDebug?.call('PUSH: iOS token retry zaman asimi');
+        timer.cancel();
+      }
+    });
+  }
+
   Future<void> dispose() async {
     await _tokenRefreshSub?.cancel();
     await _onMessageOpenedSub?.cancel();
     await _onMessageSub?.cancel();
+    _iosTokenRetryTimer?.cancel();
     _tokenRefreshSub = null;
     _onMessageOpenedSub = null;
     _onMessageSub = null;
+    _iosTokenRetryTimer = null;
     _initialized = false;
+    _tokenDelivered = false;
   }
 }

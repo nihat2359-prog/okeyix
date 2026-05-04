@@ -186,6 +186,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _showPushDebug(String message) {
     debugPrint(message);
+    if (!message.startsWith('PUSH_DIAG')) return;
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis),
+        duration: const Duration(seconds: 6),
+      ),
+    );
   }
 
   Widget build(BuildContext context) {
