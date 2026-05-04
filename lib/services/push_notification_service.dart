@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:okeyix/firebase_options.dart';
 
 typedef PushTokenCallback = FutureOr<void> Function(String token);
 typedef PushDataCallback = FutureOr<void> Function(Map<String, dynamic> data);
@@ -29,7 +30,9 @@ class PushNotificationService {
     if (Firebase.apps.isNotEmpty) {
       return Future.value();
     }
-    _firebaseInitFuture ??= Firebase.initializeApp();
+    _firebaseInitFuture ??= Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     return _firebaseInitFuture!;
   }
 
