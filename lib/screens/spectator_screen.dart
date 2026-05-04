@@ -30,11 +30,16 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   int spectators = 0;
   final ScrollController _chatScrollController = ScrollController();
   Map<String, dynamic>? _lastIncomingMessage;
-  final bool _showMessageBanner = false;
+  bool _showMessageBanner = false;
   bool chatOpen = false;
   final TextEditingController chatController = TextEditingController();
   List messages = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final Map<String, String> _avatarChatByUserId = {};
+  final Map<String, Timer> _avatarChatTimers = {};
+  DateTime? _lastFinishAt;
+  bool _showFinishOverlay = false;
+  String _finishWinnerName = 'Oyuncu';
 
   bool _isPressing = false;
   bool _isRecording = false;
@@ -88,7 +93,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
     final p = await supabase
         .from('table_players')
-        .select('seat_index,users(username,avatar_url)')
+        .select('user_id,seat_index,users(username,avatar_url)')
         .eq('table_id', widget.tableId);
 
     final s = await supabase
@@ -137,6 +142,69 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               setState(() {
                 spectators = (spectators - 1).clamp(0, 9999);
               });
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'table_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'table_id',
+            value: widget.tableId,
+          ),
+          callback: (payload) async {
+            if (!mounted) return;
+            final msg = Map<String, dynamic>.from(payload.newRecord);
+            final senderId = msg['sender_id']?.toString();
+            if (senderId != null) {
+              final u = await supabase
+                  .from('users')
+                  .select('username')
+                  .eq('id', senderId)
+                  .maybeSingle();
+              if (u != null) {
+                msg['users'] = {'username': u['username'] ?? 'Oyuncu'};
+              }
+            }
+            setState(() {
+              messages = [...messages, msg];
+            });
+            _handleIncomingMessageEffects(msg);
+            _scrollToBottom();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'tables',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.tableId,
+          ),
+          callback: (payload) async {
+            final row = payload.newRecord;
+            final finishAtRaw = row['last_finish_at']?.toString();
+            final finishAt = finishAtRaw == null
+                ? null
+                : DateTime.tryParse(finishAtRaw);
+            if (finishAt != null &&
+                (_lastFinishAt == null || finishAt.isAfter(_lastFinishAt!))) {
+              _lastFinishAt = finishAt;
+              final winnerId = row['last_winner_user_id']?.toString();
+              String winnerName = 'Oyuncu';
+              if (winnerId != null) {
+                final u = await supabase
+                    .from('users')
+                    .select('username')
+                    .eq('id', winnerId)
+                    .maybeSingle();
+                final name = u?['username']?.toString().trim() ?? '';
+                if (name.isNotEmpty) winnerName = name;
+              }
+              _openFinishOverlay(winnerName);
             }
           },
         )
@@ -289,6 +357,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               right: 0,
               child: Column(
                 children: [
+                  if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
+                      .isNotEmpty)
+                    _buildAvatarBubble(
+                      _avatarChatByUserId[top['user_id']?.toString()]!,
+                    ),
+                  if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
+                      .isNotEmpty)
+                    const SizedBox(height: 6),
                   avatar(top['users']['avatar_url'], key: topAvatarKey),
                   const SizedBox(height: 6),
                   Text(
@@ -307,6 +383,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               right: 0,
               child: Column(
                 children: [
+                  if ((_avatarChatByUserId[bottom['user_id']?.toString()] ?? '')
+                      .isNotEmpty)
+                    _buildAvatarBubble(
+                      _avatarChatByUserId[bottom['user_id']?.toString()]!,
+                    ),
+                  if ((_avatarChatByUserId[bottom['user_id']?.toString()] ?? '')
+                      .isNotEmpty)
+                    const SizedBox(height: 6),
                   avatar(bottom['users']['avatar_url'], key: bottomAvatarKey),
                   const SizedBox(height: 6),
                   Text(
@@ -668,6 +752,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 ),
               ),
             ),
+          if (_showMessageBanner && _lastIncomingMessage != null)
+            Positioned(top: 60, right: 12, width: 320, child: _buildMessageBanner()),
+          if (_showFinishOverlay) Positioned.fill(child: _buildFinishOverlay()),
         ],
       ),
     );
@@ -705,6 +792,167 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     } catch (e) {
       debugPrint("VOICE PLAY ERROR: $e");
     }
+  }
+
+  Widget _buildAvatarBubble(String text) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          constraints: const BoxConstraints(maxWidth: 240),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF2D596), Color(0xFFE7BE6A)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xCC7A5A1F), width: 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF1D2A25),
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMessageBanner() {
+    final msg = _lastIncomingMessage!;
+    final name = (msg['users']?['username'] ?? 'İzleyici').toString();
+    final text = (msg['content'] ?? '').toString();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xEE223A32), Color(0xEE162720)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x99E3BB62)),
+      ),
+      child: Text(
+        '$name: $text',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFFEAF3EE),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishOverlay() {
+    return Container(
+      color: const Color(0xB3000000),
+      child: Center(
+        child: Container(
+          width: 420,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF213A32), Color(0xFF132620)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xB3E3BB62), width: 1.2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x99000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'EL BİTTİ',
+                style: TextStyle(
+                  color: Color(0xFFF2D596),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$_finishWinnerName kazandı',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isPlayerSender(String? senderId) {
+    if (senderId == null) return false;
+    return players.any((p) => p['user_id']?.toString() == senderId);
+  }
+
+  void _handleIncomingMessageEffects(Map<String, dynamic> msg) {
+    final senderId = msg['sender_id']?.toString();
+    if (senderId == null) return;
+    final text = (msg['content'] ?? '').toString().trim();
+    final role = (msg['role'] ?? '').toString();
+    final mine = senderId == supabase.auth.currentUser?.id;
+
+    if (_isPlayerSender(senderId) && text.isNotEmpty) {
+      _avatarChatTimers[senderId]?.cancel();
+      setState(() {
+        _avatarChatByUserId[senderId] = text;
+      });
+      _avatarChatTimers[senderId] = Timer(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        setState(() {
+          _avatarChatByUserId.remove(senderId);
+        });
+        _avatarChatTimers.remove(senderId);
+      });
+      return;
+    }
+
+    if (!mine && role == 'spectator') {
+      setState(() {
+        _lastIncomingMessage = msg;
+        _showMessageBanner = true;
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() => _showMessageBanner = false);
+      });
+    }
+  }
+
+  void _openFinishOverlay(String winnerName) {
+    if (!mounted) return;
+    setState(() {
+      _finishWinnerName = winnerName;
+      _showFinishOverlay = true;
+    });
+    Future.delayed(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      setState(() => _showFinishOverlay = false);
+    });
   }
 
   Widget _voiceBubble(Map<String, dynamic> msg, bool mine) {
@@ -968,6 +1216,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   @override
   void dispose() {
+    for (final t in _avatarChatTimers.values) {
+      t.cancel();
+    }
+    _avatarChatTimers.clear();
     _chatScrollController.dispose();
     spectatorChannel.unsubscribe();
     _leaveSpectator();

@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
+import 'package:okeyix/screens/okey_game_screen.dart';
 import 'package:okeyix/services/gift_listener.dart';
+import 'package:okeyix/services/presence_service.dart';
+import 'package:okeyix/services/push_notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 
@@ -43,12 +46,30 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  StreamSubscription<AuthState>? _authSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(
+      PushNotificationService.instance.init(
+        onNotificationTapData: _handlePushTapData,
+      ),
+    );
 
     _hideSystemUI();
+    _authSub = supabase.auth.onAuthStateChange.listen((event) async {
+      final session = event.session;
+      if (session != null) {
+        await PresenceService.instance.startForCurrentUser();
+      } else {
+        await PresenceService.instance.stopForCurrentUser();
+      }
+    });
+    if (supabase.auth.currentSession != null) {
+      PresenceService.instance.startForCurrentUser();
+    }
   }
 
   @override
@@ -62,13 +83,38 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _hideSystemUI();
+      PresenceService.instance.onAppResumed();
+      return;
+    }
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      PresenceService.instance.onAppBackgrounded();
     }
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
+    PushNotificationService.instance.dispose();
+    PresenceService.instance.onAppBackgrounded();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  Future<void> _handlePushTapData(Map<String, dynamic> data) async {
+    final tableId = data['table_id']?.toString();
+    if (tableId == null || tableId.isEmpty) return;
+    if (supabase.auth.currentSession == null) return;
+
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+
+    await Navigator.of(ctx).push(
+      MaterialPageRoute(
+        builder: (_) => OkeyGameScreen(tableId: tableId, isCreator: false),
+      ),
+    );
   }
 
   Widget build(BuildContext context) {

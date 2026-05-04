@@ -112,7 +112,8 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       final i = s['i'] as int;
 
       final col = i % 13;
-      final isTop = i < 13;
+      // Rack indexing is: 0-12 bottom row, 13-25 top row.
+      final isTop = i >= 13;
 
       // 🔥 X PARAM
       double scaleX = 0.75;

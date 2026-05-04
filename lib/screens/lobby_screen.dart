@@ -5,13 +5,14 @@ import 'dart:ui';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
+import 'package:okeyix/services/device_identity_service.dart';
 import 'package:okeyix/services/profile_service.dart';
+import 'package:okeyix/services/push_notification_service.dart';
 import 'package:okeyix/services/user_state.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
@@ -57,7 +58,6 @@ class _LobbyScreenState extends State<LobbyScreen>
   static const int _globalSpectatorPassCost = 10000;
 
   final _audioPlayer = AudioPlayer();
-  static const _secureStorage = FlutterSecureStorage();
   String? _playingMessageId;
   final supabase = Supabase.instance.client;
   Timer? _leagueActivityTimer;
@@ -89,9 +89,11 @@ class _LobbyScreenState extends State<LobbyScreen>
   Map<String, int> _unreadByUser = {};
 
   final Set<String> _notifiedIncomingRequestIds = <String>{};
+  final Set<String> _handledTableInviteIds = <String>{};
   List<Map<String, dynamic>> _activeChatMessages = [];
   String? _activeChatUserId;
   String? _activeChatUserTableId;
+  RealtimeChannel? _tableInviteChannel;
 
   late AnimationController _storePulse;
   bool _isRecording = false;
@@ -117,6 +119,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _lastSystemToastMessageId;
   DateTime? _globalSpectatorPassUntil;
   bool _campaignChecked = false;
+  bool _autoResumeAttempted = false;
 
   int selectedIndex = 0;
   bool isLeagueLocked = false;
@@ -169,12 +172,12 @@ class _LobbyScreenState extends State<LobbyScreen>
     _initCalled = true;
 
     try {
-      /// ğŸ”¥ UI HEMEN AÇILSIN
+      /// 🔥 UI HEMEN A�ILSIN
       setState(() {
         _deviceReady = true;
       });
 
-      /// ğŸ”¥ REGISTER ARKADA ÇALIÅSIN
+      /// 🔥 REGISTER ARKADA �ALIŞSIN
       unawaited(_safeRegister());
     } catch (e) {
       print(e);
@@ -191,38 +194,13 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<String> getDeviceId() async {
-    final deviceInfo = DeviceInfoPlugin();
-    String? id;
-
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      id = prefs.getString("device_id");
-      id ??= 'web_${const Uuid().v4()}';
-      await prefs.setString("device_id", id);
-    } else if (Platform.isAndroid) {
-      final android = await deviceInfo.androidInfo;
-      id = 'android_${android.id}';
-    } else if (Platform.isIOS) {
-      id = await _secureStorage.read(key: 'stable_device_id');
-      if (id == null || id.isEmpty) {
-        final ios = await deviceInfo.iosInfo;
-        final vendor = ios.identifierForVendor;
-        id = (vendor != null && vendor.isNotEmpty)
-            ? 'ios_$vendor'
-            : 'ios_${const Uuid().v4()}';
-        await _secureStorage.write(key: 'stable_device_id', value: id);
-      }
-    } else {
-      id = await _secureStorage.read(key: 'stable_device_id');
-      id ??= 'device_${const Uuid().v4()}';
-      await _secureStorage.write(key: 'stable_device_id', value: id);
-    }
-    return id;
+    return DeviceIdentityService.getStableInstallId();
   }
 
   Future<void> registerDevice() async {
     try {
       final deviceId = await getDeviceId();
+      final pushToken = await PushNotificationService.instance.getToken();
 
       final packageInfo = await PackageInfo.fromPlatform();
 
@@ -256,25 +234,40 @@ class _LobbyScreenState extends State<LobbyScreen>
         throw Exception("Session yok");
       }
       final user = supabase.auth.currentUser;
-      final res = await supabase.functions.invoke(
-        'register_device',
-        body: {
-          "user_id": user?.id,
-          "device_id": deviceId,
-          "platform": platform,
-          "device_model": deviceModel,
-          "os_version": osVersion,
-          "app_version": packageInfo.version,
-        },
-      );
+      try {
+        await supabase.functions.invoke(
+          'register_device',
+          body: {
+            "user_id": user?.id,
+            "device_id": deviceId,
+            "platform": platform,
+            "device_model": deviceModel,
+            "os_version": osVersion,
+            "app_version": packageInfo.version,
+            "push_token": pushToken,
+          },
+        );
+      } catch (_) {
+        await supabase.functions.invoke(
+          'register_device',
+          body: {
+            "user_id": user?.id,
+            "device_id": deviceId,
+            "platform": platform,
+            "device_model": deviceModel,
+            "os_version": osVersion,
+            "app_version": packageInfo.version,
+          },
+        );
+      }
 
-      /// ğŸ”¥ HATA KONTROLÜ BURADA
+      /// 🔥 HATA KONTROL� BURADA
     } catch (e) {
       print(e);
 
-      /// ğŸ”¥ SADECE SIGNOUT + FORWARD
+      /// 🔥 SADECE SIGNOUT + FORWARD
 
-      rethrow; // ğŸ”¥ EN DOÄRU
+      rethrow; // 🔥 EN DOĞRU
     }
   }
 
@@ -337,6 +330,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     _bgController.dispose();
     _storePulse.dispose();
     _audioPlayer.dispose();
+    _tableInviteChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -355,11 +349,293 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadLeagues();
     await _loadLeagueActivity();
     await _loadTables();
+    await _tryResumeActiveGame();
     await _checkCampaignPopup();
     final user = supabase.auth.currentUser;
 
     if (user != null) {
+      _bindTableInviteListener(user.id);
+      await _loadPendingTableInvites(user.id);
       await loadMissedGifts(user.id);
+    }
+  }
+
+  Future<void> _tryResumeActiveGame() async {
+    if (_autoResumeAttempted) return;
+    _autoResumeAttempted = true;
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+
+    try {
+      final playerRows = await supabase
+          .from('table_players')
+          .select('table_id')
+          .eq('user_id', uid);
+
+      final tableIds = (playerRows as List)
+          .map((e) => (e as Map<String, dynamic>)['table_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (tableIds.isEmpty) return;
+
+      final activeTables = await supabase
+          .from('tables')
+          .select('id,status,created_by')
+          .inFilter('id', tableIds)
+          .inFilter('status', ['waiting', 'start', 'playing'])
+          .limit(1);
+
+      final rows = (activeTables as List)
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      if (rows.isEmpty) return;
+
+      final table = rows.first;
+      final tableId = table['id']?.toString();
+      if (tableId == null || tableId.isEmpty) return;
+      if (!mounted) return;
+
+      final isCreator = table['created_by']?.toString() == uid;
+      await _openGame(tableId, isCreator);
+    } catch (e) {
+      debugPrint('AUTO RESUME ERROR: ');
+    }
+  }
+
+  void _bindTableInviteListener(String myUserId) {
+    _tableInviteChannel?.unsubscribe();
+    _tableInviteChannel = supabase.channel('table-invites-$myUserId');
+    _tableInviteChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'table_invites',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'to_user',
+            value: myUserId,
+          ),
+          callback: (payload) async {
+            final invite = Map<String, dynamic>.from(payload.newRecord);
+            await _handleIncomingTableInvite(invite);
+          },
+        )
+        .subscribe();
+  }
+
+  Future<void> _loadPendingTableInvites(String myUserId) async {
+    try {
+      final rows = await supabase
+          .from('table_invites')
+          .select('id,table_id,from_user,to_user,status,created_at')
+          .eq('to_user', myUserId)
+          .eq('status', 'pending')
+          .order('created_at', ascending: true)
+          .limit(20);
+      for (final raw in (rows as List)) {
+        await _handleIncomingTableInvite(Map<String, dynamic>.from(raw));
+      }
+    } catch (e) {
+      debugPrint('PENDING INVITE LOAD ERROR: $e');
+    }
+  }
+
+  Future<void> _handleIncomingTableInvite(Map<String, dynamic> invite) async {
+    if (!mounted) return;
+    final id = invite['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    if (_handledTableInviteIds.contains(id)) return;
+    if ((invite['status']?.toString() ?? 'pending') != 'pending') return;
+    _handledTableInviteIds.add(id);
+    await _showTableInviteDialog(invite);
+  }
+
+  Future<void> _showTableInviteDialog(Map<String, dynamic> invite) async {
+    final inviteId = invite['id']?.toString();
+    final fromUserId = invite['from_user']?.toString();
+    final tableId = invite['table_id']?.toString();
+    if (inviteId == null || fromUserId == null || tableId == null) return;
+
+    String inviterName = 'Oyuncu';
+    String? inviterAvatar;
+    try {
+      final userRow = await supabase
+          .from('users')
+          .select('username,avatar_url')
+          .eq('id', fromUserId)
+          .maybeSingle();
+      final name = userRow?['username']?.toString().trim() ?? '';
+      if (name.isNotEmpty) inviterName = name;
+      inviterAvatar = userRow?['avatar_url']?.toString();
+    } catch (_) {}
+
+    if (!mounted) return;
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF20352E), Color(0xFF132621)],
+              ),
+              border: Border.all(color: const Color(0xB3E3BB62), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0x99230F00).withOpacity(.55),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.celebration_rounded, color: Color(0xFFE3BB62)),
+                    SizedBox(width: 8),
+                    Text(
+                      'Masa Daveti',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0x4D000000),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0x446EC6A0)),
+                  ),
+                  child: Row(
+                    children: [
+                      LobbyAvatar(
+                        username: inviterName,
+                        avatarUrl: inviterAvatar,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.3,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: inviterName,
+                                style: const TextStyle(
+                                  color: Color(0xFFE3BB62),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const TextSpan(text: ' seni masaya davet etti.'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0x66FFFFFF)),
+                          foregroundColor: Colors.white70,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'Reddet',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE3BB62),
+                          foregroundColor: const Color(0xFF1A241F),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'Masaya Kat�l',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted) return;
+
+    try {
+      if (accepted == true) {
+        await supabase
+            .from('table_invites')
+            .update({'status': 'accepted'})
+            .eq('id', inviteId)
+            .eq('status', 'pending');
+
+        final table = await supabase
+            .from('tables')
+            .select('id,status,entry_coin,league_id,max_players')
+            .eq('id', tableId)
+            .maybeSingle();
+        if (table == null) {
+          _msg('Masa art�k bulunam�yor.');
+          return;
+        }
+        await _joinTable(Map<String, dynamic>.from(table));
+      } else {
+        await supabase
+            .from('table_invites')
+            .update({'status': 'rejected'})
+            .eq('id', inviteId)
+            .eq('status', 'pending');
+      }
+    } catch (e) {
+      _msg('Davet i�lenemedi.');
+      debugPrint('TABLE INVITE HANDLE ERROR: $e');
     }
   }
 
@@ -373,7 +649,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         columns: 'id,username,avatar_url,wins,losses',
       );
 
-      // ✅ profiles'den coins ve rating al
+      // ? profiles'den coins ve rating al
       final profileRows = await supabase
           .from('profiles')
           .select('coins,rating')
@@ -390,16 +666,16 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (row != null) {
         setState(() {
           UserState.userId = user.id;
-          UserState.wins = (row['wins'] as int?) ?? 0; // ✅ users'dan
-          UserState.losses = (row['losses'] as int?) ?? 0; // ✅ users'dan
+          UserState.wins = (row['wins'] as int?) ?? 0; // ? users'dan
+          UserState.losses = (row['losses'] as int?) ?? 0; // ? users'dan
           UserState.userRowId = row['id']?.toString();
           UserState.userName =
               ((row['username'] as String?) ?? '').trim().isEmpty
               ? (user.email?.split('@').first ?? 'Oyuncu')
               : row['username'] as String;
-          UserState.userRating = profileRating; // ✅ profiles'den
+          UserState.userRating = profileRating; // ? profiles'den
           UserState.userAvatarUrl = (row['avatar_url'] as String?)?.trim();
-          UserState.userCoin = profileCoin; // ✅ profiles'den
+          UserState.userCoin = profileCoin; // ? profiles'den
         });
       } else {
         setState(() {
@@ -495,8 +771,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     final minPlayersByName = {
       'Standart': 180,
       'Bronz': 120,
-      'Gümüş': 80,
-      'Altın': 40,
+      'G�m��': 80,
+      'Alt�n': 40,
     };
 
     if (leagues.isEmpty) return;
@@ -517,7 +793,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (tableRows.isNotEmpty) {
         final tableIds = tableRows.map((e) => e['id'] as String).toList();
 
-        /// ✅ gerçek masa sayısı
+        /// ? ger�ek masa say�s�
         for (final row in tableRows) {
           final leagueId = row['league_id']?.toString();
           if (leagueId == null) continue;
@@ -570,8 +846,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         final realPlayers = usersByLeague[id]?.length ?? 0;
         final basePlayers = minPlayersByName[name] ?? 50;
 
-        /// 🔥 akıllı fake
-        final fluctuation = rnd.nextInt(20); // küçük oynama
+        /// ?? ak�ll� fake
+        final fluctuation = rnd.nextInt(20); // k���k oynama
 
         final boostedPlayers =
             (realPlayers > basePlayers ? realPlayers : basePlayers) +
@@ -626,7 +902,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           .delete()
           .inFilter('table_id', orphanTableIds);
 
-      /// 🔥 BURASI SİLİNDİ (view olduğu için)
+      /// ?? BURASI S�L�ND� (view oldu�u i�in)
 
       await supabase
           .from('table_discards')
@@ -922,7 +1198,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final entry = coinOptions[selectedIndex];
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
-      return _msg('Bu lig için rating yetersiz.');
+      return _msg('Bu lig i�in rating yetersiz.');
     }
 
     final table = await supabase
@@ -953,7 +1229,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _joinTable(Map<String, dynamic> table) async {
     if (table['is_fake'] == true) {
-      _msg('Bu masa vitrin masasıdır. Katılım kapalı.');
+      _msg('Bu masa vitrin masas�d�r. Kat�l�m kapal�.');
       return;
     }
     final user = supabase.auth.currentUser;
@@ -973,7 +1249,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if ((tableRating as List).isNotEmpty) {
       final minRating = (tableRating.first['min_rating'] as int?) ?? 0;
       if (UserState.userRating < minRating) {
-        return _msg('Bu lig için rating yetersiz.');
+        return _msg('Bu lig i�in rating yetersiz.');
       }
     }
 
@@ -1166,7 +1442,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
 
-                /// 🔥 GLASS + DEPTH
+                /// ?? GLASS + DEPTH
                 color: const Color(0xFF0F1B17).withOpacity(0.92),
 
                 border: Border.all(
@@ -1191,7 +1467,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// 🔥 HEADER
+                  /// ?? HEADER
                   Row(
                     children: [
                       Container(
@@ -1219,7 +1495,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                       const Expanded(
                         child: Text(
-                          'Genel Seyirci Geçişi',
+                          'Genel Seyirci Ge�i�i',
                           style: TextStyle(
                             color: Color(0xFFE7C06A),
                             fontSize: 20,
@@ -1245,7 +1521,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 12),
 
-                  /// 🔥 INFO BOX
+                  /// ?? INFO BOX
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -1254,8 +1530,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                       border: Border.all(color: Colors.white.withOpacity(0.06)),
                     ),
                     child: const Text(
-                      'Sadece arkadaşlarının masasını ücretsiz izleyebilirsin.\n\n'
-                      '24 saat boyunca tüm masaları izlemek için bu geçişi açabilirsin.',
+                      'Sadece arkada�lar�n�n masas�n� �cretsiz izleyebilirsin.\n\n'
+                      '24 saat boyunca t�m masalar� izlemek i�in bu ge�i�i a�abilirsin.',
                       style: TextStyle(
                         color: Colors.white70,
                         height: 1.4,
@@ -1266,7 +1542,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 14),
 
-                  /// 🔥 PRICE CARD (ÇOK ÖNEMLİ)
+                  /// ?? PRICE CARD (�OK �NEML�)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -1323,7 +1599,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 18),
 
-                  /// 🔥 BUTTONS
+                  /// ?? BUTTONS
                   Row(
                     children: [
                       /// CANCEL
@@ -1342,7 +1618,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                             ),
                             child: const Center(
                               child: Text(
-                                "Vazgeç",
+                                "Vazge�",
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.w600,
@@ -1355,7 +1631,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                       const SizedBox(width: 12),
 
-                      /// 🔥 BUY BUTTON
+                      /// ?? BUY BUTTON
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
@@ -1379,7 +1655,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Center(
                                   child: Text(
-                                    "Satın Al",
+                                    "Sat�n Al",
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontWeight: FontWeight.w800,
@@ -1531,7 +1807,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 });
                 if (!mounted) return;
                 Navigator.pop(context);
-                _msg('Talebiniz alınmıştır.');
+                _msg('Talebiniz al�nm��t�r.');
               } catch (_) {
                 setLocalState(() {
                   sending = false;
@@ -1578,7 +1854,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'Destek Şikayet Gönder',
+                          'Destek �ikayet G�nder',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -1666,7 +1942,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           onPressed: sending
                               ? null
                               : () => Navigator.pop(context),
-                          child: const Text('Vazgeç'),
+                          child: const Text('Vazge�'),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
@@ -2053,6 +2329,8 @@ class _LobbyScreenState extends State<LobbyScreen>
       /// USERS
       final usersById = <String, Map<String, dynamic>>{};
       final profileRatingById = <String, int>{};
+      final profileOnlineById = <String, bool>{};
+      final profileLastSeenById = <String, DateTime?>{};
       if (counterpartIds.isNotEmpty) {
         final userRows = await supabase
             .from('users')
@@ -2060,7 +2338,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             .inFilter('id', counterpartIds.toList());
         final profileRows = await supabase
             .from('profiles')
-            .select('id,rating')
+            .select('id,rating,is_online,last_seen_at')
             .inFilter('id', counterpartIds.toList());
 
         for (final raw in (userRows as List)) {
@@ -2073,6 +2351,11 @@ class _LobbyScreenState extends State<LobbyScreen>
           final id = row['id']?.toString();
           if (id == null || id.isEmpty) continue;
           profileRatingById[id] = (row['rating'] as int?) ?? 1200;
+          profileOnlineById[id] = (row['is_online'] as bool?) ?? false;
+          final lastSeenRaw = row['last_seen_at']?.toString();
+          profileLastSeenById[id] = lastSeenRaw == null
+              ? null
+              : DateTime.tryParse(lastSeenRaw)?.toLocal();
         }
       }
 
@@ -2109,6 +2392,8 @@ class _LobbyScreenState extends State<LobbyScreen>
               : user!['username'],
           'avatar_url': user?['avatar_url'],
           'rating': profileRatingById[friendId] ?? 1200,
+          'is_online': profileOnlineById[friendId] ?? false,
+          'last_seen_at': profileLastSeenById[friendId],
           'blocked': blockedIds.contains(friendId),
 
           /// EKLENEN
@@ -2271,7 +2556,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final text = _chatController.text.trim();
     if (uid == null || otherId == null || text.isEmpty) return;
     if (!UserState.friendIds.contains(otherId)) {
-      return _msg('Sadece arkadaşlara mesaj gönderebilirsin.');
+      return _msg('Sadece arkada�lara mesaj g�nderebilirsin.');
     }
     try {
       await supabase.from('messages').insert({
@@ -2285,7 +2570,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         _scrollToBottom();
       });
     } catch (e) {
-      _msg('Mesaj gönderilemedi.');
+      _msg('Mesaj g�nderilemedi.');
       debugPrint('SEND MESSAGE ERROR: $e');
     }
   }
@@ -2309,7 +2594,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final maxCoin = league['max_coin'];
     bool isDragging = false;
 
-    /// 🔥 PRESET COIN LİSTESİ
+    /// ?? PRESET COIN L�STES�
 
     int current = minCoin;
     coinOptions = [];
@@ -2334,7 +2619,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
 
     // normal default
-    /// 🔴 KİLİTLİYSE → DİREKT SATIN ALMA
+    /// ?? K�L�TL�YSE � D�REKT SATIN ALMA
     if (!eligible) {
       final result = await Navigator.push(
         context,
@@ -2343,7 +2628,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
       );
 
-      /// 🔥 widget hala aktif mi?
+      /// ?? widget hala aktif mi?
       if (!mounted) return;
 
       if (result == true) {
@@ -2372,19 +2657,30 @@ class _LobbyScreenState extends State<LobbyScreen>
                     return Container(
                       width: width,
                       height: height,
-                      padding: const EdgeInsets.all(15),
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(26),
                         border: Border.all(
-                          color: const Color(0xD7D0A14A),
-                          width: 0.5,
+                          color: const Color(0xCFE7C66A),
+                          width: 1.0,
                         ),
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xEE13291F), Color(0xEE0C1712)],
+                          colors: [Color(0xF01A3529), Color(0xF00C1813)],
                         ),
-                        color: const Color(0xFF0F2F2A),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0xB3000000),
+                            blurRadius: 30,
+                            offset: Offset(0, 14),
+                          ),
+                          BoxShadow(
+                            color: Color(0x3FE7C66A),
+                            blurRadius: 18,
+                            spreadRadius: -2,
+                          ),
+                        ],
                       ),
 
                       child: Column(
@@ -2395,9 +2691,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                               const Text(
                                 "MASA OLUŞTUR",
                                 style: TextStyle(
-                                  color: Color(0xFFE7B95A),
+                                  color: Color(0xFFF2D38D),
                                   fontWeight: FontWeight.w900,
-                                  fontSize: 16,
+                                  fontSize: 18,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
 
@@ -2406,8 +2703,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                               Text(
                                 league['name'],
                                 style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFEAF3EE),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
                                 ),
                               ),
 
@@ -2417,7 +2715,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 onTap: () => Navigator.pop(context),
                                 child: const Icon(
                                   Icons.close,
-                                  color: Colors.white70,
+                                  color: Color(0xFFDCE8E2),
                                 ),
                               ),
                             ],
@@ -2430,9 +2728,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                /// 💰 SEÇİLEN COIN (HERO)
+                                /// ?? SE��LEN COIN (HERO)
 
-                                /// 🔥 SLIDER (AAA)
+                                /// ?? SLIDER (AAA)
                                 SizedBox(
                                   height: 90,
                                   child: LayoutBuilder(
@@ -2454,7 +2752,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       return Stack(
                                         clipBehavior: Clip.none,
                                         children: [
-                                          /// 🔹 TRACK
+                                          /// ?? TRACK
                                           Positioned.fill(
                                             child: Container(
                                               margin:
@@ -2464,18 +2762,23 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               decoration: BoxDecoration(
                                                 borderRadius:
                                                     BorderRadius.circular(30),
-                                                color: Colors.white.withOpacity(
-                                                  0.05,
-                                                ),
+                                                color: const Color(0x26111915),
                                                 border: Border.all(
-                                                  color: Colors.white
-                                                      .withOpacity(0.15),
+                                                  color: const Color(0x446E8F7F),
+                                                  width: 1.2,
                                                 ),
+                                                boxShadow: const [
+                                                  BoxShadow(
+                                                    color: Color(0x6A000000),
+                                                    blurRadius: 12,
+                                                    offset: Offset(0, 4),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
 
-                                          /// 🔹 - BUTTON
+                                          /// ?? - BUTTON
                                           Positioned(
                                             left: 6,
                                             top: 0,
@@ -2524,7 +2827,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                             ),
                                           ),
 
-                                          /// 🔥 HANDLE + DRAG
+                                          /// ?? HANDLE + DRAG
                                           Positioned(
                                             left: left,
                                             top: 22,
@@ -2563,7 +2866,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               child: Stack(
                                                 clipBehavior: Clip.none,
                                                 children: [
-                                                  /// 🔥 BALON (SADECE DRAG SIRASINDA)
+                                                  /// ?? BALON (SADECE DRAG SIRASINDA)
                                                   if (isDragging)
                                                     Positioned(
                                                       top: -46,
@@ -2572,7 +2875,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                       child: Center(
                                                         child: Column(
                                                           children: [
-                                                            /// 🔥 BALON
+                                                            /// ?? BALON
                                                             Container(
                                                               padding:
                                                                   const EdgeInsets.symmetric(
@@ -2586,7 +2889,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                                       12,
                                                                     ),
 
-                                                                /// 🔥 MODERN DARK GLASS
+                                                                /// ?? MODERN DARK GLASS
                                                                 gradient: LinearGradient(
                                                                   colors: [
                                                                     Colors.black
@@ -2655,7 +2958,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                               ),
                                                             ),
 
-                                                            /// 🔻 POINTER
+                                                            /// ?? POINTER
                                                             Container(
                                                               width: 10,
                                                               height: 6,
@@ -2676,7 +2979,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                       ),
                                                     ),
 
-                                                  /// 🔥 HANDLE
+                                                  /// ?? HANDLE
                                                   AnimatedContainer(
                                                     duration: const Duration(
                                                       milliseconds: 120,
@@ -2747,17 +3050,20 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 ),
                                 const SizedBox(height: 14),
 
-                                /// ⚡ OYUN HIZI (AAA SEGMENTED)
+                                /// ? OYUN HIZI (AAA SEGMENTED)
                                 Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(14),
-                                    color: Colors.white.withOpacity(0.05),
-                                    border: Border.all(color: Colors.white12),
+                                    color: const Color(0x1F101A16),
+                                    border: Border.all(
+                                      color: const Color(0x44779B8A),
+                                      width: 1,
+                                    ),
                                   ),
                                   child: Row(
                                     children: [
-                                      /// ⚡ HIZLI
+                                      /// ? HIZLI
                                       Expanded(
                                         child: GestureDetector(
                                           onTap: () {
@@ -2776,9 +3082,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                               color: draftTurnSeconds == 15
-                                                  ? Colors.amber.withOpacity(
-                                                      0.2,
-                                                    )
+                                                  ? const Color(0x2EF2C14E)
                                                   : Colors.transparent,
                                             ),
                                             child: Row(
@@ -2789,7 +3093,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                   Icons.flash_on,
                                                   size: 16,
                                                   color: draftTurnSeconds == 15
-                                                      ? Colors.amber
+                                                      ? const Color(0xFFF2D38D)
                                                       : Colors.white54,
                                                 ),
                                                 const SizedBox(width: 6),
@@ -2798,7 +3102,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                   style: TextStyle(
                                                     color:
                                                         draftTurnSeconds == 15
-                                                        ? Colors.amber
+                                                        ? const Color(0xFFF2D38D)
                                                         : Colors.white70,
                                                     fontWeight: FontWeight.w700,
                                                   ),
@@ -2809,7 +3113,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                         ),
                                       ),
 
-                                      /// 🎯 NORMAL
+                                      /// ?? NORMAL
                                       Expanded(
                                         child: GestureDetector(
                                           onTap: () {
@@ -2828,7 +3132,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                               color: draftTurnSeconds == 20
-                                                  ? Colors.blue.withOpacity(0.2)
+                                                  ? const Color(0x2E5FA8FF)
                                                   : Colors.transparent,
                                             ),
                                             child: Row(
@@ -2864,14 +3168,15 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                                 const SizedBox(height: 10),
 
-                                /// ALT AÇIKLAMA
+                                /// ALT A�IKLAMA
                                 Text(
                                   draftTurnSeconds == 15
                                       ? "Daha hızlı oyun • kısa hamle süresi"
                                       : "Standart tempo",
                                   style: const TextStyle(
-                                    color: Colors.white38,
+                                    color: Color(0xB7C9D6CE),
                                     fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
@@ -2887,19 +3192,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               color: Colors.transparent,
                               child: Ink(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-
-                                  border: Border.all(
-                                    color: Color(0xFFE7C66A),
-                                    width: 1.2,
-                                  ),
-
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Color(0xFFE7C66A).withOpacity(0.3),
-                                      blurRadius: 12,
-                                    ),
-                                  ],
+                                  borderRadius: BorderRadius.circular(18),
                                 ),
 
                                 child: buildCreateButton(
@@ -2933,89 +3226,79 @@ class _LobbyScreenState extends State<LobbyScreen>
     required VoidCallback onTap,
   }) {
     return Opacity(
-      opacity: canCreate ? 1 : 0.55,
+      opacity: canCreate ? 1 : 0.5,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: canCreate ? onTap : null,
-          splashColor: Colors.white.withOpacity(0.08),
-          highlightColor: Colors.transparent,
+          splashColor: const Color(0x40FFE7B0),
+          highlightColor: const Color(0x14FFFFFF),
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-
-              // 🔥 Daha temiz ve koyu altın (kontrast için)
+              borderRadius: BorderRadius.circular(18),
               gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFFE6C56A),
-                  Color(0xFFC79A2B),
-                  Color(0xFF7A5A12),
+                  Color(0xFFFFE3A0),
+                  Color(0xFFE4B54E),
+                  Color(0xFFBB8321),
                 ],
               ),
-
-              // 🔥 İnce ve sakin border
               border: Border.all(
-                color: const Color(0xFFFFF0B0).withOpacity(0.4),
-                width: 0.8,
+                color: const Color(0xFFF9E2A8),
+                width: 1.1,
               ),
-
               boxShadow: [
-                // hafif glow
                 BoxShadow(
-                  color: const Color(0xFFC79A2B).withOpacity(0.25),
-                  blurRadius: 10,
+                  color: const Color(0x99B1771C),
+                  blurRadius: 16,
+                  spreadRadius: 1,
                 ),
-                // derinlik
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.6),
-                  offset: const Offset(0, 4),
-                  blurRadius: 8,
+                  color: const Color(0xCC000000),
+                  offset: const Offset(0, 8),
+                  blurRadius: 14,
                 ),
               ],
             ),
-
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               child: Stack(
                 children: [
-                  // 🔥 Üst highlight'ı azalt (yazıyı boğmasın)
                   Positioned(
                     top: 0,
                     left: 0,
                     right: 0,
                     child: Container(
-                      height: 6,
+                      height: 11,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.white.withOpacity(0.12),
+                            Colors.white.withOpacity(0.32),
                             Colors.transparent,
                           ],
                         ),
                       ),
                     ),
                   ),
-
-                  // 🔥 TEXT (asıl fix burada)
                   Container(
                     alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     child: const Text(
                       "MASAYI AÇ",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white, // 🔥 sarı değil → beyaz
-                        fontSize: 15,
+                        color: Color(0xFF221A08),
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.1,
+                        letterSpacing: 1.4,
                         shadows: [
                           Shadow(
-                            color: Colors.black,
+                            color: Color(0x66FFFFFF),
                             offset: Offset(0, 1),
-                            blurRadius: 3,
+                            blurRadius: 1,
                           ),
                         ],
                       ),
@@ -3201,19 +3484,17 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _friendsPanel() {
-    if (_friends.isEmpty) {
-      return const Center(
-        child: Text(
-          'Henüz arkadaşın yok.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      itemCount: _friends.length,
-      separatorBuilder: (_, index) => const SizedBox(height: 8),
-      itemBuilder: (_, i) {
+    final body = _friends.isEmpty
+        ? const Center(
+            child: Text(
+              'Hen�z arkada��n yok.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          )
+        : ListView.separated(
+            itemCount: _friends.length,
+            separatorBuilder: (_, index) => const SizedBox(height: 8),
+            itemBuilder: (_, i) {
         final friend = _friends[i];
         final blocked = UserState.blockedUserIds.contains(friend['id']);
         final tableId = friend['table_id'];
@@ -3238,20 +3519,41 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
             child: Row(
               children: [
-                LobbyAvatar(
+                _statusAvatar(
                   username: friend['username']?.toString() ?? 'Oyuncu',
                   avatarUrl: friend['avatar_url']?.toString(),
+                  isOnline: (friend['is_online'] as bool?) ?? false,
+                  size: 15,
                   blocked: blocked,
                 ),
                 const SizedBox(width: 10),
 
                 Expanded(
-                  child: Text(
-                    friend['username']?.toString() ?? 'Oyuncu',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        friend['username']?.toString() ?? 'Oyuncu',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ((friend['is_online'] as bool?) ?? false)
+                            ? '�evrimi�i'
+                            : _formatLastSeen(friend['last_seen_at']),
+                        style: TextStyle(
+                          color: ((friend['is_online'] as bool?) ?? false)
+                              ? const Color(0xFF7DDA8F)
+                              : Colors.white60,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -3279,7 +3581,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Text(
-                          "Katıl",
+                          "Kat�l",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -3300,20 +3602,48 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
           ),
         );
-      },
+            },
+          );
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Arkadaşlar',
+              style: TextStyle(
+                color: Color(0xFFEFD18A),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              onTap: _closeRightPanel,
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.close, size: 20, color: Colors.white70),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(child: body),
+      ],
     );
   }
 
   Widget _messagesPanel() {
-    if (_friends.isEmpty) {
-      return Center(
+    final body = _friends.isEmpty
+        ? Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
             Icon(Icons.group_off, color: Colors.white30, size: 42),
             SizedBox(height: 10),
             Text(
-              'Mesajlaşmak için arkadaş eklemelisin',
+              'Mesajla�mak i�in arkada� eklemelisin',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 15,
@@ -3322,12 +3652,10 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
           ],
         ),
-      );
-    }
-
-    return Row(
+      )
+        : Row(
       children: [
-        /// SOL ARKADAÅ LİSTESİ
+        /// SOL ARKADAŞ L�STES�
         Container(
           width: 230,
           decoration: BoxDecoration(
@@ -3373,25 +3701,41 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ),
                   child: Row(
                     children: [
-                      /// AVATAR
-                      LobbyAvatar(
+                      /// AVATAR + ONLINE
+                      _statusAvatar(
                         username: friend['username']?.toString() ?? 'Oyuncu',
                         avatarUrl: friend['avatar_url']?.toString(),
+                        isOnline: (friend['is_online'] as bool?) ?? false,
                         size: 16,
                       ),
 
                       const SizedBox(width: 8),
 
-                      /// İSİM
+                      /// �S�M + SON G�R�LME
                       Expanded(
-                        child: Text(
-                          friend['username']?.toString() ?? 'Oyuncu',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              friend['username']?.toString() ?? 'Oyuncu',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (!((friend['is_online'] as bool?) ?? false))
+                              Text(
+                                _formatLastSeen(friend['last_seen_at']),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
 
@@ -3406,7 +3750,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 12),
 
-        /// MESAJ PANELİ
+        /// MESAJ PANEL�
         Expanded(
           child: Container(
             decoration: BoxDecoration(
@@ -3416,11 +3760,11 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
             child: Column(
               children: [
-                /// MESAJ LİSTESİ
+                /// MESAJ L�STES�
                 Expanded(
                   child: Stack(
                     children: [
-                      /// ğŸ’¬ MESAJ LİSTESİ
+                      /// 💬 MESAJ L�STES�
                       _rightPanelLoading
                           ? Center(child: _premiumLoader(size: 32))
                           : ListView.builder(
@@ -3429,65 +3773,130 @@ class _LobbyScreenState extends State<LobbyScreen>
                               itemCount: _activeChatMessages.length,
                               itemBuilder: (_, i) {
                                 final msg = _activeChatMessages[i];
+                                final senderId = msg['sender_id']?.toString();
                                 final mine =
                                     msg['sender_id'] == UserState.userId;
 
                                 final isVoice = msg['type'] == 'voice';
+                                final friendData = senderId == null
+                                    ? null
+                                    : _friends
+                                          .cast<Map<String, dynamic>?>()
+                                          .firstWhere(
+                                            (f) =>
+                                                f?['id']?.toString() ==
+                                                senderId,
+                                            orElse: () => null,
+                                          );
+                                final senderName = mine
+                                    ? (UserState.userName.isEmpty
+                                          ? 'Sen'
+                                          : UserState.userName)
+                                    : (friendData?['username']?.toString() ??
+                                          'Oyuncu');
+                                final senderAvatar = mine
+                                    ? UserState.userAvatarUrl
+                                    : friendData?['avatar_url']?.toString();
+                                final senderOnline = mine
+                                    ? true
+                                    : ((friendData?['is_online'] as bool?) ??
+                                          false);
+
+                                final bubble = AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 260,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(.25),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                    gradient: mine
+                                        ? const LinearGradient(
+                                            colors: [
+                                              Color(0xFF2E7752),
+                                              Color(0xFF1F5A40),
+                                            ],
+                                          )
+                                        : const LinearGradient(
+                                            colors: [
+                                              Color(0xFF3A4A43),
+                                              Color(0xFF2C3934),
+                                            ],
+                                          ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: mine
+                                        ? CrossAxisAlignment.end
+                                        : CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        senderName,
+                                        style: const TextStyle(
+                                          color: Color(0xFFD4AF37),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      isVoice
+                                          ? _voiceBubble(msg, mine)
+                                          : Text(
+                                              msg['content']?.toString() ?? '',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                height: 1.35,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                    ],
+                                  ),
+                                );
 
                                 return Align(
                                   alignment: mine
                                       ? Alignment.centerRight
                                       : Alignment.centerLeft,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 180),
-                                    margin: const EdgeInsets.only(bottom: 10),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 260,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(.25),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                      gradient: mine
-                                          ? const LinearGradient(
-                                              colors: [
-                                                Color(0xFF2E7752),
-                                                Color(0xFF1F5A40),
-                                              ],
-                                            )
-                                          : const LinearGradient(
-                                              colors: [
-                                                Color(0xFF3A4A43),
-                                                Color(0xFF2C3934),
-                                              ],
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: mine
+                                        ? [
+                                            bubble,
+                                            const SizedBox(width: 8),
+                                            _statusAvatar(
+                                              username: senderName,
+                                              avatarUrl: senderAvatar,
+                                              isOnline: senderOnline,
+                                              size: 12,
                                             ),
-                                    ),
-                                    child: isVoice
-                                        ? _voiceBubble(msg, mine)
-                                        : Text(
-                                            msg['content']?.toString() ?? '',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13,
-                                              height: 1.35,
-                                              fontWeight: FontWeight.w500,
+                                          ]
+                                        : [
+                                            _statusAvatar(
+                                              username: senderName,
+                                              avatarUrl: senderAvatar,
+                                              isOnline: senderOnline,
+                                              size: 12,
                                             ),
-                                          ),
+                                            const SizedBox(width: 8),
+                                            bubble,
+                                          ],
                                   ),
                                 );
                               },
                             ),
 
-                      /// ğŸ”¥ FLOATING MENU (ÅİMDİ ÇALIÅIR)
+                      /// 🔥 FLOATING MENU (Ş�MD� �ALIŞIR)
                       Positioned(top: 8, right: 8, child: _floatingMenu()),
                     ],
                   ),
@@ -3509,7 +3918,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                     child: Row(
                       children: [
-                        /// â–¶ï¸ PLAY
+                        /// ▶️ PLAY
                         GestureDetector(
                           onTap: () async {
                             if (_previewPlaying) {
@@ -3553,12 +3962,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                         const SizedBox(width: 10),
 
-                        /// ğŸ”Š WAVE
+                        /// 🔊 WAVE
                         Expanded(child: _waveform(_previewPlaying)),
 
                         const SizedBox(width: 8),
 
-                        /// âŒ DELETE
+                        /// ❌ DELETE
                         IconButton(
                           icon: const Icon(
                             Icons.close,
@@ -3580,7 +3989,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           },
                         ),
 
-                        /// âœ… SEND
+                        /// ✅ SEND
                         IconButton(
                           icon: const Icon(
                             Icons.send,
@@ -3622,7 +4031,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                     child: Row(
                       children: [
-                        /// ğŸ¤ ICON
+                        /// 🎤 ICON
                         const Icon(
                           Icons.mic,
                           color: Colors.redAccent,
@@ -3642,12 +4051,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                         const Spacer(),
 
-                        /// ğŸ”´ BLINK DOT
+                        /// 🔴 BLINK DOT
                         _recordDot(),
 
                         const SizedBox(width: 6),
 
-                        /// â±ï¸ TIMER
+                        /// ⏱️ TIMER
                         Text(
                           _recordDuration,
                           style: const TextStyle(
@@ -3659,7 +4068,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                   ),
 
-                /// MESAJ GÖNDERME ALANI
+                /// MESAJ G�NDERME ALANI
                 Container(
                   padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                   decoration: const BoxDecoration(
@@ -3677,7 +4086,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                             const Duration(milliseconds: 250),
                           );
 
-                          // hala basılıysa başlat
+                          // hala bas�l�ysa ba�lat
                           if (_isPressing) {
                             print("START RECORD");
                             await _startRecording();
@@ -3711,7 +4120,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                       ),
 
-                      /// ğŸ¤ VOICE BUTTON
+                      /// 🎤 VOICE BUTTON
                       const SizedBox(width: 8),
 
                       /// TEXTFIELD
@@ -3760,7 +4169,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                       const SizedBox(width: 8),
 
-                      /// GÖNDER BUTONU
+                      /// G�NDER BUTONU
                       Container(
                         height: 44,
                         decoration: BoxDecoration(
@@ -3794,6 +4203,34 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
           ),
         ),
+      ],
+    );
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Mesajlar',
+              style: TextStyle(
+                color: Color(0xFFEFD18A),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              onTap: _closeRightPanel,
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.close, size: 20, color: Colors.white70),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Expanded(child: body),
       ],
     );
   }
@@ -3919,7 +4356,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  /// ğŸ§  TITLE
+                  /// 🧠 TITLE
                   const Text(
                     "Sohbeti sil",
                     style: TextStyle(
@@ -3931,16 +4368,16 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 10),
 
-                  /// âš ï¸ DESCRIPTION
+                  /// ⚠️ DESCRIPTION
                   const Text(
-                    "Bu kullanıcıyla tüm mesajlar ve ses kayıtları silinecek.",
+                    "Bu kullan�c�yla t�m mesajlar ve ses kay�tlar� silinecek.",
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 13),
                   ),
 
                   const SizedBox(height: 18),
 
-                  /// ğŸ”˜ BUTTONS
+                  /// 🔘 BUTTONS
                   Row(
                     children: [
                       /// CANCEL
@@ -3959,7 +4396,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ),
                             ),
                             child: const Text(
-                              "İptal",
+                              "�ptal",
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontWeight: FontWeight.w600,
@@ -4017,7 +4454,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (uid == null || other == null) return;
 
     try {
-      /// 3. mesajları sil
+      /// 3. mesajlar� sil
       await supabase
           .from('messages')
           .delete()
@@ -4033,7 +4470,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       _msg("Sohbet silindi");
     } catch (e) {
       debugPrint("DELETE CHAT ERROR: $e");
-      _msg("Silme hatası");
+      _msg("Silme hatas�");
     }
   }
 
@@ -4048,31 +4485,31 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       if (!await file.exists()) return;
 
-      /// ğŸ†” message id
+      /// 🆔 message id
       final messageId = const Uuid().v4();
 
       final storagePath = 'friend/$ftableid/$messageId.m4a';
 
-      /// ğŸ“¦ 1. STORAGE UPLOAD
+      /// 📦 1. STORAGE UPLOAD
       await supabase.storage.from('voice').upload(storagePath, file);
 
-      /// ğŸ§¾ 2. DB INSERT (senin yapıya uyumlu)
+      /// 🧾 2. DB INSERT (senin yap�ya uyumlu)
       await supabase.from('messages').insert({
         'sender_id': uid,
         'receiver_id': otherId,
-        'content': null, // â— text yok
+        'content': null, // ❗ text yok
         'type': 'voice',
         'voice_url': storagePath,
-        'duration': 5, // şimdilik sabit
+        'duration': 5, // �imdilik sabit
       });
 
-      /// ğŸ§¹ 3. LOCAL TEMİZLE
+      /// 🧹 3. LOCAL TEM�ZLE
       await file.delete();
 
-      /// ğŸ”„ 4. CHAT REFRESH (senin sistem)
+      /// 🔄 4. CHAT REFRESH (senin sistem)
       await _loadMessagesWith(otherId, ftableid, markRead: false);
     } catch (e) {
-      _msg('Sesli mesaj gönderilemedi.');
+      _msg('Sesli mesaj g�nderilemedi.');
       debugPrint('VOICE MESSAGE ERROR: $e');
     }
   }
@@ -4085,9 +4522,9 @@ class _LobbyScreenState extends State<LobbyScreen>
     final isPlaying = _playingMessageId == msg['id'];
 
     return Row(
-      mainAxisSize: MainAxisSize.min, // â— önemli
+      mainAxisSize: MainAxisSize.min, // ❗ �nemli
       children: [
-        /// â–¶ï¸ PLAY
+        /// ▶️ PLAY
         GestureDetector(
           onTap: () => _playVoice(msg),
           child: Container(
@@ -4111,9 +4548,9 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 8),
 
-        /// ğŸ”Š WAVE
+        /// 🔊 WAVE
         SizedBox(
-          width: 80, // â— sabit width
+          width: 80, // ❗ sabit width
           child: Row(
             children: List.generate(12, (i) {
               final height = (i % 5 + 3).toDouble();
@@ -4133,7 +4570,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 6),
 
-        /// â±ï¸ süre
+        /// ⏱️ s�re
         Text(
           "${msg['duration'] ?? 0}s",
           style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -4151,19 +4588,19 @@ class _LobbyScreenState extends State<LobbyScreen>
         return;
       }
 
-      /// aynı mesaj â†’ stop
+      /// ayn� mesaj → stop
       if (_playingMessageId == msg['id']) {
         await _audioPlayer.stop();
         setState(() => _playingMessageId = null);
         return;
       }
 
-      /// yeni mesaj başlat
+      /// yeni mesaj ba�lat
       final url = await supabase.storage
           .from('voice')
           .createSignedUrl(path, 60);
 
-      await _audioPlayer.stop(); // ğŸ’¥ önemli (önceki sesi kes)
+      await _audioPlayer.stop(); // 💥 �nemli (�nceki sesi kes)
 
       await _audioPlayer.setUrl(url);
 
@@ -4220,7 +4657,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     _startTimer();
 
-    /// ğŸ’¥ EN KRİTİK (recorder warmup)
+    /// 💥 EN KR�T�K (recorder warmup)
     _canStop = false;
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -4248,7 +4685,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       return;
     }
 
-    /// â— ARTIK GÖNDERMEYİZ
+    /// ❗ ARTIK G�NDERMEY�Z
     setState(() {
       _previewPath = path;
       _showPreview = true;
@@ -4266,16 +4703,16 @@ class _LobbyScreenState extends State<LobbyScreen>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
 
-        /// ğŸ¨ BACKGROUND
+        /// 🎨 BACKGROUND
         color: _isRecording ? Colors.redAccent : const Color(0xFF1E2A25),
 
-        /// ğŸ’ BORDER
+        /// 💎 BORDER
         border: Border.all(
           color: _isRecording ? Colors.redAccent : const Color(0x3359A588),
           width: _isRecording ? 1.6 : 1,
         ),
 
-        /// âœ¨ GLOW
+        /// ✨ GLOW
         boxShadow: _isRecording
             ? [
                 BoxShadow(
@@ -4349,7 +4786,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 inactiveThumbColor: const Color(0xFF8EA79A),
                 inactiveTrackColor: const Color(0x334E6A5D),
                 title: const Text(
-                  'Titreşim',
+                  'Titre�im',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -4390,7 +4827,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         const SizedBox(height: 6),
         lobbySideMenuButton(
           icon: Icons.person_rounded,
-          label: 'Profil Kartım',
+          label: 'Profil Kart�m',
           onTap: () => ProfileService.showUserCard(
             {
               'id': UserState.userId,
@@ -4409,10 +4846,10 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(height: 10),
 
-        // ğŸ”¥ YENİ EKLEDİÄİMİZ
+        // 🔥 YEN� EKLED�Ğ�M�Z
         lobbySideMenuButton(
           icon: Icons.delete_forever_rounded,
-          label: 'Hesabı Sil',
+          label: 'Hesab� Sil',
           danger: true,
           onTap: () async {
             _closeRightPanel();
@@ -4428,13 +4865,13 @@ class _LobbyScreenState extends State<LobbyScreen>
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Hesabı Sil"),
+          title: Text("Hesab� Sil"),
           content: Text(
-            "Bu işlem geri alınamaz. Hesabınız ve tüm verileriniz silinecek. Emin misiniz?",
+            "Bu i�lem geri al�namaz. Hesab�n�z ve t�m verileriniz silinecek. Emin misiniz?",
           ),
           actions: [
             TextButton(
-              child: Text("İptal"),
+              child: Text("�ptal"),
               onPressed: () => Navigator.pop(context, false),
             ),
             TextButton(
@@ -4470,7 +4907,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       print("DELETE ERROR: $e");
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Hesap silinirken hata oluştu")));
+      ).showSnackBar(SnackBar(content: Text("Hesap silinirken hata olu�tu")));
     }
   }
 
@@ -4525,6 +4962,57 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
+  Widget _statusAvatar({
+    required String username,
+    required String? avatarUrl,
+    required bool isOnline,
+    required double size,
+    bool blocked = false,
+  }) {
+    final dotColor = isOnline
+        ? const Color(0xFF3BD16F)
+        : const Color(0xFFE34A4A);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        LobbyAvatar(
+          username: username,
+          avatarUrl: avatarUrl,
+          size: size,
+          blocked: blocked,
+        ),
+        Positioned(
+          right: -1,
+          top: -1,
+          child: Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black87, width: 1.2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatLastSeen(dynamic rawValue) {
+    DateTime? dt;
+    if (rawValue is DateTime) {
+      dt = rawValue;
+    } else if (rawValue is String) {
+      dt = DateTime.tryParse(rawValue)?.toLocal();
+    }
+    if (dt == null) return 'Son görülme bilinmiyor';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Az önce görüldü';
+    if (diff.inHours < 1) return '${diff.inMinutes} dk önce görüldü';
+    if (diff.inDays < 1) return '${diff.inHours} sa önce görüldü';
+    return '${diff.inDays} gün önce görüldü';
+  }
+
   Widget _premiumLoader({double size = 30}) {
     return SizedBox(
       width: size,
@@ -4552,44 +5040,19 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   String _normalizeTrText(String input) {
-    if (input.isEmpty) return input;
-    return input
-        .replaceAll('ü', 'ü')
-        .replaceAll('Ü', 'Ü')
-        .replaceAll('ç', 'ç')
-        .replaceAll('Ç', 'Ç')
-        .replaceAll('ı', 'ı')
-        .replaceAll('İ', 'İ')
-        .replaceAll('ö', 'ö')
-        .replaceAll('Ö', 'Ö')
-        .replaceAll('ş', 'ş')
-        .replaceAll('Ş', 'Ş')
-        .replaceAll('ğ', 'ğ')
-        .replaceAll('Ğ', 'Ğ')
-        .replaceAll('ü', 'ü')
-        .replaceAll('Ü', 'Ü')
-        .replaceAll('ç', 'ç')
-        .replaceAll('Ç', 'Ç')
-        .replaceAll('ı', 'ı')
-        .replaceAll('İ', 'İ')
-        .replaceAll('ö', 'ö')
-        .replaceAll('Ö', 'Ö')
-        .replaceAll('ş', 'ş')
-        .replaceAll('Ş', 'Ş')
-        .replaceAll('ğ', 'ğ')
-        .replaceAll('Ğ', 'Ğ');
+    return input;
   }
 
   Widget _connectedLeagueAndTables({required double leagueWidth}) {
     return Row(
       children: [
-        /// ğŸ”¥ SOL PANEL (GLASS EFFECT)
+        /// 🔥 SOL PANEL (GLASS EFFECT)
         ClipRRect(
           borderRadius: BorderRadius.circular(22),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
             child: Container(
-              /// ğŸ”¥ biraz daha geniş
+              /// 🔥 biraz daha geni�
               width: leagueWidth + 80,
 
               margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
@@ -4598,15 +5061,15 @@ class _LobbyScreenState extends State<LobbyScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
 
-                /// 🔥 ANA BORDER (daha koyu + classy)
+                /// ?? ANA BORDER (daha koyu + classy)
                 border: Border.all(
-                  color: const Color(0x33FFEBC6), // 🔥 opacity düşürüldü
+                  color: const Color(0x33FFEBC6), // ?? opacity d���r�ld�
                   width: 1.0,
                 ),
 
-                /// 🔥 SOFT SHADOW SYSTEM
+                /// ?? SOFT SHADOW SYSTEM
                 boxShadow: [
-                  /// çok hafif dış glow
+                  /// �ok hafif d�� glow
                   BoxShadow(
                     color: const Color(0xFFFFD76A).withOpacity(0.10),
                     blurRadius: 10,
@@ -4619,7 +5082,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     blurRadius: 12,
                   ),
 
-                  /// iç derinlik
+                  /// i� derinlik
                 ],
               ),
               child: Column(
@@ -4628,7 +5091,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   Column(
                     children: [
                       const Text(
-                        "Adil Dağıtım \u2022 Gerçek Rekabet",
+                        "Adil Dağıtım • Gerçek Rekabet",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFFD4A24C),
@@ -4642,7 +5105,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 8),
 
-                  /// ğŸ”¥ GOLD DIVIDER
+                  /// 🔥 GOLD DIVIDER
                   Container(
                     height: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -4658,7 +5121,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ),
                   const SizedBox(height: 10),
 
-                  /// ğŸ”¥ LİG LİSTESİ
+                  /// 🔥 L�G L�STES�
                   Expanded(
                     child: Stack(
                       children: [
@@ -4694,7 +5157,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 return;
                               }
 
-                              /// 🟢 NORMAL
+                              /// ?? NORMAL
                               isLeagueLocked = false;
                               lockedLeague = null;
 
@@ -4717,7 +5180,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           ),
         ),
 
-        /// ğŸ”¥ MASALAR
+        /// 🔥 MASALAR
         Expanded(
           child: LobbyTableWheel(
             tables: tables,
@@ -4732,7 +5195,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             canSpectateAll: true,
             onNeedRefreshUser: () async {
               await _loadUser();
-              await _loadTables(); // 🔥 coin değişti → listeler değişebilir
+              await _loadTables(); // ?? coin de�i�ti � listeler de�i�ebilir
             },
 
             onUserTap: (user) async {
@@ -4834,7 +5297,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ),
             ),
 
-            const SizedBox(height: 5), // ğŸ”¥ BURASI
+            const SizedBox(height: 5), // 🔥 BURASI
 
             Row(
               children: [
@@ -4874,7 +5337,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             );
 
             if (result == true) {
-              await _loadUser(); // coin yeniden yüklenir
+              await _loadUser(); // coin yeniden y�klenir
             }
           },
           child: const PremiumCoinButton(),
@@ -4911,7 +5374,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       case 'gold':
         return Icons.workspace_premium; // usta
       case 'elite':
-        return Icons.emoji_events; // şampiyon
+        return Icons.emoji_events; // �ampiyon
       default:
         return Icons.circle;
     }
@@ -4934,7 +5397,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     if (res.isEmpty) return;
 
-    // 🔥 1. GÖNDERENE GÖRE GRUPLA
+    // ?? 1. G�NDERENE G�RE GRUPLA
     final Map<String, List<dynamic>> grouped = {};
 
     for (final g in res) {
@@ -4942,7 +5405,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       grouped.putIfAbsent(sender, () => []).add(g);
     }
 
-    // 🔥 2. HER GRUP İÇİN GÖSTER
+    // ?? 2. HER GRUP ���N G�STER
     for (final entry in grouped.entries) {
       final senderId = entry.key;
       final gifts = entry.value;
@@ -4950,7 +5413,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final firstGift = gifts.first;
       final giftType = firstGift['gift_type'];
 
-      // 👤 sender name
+      // ?? sender name
       String senderName = "Bir oyuncu";
 
       try {
@@ -4965,8 +5428,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         }
       } catch (_) {}
 
-      // 🎁 gift info (ilk gift üzerinden)
-      String emoji = "🎁";
+      // ?? gift info (ilk gift �zerinden)
+      String emoji = "??";
       String giftName = "Hediye";
 
       try {
@@ -4982,9 +5445,9 @@ class _LobbyScreenState extends State<LobbyScreen>
         }
       } catch (_) {}
 
-      // 🔥 MULTI LOGIC
+      // ?? MULTI LOGIC
       if (gifts.length == 1) {
-        // ✅ TEK GIFT
+        // ? TEK GIFT
         GiftOverlay.show(
           senderName: senderName,
           emoji: emoji,
@@ -4992,20 +5455,20 @@ class _LobbyScreenState extends State<LobbyScreen>
           senderId: senderId,
         );
       } else {
-        // 🔥 ÇOKLU GIFT
+        // ?? �OKLU GIFT
         GiftOverlay.show(
           senderName: senderName,
-          emoji: "🎁",
-          giftName: "${gifts.length} hediye gönderdi!",
+          emoji: "??",
+          giftName: "${gifts.length} hediye g�nderdi!",
           senderId: senderId,
         );
       }
 
-      // 💥 CONFETTI (her sender için 1 kere)
+      // ?? CONFETTI (her sender i�in 1 kere)
       CelebrationService.showConfetti();
     }
 
-    // 🔥 TOPLU SEEN
+    // ?? TOPLU SEEN
     await supabase
         .from('gifts')
         .update({'seen': true, 'seen_at': DateTime.now().toIso8601String()})

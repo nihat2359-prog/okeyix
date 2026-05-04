@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "445431980577",
+    "project_id": "okeyix-cf7b4",
+    "storage_bucket": "okeyix-cf7b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:445431980577:android:4b0c787af73eabc3c3f960",
+        "android_client_info": {
+          "package_name": "com.okeyix.game"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9buK2I-YLswMSMgx1p1R0qzc7m2C8FFM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

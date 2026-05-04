@@ -14,11 +14,13 @@ class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
   final double topInset;
   final OkeyGame game;
+  final Map<String, String> playerChatByUserId;
   const GameAvatarOverlay({
     super.key,
     required this.tableId,
     this.topInset = 0,
     required this.game,
+    this.playerChatByUserId = const {},
   });
 
   @override
@@ -558,7 +560,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           _buildPositionedSeat(
             size: size,
             relativeSeat: 0,
-            child: AvatarCard(
+            child: _buildSeatWithChatBubble(
               player: me.player,
               position: AvatarPosition.bottom,
               progress: widget.game.getTurnProgress(),
@@ -575,7 +577,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           size: size,
           relativeSeat: 1,
           child: opponent != null
-              ? AvatarCard(
+              ? _buildSeatWithChatBubble(
                   player: opponent.player,
                   position: AvatarPosition.top,
                   progress: (opponent.player.remainingTime / 15).clamp(
@@ -614,7 +616,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           size: size,
           relativeSeat: relativeSeat,
           child: occupied != null
-              ? AvatarCard(
+              ? _buildSeatWithChatBubble(
                   player: occupied.player,
                   position: _avatarPositionFor(relativeSeat),
                   progress: (occupied.player.remainingTime / 15).clamp(
@@ -638,6 +640,78 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         ..._flyAwayFx
             .map((fx) => _buildFlyAwayFx(size: size, fx: fx))
             .toList(growable: false),
+      ],
+    );
+  }
+
+  Widget _buildSeatWithChatBubble({
+    required PlayerModel player,
+    required AvatarPosition position,
+    required double progress,
+    VoidCallback? onTap,
+  }) {
+    final text = widget.playerChatByUserId[player.id];
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AvatarCard(
+          player: player,
+          position: position,
+          progress: progress,
+          onTap: onTap,
+        ),
+        if (text != null && text.trim().isNotEmpty)
+          Positioned(
+            top: -30,
+            left: 4,
+            right: 4,
+            child: IgnorePointer(
+              child: _buildChatBubble(text.trim()),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildChatBubble(String text) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFF2D596), Color(0xFFE7BE6A)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xCC7A5A1F), width: 1.0),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF1D2A25),
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ),
+        CustomPaint(
+          size: const Size(14, 7),
+          painter: _ChatBubbleTailPainter(),
+        ),
       ],
     );
   }
@@ -803,275 +877,202 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       context: context,
       barrierColor: Colors.black.withOpacity(.75),
       builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 440,
-              maxHeight: MediaQuery.of(context).size.height * 0.78,
-            ),
-            child: Container(
-              width: 420,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(
-                  0xFF0F1B17,
-                ).withOpacity(0.88), // 🔥 transparan
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: const Color(0xFFB9932F).withOpacity(0.7),
-                  width: 1.2,
+        final online = candidates
+            .where((p) => p['is_online'] == true)
+            .toList(growable: false);
+        final offline = candidates
+            .where((p) => p['is_online'] != true)
+            .toList(growable: false);
+
+        Widget buildCandidateList(List<Map<String, dynamic>> source) {
+          if (source.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  "Bu sekmede oyuncu yok.",
+                  style: TextStyle(color: Colors.white70),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.6),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  /// 🔥 HEADER
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.group, color: Color(0xFFE7C66A)),
-                      SizedBox(width: 8),
-                      Text(
-                        "Oyuncu Davet Et",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFFE7C66A),
-                          letterSpacing: .6,
+            );
+          }
+
+          return Stack(
+            children: [
+              Scrollbar(
+                controller: _controller,
+                thumbVisibility: true,
+                thickness: 4,
+                radius: const Radius.circular(8),
+                child: ListView.separated(
+                  controller: _controller,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 30),
+                  itemCount: source.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) {
+                    final p = source[i];
+
+                    final name = p['username']?.toString() ?? "Oyuncu";
+                    final rating = p['rating'];
+                    final coins = p['coins'] ?? 0;
+                    final userId = p['id']?.toString();
+                    final avatarUrl = p['avatar_url'];
+                    final isOnline = p['is_online'] == true;
+                    final lastSeenText = _formatLastSeen(p['last_seen_at']);
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF16251F).withOpacity(0.9),
+                            const Color(0xFF0F1B17).withOpacity(0.9),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.05),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  if (candidates.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        "Bu lig için uygun oyuncu bulunamadı.",
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: Stack(
+                      child: Row(
                         children: [
-                          Scrollbar(
-                            controller: _controller,
-                            thumbVisibility: true,
-                            thickness: 4,
-                            radius: const Radius.circular(8),
-                            child: ListView.separated(
-                              controller: _controller,
-                              physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.only(bottom: 30),
-                              itemCount: candidates.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 10),
-                              itemBuilder: (_, i) {
-                                final p = candidates[i];
-
-                                final name =
-                                    p['username']?.toString() ?? "Oyuncu";
-                                final rating = p['rating'];
-                                final coins = p['coins'] ?? 0;
-                                final userId = p['id']?.toString();
-                                final avatarUrl = p['avatar_url'];
-
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        const Color(
-                                          0xFF16251F,
-                                        ).withOpacity(0.9),
-                                        const Color(
-                                          0xFF0F1B17,
-                                        ).withOpacity(0.9),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.05),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.5),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      /// 🔥 AVATAR
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(
-                                                0xFFB9932F,
-                                              ).withOpacity(0.4),
-                                              blurRadius: 8,
-                                            ),
-                                          ],
-                                        ),
-                                        child: _inviteAvatar(
-                                          avatarUrl?.toString(),
-                                          name,
-                                        ),
-                                      ),
-
-                                      const SizedBox(width: 12),
-
-                                      /// 🔥 TEXT
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              name,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.emoji_events,
-                                                  size: 14,
-                                                  color: Color(0xFFE7C66A),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  Format.rating(rating),
-                                                  style: const TextStyle(
-                                                    color: Colors.white70,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                const Icon(
-                                                  Icons.monetization_on,
-                                                  size: 14,
-                                                  color: Colors.amber,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  Format.coin(coins),
-                                                  style: const TextStyle(
-                                                    color: Colors.white70,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      const SizedBox(width: 8),
-
-                                      /// 🔥 BUTTON
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFE7C66A),
-                                              Color(0xFFB9932F),
-                                            ],
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(
-                                                0xFFB9932F,
-                                              ).withOpacity(0.5),
-                                              blurRadius: 8,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                            onTap: userId == null
-                                                ? null
-                                                : () async {
-                                                    await _sendInvite(
-                                                      userId: userId,
-                                                      isBot:
-                                                          p['is_bot'] == true,
-                                                    );
-                                                    if (!mounted) return;
-                                                    Navigator.pop(context);
-                                                  },
-                                            child: const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: 14,
-                                                vertical: 8,
-                                              ),
-                                              child: Text(
-                                                "Davet",
-                                                style: TextStyle(
-                                                  color: Colors.black,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFB9932F).withOpacity(0.4),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                _inviteAvatar(avatarUrl?.toString(), name),
+                                Positioned(
+                                  right: -1,
+                                  top: -1,
+                                  child: _statusDot(isOnline),
+                                ),
+                              ],
                             ),
                           ),
-
-                          /// 🔥 ALT FADE
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: IgnorePointer(
-                              child: Container(
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      const Color(0xFF0F1B17).withOpacity(0.9),
-                                    ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.emoji_events,
+                                      size: 14,
+                                      color: Color(0xFFE7C66A),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      Format.rating(rating),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Icon(
+                                      Icons.monetization_on,
+                                      size: 14,
+                                      color: Colors.amber,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      Format.coin(coins),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (!isOnline) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    lastSeenText,
+                                    style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFE7C66A),
+                                  Color(0xFFB9932F),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFB9932F).withOpacity(0.5),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: userId == null
+                                    ? null
+                                    : () async {
+                                        await _sendInvite(
+                                          userId: userId,
+                                          isBot: p['is_bot'] == true,
+                                        );
+                                        if (!mounted) return;
+                                        Navigator.pop(context);
+                                      },
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    "Davet",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1079,8 +1080,176 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                           ),
                         ],
                       ),
+                    );
+                  },
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    height: 30,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          const Color(0xFF0F1B17).withOpacity(0.9),
+                        ],
+                      ),
                     ),
-                ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return DefaultTabController(
+          length: 2,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 440,
+                maxHeight: MediaQuery.of(context).size.height * 0.78,
+              ),
+              child: Container(
+                width: 420,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F1B17).withOpacity(0.88),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFB9932F).withOpacity(0.7),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.6),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Spacer(),
+                        const Icon(Icons.group, color: Color(0xFFE7C66A)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "Oyuncu Davet Et",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFE7C66A),
+                            letterSpacing: .6,
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: () => Navigator.pop(context),
+                          borderRadius: BorderRadius.circular(10),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.close,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (candidates.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          "Bu lig için uygun oyuncu bulunamadı.",
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      )
+                    else ...[
+                      Container(
+                        height: 46,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0x33243A33), Color(0x33111C18)],
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(
+                            color: const Color(0x6689B19F),
+                            width: 1,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x55000000),
+                              blurRadius: 10,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: TabBar(
+                          indicator: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFEFD18A), Color(0xFFD9A84D)],
+                            ),
+                            borderRadius: BorderRadius.circular(10.5),
+                            border: Border.all(
+                              color: const Color(0xCC775A1F),
+                              width: 0.9,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x8A7D5717),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          indicatorPadding: EdgeInsets.zero,
+                          labelColor: const Color(0xFF1F2B24),
+                          unselectedLabelColor: const Color(0xFFD7E7DE),
+                          labelStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                          ),
+                          unselectedLabelStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.15,
+                          ),
+                          tabs: [
+                            Tab(text: 'Oyunda (${online.length})'),
+                            Tab(text: 'Oyun Dışı (${offline.length})'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            buildCandidateList(online),
+                            buildCandidateList(offline),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1115,11 +1284,59 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         return br.compareTo(ar);
       });
 
+      final ids = list
+          .map((e) => e['id']?.toString())
+          .whereType<String>()
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+      if (ids.isNotEmpty) {
+        final statusRows = await _supabase
+            .from('profiles')
+            .select('id,is_online,last_seen_at')
+            .inFilter('id', ids);
+        final byId = <String, Map<String, dynamic>>{};
+        for (final raw in (statusRows as List)) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final id = row['id']?.toString();
+          if (id != null && id.isNotEmpty) {
+            byId[id] = row;
+          }
+        }
+        for (final p in list) {
+          final id = p['id']?.toString();
+          final status = id == null ? null : byId[id];
+          p['is_online'] = (p['is_bot'] == true) || (status?['is_online'] == true);
+          p['last_seen_at'] = status?['last_seen_at'];
+        }
+      }
       return list;
     } catch (e) {
       debugPrint('ELIGIBLE PLAYERS ERROR: $e');
       return [];
     }
+  }
+
+  Widget _statusDot(bool isOnline) {
+    return Container(
+      width: 11,
+      height: 11,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isOnline ? const Color(0xFF33D17A) : const Color(0xFFE5484D),
+        border: Border.all(color: Colors.white, width: 1.4),
+      ),
+    );
+  }
+
+  String _formatLastSeen(dynamic raw) {
+    if (raw == null) return 'Son görülme: bilinmiyor';
+    final parsed = DateTime.tryParse(raw.toString());
+    if (parsed == null) return 'Son görülme: bilinmiyor';
+    final diff = DateTime.now().toUtc().difference(parsed.toUtc());
+    if (diff.inSeconds < 60) return 'Son görülme: az önce';
+    if (diff.inMinutes < 60) return 'Son görülme: ${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return 'Son görülme: ${diff.inHours} sa önce';
+    return 'Son görülme: ${diff.inDays} gün önce';
   }
 
   Future<void> _sendInvite({required String userId, bool isBot = false}) async {
@@ -1161,6 +1378,18 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         'to_user': userId,
         'status': 'pending',
       });
+      try {
+        await _supabase.functions.invoke(
+          'send_table_invite_push',
+          body: {
+            'table_id': widget.tableId,
+            'from_user': myUserId,
+            'to_user': userId,
+          },
+        );
+      } catch (e) {
+        debugPrint('INVITE PUSH SEND ERROR: $e');
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -1243,4 +1472,28 @@ class _InviteSeatCard extends StatelessWidget {
           : Row(mainAxisSize: MainAxisSize.min, children: content),
     );
   }
+}
+
+class _ChatBubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    final fill = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFFF2D596), Color(0xFFE7BE6A)],
+      ).createShader(Offset.zero & size);
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0xCC7A5A1F);
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

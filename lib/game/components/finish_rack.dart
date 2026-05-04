@@ -88,13 +88,14 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
 
       if (tile == null) continue;
 
-      final isTop = i <= 12;
-      final col = isTop ? i : i - 13;
+      // Rack indexing is: 0-12 bottom row, 13-25 top row.
+      final isTop = i >= 13;
+      final col = isTop ? i - 13 : i;
 
       final startX = -totalWidth / 2;
 
       final x = startX + col * (tileWidth + spacing);
-      final y = isTop ? 60.0 : -60.0;
+      final y = isTop ? -60.0 : 60.0;
 
       final model = _tileModelFromPayload(tile);
       if (model == null) return;

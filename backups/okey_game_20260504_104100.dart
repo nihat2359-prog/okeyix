@@ -1,4 +1,4 @@
-import 'dart:async' as async;
+﻿import 'dart:async' as async;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flame/components.dart';
@@ -19,6 +19,7 @@ import 'package:okeyix/game/rack/rack_slot_generator.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
 import 'package:okeyix/game/stage.dart';
 import 'package:okeyix/main.dart';
+import 'package:okeyix/game/components/finish_rack.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -111,6 +112,7 @@ class OkeyGame extends FlameGame with TapDetector {
   final Set<String> _recentMoveKeys = <String>{};
   final List<String> _recentMoveKeyOrder = <String>[];
   final List<TileComponent> _deferredTileRemovals = [];
+  FinishRack? _finishRack;
   FinishRackView? finishView;
   List<Map<String, dynamic>> playersWithProfiles = [];
   bool isFinishOpen = false;
@@ -185,6 +187,20 @@ class OkeyGame extends FlameGame with TapDetector {
       slot.onLoad();
     }
     closedPileComponent?.setHidden(false);
+  }
+
+  void showFinish(
+    List<Map<String, dynamic>> slots,
+    String name,
+    bool isWinner,
+    bool isSpectator,
+  ) {
+    _finishRack?.removeFromParent(); // varsa sil
+
+    _finishRack = FinishRack(slots, name, isWinner, isSpectator);
+    overlays.remove('Avatars');
+    world.add(_finishRack!);
+    onFinish?.call();
   }
 
   void requestDoubleMode() {
@@ -2003,9 +2019,6 @@ class OkeyGame extends FlameGame with TapDetector {
     for (final tile in looseTiles) {
       tile.removeFromParent();
     }
-    tileComponentMap.clear();
-    tileMap.clear();
-    _lastKnownSlotByTileId.clear();
     occupiedSlots.clear();
     _lastRenderedHandFingerprint = null;
     _myHandCount = 0;
@@ -2140,14 +2153,13 @@ class OkeyGame extends FlameGame with TapDetector {
     if (groups.isEmpty) {
       final topCount = (count / 2).ceil();
 
-      for (int i = 0; i < orderedBottomTiles.length; i++) {
-        final ref = orderedBottomTiles[i];
+      for (int i = 0; i < count; i++) {
         if (i < topCount && i < looseRowSlots.length) {
-          placement[ref.originalIndex] = looseRowSlots[i];
+          placement[i] = looseRowSlots[i];
         } else {
           final bottomIndex = i - topCount;
           if (bottomIndex < groupRowSlots.length) {
-            placement[ref.originalIndex] = groupRowSlots[bottomIndex];
+            placement[i] = groupRowSlots[bottomIndex];
           }
         }
       }
@@ -2349,20 +2361,17 @@ class OkeyGame extends FlameGame with TapDetector {
       for (final r in sameColor) {
         byValue.putIfAbsent(r.tile.value, () => r);
       }
-      final valuesSet = byValue.keys.toSet();
-      // Wrap-aware runs: 12-13-1 must be accepted as a valid sequence.
-      for (int start = 1; start <= 13; start++) {
-        if (!valuesSet.contains(start)) continue;
-        final chain = <_TileRef>[];
-        int current = start;
-        while (valuesSet.contains(current) && chain.length < valuesSet.length) {
-          chain.add(byValue[current]!);
-          current = current == 13 ? 1 : current + 1;
-        }
-        if (chain.length >= 3) {
-          runCandidates.add(chain);
+      final values = byValue.keys.toList()..sort();
+      var current = <_TileRef>[];
+      for (final v in values) {
+        if (current.isEmpty || v == current.last.tile.value + 1) {
+          current.add(byValue[v]!);
+        } else {
+          if (current.length >= 3) runCandidates.add([...current]);
+          current = [byValue[v]!];
         }
       }
+      if (current.length >= 3) runCandidates.add([...current]);
     }
 
     final setCandidates = <List<_TileRef>>[];
@@ -2392,25 +2401,6 @@ class OkeyGame extends FlameGame with TapDetector {
     );
     final sorted = [...group];
     if (sameColor) {
-      // Run ordering should preserve wrap patterns like 12-13-1.
-      final byValue = <int, _TileRef>{for (final r in sorted) r.tile.value: r};
-      if (byValue.length == sorted.length) {
-        List<_TileRef>? best;
-        for (final start in byValue.keys) {
-          final chain = <_TileRef>[];
-          int current = start;
-          while (byValue.containsKey(current) && chain.length < byValue.length) {
-            chain.add(byValue[current]!);
-            current = current == 13 ? 1 : current + 1;
-          }
-          if (best == null || chain.length > best.length) {
-            best = chain;
-          }
-        }
-        if (best != null && best.length == sorted.length) {
-          return best;
-        }
-      }
       sorted.sort((a, b) => a.tile.value.compareTo(b.tile.value));
       return sorted;
     }
@@ -2423,66 +2413,16 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   List<_TileRef> _sortLooseTiles(List<_TileRef> loose) {
-    if (loose.length <= 1) return [...loose];
-    final pool = [...loose];
-    final ordered = <_TileRef>[];
-
-    int seedIndex = 0;
-    for (int i = 1; i < pool.length; i++) {
-      final a = pool[i];
-      final b = pool[seedIndex];
+    final sorted = [...loose];
+    sorted.sort((a, b) {
       if (a.tile.isJoker != b.tile.isJoker) {
-        if (!a.tile.isJoker) seedIndex = i;
-        continue;
+        return a.tile.isJoker ? 1 : -1;
       }
-      if (a.tile.value != b.tile.value) {
-        if (a.tile.value < b.tile.value) seedIndex = i;
-        continue;
-      }
-      if (a.tile.color.index < b.tile.color.index) seedIndex = i;
-    }
-
-    ordered.add(pool.removeAt(seedIndex));
-
-    while (pool.isNotEmpty) {
-      final last = ordered.last;
-      int bestIndex = 0;
-      int bestScore = -1 << 20;
-      for (int i = 0; i < pool.length; i++) {
-        final c = pool[i];
-        final score = _looseAdjacencyScore(last, c);
-        if (score > bestScore) {
-          bestScore = score;
-          bestIndex = i;
-        } else if (score == bestScore) {
-          final cur = pool[bestIndex];
-          if (c.tile.value < cur.tile.value ||
-              (c.tile.value == cur.tile.value &&
-                  c.tile.color.index < cur.tile.color.index)) {
-            bestIndex = i;
-          }
-        }
-      }
-      ordered.add(pool.removeAt(bestIndex));
-    }
-    return ordered;
-  }
-
-  int _looseAdjacencyScore(_TileRef left, _TileRef right) {
-    if (right.tile.isJoker) return -500;
-    if (left.tile.isJoker) return 0;
-
-    final lv = left.tile.value;
-    final rv = right.tile.value;
-    final sameColor = left.tile.color == right.tile.color;
-    final sameValue = lv == rv;
-    final consecutive = (lv - rv).abs() == 1 || (lv == 13 && rv == 1) || (lv == 1 && rv == 13);
-
-    if (sameColor && consecutive) return 100; // run neighbor (8-9, 12-13-1)
-    if (sameValue && !sameColor) return 85; // set neighbor (same number diff color)
-    if (sameColor) return 40;
-    if ((lv - rv).abs() == 1) return 25;
-    return 0;
+      final byColor = a.tile.color.index.compareTo(b.tile.color.index);
+      if (byColor != 0) return byColor;
+      return a.tile.value.compareTo(b.tile.value);
+    });
+    return sorted;
   }
 
   TileModel? _tileModelFromPayload(Map<String, dynamic> raw) {
