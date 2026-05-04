@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:okeyix/screens/okey_game_screen.dart';
+import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/gift_listener.dart';
 import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/push_notification_service.dart';
@@ -54,6 +55,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     unawaited(
       PushNotificationService.instance.init(
+        onToken: (token) async {
+          try {
+            await DeviceRegistrationService.registerCurrentDevice(
+              pushTokenOverride: token,
+            );
+          } catch (e) {
+            debugPrint('TOKEN REGISTER ERROR: $e');
+            _showPushDebug('TOKEN REGISTER ERROR: $e');
+          }
+        },
+        onDebug: _showPushDebug,
         onNotificationTapData: _handlePushTapData,
       ),
     );
@@ -113,6 +125,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     await Navigator.of(ctx).push(
       MaterialPageRoute(
         builder: (_) => OkeyGameScreen(tableId: tableId, isCreator: false),
+      ),
+    );
+  }
+
+  void _showPushDebug(String message) {
+    debugPrint(message);
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

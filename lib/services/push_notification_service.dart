@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 typedef PushTokenCallback = FutureOr<void> Function(String token);
 typedef PushDataCallback = FutureOr<void> Function(Map<String, dynamic> data);
+typedef PushDebugCallback = FutureOr<void> Function(String message);
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -26,35 +27,63 @@ class PushNotificationService {
   Future<void> init({
     PushTokenCallback? onToken,
     PushDataCallback? onNotificationTapData,
+    PushDebugCallback? onDebug,
   }) async {
     if (_initialized) return;
-    if (kIsWeb) return;
-    if (!Platform.isAndroid && !Platform.isIOS) return;
+    if (kIsWeb) {
+      await onDebug?.call('PUSH: Web ortaminda FCM init atlandi');
+      return;
+    }
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      await onDebug?.call('PUSH: Desteklenmeyen platform');
+      return;
+    }
 
     try {
       _onNotificationTapData = onNotificationTapData;
 
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
+        await onDebug?.call('PUSH: Firebase.initializeApp tamam');
+      } else {
+        await onDebug?.call('PUSH: Firebase zaten initialize');
       }
 
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(
+      final before = await messaging.getNotificationSettings();
+      await onDebug?.call(
+        'PUSH: Izin (once): ${before.authorizationStatus.name}',
+      );
+
+      final permission = await messaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
+      await onDebug?.call(
+        'PUSH: Izin (sonra): ${permission.authorizationStatus.name}',
+      );
+
+      if (Platform.isIOS) {
+        final apns = await messaging.getAPNSToken();
+        await onDebug?.call(
+          'PUSH: APNS token ${apns == null ? "YOK" : "VAR"}',
+        );
+      }
 
       final token = await messaging.getToken();
+      await onDebug?.call('PUSH: FCM token ${token == null ? "YOK" : "VAR"}');
       if (token != null && token.isNotEmpty && onToken != null) {
         await onToken(token);
+        await onDebug?.call('PUSH: Token server kaydi tetiklendi');
       }
 
       _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) async {
         if (newToken.isNotEmpty && onToken != null) {
           await onToken(newToken);
+          await onDebug?.call('PUSH: Token yenilendi ve kaydedildi');
         }
       });
 
@@ -75,8 +104,10 @@ class PushNotificationService {
       }
 
       _initialized = true;
+      await onDebug?.call('PUSH: Init tamam');
     } catch (e) {
       debugPrint('PUSH INIT ERROR: $e');
+      await onDebug?.call('PUSH INIT ERROR: $e');
     }
   }
 
@@ -100,4 +131,3 @@ class PushNotificationService {
     _initialized = false;
   }
 }
-

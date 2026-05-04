@@ -2,24 +2,20 @@
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
-import 'package:okeyix/services/device_identity_service.dart';
+import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/profile_service.dart';
-import 'package:okeyix/services/push_notification_service.dart';
 import 'package:okeyix/services/user_state.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
 import 'package:okeyix/widgets/create_button.dart';
 import 'package:okeyix/widgets/dock_icon.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -193,73 +189,9 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  Future<String> getDeviceId() async {
-    return DeviceIdentityService.getStableInstallId();
-  }
-
   Future<void> registerDevice() async {
     try {
-      final deviceId = await getDeviceId();
-      final pushToken = await PushNotificationService.instance.getToken();
-
-      final packageInfo = await PackageInfo.fromPlatform();
-
-      String platform = "web";
-      String deviceModel = "";
-      String osVersion = "";
-
-      if (kIsWeb) {
-        platform = "web";
-        deviceModel = "browser";
-        osVersion = "web";
-      } else {
-        final deviceInfo = DeviceInfoPlugin();
-
-        if (Platform.isAndroid) {
-          final android = await deviceInfo.androidInfo;
-          platform = "android";
-          deviceModel = android.model;
-          osVersion = android.version.release;
-        } else if (Platform.isIOS) {
-          final ios = await deviceInfo.iosInfo;
-          platform = "ios";
-          deviceModel = ios.utsname.machine;
-          osVersion = ios.systemVersion;
-        }
-      }
-
-      final session = supabase.auth.currentSession;
-
-      if (session == null) {
-        throw Exception("Session yok");
-      }
-      final user = supabase.auth.currentUser;
-      try {
-        await supabase.functions.invoke(
-          'register_device',
-          body: {
-            "user_id": user?.id,
-            "device_id": deviceId,
-            "platform": platform,
-            "device_model": deviceModel,
-            "os_version": osVersion,
-            "app_version": packageInfo.version,
-            "push_token": pushToken,
-          },
-        );
-      } catch (_) {
-        await supabase.functions.invoke(
-          'register_device',
-          body: {
-            "user_id": user?.id,
-            "device_id": deviceId,
-            "platform": platform,
-            "device_model": deviceModel,
-            "os_version": osVersion,
-            "app_version": packageInfo.version,
-          },
-        );
-      }
+      await DeviceRegistrationService.registerCurrentDevice();
 
       /// 🔥 HATA KONTROL� BURADA
     } catch (e) {
