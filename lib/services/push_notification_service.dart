@@ -23,6 +23,15 @@ class PushNotificationService {
   StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
   StreamSubscription<RemoteMessage>? _onMessageSub;
   PushDataCallback? _onNotificationTapData;
+  Future<void>? _firebaseInitFuture;
+
+  Future<void> _ensureFirebaseReady() {
+    if (Firebase.apps.isNotEmpty) {
+      return Future.value();
+    }
+    _firebaseInitFuture ??= Firebase.initializeApp();
+    return _firebaseInitFuture!;
+  }
 
   Future<void> init({
     PushTokenCallback? onToken,
@@ -43,7 +52,7 @@ class PushNotificationService {
       _onNotificationTapData = onNotificationTapData;
 
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        await _ensureFirebaseReady();
         await onDebug?.call('PUSH: Firebase.initializeApp tamam');
       } else {
         await onDebug?.call('PUSH: Firebase zaten initialize');
@@ -115,6 +124,7 @@ class PushNotificationService {
     if (kIsWeb) return null;
     if (!Platform.isAndroid && !Platform.isIOS) return null;
     try {
+      await _ensureFirebaseReady();
       return FirebaseMessaging.instance.getToken();
     } catch (_) {
       return null;
