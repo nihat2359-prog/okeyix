@@ -72,11 +72,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             );
           } catch (e) {
             debugPrint('TOKEN REGISTER ERROR: $e');
-            _showPushDebug('PUSH: token geldi, register beklemede');
             _scheduleRegisterRetry();
           }
         },
-        onDebug: _showPushDebug,
         onNotificationTapData: _handlePushTapData,
       ),
     );
@@ -90,14 +88,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           await DeviceRegistrationService.registerCurrentDevice(
             lookupPushToken: false,
           );
-          _showPushDebug('PUSH: register_device auth event calisti');
         } catch (e) {
           final msg = e.toString();
           if (msg.contains('apns-token-not-set')) {
-            _showPushDebug('PUSH: APNS token bekleniyor, tekrar denenecek');
             _scheduleRegisterRetry();
           } else {
-            _showPushDebug('PUSH: register_device auth event hata: $e');
+            debugPrint('REGISTER_DEVICE AUTH EVENT ERROR: $e');
           }
         }
       } else {
@@ -110,14 +106,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         DeviceRegistrationService.registerCurrentDevice(
           lookupPushToken: false,
         ).then((_) {
-          _showPushDebug('PUSH: register_device startup calisti');
         }).catchError((e) {
           final msg = e.toString();
           if (msg.contains('apns-token-not-set')) {
-            _showPushDebug('PUSH: APNS token bekleniyor, tekrar denenecek');
             _scheduleRegisterRetry();
           } else {
-            _showPushDebug('PUSH: register_device startup hata: $e');
+            debugPrint('REGISTER_DEVICE STARTUP ERROR: $e');
           }
         }),
       );
@@ -162,9 +156,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         await DeviceRegistrationService.registerCurrentDevice(
           lookupPushToken: false,
         );
-        _showPushDebug('PUSH: register_device retry basarili');
       } catch (e) {
-        _showPushDebug('PUSH: register_device retry hata: $e');
+        debugPrint('REGISTER_DEVICE RETRY ERROR: $e');
       }
     });
   }
@@ -180,19 +173,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     await Navigator.of(ctx).push(
       MaterialPageRoute(
         builder: (_) => OkeyGameScreen(tableId: tableId, isCreator: false),
-      ),
-    );
-  }
-
-  void _showPushDebug(String message) {
-    debugPrint(message);
-    if (!message.startsWith('PUSH_DIAG')) return;
-    final ctx = navigatorKey.currentContext;
-    if (ctx == null) return;
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
-        content: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis),
-        duration: const Duration(seconds: 6),
       ),
     );
   }

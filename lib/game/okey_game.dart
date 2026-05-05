@@ -1,4 +1,4 @@
-import 'dart:async' as async;
+﻿import 'dart:async' as async;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flame/components.dart';
@@ -33,6 +33,7 @@ class OkeyGame extends FlameGame with TapDetector {
   final String tableId;
   final bool isCreator;
   final VoidCallback? onTileSfx;
+  final VoidCallback? onStartDealSfx;
   bool isTempShiftActive = false;
   int? tempShiftIndex;
 
@@ -42,6 +43,8 @@ class OkeyGame extends FlameGame with TapDetector {
   bool _startRequestInFlight = false;
   bool _actionInFlight = false;
   bool _botTurnInFlight = false;
+  DateTime? _botTurnStartedAt;
+  DateTime? _botNoHandRetryAfter;
   bool _stateSyncInFlight = false;
   bool _countdownInProgress = false;
   bool _countdownTriggeredForThisFullState = false;
@@ -114,7 +117,29 @@ class OkeyGame extends FlameGame with TapDetector {
   FinishRackView? finishView;
   List<Map<String, dynamic>> playersWithProfiles = [];
   bool isFinishOpen = false;
-  OkeyGame({required this.tableId, required this.isCreator, this.onTileSfx});
+  int? _lastStartDealSfxRound;
+  OkeyGame({
+    required this.tableId,
+    required this.isCreator,
+    this.onTileSfx,
+    this.onStartDealSfx,
+  });
+
+  void _emitTileSfx() {
+    try {
+      onTileSfx?.call();
+    } catch (_) {
+      // Keep gameplay safe even if sound layer fails.
+    }
+  }
+
+  void _emitStartDealSfx() {
+    try {
+      onStartDealSfx?.call();
+    } catch (_) {
+      // Keep gameplay safe even if sound layer fails.
+    }
+  }
 
   bool get gameStarted => _gameStarted;
   bool _kickedHandled = false;
@@ -573,10 +598,7 @@ class OkeyGame extends FlameGame with TapDetector {
       previousTop.removeFromParent();
     }
 
-    final visual = TileComponent(
-      tile: model,
-      position: slot.position.clone(),
-    )
+    final visual = TileComponent(tile: model, position: slot.position.clone())
       ..priority = 50
       ..isLocked = true;
 
@@ -883,7 +905,9 @@ class OkeyGame extends FlameGame with TapDetector {
       }
 
       if (playerCount < maxPlayers) {
-        debugPrint('START GAME PRECHECK: table not full ($playerCount/$maxPlayers)');
+        debugPrint(
+          'START GAME PRECHECK: table not full ($playerCount/$maxPlayers)',
+        );
         return false;
       }
 
@@ -922,6 +946,23 @@ class OkeyGame extends FlameGame with TapDetector {
     _turnTimer?.cancel();
     _turnTimer = async.Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!_gameStarted) return;
+      if (_botTurnInFlight &&
+          _botTurnStartedAt != null &&
+          DateTime.now().difference(_botTurnStartedAt!).inSeconds > 14) {
+        final botUserId = _playerSeatMap[currentTurn]?['user_id']?.toString();
+        _botTurnInFlight = false;
+        _actionInFlight = false;
+        _lastBotTurnToken = null;
+        if (botUserId != null) {
+          unawaited(
+            _recoverBotStall(
+              botUserId: botUserId,
+              expectedTurnToken:
+                  '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}',
+            ),
+          );
+        }
+      }
       _maybePlayBotTurn();
       if (!_isMyTurn()) return;
       final startAt = _turnStartedAt;
@@ -942,6 +983,10 @@ class OkeyGame extends FlameGame with TapDetector {
   void _maybePlayBotTurn() {
     if (!isCreator) return;
     if (_actionInFlight || _botTurnInFlight) return;
+    if (_botNoHandRetryAfter != null &&
+        DateTime.now().isBefore(_botNoHandRetryAfter!)) {
+      return;
+    }
 
     if (!_botSeats.contains(currentTurn)) return;
 
@@ -958,8 +1003,10 @@ class OkeyGame extends FlameGame with TapDetector {
     _lastBotTurnToken = token;
 
     _botTurnInFlight = true;
+    _botTurnStartedAt = DateTime.now();
     _playBotTurn().whenComplete(() {
       _botTurnInFlight = false;
+      _botTurnStartedAt = null;
     });
   }
 
@@ -970,6 +1017,8 @@ class OkeyGame extends FlameGame with TapDetector {
     if (botUserId == null) return;
 
     _actionInFlight = true;
+    final turnTokenAtStart =
+        '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
 
     try {
       var rows = await Supabase.instance.client
@@ -977,13 +1026,19 @@ class OkeyGame extends FlameGame with TapDetector {
           .select('hand')
           .eq('table_id', tableId)
           .eq('user_id', botUserId)
-          .limit(1);
+          .limit(1)
+          .timeout(const Duration(seconds: 8));
 
       if ((rows as List).isEmpty) return;
 
       var hand = rows.first['hand'];
 
       if (hand is! List) return;
+      if (hand.isEmpty || (hand.length != 14 && hand.length != 15)) {
+        _botNoHandRetryAfter = DateTime.now().add(const Duration(seconds: 2));
+        await _loadInitialState(forceHandSync: false);
+        return;
+      }
       final strategy = decideStrategy(hand);
 
       Map<String, dynamic>? drawnFromDiscardTile;
@@ -1035,15 +1090,17 @@ class OkeyGame extends FlameGame with TapDetector {
             : 'closed';
 
         try {
-          await Supabase.instance.client.rpc(
-            'game_draw',
-            params: {
-              'p_table_id': tableId,
-              'p_user_id': botUserId,
-              'p_source': source,
-              'p_from_seat': source == 'discard' ? fromSeat : null,
-            },
-          );
+          await Supabase.instance.client
+              .rpc(
+                'game_draw',
+                params: {
+                  'p_table_id': tableId,
+                  'p_user_id': botUserId,
+                  'p_source': source,
+                  'p_from_seat': source == 'discard' ? fromSeat : null,
+                },
+              )
+              .timeout(const Duration(seconds: 8));
           drewFromDiscard = source == 'discard';
           if (drewFromDiscard && topDiscard != null) {
             drawnFromDiscardTile = Map<String, dynamic>.from(topDiscard);
@@ -1053,15 +1110,17 @@ class OkeyGame extends FlameGame with TapDetector {
           // so the bot does not freeze on its turn.
           if (source == 'discard') {
             source = 'closed';
-            await Supabase.instance.client.rpc(
-              'game_draw',
-              params: {
-                'p_table_id': tableId,
-                'p_user_id': botUserId,
-                'p_source': source,
-                'p_from_seat': null,
-              },
-            );
+            await Supabase.instance.client
+                .rpc(
+                  'game_draw',
+                  params: {
+                    'p_table_id': tableId,
+                    'p_user_id': botUserId,
+                    'p_source': source,
+                    'p_from_seat': null,
+                  },
+                )
+                .timeout(const Duration(seconds: 8));
             drewFromDiscard = false;
           } else {
             debugPrint('BOT DRAW ERROR (closed): $e');
@@ -1074,7 +1133,8 @@ class OkeyGame extends FlameGame with TapDetector {
             .select('hand')
             .eq('table_id', tableId)
             .eq('user_id', botUserId)
-            .limit(1);
+            .limit(1)
+            .timeout(const Duration(seconds: 8));
 
         if ((rows as List).isEmpty) return;
 
@@ -1082,6 +1142,7 @@ class OkeyGame extends FlameGame with TapDetector {
       }
 
       if (hand is! List || hand.length != 15) return;
+      _botNoHandRetryAfter = null;
 
       final finishPlan = _buildBotFinishPlan(hand);
       final canFinish = finishPlan != null;
@@ -1118,7 +1179,8 @@ class OkeyGame extends FlameGame with TapDetector {
           .select('hand')
           .eq('table_id', tableId)
           .eq('user_id', botUserId)
-          .limit(1);
+          .limit(1)
+          .timeout(const Duration(seconds: 8));
       if (latestRows is! List || latestRows.isEmpty) return;
       final latestHand = latestRows.first['hand'];
       if (latestHand is! List || latestHand.length != 15) {
@@ -1127,45 +1189,84 @@ class OkeyGame extends FlameGame with TapDetector {
 
       if (canFinish) {
         try {
-          final res = await Supabase.instance.client.rpc(
-            'game_finish',
-            params: {
-              'p_table_id': tableId,
-              'p_user_id': botUserId,
-              'p_slots': botSlots,
-              'p_last_tile': finishDiscardTile,
-            },
-          );
+          final res = await Supabase.instance.client
+              .rpc(
+                'game_finish',
+                params: {
+                  'p_table_id': tableId,
+                  'p_user_id': botUserId,
+                  'p_slots': botSlots,
+                  'p_last_tile': finishDiscardTile,
+                },
+              )
+              .timeout(const Duration(seconds: 8));
 
-          if (res != null && res['ok'] == true) {}
         } catch (e) {
           debugPrint("BOT FINISH ERROR: $e");
           // Always fallback to discard if finish fails so bot turn cannot freeze.
-          await Supabase.instance.client.rpc(
-            'game_discard_fast',
-            params: {
-              'p_table_id': tableId,
-              'p_user_id': botUserId,
-              'p_tile': tile,
-            },
-          );
+          await Supabase.instance.client
+              .rpc(
+                'game_discard_fast',
+                params: {
+                  'p_table_id': tableId,
+                  'p_user_id': botUserId,
+                  'p_tile': tile,
+                },
+              )
+              .timeout(const Duration(seconds: 8));
         }
       } else {
-        await Supabase.instance.client.rpc(
-          'game_discard_fast',
-          params: {
-            'p_table_id': tableId,
-            'p_user_id': botUserId,
-            'p_tile': tile,
-          },
-        );
+        await Supabase.instance.client
+            .rpc(
+              'game_discard_fast',
+              params: {
+                'p_table_id': tableId,
+                'p_user_id': botUserId,
+                'p_tile': tile,
+              },
+            )
+            .timeout(const Duration(seconds: 8));
       }
 
       _rememberBotDiscard(botUserId, tile);
     } catch (e) {
       debugPrint("BOT TURN ERROR $e");
+      await _recoverBotStall(
+        botUserId: botUserId,
+        expectedTurnToken: turnTokenAtStart,
+      );
     } finally {
+      final stillSameTurnToken =
+          '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
+      // If turn did not progress, clear token lock so bot can retry.
+      if (stillSameTurnToken == turnTokenAtStart &&
+          _botSeats.contains(currentTurn)) {
+        _lastBotTurnToken = null;
+      }
       _actionInFlight = false;
+    }
+  }
+
+  Future<void> _recoverBotStall({
+    required String botUserId,
+    required String expectedTurnToken,
+  }) async {
+    try {
+      final nowToken =
+          '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
+      // Turn already progressed, no recovery needed.
+      if (nowToken != expectedTurnToken) return;
+      if (!_botSeats.contains(currentTurn)) return;
+
+      await Supabase.instance.client
+          .rpc(
+            'game_timeout_move',
+            params: {'p_table_id': tableId, 'p_user_id': botUserId},
+          )
+          .timeout(const Duration(seconds: 6));
+      await _loadInitialState(forceHandSync: false);
+    } catch (e) {
+      debugPrint('BOT STALL RECOVERY ERROR: $e');
     }
   }
 
@@ -1889,6 +1990,10 @@ class OkeyGame extends FlameGame with TapDetector {
     if (wasHandEmptyBeforeRender) {
       // Safety: prevent duplicate full-hand visuals from stale local components.
       _purgeRackTilesHard();
+      if (_lastStartDealSfxRound != _round) {
+        _lastStartDealSfxRound = _round;
+        _emitStartDealSfx();
+      }
     }
 
     // Guard: if we already have tiles and incoming payload has no ids,
@@ -2399,7 +2504,8 @@ class OkeyGame extends FlameGame with TapDetector {
         for (final start in byValue.keys) {
           final chain = <_TileRef>[];
           int current = start;
-          while (byValue.containsKey(current) && chain.length < byValue.length) {
+          while (byValue.containsKey(current) &&
+              chain.length < byValue.length) {
             chain.add(byValue[current]!);
             current = current == 13 ? 1 : current + 1;
           }
@@ -2424,9 +2530,91 @@ class OkeyGame extends FlameGame with TapDetector {
 
   List<_TileRef> _sortLooseTiles(List<_TileRef> loose) {
     if (loose.length <= 1) return [...loose];
+    final remaining = [...loose];
+    final blocks = <List<_TileRef>>[];
+
+    // 1) First prioritize loose run-like sequences (len >= 2).
+    while (true) {
+      final bestRun = _extractBestLooseRun(remaining);
+      if (bestRun == null) break;
+      blocks.add(bestRun);
+      remaining.removeWhere((r) => bestRun.contains(r));
+    }
+
+    // 2) Then keep same-value neighbors together (len >= 2).
+    final byValue = <int, List<_TileRef>>{};
+    for (final r in remaining) {
+      if (r.tile.isJoker) continue;
+      byValue.putIfAbsent(r.tile.value, () => []).add(r);
+    }
+    final valueBlocks = <List<_TileRef>>[];
+    final usedInValueBlocks = <_TileRef>{};
+    for (final value in byValue.keys.toList()..sort()) {
+      final list = byValue[value]!;
+      if (list.length < 2) continue;
+      list.sort((a, b) => a.tile.color.index.compareTo(b.tile.color.index));
+      valueBlocks.add(list);
+      usedInValueBlocks.addAll(list);
+    }
+    remaining.removeWhere(usedInValueBlocks.contains);
+    valueBlocks.sort((a, b) {
+      final byLen = b.length.compareTo(a.length);
+      if (byLen != 0) return byLen;
+      return a.first.tile.value.compareTo(b.first.tile.value);
+    });
+    blocks.addAll(valueBlocks);
+
+    // 3) Remaining singles: greedy adjacency so near tiles stay side-by-side.
+    if (remaining.isNotEmpty) {
+      blocks.add(_orderLooseGreedy(remaining));
+    }
+
+    // 4) Flatten blocks.
+    final out = <_TileRef>[];
+    for (final block in blocks) {
+      out.addAll(block);
+    }
+    return out;
+  }
+
+  List<_TileRef>? _extractBestLooseRun(List<_TileRef> pool) {
+    List<_TileRef>? best;
+    for (final color in TileColor.values) {
+      final list = pool
+          .where((r) => !r.tile.isJoker && r.tile.color == color)
+          .toList(growable: false);
+      if (list.length < 2) continue;
+
+      final byValue = <int, List<_TileRef>>{};
+      for (final ref in list) {
+        byValue.putIfAbsent(ref.tile.value, () => []).add(ref);
+      }
+
+      for (int start = 1; start <= 13; start++) {
+        final chain = <_TileRef>[];
+        int cur = start;
+        for (int step = 0; step < 13; step++) {
+          final refs = byValue[cur];
+          if (refs == null || refs.isEmpty) break;
+          chain.add(refs.first);
+          cur = cur == 13 ? 1 : cur + 1;
+        }
+        if (chain.length < 2) continue;
+        if (best == null || chain.length > best.length) {
+          best = chain;
+        } else if (best != null && chain.length == best.length) {
+          final a = chain.first.tile.value == 1 ? 14 : chain.first.tile.value;
+          final b = best.first.tile.value == 1 ? 14 : best.first.tile.value;
+          if (a < b) best = chain;
+        }
+      }
+    }
+    return best;
+  }
+
+  List<_TileRef> _orderLooseGreedy(List<_TileRef> loose) {
     final pool = [...loose];
     final ordered = <_TileRef>[];
-
     int seedIndex = 0;
     for (int i = 1; i < pool.length; i++) {
       final a = pool[i];
@@ -2441,9 +2629,7 @@ class OkeyGame extends FlameGame with TapDetector {
       }
       if (a.tile.color.index < b.tile.color.index) seedIndex = i;
     }
-
     ordered.add(pool.removeAt(seedIndex));
-
     while (pool.isNotEmpty) {
       final last = ordered.last;
       int bestIndex = 0;
@@ -2476,10 +2662,12 @@ class OkeyGame extends FlameGame with TapDetector {
     final rv = right.tile.value;
     final sameColor = left.tile.color == right.tile.color;
     final sameValue = lv == rv;
-    final consecutive = (lv - rv).abs() == 1 || (lv == 13 && rv == 1) || (lv == 1 && rv == 13);
+    final consecutive =
+        (lv - rv).abs() == 1 || (lv == 13 && rv == 1) || (lv == 1 && rv == 13);
 
     if (sameColor && consecutive) return 100; // run neighbor (8-9, 12-13-1)
-    if (sameValue && !sameColor) return 85; // set neighbor (same number diff color)
+    if (sameValue && !sameColor)
+      return 85; // set neighbor (same number diff color)
     if (sameColor) return 40;
     if ((lv - rv).abs() == 1) return 25;
     return 0;
@@ -2739,7 +2927,10 @@ class OkeyGame extends FlameGame with TapDetector {
     }
   }
 
-  void _holdDiscardSeatSync(int seat, {Duration duration = const Duration(milliseconds: 900)}) {
+  void _holdDiscardSeatSync(
+    int seat, {
+    Duration duration = const Duration(milliseconds: 900),
+  }) {
     _discardSyncHoldUntilBySeat[seat] = DateTime.now().add(duration);
   }
 
@@ -2788,12 +2979,10 @@ class OkeyGame extends FlameGame with TapDetector {
       fromSlot.currentTile = null;
     }
     if (revealed != null) {
-      final revealedTile = TileComponent(
-        tile: revealed,
-        position: fromSlot.position.clone(),
-      )
-        ..priority = 50
-        ..isLocked = true;
+      final revealedTile =
+          TileComponent(tile: revealed, position: fromSlot.position.clone())
+            ..priority = 50
+            ..isLocked = true;
       world.add(revealedTile);
       _discardTopTilesBySeat[fromSeat] = revealedTile;
       fromSlot.currentTile = revealedTile;
@@ -3028,8 +3217,12 @@ class OkeyGame extends FlameGame with TapDetector {
     final finishAt = table['last_finish_at']?.toString() ?? '';
     if (finishAt.isEmpty) return false;
     final winnerId = table['last_winner_user_id'];
-    final slots = List<Map<String, dynamic>>.from(table['last_final_slots'] ?? []);
-    final finishTile = Map<String, dynamic>.from(table['last_finish_tile'] ?? {});
+    final slots = List<Map<String, dynamic>>.from(
+      table['last_final_slots'] ?? [],
+    );
+    final finishTile = Map<String, dynamic>.from(
+      table['last_finish_tile'] ?? {},
+    );
     final finishCore = _buildFinishCoreId(
       winnerId: winnerId,
       slots: slots,
@@ -3139,9 +3332,7 @@ class OkeyGame extends FlameGame with TapDetector {
           _startCalled = false;
         }
 
-        await _ensureGameStartIfReady(
-          knownStatus: status,
-        );
+        await _ensureGameStartIfReady(knownStatus: status);
 
         return;
       }
@@ -3155,9 +3346,7 @@ class OkeyGame extends FlameGame with TapDetector {
           _clearRenderedHand();
           _clearTableVisualState();
         }
-        await _ensureGameStartIfReady(
-          knownStatus: status,
-        );
+        await _ensureGameStartIfReady(knownStatus: status);
         return;
       }
 
@@ -3363,7 +3552,10 @@ class OkeyGame extends FlameGame with TapDetector {
         world.add(tile);
         _discardTopTilesBySeat[seat] = tile;
         slot.currentTile = tile;
-        final stack = _discardStacksBySeat.putIfAbsent(seat, () => <TileModel>[]);
+        final stack = _discardStacksBySeat.putIfAbsent(
+          seat,
+          () => <TileModel>[],
+        );
         if (stack.isEmpty || stack.last.id != tileModel.id) {
           stack.add(_cloneTileModel(tileModel));
           if (stack.length > 32) {
@@ -3648,6 +3840,7 @@ class OkeyGame extends FlameGame with TapDetector {
       if (tile.isMounted) {
         tile.removeFromParent();
       }
+      _emitTileSfx();
       _myHandCount = (_myHandCount - 1).clamp(0, 30);
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
@@ -3705,7 +3898,9 @@ class OkeyGame extends FlameGame with TapDetector {
         .toList(growable: true);
 
     if (lastTile != null) {
-      final normalizedLast = _normalizeTilePayload(Map<String, dynamic>.from(lastTile));
+      final normalizedLast = _normalizeTilePayload(
+        Map<String, dynamic>.from(lastTile),
+      );
       _removeSingleTileByIdOrSignature(normalized, normalizedLast);
     }
 
@@ -3785,7 +3980,9 @@ class OkeyGame extends FlameGame with TapDetector {
   ) {
     final targetId = (target['id'] ?? '').toString();
     if (targetId.isNotEmpty) {
-      final idx = list.indexWhere((t) => (t['id'] ?? '').toString() == targetId);
+      final idx = list.indexWhere(
+        (t) => (t['id'] ?? '').toString() == targetId,
+      );
       if (idx >= 0) {
         list.removeAt(idx);
         return;
@@ -3876,7 +4073,11 @@ class OkeyGame extends FlameGame with TapDetector {
     final colorUnique = uniqueByColor.values.toList();
 
     for (final targetSize in const [3, 4]) {
-      for (int nonJokerCount = 1; nonJokerCount <= colorUnique.length; nonJokerCount++) {
+      for (
+        int nonJokerCount = 1;
+        nonJokerCount <= colorUnique.length;
+        nonJokerCount++
+      ) {
         final jokerNeed = targetSize - nonJokerCount;
         if (jokerNeed < 0 || jokerNeed > jokers.length) continue;
         final combos = _botTileCombinations(colorUnique, nonJokerCount);
@@ -3897,7 +4098,11 @@ class OkeyGame extends FlameGame with TapDetector {
         if (!combo.contains(first)) continue;
         if (_isValidatorRunGroup(combo)) out.add(combo);
       }
-      for (int nonJokerCount = 2; nonJokerCount <= sameColor.length; nonJokerCount++) {
+      for (
+        int nonJokerCount = 2;
+        nonJokerCount <= sameColor.length;
+        nonJokerCount++
+      ) {
         final jokerNeed = size - nonJokerCount;
         if (jokerNeed <= 0 || jokerNeed > jokers.length) continue;
         final baseCombos = _botTileCombinations(sameColor, nonJokerCount);
@@ -4071,10 +4276,7 @@ class OkeyGame extends FlameGame with TapDetector {
       }
 
       if (_isServerValidSlotsPayload(slots)) {
-        return {
-          'last_tile': candidateLast,
-          'slots': slots,
-        };
+        return {'last_tile': candidateLast, 'slots': slots};
       }
     }
     return null;
@@ -4273,6 +4475,7 @@ class OkeyGame extends FlameGame with TapDetector {
       tile.currentSlotIndex = targetIndex;
 
       moveTileSmooth(tile, slotPositions[targetIndex]); // ✅
+      _emitTileSfx();
       return;
     }
     if (targetMounted != null) {
@@ -4310,6 +4513,7 @@ class OkeyGame extends FlameGame with TapDetector {
     tile.currentSlotIndex = targetIndex;
 
     moveTileSmooth(tile, slotPositions[targetIndex]); // ✅ BURASI
+    _emitTileSfx();
   }
 
   void _restoreTileToOriginalSlot(TileComponent tile) {
@@ -4438,10 +4642,9 @@ class OkeyGame extends FlameGame with TapDetector {
         final winAmount = (res['win_amount'] as int?) ?? 0;
         final isOkeyFinish = res['is_okey'] == true;
         final isDoubleFinish = res['is_double'] == true;
-        final winnerName =
-            (res['winner_name']?.toString().isNotEmpty ?? false)
-                ? res['winner_name'].toString()
-                : getPlayerName(userId);
+        final winnerName = (res['winner_name']?.toString().isNotEmpty ?? false)
+            ? res['winner_name'].toString()
+            : getPlayerName(userId);
         final slotPayload = List<Map<String, dynamic>>.from(slots);
         final finishTile = tile.tile.toJson();
         _lastHandledFinishCore = _buildFinishCoreId(
@@ -4815,7 +5018,10 @@ class OkeyGame extends FlameGame with TapDetector {
     return false;
   }
 
-  Future<void> _fetchAndShowPreviousDiscardTop(int seat, String removedTileId) async {
+  Future<void> _fetchAndShowPreviousDiscardTop(
+    int seat,
+    String removedTileId,
+  ) async {
     try {
       final rows = await Supabase.instance.client
           .from('table_discards')
@@ -4852,10 +5058,7 @@ class OkeyGame extends FlameGame with TapDetector {
         existing.removeFromParent();
       }
 
-      final top = TileComponent(
-        tile: model,
-        position: slot.position.clone(),
-      )
+      final top = TileComponent(tile: model, position: slot.position.clone())
         ..priority = 50
         ..isLocked = true;
       world.add(top);

@@ -109,6 +109,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _initCalled = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
+  bool _allowGameInvites = true;
   bool _showGuestBanner = false;
   List<Map<String, dynamic>> _systemMessages = [];
   final Set<String> _seenSystemMessageIds = <String>{};
@@ -379,6 +380,16 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (!mounted) return;
     final id = invite['id']?.toString();
     if (id == null || id.isEmpty) return;
+    if (!_allowGameInvites) {
+      try {
+        await supabase
+            .from('table_invites')
+            .update({'status': 'rejected'})
+            .eq('id', id)
+            .eq('status', 'pending');
+      } catch (_) {}
+      return;
+    }
     if (_handledTableInviteIds.contains(id)) return;
     if ((invite['status']?.toString() ?? 'pending') != 'pending') return;
     _handledTableInviteIds.add(id);
@@ -550,7 +561,9 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         final table = await supabase
             .from('tables')
-            .select('id,status,entry_coin,league_id,max_players')
+            .select(
+              'id,status,entry_coin,league_id,max_players,pot_amount,round_count,turn_seconds',
+            )
             .eq('id', tableId)
             .maybeSingle();
         if (table == null) {
@@ -584,7 +597,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       // ? profiles'den coins ve rating al
       final profileRows = await supabase
           .from('profiles')
-          .select('coins,rating')
+          .select('coins,rating,allow_game_invites')
           .eq('id', user.id)
           .limit(1);
       final profile = (profileRows as List).isNotEmpty
@@ -593,6 +606,8 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       final profileCoin = (profile?['coins'] as int?) ?? 0;
       final profileRating = (profile?['rating'] as int?) ?? 1200;
+      final allowGameInvites =
+          (profile?['allow_game_invites'] as bool?) ?? true;
 
       if (!mounted) return;
       if (row != null) {
@@ -608,6 +623,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           UserState.userRating = profileRating; // ? profiles'den
           UserState.userAvatarUrl = (row['avatar_url'] as String?)?.trim();
           UserState.userCoin = profileCoin; // ? profiles'den
+          _allowGameInvites = allowGameInvites;
         });
       } else {
         setState(() {
@@ -619,6 +635,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           UserState.userRating = profileRating;
           UserState.userAvatarUrl = null;
           UserState.userCoin = profileCoin;
+          _allowGameInvites = allowGameInvites;
         });
       }
     } catch (e) {
@@ -3353,19 +3370,32 @@ class _LobbyScreenState extends State<LobbyScreen>
             open: _isSideMenuOpen,
             onClose: _closeSideMenu,
 
-            onLeaderboard: () {
+            onSupport: () async {
               _closeSideMenu();
-              _openLeaderboard();
+              await _openSupportRequestDialog();
             },
 
-            onFriends: () {
+            onAnnouncements: () async {
               _closeSideMenu();
-              _openRightPanel(_RightPanelType.friends);
+              await _showSystemMessagesDialog();
             },
 
-            onMessages: () {
+            onProfileCard: () {
               _closeSideMenu();
-              _openRightPanel(_RightPanelType.messages);
+              ProfileService.showUserCard(
+                {
+                  'id': UserState.userId,
+                  'username': UserState.userName,
+                  'avatar_url': UserState.userAvatarUrl,
+                  'rating': UserState.userRating,
+                  'wins': UserState.wins,
+                  'losses': UserState.losses,
+                },
+                onRefresh: () async {
+                  await _loadSocialData();
+                  await _loadTables();
+                },
+              );
             },
 
             onSettings: () {
@@ -4774,47 +4804,46 @@ class _LobbyScreenState extends State<LobbyScreen>
                   setState(() => _vibrationEnabled = value);
                 },
               ),
+              const Divider(color: Color(0x3359A588), height: 1),
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: const Color(0xFF163328),
+                activeTrackColor: const Color(0xFFE7C06A),
+                inactiveThumbColor: const Color(0xFF8EA79A),
+                inactiveTrackColor: const Color(0x334E6A5D),
+                title: const Text(
+                  'Oyun Davetleri',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Kapalıysa hiç davet almazsın',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                value: _allowGameInvites,
+                onChanged: (value) async {
+                  final prev = _allowGameInvites;
+                  setState(() => _allowGameInvites = value);
+                  try {
+                    final uid = supabase.auth.currentUser?.id;
+                    if (uid == null) throw Exception('AUTH_REQUIRED');
+                    await supabase
+                        .from('profiles')
+                        .update({'allow_game_invites': value})
+                        .eq('id', uid);
+                  } catch (e) {
+                    if (!mounted) return;
+                    setState(() => _allowGameInvites = prev);
+                    _msg('Davet ayarı kaydedilemedi.');
+                  }
+                },
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 6),
-        lobbySideMenuButton(
-          icon: Icons.support_agent_rounded,
-          label: 'Destek / \u015Eikayet G\u00F6nder',
-          onTap: () async {
-            _closeRightPanel();
-            await _openSupportRequestDialog();
-          },
-        ),
-        const SizedBox(height: 6),
-        lobbySideMenuButton(
-          icon: Icons.notifications_active_rounded,
-          label: 'Sistem Duyurular\u0131',
-          onTap: () async {
-            _closeRightPanel();
-            await _showSystemMessagesDialog();
-          },
-        ),
-        const SizedBox(height: 6),
-        lobbySideMenuButton(
-          icon: Icons.person_rounded,
-          label: 'Profil Kartım',
-          onTap: () => ProfileService.showUserCard(
-            {
-              'id': UserState.userId,
-              'username': UserState.userName,
-              'avatar_url': UserState.userAvatarUrl,
-              'rating': UserState.userRating,
-              'wins': UserState.wins,
-              'losses': UserState.losses,
-            },
-            onRefresh: () async {
-              await _loadSocialData();
-              await _loadTables();
-            },
-          ),
-        ),
-
         const SizedBox(height: 10),
 
         // 🔥 YEN� EKLED�Ğ�M�Z

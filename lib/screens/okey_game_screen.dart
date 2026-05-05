@@ -78,6 +78,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   final Map<String, Timer> _avatarChatTimers = {};
   final _player = jo.AudioPlayer();
   final jo.AudioPlayer _tileSfxPlayer = jo.AudioPlayer();
+  final jo.AudioPlayer _startGameSfxPlayer = jo.AudioPlayer();
   final ScrollController _chatScroll = ScrollController();
   final _quickChatBtnKey = GlobalKey();
 
@@ -113,7 +114,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       tableId: widget.tableId,
       isCreator: widget.isCreator,
       onTileSfx: _playTileSfx,
+      onStartDealSfx: _playStartGameSfx,
     );
+    _tileSfxPlayer.setReleaseMode(jo.ReleaseMode.stop);
+    _startGameSfxPlayer.setReleaseMode(jo.ReleaseMode.stop);
 
     _game.onHudChanged = () {
       if (mounted) setState(() {});
@@ -183,6 +187,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _chatController.dispose();
     _player.dispose();
     _tileSfxPlayer.dispose();
+    _startGameSfxPlayer.dispose();
     _audioPlayer.dispose();
     _hourglassCtrl.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -317,10 +322,19 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     _lastTileSound = now;
 
-    final p = jo.AudioPlayer();
-    p.play(jo.AssetSource('sounds/drop.mp3'), volume: 0.35);
+    _tileSfxPlayer.stop();
+    _tileSfxPlayer.play(jo.AssetSource('sounds/drop.mp3'), volume: 0.35);
 
     FeedbackSettingsService.triggerHaptic();
+  }
+
+  void _playStartGameSfx() {
+    if (!FeedbackSettingsService.soundEnabled) return;
+    _startGameSfxPlayer.stop();
+    _startGameSfxPlayer.play(
+      jo.AssetSource('sounds/start_game.wav'),
+      volume: 0.55,
+    );
   }
 
   void _scrollToBottom() {
@@ -463,6 +477,15 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     return res;
   }
 
+  Future<Map<String, dynamic>?> _loadFinishSnapshotWithRetry() async {
+    for (int i = 0; i < 6; i++) {
+      final snap = await _loadFinishSnapshot();
+      if (snap != null) return snap;
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+    return null;
+  }
+
   void _openFinishScreen(Map<String, dynamic> snapshot, winnerName, isWinner) {
     final playersWrapper = snapshot['players'];
 
@@ -552,10 +575,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         if (winner == null) {
           _showFinishMessage('$winnerName kazandı');
         } else {
-          final snapshot = await _loadFinishSnapshot();
+          final snapshot = await _loadFinishSnapshotWithRetry();
 
           if (snapshot != null) {
             _openFinishScreen(snapshot, winnerName, isWinner);
+          } else {
+            _showFinishMessage('$winnerName kazandı');
           }
         }
       }

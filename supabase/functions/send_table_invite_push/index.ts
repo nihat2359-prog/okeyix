@@ -140,6 +140,19 @@ Deno.serve(async (req) => {
       inviterName = String(inviterProfile.username);
     }
 
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("allow_game_invites")
+      .eq("id", toUserId)
+      .maybeSingle();
+    if (targetProfile?.allow_game_invites === false) {
+      return json(200, {
+        ok: true,
+        sent: 0,
+        reason: "INVITES_DISABLED",
+      });
+    }
+
     const tokens = await getPushTokens(supabase, toUserId);
     if (tokens.length === 0) {
       return json(200, { ok: true, sent: 0, reason: "NO_PUSH_TOKEN" });

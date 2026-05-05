@@ -67,15 +67,7 @@ class LobbyTableCard extends StatelessWidget {
           Positioned(
             left: 10,
             top: 8,
-            child: Text(
-              'Masa Coin\n${Format.coin((table['entry_coin'] as int?) ?? 0)}',
-              style: const TextStyle(
-                color: Colors.white,
-                height: 1.02,
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-              ),
-            ),
+            child: _tableMetaColumn(),
           ),
           if (isPlaying && !isFake)
             Positioned(
@@ -256,6 +248,82 @@ class LobbyTableCard extends StatelessWidget {
         ),
         child: const Icon(Icons.south_rounded, color: Color(0xFF664407)),
       ),
+    );
+  }
+
+  Widget _tableMetaColumn() {
+    final entryCoin = (table['entry_coin'] as int?) ?? 0;
+    final roundCount = (table['round_count'] as int?) ?? 1;
+    final potAmount = (table['pot_amount'] as int?) ?? 0;
+    final turnSeconds = (table['turn_seconds'] as int?) ?? 20;
+    final speedIcon = turnSeconds == 15 ? Icons.flash_on_rounded : Icons.schedule;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x770B1512),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x44E7C06A), width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _metaItem(
+            icon: Icons.monetization_on_rounded,
+            text: Format.coin(entryCoin),
+            highlight: true,
+          ),
+          const SizedBox(height: 4),
+          _metaItem(icon: Icons.flag_rounded, text: '$roundCount'),
+          const SizedBox(height: 4),
+          _metaItem(
+            icon: Icons.soup_kitchen_rounded,
+            text: Format.coin(potAmount),
+            accentColor: const Color(0xFFFFB347),
+          ),
+          const SizedBox(height: 4),
+          _metaIconOnly(speedIcon),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaItem({
+    required IconData icon,
+    required String text,
+    bool highlight = false,
+    Color? accentColor,
+  }) {
+    final baseColor =
+        accentColor ?? (highlight ? const Color(0xFFE7C06A) : Colors.white70);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 13,
+          color: baseColor,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            color: accentColor ?? (highlight ? const Color(0xFFE7C06A) : Colors.white),
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            height: 1.0,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _metaIconOnly(IconData icon) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
+      ],
     );
   }
 }

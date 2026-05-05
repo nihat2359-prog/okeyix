@@ -18,6 +18,9 @@ class LobbyRightPanel extends StatelessWidget {
     if (!open) {
       return const SizedBox();
     }
+    final media = MediaQuery.of(context).size;
+    final panelWidth = media.width * 0.46;
+    final effectiveWidth = panelWidth.clamp(340.0, 660.0).toDouble();
     return Positioned.fill(
       child: Stack(
         children: [
@@ -46,9 +49,10 @@ class LobbyRightPanel extends StatelessWidget {
 
                 child: SafeArea(
                   child: Container(
-                    width: 660,
+                    width: effectiveWidth,
+                    height: media.height - 16,
                     margin: const EdgeInsets.fromLTRB(0, 8, 10, 8),
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
 
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
@@ -68,7 +72,41 @@ class LobbyRightPanel extends StatelessWidget {
                       ],
                     ),
 
-                    child: panelContent,
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Spacer(),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: onClose,
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x1FFFFFFF),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0x66D4B46A),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    color: Color(0xFFE6D5A6),
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(child: panelContent),
+                      ],
+                    ),
                   ),
                 ),
               ),

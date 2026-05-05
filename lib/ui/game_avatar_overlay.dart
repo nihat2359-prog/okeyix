@@ -1292,7 +1292,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       if (ids.isNotEmpty) {
         final statusRows = await _supabase
             .from('profiles')
-            .select('id,is_online,last_seen_at')
+            .select('id,is_online,last_seen_at,allow_game_invites')
             .inFilter('id', ids);
         final byId = <String, Map<String, dynamic>>{};
         for (final raw in (statusRows as List)) {
@@ -1305,11 +1305,15 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         for (final p in list) {
           final id = p['id']?.toString();
           final status = id == null ? null : byId[id];
+          p['allow_game_invites'] =
+              (p['is_bot'] == true) || (status?['allow_game_invites'] != false);
           p['is_online'] = (p['is_bot'] == true) || (status?['is_online'] == true);
           p['last_seen_at'] = status?['last_seen_at'];
         }
       }
-      return list;
+      return list
+          .where((p) => p['allow_game_invites'] != false || p['is_bot'] == true)
+          .toList(growable: false);
     } catch (e) {
       debugPrint('ELIGIBLE PLAYERS ERROR: $e');
       return [];
@@ -1371,6 +1375,21 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         if (!mounted) return;
         await _loadPlayers();
         return;
+      }
+      final profileRows = await _supabase
+          .from('profiles')
+          .select('allow_game_invites')
+          .eq('id', userId)
+          .limit(1);
+      if ((profileRows as List).isNotEmpty) {
+        final profile = Map<String, dynamic>.from(profileRows.first as Map);
+        if (profile['allow_game_invites'] == false) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Bu oyuncu davet almıyor.')),
+          );
+          return;
+        }
       }
       await _supabase.from('table_invites').insert({
         'table_id': widget.tableId,

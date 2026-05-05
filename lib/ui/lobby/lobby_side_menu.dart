@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/game_rules_screen.dart';
 
@@ -7,9 +7,9 @@ class LobbySideMenu extends StatelessWidget {
 
   final VoidCallback onClose;
 
-  final VoidCallback onLeaderboard;
-  final VoidCallback onFriends;
-  final VoidCallback onMessages;
+  final VoidCallback onSupport;
+  final VoidCallback onAnnouncements;
+  final VoidCallback onProfileCard;
   final VoidCallback onSettings;
   final VoidCallback onLogout;
 
@@ -28,9 +28,9 @@ class LobbySideMenu extends StatelessWidget {
     super.key,
     required this.open,
     required this.onClose,
-    required this.onLeaderboard,
-    required this.onFriends,
-    required this.onMessages,
+    required this.onSupport,
+    required this.onAnnouncements,
+    required this.onProfileCard,
     required this.onSettings,
     required this.onLogout,
     required this.menuButtonBuilder,
@@ -79,7 +79,7 @@ class LobbySideMenu extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
 
                     child: BackdropFilter(
-                      /// blur biraz düşürüldü
+                      /// blur biraz dÃ¼ÅŸÃ¼rÃ¼ldÃ¼
                       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
 
                       child: Container(
@@ -139,21 +139,21 @@ class LobbySideMenu extends StatelessWidget {
 
                             /// MENU BUTTONS
                             menuButtonBuilder(
-                              icon: Icons.emoji_events_rounded,
-                              label: 'En İyi Oyuncular',
-                              onTap: onLeaderboard,
+                              icon: Icons.support_agent_rounded,
+                              label: 'Destek / Şikayet Gönder',
+                              onTap: onSupport,
                             ),
 
                             menuButtonBuilder(
-                              icon: Icons.group_rounded,
-                              label: 'Arkadaşlar',
-                              onTap: onFriends,
+                              icon: Icons.notifications_active_rounded,
+                              label: 'Sistem Duyuruları',
+                              onTap: onAnnouncements,
                             ),
 
                             menuButtonBuilder(
-                              icon: Icons.mail_rounded,
-                              label: 'Mesajlar',
-                              onTap: onMessages,
+                              icon: Icons.person_rounded,
+                              label: 'Profil Kartım',
+                              onTap: onProfileCard,
                             ),
 
                             menuButtonBuilder(
@@ -206,3 +206,4 @@ class LobbySideMenu extends StatelessWidget {
     );
   }
 }
+
