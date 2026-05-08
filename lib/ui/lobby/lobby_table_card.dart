@@ -396,7 +396,7 @@ class LobbyTableCard extends StatelessWidget {
   }
 
   List<Widget> _decorativeDiscardAnchors(double cardWidth, double cardHeight) {
-    final sideInset = (cardWidth * 0.35).clamp(46.0, 82.0);
+    final sideInset = (cardWidth * 0.28).clamp(28.0, 64.0);
     final topOffset = (cardHeight * 0.25).clamp(34.0, 52.0);
     final bottomOffset = (cardHeight * 0.24).clamp(32.0, 50.0);
     return [

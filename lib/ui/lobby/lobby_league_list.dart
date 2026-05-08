@@ -177,8 +177,8 @@ class LobbyLeagueList extends StatelessWidget {
 
               gradient: LinearGradient(
                 colors: selected
-                    ? [const Color(0xFF241B16), const Color(0xFF1B1512)]
-                    : [const Color(0xFF211914), const Color(0xFF16110E)],
+                    ? [const Color(0xFF2A201A), const Color(0xFF1E1713)]
+                    : [const Color(0xFF251D18), const Color(0xFF181311)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -216,14 +216,14 @@ class LobbyLeagueList extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
                         gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                           colors: [
-                            Colors.white.withOpacity(selected ? 0.09 : 0.05),
-                            Colors.transparent,
+                            Colors.white.withOpacity(selected ? 0.16 : 0.11),
+                            Colors.white.withOpacity(selected ? 0.05 : 0.03),
                             Colors.transparent,
                           ],
-                          stops: const [0.0, 0.28, 1.0],
+                          stops: const [0.0, 0.42, 1.0],
                         ),
                       ),
                     ),
@@ -238,10 +238,10 @@ class LobbyLeagueList extends StatelessWidget {
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Colors.black.withOpacity(selected ? 0.28 : 0.22),
+                            Colors.black.withOpacity(selected ? 0.16 : 0.12),
                             Colors.transparent,
                           ],
-                          stops: const [0.0, 0.45],
+                          stops: const [0.0, 0.34],
                         ),
                       ),
                     ),
@@ -456,16 +456,16 @@ class LobbyLeagueList extends StatelessWidget {
         Container(
           width: size + 6,
           height: size + 6,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF163628), Color(0xFF091E15)],
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2B241F), Color(0xFF171311)],
+              ),
+            border: Border.all(color: const Color(0x66D5B981), width: 0.9),
             ),
-            border: Border.all(color: const Color(0x66E7C66A), width: 0.9),
           ),
-        ),
         /// 🔥 ALT GÖLGE (derinlik)
         Transform.translate(
           offset: const Offset(0, 2),
@@ -693,10 +693,10 @@ class LobbyLeagueList extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF163628), Color(0xFF091E15)],
+                  colors: [Color(0xFF2B241F), Color(0xFF171311)],
                 ),
                 border: Border.all(
-                  color: const Color(0x66E7C66A),
+                  color: const Color(0x66D5B981),
                   width: ringWidth,
                 ),
               ),
