@@ -5,12 +5,18 @@ class LobbyRightPanel extends StatelessWidget {
   final VoidCallback onClose;
 
   final Widget panelContent;
+  final double widthFactor;
+  final double minWidth;
+  final double maxWidth;
 
   const LobbyRightPanel({
     super.key,
     required this.open,
     required this.onClose,
     required this.panelContent,
+    this.widthFactor = 0.46,
+    this.minWidth = 340,
+    this.maxWidth = 660,
   });
 
   @override
@@ -19,8 +25,8 @@ class LobbyRightPanel extends StatelessWidget {
       return const SizedBox();
     }
     final media = MediaQuery.of(context).size;
-    final panelWidth = media.width * 0.46;
-    final effectiveWidth = panelWidth.clamp(340.0, 660.0).toDouble();
+    final panelWidth = media.width * widthFactor;
+    final effectiveWidth = panelWidth.clamp(minWidth, maxWidth).toDouble();
     return Positioned.fill(
       child: Stack(
         children: [

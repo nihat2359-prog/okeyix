@@ -131,12 +131,25 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
   }
 
   Future<bool> _isUsernameTaken(String username) async {
-    final rows = await Supabase.instance.client
+    final client = Supabase.instance.client;
+    final rowsUsers = await client
         .from('users')
         .select('id')
         .ilike('username', username)
         .limit(5);
-    for (final row in (rows as List)) {
+    for (final row in (rowsUsers as List)) {
+      final id = row['id']?.toString();
+      if (id != null && id != widget.currentUserId) {
+        return true;
+      }
+    }
+
+    final rowsProfiles = await client
+        .from('profiles')
+        .select('id')
+        .ilike('username', username)
+        .limit(5);
+    for (final row in (rowsProfiles as List)) {
       final id = row['id']?.toString();
       if (id != null && id != widget.currentUserId) {
         return true;

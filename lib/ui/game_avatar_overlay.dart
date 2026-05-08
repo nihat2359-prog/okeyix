@@ -413,6 +413,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     final avatarRaw = (user?['avatar_url'] ?? profile?['avatar_url'])
         ?.toString();
     final isDoubleMode = row['is_double_mode'] == true;
+    final activeTurnSeat = widget.game.currentTurn;
+    final isSeatActive = _tableStatus == 'playing' && seatIndex == activeTurnSeat;
 
     return _SeatPlayer(
       seatIndex: seatIndex,
@@ -423,11 +425,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         coins: coins,
         rating: rating,
         isDoubleMode: isDoubleMode,
-        isActive: _tableStatus == 'playing' && seatIndex == _currentTurnSeat,
-        remainingTime:
-            (_tableStatus == 'playing' && seatIndex == _currentTurnSeat)
-            ? _normalizedRemainingForRing()
-            : 15.0,
+        isActive: isSeatActive,
+        remainingTime: isSeatActive ? _normalizedRemainingForRing() : 15.0,
       ),
     );
   }
@@ -651,32 +650,48 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     VoidCallback? onTap,
   }) {
     final text = widget.playerChatByUserId[player.id];
+    final bubbleAbove = player.id == _myUserId;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        AvatarCard(
-          player: player,
-          position: position,
-          progress: progress,
-          onTap: onTap,
+        _ActiveAvatarBubbleMotion(
+          active: player.isActive,
+          child: AvatarCard(
+            player: player,
+            position: position,
+            progress: progress,
+            onTap: onTap,
+          ),
         ),
         if (text != null && text.trim().isNotEmpty)
           Positioned(
-            top: -30,
+            top: bubbleAbove ? -30 : null,
+            bottom: bubbleAbove ? null : -30,
             left: 4,
             right: 4,
             child: IgnorePointer(
-              child: _buildChatBubble(text.trim()),
+              child: _buildChatBubble(
+                text.trim(),
+                tailAtTop: !bubbleAbove,
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _buildChatBubble(String text) {
+  Widget _buildChatBubble(String text, {required bool tailAtTop}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (tailAtTop)
+          Transform.rotate(
+            angle: pi,
+            child: CustomPaint(
+              size: const Size(14, 7),
+              painter: _ChatBubbleTailPainter(),
+            ),
+          ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
@@ -708,10 +723,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             ),
           ),
         ),
-        CustomPaint(
-          size: const Size(14, 7),
-          painter: _ChatBubbleTailPainter(),
-        ),
+        if (!tailAtTop)
+          CustomPaint(
+            size: const Size(14, 7),
+            painter: _ChatBubbleTailPainter(),
+          ),
       ],
     );
   }
@@ -1452,43 +1468,199 @@ class _FlyAwayFx {
   });
 }
 
-class _InviteSeatCard extends StatelessWidget {
+class _InviteSeatCard extends StatefulWidget {
   final bool vertical;
   final VoidCallback onInvite;
 
   const _InviteSeatCard({required this.vertical, required this.onInvite});
 
   @override
+  State<_InviteSeatCard> createState() => _InviteSeatCardState();
+}
+
+class _InviteSeatCardState extends State<_InviteSeatCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _hintController;
+
+  @override
+  void initState() {
+    super.initState();
+    _hintController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _hintController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final content = [
-      const CircleAvatar(
-        radius: 26,
-        backgroundColor: Color(0xFF1F2937),
-        child: Icon(Icons.person_add_alt_1, color: Color(0xFFD4AF37)),
-      ),
-      vertical ? const SizedBox(height: 10) : const SizedBox(width: 10),
-      ElevatedButton(
-        onPressed: onInvite,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFD4AF37),
-          foregroundColor: Colors.black,
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF1D2A24),
+          border: Border.all(color: const Color(0xB8E7C67A), width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40200F00),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
-        child: const Text('DAVET'),
+        child: const Icon(
+          Icons.person_add_alt_1_rounded,
+          color: Color(0xFFE7C67A),
+          size: 18,
+        ),
+      ),
+      widget.vertical ? const SizedBox(height: 8) : const SizedBox(width: 8),
+      GestureDetector(
+        onTap: widget.onInvite,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF253129), Color(0xFF141B17)],
+            ),
+            border: Border.all(color: const Color(0x88D8B86D), width: 0.9),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'DAVET',
+                style: TextStyle(
+                  color: Color(0xFFE7C77B),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10.5,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 4),
+              AnimatedBuilder(
+                animation: _hintController,
+                builder: (context, child) {
+                  final dx = 1.5 + (_hintController.value * 2.5);
+                  return Transform.translate(
+                    offset: Offset(dx, 0),
+                    child: child,
+                  );
+                },
+                child: const Icon(
+                  Icons.touch_app_rounded,
+                  size: 13,
+                  color: Color(0xFFE7C77B),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     ];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         gradient: const LinearGradient(
-          colors: [Color(0xCC141A20), Color(0xAA0F141A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xCC1A2722), Color(0xAA101713)],
         ),
-        border: Border.all(color: const Color(0x33FFFFFF)),
+        border: Border.all(color: const Color(0x88D8B86D), width: 1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x36000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
-      child: vertical
+      child: widget.vertical
           ? Column(mainAxisSize: MainAxisSize.min, children: content)
           : Row(mainAxisSize: MainAxisSize.min, children: content),
+    );
+  }
+}
+
+class _ActiveAvatarBubbleMotion extends StatefulWidget {
+  final bool active;
+  final Widget child;
+
+  const _ActiveAvatarBubbleMotion({required this.active, required this.child});
+
+  @override
+  State<_ActiveAvatarBubbleMotion> createState() =>
+      _ActiveAvatarBubbleMotionState();
+}
+
+class _ActiveAvatarBubbleMotionState extends State<_ActiveAvatarBubbleMotion>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    if (widget.active) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveAvatarBubbleMotion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active == oldWidget.active) return;
+    if (widget.active) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active) return widget.child;
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        final dy = -3.0 * t;
+        final scale = 1.0 + (0.012 * t);
+        return Transform.translate(
+          offset: Offset(0, dy),
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
     );
   }
 }
@@ -1516,3 +1688,4 @@ class _ChatBubbleTailPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

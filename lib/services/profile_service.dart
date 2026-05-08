@@ -1070,8 +1070,11 @@ class ProfileService {
         payload['avatar_url'] = normalizeAvatarForStorage(result.avatarRef);
       }
 
-      final payloadprofiles = {'username': result.username};
       final targetId = UserState.userId ?? user.id;
+      final payloadprofiles = {
+        'id': targetId,
+        'username': result.username,
+      };
       final updated = await supabase
           .from('users')
           .update(payload)
@@ -1079,12 +1082,7 @@ class ProfileService {
           .select('id')
           .limit(1);
 
-      await supabase
-          .from('profiles')
-          .update(payloadprofiles)
-          .eq('id', targetId)
-          .select('id')
-          .limit(1);
+      await supabase.from('profiles').upsert(payloadprofiles, onConflict: 'id');
 
       if ((updated as List).isEmpty) {
         final email = user.email?.trim();

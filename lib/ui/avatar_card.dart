@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'avatar_preset.dart';
@@ -37,7 +37,7 @@ class AvatarCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap, // 🔥 burada yakalanıyor
+        onTap: onTap, // ğŸ”¥ burada yakalanÄ±yor
         borderRadius: BorderRadius.circular(16), // kart radius ile uyumlu olsun
         child: content,
       ),
@@ -45,9 +45,11 @@ class AvatarCard extends StatelessWidget {
   }
 
   Widget _buildHorizontal() {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: _decoration(),
+      decoration: _panelDecoration(isVertical: false),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -60,9 +62,11 @@ class AvatarCard extends StatelessWidget {
   }
 
   Widget _buildVertical() {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: _decoration(),
+      decoration: _panelDecoration(isVertical: true),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -75,6 +79,7 @@ class AvatarCard extends StatelessWidget {
   }
 
   Widget _buildInfo({required CrossAxisAlignment crossAxis}) {
+    final alignStart = crossAxis == CrossAxisAlignment.start;
     return Column(
       crossAxisAlignment: crossAxis,
       mainAxisSize: MainAxisSize.min,
@@ -91,37 +96,120 @@ class AvatarCard extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          Format.coin(player.coins),
-          style: const TextStyle(
-            fontSize: 11,
-            color: Color(0xFFD4AF37),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          'R: ${Format.rating(player.rating)}',
-          style: const TextStyle(
-            fontSize: 10,
-            color: Color(0xFFBBD0E4),
-            fontWeight: FontWeight.w600,
-          ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          alignment: alignStart ? WrapAlignment.start : WrapAlignment.center,
+          children: [
+            _buildCoinBubble(),
+            _buildRatingBubble(),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildAvatarWithTimer() {
-    double ratio = (player.remainingTime / 15).clamp(0.0, 1.0);
+  Widget _buildCoinBubble() {
+    return _buildStatBubble(
+      icon: Icons.monetization_on_rounded,
+      labelWidget: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: player.coins.toDouble()),
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) {
+          return Text(
+            Format.coin(value.round()),
+            style: TextStyle(
+              fontSize: 10.5,
+              color: const Color(0xFFE7C77B),
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.1,
+            ),
+          );
+        },
+      ),
+      active: player.isActive,
+      colors: const [Color(0xFF253129), Color(0xFF141B17)],
+      textColor: const Color(0xFFE7C77B),
+    );
+  }
 
+  Widget _buildRatingBubble() {
+    return _buildStatBubble(
+      icon: Icons.workspace_premium_rounded,
+      labelWidget: Text(
+        Format.rating(player.rating),
+        style: const TextStyle(
+          fontSize: 10.5,
+          color: Color(0xFFE7C77B),
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.1,
+        ),
+      ),
+      active: player.isActive,
+      colors: const [Color(0xFF253129), Color(0xFF141B17)],
+      textColor: const Color(0xFFE7C77B),
+    );
+  }
+
+  Widget _buildStatBubble({
+    required IconData icon,
+    required Widget labelWidget,
+    required bool active,
+    required List<Color> colors,
+    required Color textColor,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        gradient: LinearGradient(
+          colors: active ? colors : [colors[0].withOpacity(0.92), colors[1]],
+        ),
+        border: Border.all(
+          color: active ? Colors.white.withOpacity(0.8) : Colors.white54,
+          width: 1,
+        ),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: colors[1].withOpacity(0.4),
+                  blurRadius: 8,
+                  spreadRadius: 0.5,
+                ),
+              ]
+            : const [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 11,
+            color: textColor,
+          ),
+          const SizedBox(width: 3),
+          labelWidget,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarWithTimer() {
     return SizedBox(
       width: 62,
       height: 62,
       child: Stack(
         alignment: Alignment.center,
         children: [
+          if (player.isActive)
+            CustomPaint(
+              size: const Size(72, 72),
+              painter: _ActiveTurnGlowPainter(progress),
+            ),
           // GOLD TIMER RING
           CustomPaint(
             size: const Size(70, 70),
@@ -195,7 +283,7 @@ class AvatarCard extends StatelessWidget {
 
   Widget _avatarImage() {
     final raw = player.avatarPath.trim();
-    final status = player.avatarStatus; // 🔥 bunu modelden al
+    final status = player.avatarStatus; // ğŸ”¥ bunu modelden al
 
     Widget image;
 
@@ -222,12 +310,12 @@ class AvatarCard extends StatelessWidget {
       image = _avatarTextFallback();
     }
 
-    // 🔥 STACK İLE WRAP
+    // ğŸ”¥ STACK Ä°LE WRAP
     return Stack(
       children: [
         ClipOval(child: image),
 
-        // 🔥 PENDING BADGE
+        // ğŸ”¥ PENDING BADGE
         if (status == 'pending')
           Positioned(
             right: 0,
@@ -240,7 +328,7 @@ class AvatarCard extends StatelessWidget {
                 border: Border.all(color: const Color(0xFFE9C46A), width: 1),
               ),
               child: const Icon(
-                Icons.schedule, // ⏳
+                Icons.schedule, // â³
                 size: 12,
                 color: Color(0xFFE9C46A),
               ),
@@ -265,27 +353,72 @@ class AvatarCard extends StatelessWidget {
     );
   }
 
-  BoxDecoration _decoration() {
+  BoxDecoration _panelDecoration({required bool isVertical}) {
+    final active = player.isActive;
     return BoxDecoration(
-      borderRadius: BorderRadius.circular(18),
-      gradient: const LinearGradient(
-        colors: [Color(0xCC141A20), Color(0xAA0F141A)],
+      borderRadius: BorderRadius.circular(isVertical ? 20 : 24),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: active
+            ? const [Color(0xCC2E362F), Color(0xCC141A16)]
+            : const [Color(0xCC1B242D), Color(0xAA10161C)],
       ),
       border: Border.all(
-        color: player.isActive
-            ? const Color(0x55D4AF37)
-            : const Color(0x22FFFFFF),
+        color: active ? const Color(0xB8E3BE62) : const Color(0x55B9C7D6),
+        width: active ? 1.4 : 1.0,
       ),
-      boxShadow: player.isActive
+      boxShadow: active
           ? [
               const BoxShadow(
-                color: Color(0x33D4AF37),
-                blurRadius: 12,
-                spreadRadius: 1,
+                color: Color(0x44D9B45A),
+                blurRadius: 14,
+                spreadRadius: 0.8,
+              ),
+              const BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
               ),
             ]
-          : [],
+          : const [
+              BoxShadow(
+                color: Color(0x26000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
     );
+  }
+}
+
+class _ActiveTurnGlowPainter extends CustomPainter {
+  final double progress;
+  _ActiveTurnGlowPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final wave = (sin((1 - progress) * 2 * pi) + 1) / 2;
+    final baseRadius = size.width / 2 - 5;
+
+    final outer = Paint()
+      ..color = const Color(0x66E5BE68).withOpacity(0.32 + (wave * 0.22))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6 + (wave * 2.4);
+
+    final inner = Paint()
+      ..color = const Color(0x99F1D287).withOpacity(0.45 + (wave * 0.25))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2;
+
+    canvas.drawCircle(center, baseRadius, outer);
+    canvas.drawCircle(center, baseRadius - 2.6, inner);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ActiveTurnGlowPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
@@ -343,3 +476,4 @@ class _CircleTimerPainter extends CustomPainter {
         const Color(0xFFE64B3C);
   }
 }
+

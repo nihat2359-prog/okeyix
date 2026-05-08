@@ -29,15 +29,17 @@ class ClosedPileComponent extends PositionComponent
       text: _currentCount.toString(),
       textRenderer: TextPaint(
         style: const TextStyle(
+          fontFamily: 'Montserrat',
           fontSize: 44,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.4,
           color: Color(0xFF1B2A49),
           shadows: [
-            Shadow(offset: Offset(1, 1), blurRadius: 1, color: Colors.white24),
+            Shadow(offset: Offset(0, 1.2), blurRadius: 1.2, color: Colors.black26),
             Shadow(
-              offset: Offset(-1, -1),
-              blurRadius: 2,
-              color: Colors.black45,
+              offset: Offset(0, -0.5),
+              blurRadius: 0.5,
+              color: Colors.white24,
             ),
           ],
         ),
@@ -55,10 +57,46 @@ class ClosedPileComponent extends PositionComponent
     if (gameRef.isFinishOpen) return;
     // Stack efekti render içinde
     for (int i = 0; i < 3; i++) {
-      backSprite.render(canvas, size: size, position: Vector2(i * 3, -i * 3));
+      final pos = Vector2(i * 3, -i * 3);
+      backSprite.render(canvas, size: size, position: pos);
+      _renderBackFrame(canvas, pos);
     }
 
     super.render(canvas);
+  }
+
+  void _renderBackFrame(Canvas canvas, Vector2 pos) {
+    final rect = Rect.fromLTWH(pos.x, pos.y, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+
+    final silverShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.8
+      ..color = const Color(0x995E636A);
+    canvas.drawRRect(rrect.deflate(0.8), silverShadow);
+
+    final silverCore = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFEDEFF2), Color(0xFFC9CED4), Color(0xFFA8AFB7)],
+        stops: [0.0, 0.52, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(rrect.deflate(1.6), silverCore);
+
+    final silverHighlight = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.95
+      ..color = const Color(0xCCFFFFFF);
+    canvas.drawRRect(rrect.deflate(2.8), silverHighlight);
+
+    final silverInnerShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = const Color(0x889299A3);
+    canvas.drawRRect(rrect.deflate(3.7), silverInnerShadow);
   }
 
   @override

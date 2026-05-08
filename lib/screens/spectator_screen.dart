@@ -40,6 +40,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   DateTime? _lastFinishAt;
   bool _showFinishOverlay = false;
   String _finishWinnerName = 'Oyuncu';
+  bool _tableChatEnabled = true;
 
   bool _isPressing = false;
   bool _isRecording = false;
@@ -90,6 +91,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         .select()
         .eq('id', widget.tableId)
         .single();
+    final tableChatEnabled = (t['chat_enabled'] as bool?) ?? true;
 
     final p = await supabase
         .from('table_players')
@@ -219,6 +221,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       players = p;
       spectators = s.length;
       messages = m;
+      _tableChatEnabled = tableChatEnabled;
+      if (!_tableChatEnabled) chatOpen = false;
     });
   }
 
@@ -258,6 +262,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> sendMessage() async {
+    if (!_tableChatEnabled) return;
     if (chatController.text.isEmpty) return;
 
     final user = supabase.auth.currentUser;
@@ -402,29 +407,30 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             ),
 
           /// CHAT BUTTON
-          Positioned(
-            right: 20,
-            bottom: 20,
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  chatOpen = !chatOpen;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(.6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: const Icon(
-                  Icons.chat_bubble_outline,
-                  color: Colors.white,
+          if (_tableChatEnabled)
+            Positioned(
+              right: 20,
+              bottom: 20,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    chatOpen = !chatOpen;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
-          ),
 
           /// CLOSE BUTTON
           Positioned(
@@ -445,7 +451,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           ),
 
           /// CHAT PANEL
-          if (chatOpen)
+          if (_tableChatEnabled && chatOpen)
             Positioned.fill(
               child: GestureDetector(
                 onTap: () {
@@ -1036,6 +1042,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> sendVoiceMessage(String filePath) async {
+    if (!_tableChatEnabled) return;
     final user = supabase.auth.currentUser;
     if (user == null) return;
 

@@ -31,6 +31,7 @@ class TileComponent extends PositionComponent
   late SpriteComponent baseSprite;
   late TextComponent numberText;
   late SpriteComponent backSprite;
+  late PositionComponent backFrameFx;
   bool isFaceDown = false;
   Vector2? dragOffset;
   Vector2 originalPosition = Vector2.zero();
@@ -68,6 +69,7 @@ class TileComponent extends PositionComponent
       anchor: Anchor.center,
       position: size / 2,
     );
+    backFrameFx = TileBackFrameFx(size: size, position: size / 2);
 
     // BASE SPRITE
     baseSprite = SpriteComponent(
@@ -81,6 +83,7 @@ class TileComponent extends PositionComponent
     if (isJoker) {
       isFaceDown = true;
       add(backSprite);
+      add(backFrameFx);
     } else {
       add(baseSprite);
     }
@@ -233,6 +236,7 @@ class TileComponent extends PositionComponent
 
     if (isFaceDown) {
       add(backSprite);
+      add(backFrameFx);
     } else {
       add(baseSprite);
       onLoad(); // tekrar ön yüzü çiz
@@ -444,6 +448,78 @@ class TileSurfaceFx extends PositionComponent {
       ..strokeWidth = 1
       ..color = const Color(0x59FFFFFF);
     canvas.drawRRect(rrect.deflate(1.2), innerStroke);
+
+    final silverShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..color = const Color(0x995E636A);
+    canvas.drawRRect(rrect.deflate(0.8), silverShadow);
+
+    final silverCore = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFEDEFF2), Color(0xFFC9CED4), Color(0xFFA8AFB7)],
+        stops: [0.0, 0.52, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(rrect.deflate(1.5), silverCore);
+
+    final silverHighlight = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = const Color(0xCCFFFFFF);
+    canvas.drawRRect(rrect.deflate(2.7), silverHighlight);
+
+    final silverInnerShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7
+      ..color = const Color(0x889299A3);
+    canvas.drawRRect(rrect.deflate(3.6), silverInnerShadow);
+  }
+}
+
+class TileBackFrameFx extends PositionComponent {
+  TileBackFrameFx({required Vector2 size, required Vector2 position}) {
+    this.size = size;
+    this.position = position;
+    anchor = Anchor.center;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+
+    final silverShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..color = const Color(0x995E636A);
+    canvas.drawRRect(rrect.deflate(0.8), silverShadow);
+
+    final silverCore = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFEDEFF2), Color(0xFFC9CED4), Color(0xFFA8AFB7)],
+        stops: [0.0, 0.52, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(rrect.deflate(1.5), silverCore);
+
+    final silverHighlight = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = const Color(0xCCFFFFFF);
+    canvas.drawRRect(rrect.deflate(2.7), silverHighlight);
+
+    final silverInnerShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7
+      ..color = const Color(0x889299A3);
+    canvas.drawRRect(rrect.deflate(3.6), silverInnerShadow);
   }
 }
 

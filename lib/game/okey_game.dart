@@ -45,6 +45,8 @@ class OkeyGame extends FlameGame with TapDetector {
   bool _botTurnInFlight = false;
   DateTime? _botTurnStartedAt;
   DateTime? _botNoHandRetryAfter;
+  String? _lastStallRecoveryToken;
+  DateTime? _lastStallRecoveryAt;
   bool _stateSyncInFlight = false;
   bool _countdownInProgress = false;
   bool _countdownTriggeredForThisFullState = false;
@@ -56,7 +58,11 @@ class OkeyGame extends FlameGame with TapDetector {
   int? _mySeatIndexAbs;
   int _round = 1;
   int _pot = 0;
+  bool _hasDrawnFromSourceThisRound = false;
+  bool _indicatorBonusClaimedThisRound = false;
+  bool _indicatorBonusInFlight = false;
   VoidCallback? onHudChanged;
+  void Function(int amount)? onIndicatorBonusAwarded;
   DateTime? _turnStartedAt;
   DateTime? _enteredPlayingAt;
   String? _lastRenderedHandFingerprint;
@@ -694,6 +700,10 @@ class OkeyGame extends FlameGame with TapDetector {
       _finishShown = false;
       _lastHandledFinishId = null;
     }
+    if (roundChanged) {
+      _hasDrawnFromSourceThisRound = false;
+      _indicatorBonusClaimedThisRound = false;
+    }
     _pot = (table['pot_amount'] as int?) ?? _pot;
 
     final nextTurn = (table['current_turn'] as int?) ?? 0;
@@ -946,6 +956,7 @@ class OkeyGame extends FlameGame with TapDetector {
     _turnTimer?.cancel();
     _turnTimer = async.Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!_gameStarted) return;
+      _maybeRecoverStalledHumanTurn();
       if (_botTurnInFlight &&
           _botTurnStartedAt != null &&
           DateTime.now().difference(_botTurnStartedAt!).inSeconds > 14) {
@@ -978,6 +989,54 @@ class OkeyGame extends FlameGame with TapDetector {
       _lastTimeoutTurnToken = token;
       _autoPlayTimeoutMove();
     });
+  }
+
+  void _maybeRecoverStalledHumanTurn() {
+    if (!isCreator) return;
+    if (!_gameStarted) return;
+    if (_actionInFlight || _botTurnInFlight) return;
+    if (currentTurn < 0) return;
+    if (_botSeats.contains(currentTurn)) return; // botlar için ayrı akış zaten var
+    final startAt = _turnStartedAt;
+    if (startAt == null) return;
+
+    final now = DateTime.now();
+    final elapsed = now.difference(startAt).inSeconds;
+    if (elapsed < (_turnSeconds + 2)) return;
+
+    final token = '${currentTurn}_${startAt.millisecondsSinceEpoch}';
+    if (_lastStallRecoveryToken == token &&
+        _lastStallRecoveryAt != null &&
+        now.difference(_lastStallRecoveryAt!).inSeconds < 3) {
+      return;
+    }
+
+    final stalledUserId = _playerSeatMap[currentTurn]?['user_id']?.toString();
+    if (stalledUserId == null || stalledUserId.isEmpty) return;
+
+    _lastStallRecoveryToken = token;
+    _lastStallRecoveryAt = now;
+    unawaited(_recoverStalledHumanTurn(stalledUserId, token));
+  }
+
+  Future<void> _recoverStalledHumanTurn(
+    String userId,
+    String expectedTurnToken,
+  ) async {
+    try {
+      final nowToken =
+          '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
+      if (nowToken != expectedTurnToken) return;
+      await Supabase.instance.client
+          .rpc(
+            'game_timeout_move',
+            params: {'p_table_id': tableId, 'p_user_id': userId},
+          )
+          .timeout(const Duration(seconds: 6));
+      await _loadInitialState(forceHandSync: false);
+    } catch (e) {
+      debugPrint('HUMAN STALL RECOVERY ERROR: $e');
+    }
   }
 
   void _maybePlayBotTurn() {
@@ -2204,6 +2263,11 @@ class OkeyGame extends FlameGame with TapDetector {
     return t.id;
   }
 
+  String _pairKeyFromModel(TileModel t) {
+    final joker = t.isJoker || t.isFakeJoker ? 1 : 0;
+    return '${t.color.index}-${t.value}-$joker';
+  }
+
   int _pickStableSlotForTileId(String tileId) {
     final preferred = _lastKnownSlotByTileId[tileId];
     if (preferred != null &&
@@ -2355,7 +2419,7 @@ class OkeyGame extends FlameGame with TapDetector {
 
     final byKey = <String, List<_TileRef>>{};
     for (final ref in refs) {
-      final key = _tileKeyFromModel(ref.tile);
+      final key = _pairKeyFromModel(ref.tile);
       byKey.putIfAbsent(key, () => <_TileRef>[]).add(ref);
     }
 
@@ -2371,8 +2435,8 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     pairGroups.sort((a, b) {
-      final ka = _tileKeyFromModel(a.first.tile);
-      final kb = _tileKeyFromModel(b.first.tile);
+      final ka = _pairKeyFromModel(a.first.tile);
+      final kb = _pairKeyFromModel(b.first.tile);
       return ka.compareTo(kb);
     });
     singles.sort((a, b) {
@@ -2444,6 +2508,35 @@ class OkeyGame extends FlameGame with TapDetector {
   List<_TileRef>? _extractBestGroup(List<_TileRef> refs) {
     if (refs.length < 3) return null;
 
+    final all = _collectGroupCandidates(refs);
+    if (all.isEmpty) return null;
+
+    List<_TileRef>? best;
+    var bestGroupCount = -1;
+    var bestTileCount = -1;
+    var bestLen = -1;
+
+    for (final candidate in all) {
+      final remaining = refs.where((r) => !candidate.contains(r)).toList();
+      final stats = _greedyGroupingStats(remaining);
+      final groupCount = 1 + stats.$1;
+      final tileCount = candidate.length + stats.$2;
+      if (groupCount > bestGroupCount ||
+          (groupCount == bestGroupCount && tileCount > bestTileCount) ||
+          (groupCount == bestGroupCount &&
+              tileCount == bestTileCount &&
+              candidate.length > bestLen)) {
+        best = candidate;
+        bestGroupCount = groupCount;
+        bestTileCount = tileCount;
+        bestLen = candidate.length;
+      }
+    }
+
+    return best;
+  }
+
+  List<List<_TileRef>> _collectGroupCandidates(List<_TileRef> refs) {
     final runCandidates = <List<_TileRef>>[];
     for (final color in TileColor.values) {
       final sameColor =
@@ -2455,18 +2548,21 @@ class OkeyGame extends FlameGame with TapDetector {
         byValue.putIfAbsent(r.tile.value, () => r);
       }
       final valuesSet = byValue.keys.toSet();
-      // Wrap-aware runs: 12-13-1 must be accepted as a valid sequence.
-      for (int start = 1; start <= 13; start++) {
+
+      for (int start = 1; start <= 11; start++) {
         if (!valuesSet.contains(start)) continue;
         final chain = <_TileRef>[];
         int current = start;
-        while (valuesSet.contains(current) && chain.length < valuesSet.length) {
+        while (valuesSet.contains(current)) {
           chain.add(byValue[current]!);
-          current = current == 13 ? 1 : current + 1;
+          current += 1;
         }
-        if (chain.length >= 3) {
-          runCandidates.add(chain);
-        }
+        if (chain.length >= 3) runCandidates.add(chain);
+      }
+
+      // Only 12-13-1 is valid wrap in this ruleset.
+      if (valuesSet.contains(12) && valuesSet.contains(13) && valuesSet.contains(1)) {
+        runCandidates.add([byValue[12]!, byValue[13]!, byValue[1]!]);
       }
     }
 
@@ -2484,10 +2580,23 @@ class OkeyGame extends FlameGame with TapDetector {
       if (set.length >= 3) setCandidates.add(set);
     }
 
-    final all = [...runCandidates, ...setCandidates];
-    if (all.isEmpty) return null;
-    all.sort((a, b) => b.length.compareTo(a.length));
-    return all.first;
+    return [...runCandidates, ...setCandidates];
+  }
+
+  (int, int) _greedyGroupingStats(List<_TileRef> refs) {
+    final remaining = [...refs];
+    var groupCount = 0;
+    var tileCount = 0;
+    while (true) {
+      final candidates = _collectGroupCandidates(remaining);
+      if (candidates.isEmpty) break;
+      candidates.sort((a, b) => b.length.compareTo(a.length));
+      final best = candidates.first;
+      groupCount += 1;
+      tileCount += best.length;
+      remaining.removeWhere((r) => best.contains(r));
+    }
+    return (groupCount, tileCount);
   }
 
   List<_TileRef> _sortGroup(List<_TileRef> group) {
@@ -2497,24 +2606,22 @@ class OkeyGame extends FlameGame with TapDetector {
     );
     final sorted = [...group];
     if (sameColor) {
-      // Run ordering should preserve wrap patterns like 12-13-1.
+      // Run ordering: only 12-13-1 wrap is valid; 13-1-2 is not.
       final byValue = <int, _TileRef>{for (final r in sorted) r.tile.value: r};
       if (byValue.length == sorted.length) {
-        List<_TileRef>? best;
-        for (final start in byValue.keys) {
-          final chain = <_TileRef>[];
-          int current = start;
-          while (byValue.containsKey(current) &&
-              chain.length < byValue.length) {
-            chain.add(byValue[current]!);
-            current = current == 13 ? 1 : current + 1;
-          }
-          if (best == null || chain.length > best.length) {
-            best = chain;
-          }
+        final values = byValue.keys.toList()..sort();
+        final isPlainRun = values.every(
+          (v) => v == values.first + values.indexOf(v),
+        );
+        if (isPlainRun) {
+          return values.map((v) => byValue[v]!).toList(growable: false);
         }
-        if (best != null && best.length == sorted.length) {
-          return best;
+        final isWrapRun = values.length == 3 &&
+            values[0] == 1 &&
+            values[1] == 12 &&
+            values[2] == 13;
+        if (isWrapRun) {
+          return [byValue[12]!, byValue[13]!, byValue[1]!];
         }
       }
       sorted.sort((a, b) => a.tile.value.compareTo(b.tile.value));
@@ -2577,6 +2684,125 @@ class OkeyGame extends FlameGame with TapDetector {
     return out;
   }
 
+  bool isPointNearIndicator(Vector2 worldPoint) {
+    final indicator = indicatorTileComponent;
+    if (indicator == null || !indicator.isMounted) return false;
+    final center = indicator.position;
+    final dx = (worldPoint.x - center.x).abs();
+    final dy = (worldPoint.y - center.y).abs();
+    return dx <= 70 && dy <= 95;
+  }
+
+  bool _isMatchingIndicatorTile(TileComponent tile) {
+    final indicator = indicatorTileComponent;
+    if (indicator == null) return false;
+    if (tile.isJoker || tile.isFakeJoker) return false;
+    return tile.value == indicator.value && tile.color == indicator.color;
+  }
+
+  Future<bool> tryClaimIndicatorBonus(TileComponent tile) async {
+    if (_indicatorBonusInFlight || _indicatorBonusClaimedThisRound) return false;
+    if (!_isMyTurn()) return false;
+    if (_hasDrawnFromSourceThisRound || hasDrawnThisTurn) return false;
+    if (!_isMatchingIndicatorTile(tile)) return false;
+    final indicator = indicatorTileComponent;
+    if (indicator == null) return false;
+
+    _indicatorBonusInFlight = true;
+    final start = tile.position.clone();
+    final target = indicator.position.clone();
+    try {
+      tile.add(
+        SequenceEffect(
+          [
+            MoveEffect.to(
+              target,
+              EffectController(duration: 0.18, curve: Curves.easeOut),
+            ),
+            RotateEffect.by(
+              6.28318,
+              EffectController(duration: 0.35, curve: Curves.easeInOut),
+            ),
+            MoveEffect.to(
+              start,
+              EffectController(duration: 0.2, curve: Curves.easeInOut),
+            ),
+          ],
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 760));
+
+      final reward = await _claimIndicatorBonusFromPot();
+      if (reward <= 0) return false;
+      _indicatorBonusClaimedThisRound = true;
+      onIndicatorBonusAwarded?.call(reward);
+      return true;
+    } catch (e) {
+      debugPrint('INDICATOR BONUS ERROR: $e');
+      return false;
+    } finally {
+      _indicatorBonusInFlight = false;
+    }
+  }
+
+  Future<int> _claimIndicatorBonusFromPot() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return 0;
+    final client = Supabase.instance.client;
+    try {
+      final tableRow = await client
+          .from('tables')
+          .select('pot_amount')
+          .eq('id', tableId)
+          .maybeSingle();
+      final currentPot = (tableRow?['pot_amount'] as int?) ?? _pot;
+      final reward = (currentPot * 0.10).floor();
+      if (reward <= 0) {
+        AppMsg.show('Çanak ödülü için yeterli bakiye yok.');
+        return 0;
+      }
+      final nextPot = currentPot - reward;
+      final potUpdated = await client
+          .from('tables')
+          .update({'pot_amount': nextPot})
+          .eq('id', tableId)
+          .eq('pot_amount', currentPot)
+          .select('id,pot_amount')
+          .limit(1);
+      if ((potUpdated as List).isEmpty) {
+        return 0;
+      }
+
+      final profileRow = await client
+          .from('profiles')
+          .select('coins')
+          .eq('id', userId)
+          .maybeSingle();
+      final currentCoins = (profileRow?['coins'] as int?) ?? UserState.userCoin;
+      final nextCoins = currentCoins + reward;
+      await client.from('profiles').upsert({
+        'id': userId,
+        'coins': nextCoins,
+      }, onConflict: 'id');
+      await client.from('wallet_transactions').insert({
+        'user_id': userId,
+        'amount': reward,
+        'reason': 'indicator_bonus',
+        'type': 'credit',
+        'store': 'system',
+        'note': 'indicator_bonus:$tableId',
+      });
+
+      _pot = nextPot;
+      UserState.userCoin = nextCoins;
+      onHudChanged?.call();
+      return reward;
+    } catch (e) {
+      debugPrint('INDICATOR BONUS DB ERROR: $e');
+      return 0;
+    }
+  }
+
   List<_TileRef>? _extractBestLooseRun(List<_TileRef> pool) {
     List<_TileRef>? best;
     for (final color in TileColor.values) {
@@ -2590,14 +2816,14 @@ class OkeyGame extends FlameGame with TapDetector {
         byValue.putIfAbsent(ref.tile.value, () => []).add(ref);
       }
 
-      for (int start = 1; start <= 13; start++) {
+      for (int start = 1; start <= 12; start++) {
         final chain = <_TileRef>[];
         int cur = start;
         for (int step = 0; step < 13; step++) {
           final refs = byValue[cur];
           if (refs == null || refs.isEmpty) break;
           chain.add(refs.first);
-          cur = cur == 13 ? 1 : cur + 1;
+          cur += 1;
         }
         if (chain.length < 2) continue;
         if (best == null || chain.length > best.length) {
@@ -2606,6 +2832,14 @@ class OkeyGame extends FlameGame with TapDetector {
           final a = chain.first.tile.value == 1 ? 14 : chain.first.tile.value;
           final b = best.first.tile.value == 1 ? 14 : best.first.tile.value;
           if (a < b) best = chain;
+        }
+      }
+      if (byValue.containsKey(12) &&
+          byValue.containsKey(13) &&
+          byValue.containsKey(1)) {
+        final wrap = [byValue[12]!.first, byValue[13]!.first, byValue[1]!.first];
+        if (best == null || wrap.length > best.length) {
+          best = wrap;
         }
       }
     }
@@ -3123,7 +3357,7 @@ class OkeyGame extends FlameGame with TapDetector {
       slot.currentTile = transient;
       _discardAnimationInFlightSeats.remove(seat);
       _syncDiscardTopsFromServer();
-      // _emitTileSfx();
+      _emitTileSfx();
     });
   }
 
@@ -3679,6 +3913,7 @@ class OkeyGame extends FlameGame with TapDetector {
       await callDraw(seat: fromSeat);
       await _loadInitialState(forceHandSync: true);
       await _syncDiscardTopsFromServer();
+      _hasDrawnFromSourceThisRound = true;
       hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
       //_emitTileSfx();
     } catch (e) {

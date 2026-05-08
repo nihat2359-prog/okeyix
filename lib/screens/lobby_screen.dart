@@ -61,6 +61,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Timer? _tablesRefreshTimer;
   Timer? _systemMessageTimer;
   Timer? _spectatorPassTimer;
+  Timer? _tableInvitePollTimer;
   late final AnimationController _bgController;
   final TextEditingController _chatController = TextEditingController();
   final _recorder = AudioRecorder();
@@ -68,6 +69,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? selectedLeague = "standart";
   int createMaxPlayer = 2;
   int createTurnSeconds = 15;
+  bool createSpectatorEnabled = true;
+  bool createChatEnabled = true;
   int draftTurnSeconds = 15;
   List<Map<String, dynamic>> leagues = [];
   List<Map<String, dynamic>> tables = [];
@@ -90,6 +93,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _activeChatUserId;
   String? _activeChatUserTableId;
   RealtimeChannel? _tableInviteChannel;
+  String? _tableInviteBoundUserId;
 
   late AnimationController _storePulse;
   bool _isRecording = false;
@@ -160,6 +164,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       const Duration(minutes: 1),
       (_) => _refreshGlobalSpectatorPassStatus(),
     );
+    _tableInvitePollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      _ensureTableInviteListener();
+    });
 
     _initDevice();
   }
@@ -259,6 +266,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     _tablesRefreshTimer?.cancel();
     _systemMessageTimer?.cancel();
     _spectatorPassTimer?.cancel();
+    _tableInvitePollTimer?.cancel();
     _chatController.dispose();
     _bgController.dispose();
     _storePulse.dispose();
@@ -273,6 +281,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     _vibrationEnabled = FeedbackSettingsService.vibrationEnabled;
 
     await _loadUser();
+    await _ensureTableInviteListener();
     await _refreshGlobalSpectatorPassStatus();
     await _checkOnboarding();
     await _loadSocialData();
@@ -284,13 +293,20 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadTables();
     await _tryResumeActiveGame();
     await _checkCampaignPopup();
-    final user = supabase.auth.currentUser;
-
-    if (user != null) {
-      _bindTableInviteListener(user.id);
-      await _loadPendingTableInvites(user.id);
-      await loadMissedGifts(user.id);
+    final userId = UserState.userId ?? supabase.auth.currentUser?.id;
+    if (userId != null) {
+      await loadMissedGifts(userId);
     }
+  }
+
+  Future<void> _ensureTableInviteListener() async {
+    final myUserId = UserState.userId ?? supabase.auth.currentUser?.id;
+    if (myUserId == null || myUserId.isEmpty) return;
+    if (_tableInviteBoundUserId != myUserId || _tableInviteChannel == null) {
+      _bindTableInviteListener(myUserId);
+    }
+    // Realtime gecikse bile pending davetler mutlaka yakalansın.
+    await _loadPendingTableInvites(myUserId);
   }
 
   Future<void> _tryResumeActiveGame() async {
@@ -341,6 +357,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   void _bindTableInviteListener(String myUserId) {
     _tableInviteChannel?.unsubscribe();
     _tableInviteChannel = supabase.channel('table-invites-$myUserId');
+    _tableInviteBoundUserId = myUserId;
     _tableInviteChannel!
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -422,25 +439,30 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 24,
-          ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF20352E), Color(0xFF132621)],
+                colors: [Color(0xE6162621), Color(0xE60E1815)],
               ),
-              border: Border.all(color: const Color(0xB3E3BB62), width: 1.2),
+              border: Border.all(color: const Color(0x99D9B97A), width: 1.1),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0x99230F00).withOpacity(.55),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+                  color: const Color(0x99100600).withOpacity(.48),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+                const BoxShadow(
+                  color: Color(0x3328FFE0),
+                  blurRadius: 8,
+                  spreadRadius: -4,
+                  offset: Offset(0, -2),
                 ),
               ],
             ),
@@ -449,26 +471,31 @@ class _LobbyScreenState extends State<LobbyScreen>
               children: [
                 Row(
                   children: const [
-                    Icon(Icons.celebration_rounded, color: Color(0xFFE3BB62)),
+                    Icon(Icons.local_activity_rounded, color: Color(0xFFD9B97A), size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Masa Daveti',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(13),
                   decoration: BoxDecoration(
-                    color: const Color(0x4D000000),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0x446EC6A0)),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0x3D274137), Color(0x2A17231E)],
+                    ),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: const Color(0x66D9B97A), width: 1),
                   ),
                   child: Row(
                     children: [
@@ -482,19 +509,23 @@ class _LobbyScreenState extends State<LobbyScreen>
                         child: RichText(
                           text: TextSpan(
                             style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              color: Color(0xFFD6E1DB),
+                              fontSize: 13.5,
                               height: 1.3,
                             ),
                             children: [
                               TextSpan(
                                 text: inviterName,
                                 style: const TextStyle(
-                                  color: Color(0xFFE3BB62),
-                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFE6C788),
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
-                              const TextSpan(text: ' seni masaya davet etti.'),
+                              const TextSpan(text: ' seni masaya davet etti'),
+                              const TextSpan(
+                                text: '. Hemen katılmak ister misin?',
+                                style: TextStyle(color: Color(0xFFBFCBC5)),
+                              ),
                             ],
                           ),
                         ),
@@ -502,23 +533,24 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 15),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(false),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0x66FFFFFF)),
-                          foregroundColor: Colors.white70,
-                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          side: const BorderSide(color: Color(0x66C8D2CC), width: 1),
+                          foregroundColor: const Color(0xFFD8E0DB),
+                          backgroundColor: const Color(0x22101815),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(11),
                           ),
                         ),
                         child: const Text(
                           'Reddet',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.2),
                         ),
                       ),
                     ),
@@ -527,17 +559,24 @@ class _LobbyScreenState extends State<LobbyScreen>
                       child: ElevatedButton(
                         onPressed: () => Navigator.of(context).pop(true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE3BB62),
-                          foregroundColor: const Color(0xFF1A241F),
+                          backgroundColor: const Color(0xFFD9B97A),
+                          foregroundColor: const Color(0xFF2A1A04),
                           elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(11),
                           ),
                         ),
-                        child: const Text(
-                          'Masaya Katıl',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.login_rounded, size: 15),
+                            SizedBox(width: 6),
+                            Text(
+                              'Masaya Katıl',
+                              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.2),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -545,6 +584,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 ),
               ],
             ),
+          ),
           ),
         );
       },
@@ -1077,14 +1117,21 @@ class _LobbyScreenState extends State<LobbyScreen>
               ..shuffle(rnd);
             final b1 = shuffled[0];
             final b2 = shuffled[1];
+            final fakeEntryCoin = (league['min_coin'] as int?) ?? 100;
+            final fakePotAmount = (fakeEntryCoin * (1 + rnd.nextInt(2)));
             merged.add({
               'id': 'fake_${league['id']}_$i',
               'league_id': league['id'],
               'status': 'playing',
-              'entry_coin': (league['entry_coin'] as int?) ?? 100,
+              'entry_coin': fakeEntryCoin,
+              'pot_amount': fakePotAmount,
+              'round_count': 1 + rnd.nextInt(3),
               'max_players': 2,
-              'is_fake': true,
-              '_players': [
+              'turn_seconds': 15,
+              'spectators_enabled': false,
+              'chat_enabled': false,
+                  'is_fake': true,
+                  '_players': [
                 {
                   'seat_index': 0,
                   'user_id': b1['id']?.toString(),
@@ -1160,6 +1207,8 @@ class _LobbyScreenState extends State<LobbyScreen>
           'status': 'waiting',
           'created_by': user.id,
           'turn_seconds': effectiveTurnSeconds,
+          'spectators_enabled': createSpectatorEnabled,
+          'chat_enabled': createChatEnabled,
         })
         .select()
         .single();
@@ -2310,6 +2359,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       /// FRIEND TABLE MAP
       final friendTables = <String, String>{};
+      final spectatorsEnabledByTableId = <String, bool>{};
 
       if (friendIds.isNotEmpty) {
         final tableRows = await supabase
@@ -2323,6 +2373,21 @@ class _LobbyScreenState extends State<LobbyScreen>
           final tableId = row['table_id']?.toString();
           if (userId != null && tableId != null) {
             friendTables[userId] = tableId;
+          }
+        }
+
+        final tableIds = friendTables.values.toSet().toList();
+        if (tableIds.isNotEmpty) {
+          final tableFlagRows = await supabase
+              .from('tables')
+              .select('id,spectators_enabled')
+              .inFilter('id', tableIds);
+          for (final raw in (tableFlagRows as List)) {
+            final row = Map<String, dynamic>.from(raw);
+            final tableId = row['id']?.toString();
+            if (tableId == null || tableId.isEmpty) continue;
+            spectatorsEnabledByTableId[tableId] =
+                (row['spectators_enabled'] as bool?) ?? true;
           }
         }
       }
@@ -2347,6 +2412,11 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           /// EKLENEN
           'table_id': friendTables[friendId],
+          'table_spectators_enabled': (() {
+            final tableId = friendTables[friendId];
+            if (tableId == null || tableId.isEmpty) return true;
+            return spectatorsEnabledByTableId[tableId] ?? true;
+          })(),
         });
       }
 
@@ -2549,6 +2619,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     coinOptions = [];
     selectedIndex = 0;
     draftTurnSeconds = 20;
+    bool draftSpectatorEnabled = createSpectatorEnabled;
+    bool draftChatEnabled = createChatEnabled;
     while (current < maxCoin) {
       coinOptions.add(current);
 
@@ -3120,17 +3192,201 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 ),
 
                                 const SizedBox(height: 10),
-
-                                /// ALT A�IKLAMA
-                                Text(
-                                  draftTurnSeconds == 15
-                                      ? "Daha hızlı oyun • kısa hamle süresi"
-                                      : "Standart tempo",
-                                  style: const TextStyle(
-                                    color: Color(0xB7C9D6CE),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setDialogState(() {
+                                            draftSpectatorEnabled =
+                                                !draftSpectatorEnabled;
+                                          });
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 180,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            color: draftSpectatorEnabled
+                                                ? const Color(0x2EE7C66A)
+                                                : const Color(0x1F101A16),
+                                            border: Border.all(
+                                              color: draftSpectatorEnabled
+                                                  ? const Color(0x99E7C66A)
+                                                  : const Color(0x44779B8A),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.visibility_rounded,
+                                                size: 14,
+                                                color: draftSpectatorEnabled
+                                                    ? const Color(0xFFF2D38D)
+                                                    : Colors.white70,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Seyirci',
+                                                style: TextStyle(
+                                                  color: draftSpectatorEnabled
+                                                      ? const Color(0xFFF2D38D)
+                                                      : Colors.white70,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(999),
+                                                  color: draftSpectatorEnabled
+                                                      ? const Color(0x33E7C66A)
+                                                      : const Color(0x22FFFFFF),
+                                                  border: Border.all(
+                                                    color: draftSpectatorEnabled
+                                                        ? const Color(
+                                                            0x99E7C66A,
+                                                          )
+                                                        : const Color(
+                                                            0x44FFFFFF,
+                                                          ),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  draftSpectatorEnabled
+                                                      ? 'Açık'
+                                                      : 'Kapalı',
+                                                  style: TextStyle(
+                                                    color: draftSpectatorEnabled
+                                                        ? const Color(
+                                                            0xFFF2D38D,
+                                                          )
+                                                        : Colors.white70,
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setDialogState(() {
+                                            draftChatEnabled = !draftChatEnabled;
+                                          });
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 180,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            color: draftChatEnabled
+                                                ? const Color(0x2EE7C66A)
+                                                : const Color(0x1F101A16),
+                                            border: Border.all(
+                                              color: draftChatEnabled
+                                                  ? const Color(0x99E7C66A)
+                                                  : const Color(0x44779B8A),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.chat_bubble_rounded,
+                                                size: 14,
+                                                color: draftChatEnabled
+                                                    ? const Color(0xFFF2D38D)
+                                                    : Colors.white70,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Sohbet',
+                                                style: TextStyle(
+                                                  color: draftChatEnabled
+                                                      ? const Color(0xFFF2D38D)
+                                                      : Colors.white70,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(999),
+                                                  color: draftChatEnabled
+                                                      ? const Color(0x33E7C66A)
+                                                      : const Color(0x22FFFFFF),
+                                                  border: Border.all(
+                                                    color: draftChatEnabled
+                                                        ? const Color(
+                                                            0x99E7C66A,
+                                                          )
+                                                        : const Color(
+                                                            0x44FFFFFF,
+                                                          ),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  draftChatEnabled
+                                                      ? 'Açık'
+                                                      : 'Kapalı',
+                                                  style: TextStyle(
+                                                    color: draftChatEnabled
+                                                        ? const Color(
+                                                            0xFFF2D38D,
+                                                          )
+                                                        : Colors.white70,
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -3153,6 +3409,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   onTap: () {
                                     createMaxPlayer = 2;
                                     createTurnSeconds = draftTurnSeconds;
+                                    createSpectatorEnabled =
+                                        draftSpectatorEnabled;
+                                    createChatEnabled = draftChatEnabled;
 
                                     Navigator.pop(context);
                                     _createTable();
@@ -3439,10 +3698,14 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _rightPanelOverlay() {
+    final isMessagesPanel = _rightPanelType == _RightPanelType.messages;
     return LobbyRightPanel(
       open: _rightPanelType != _RightPanelType.none,
       onClose: _closeRightPanel,
       panelContent: _rightPanelContent(),
+      widthFactor: isMessagesPanel ? 0.62 : 0.46,
+      minWidth: isMessagesPanel ? 760 : 340,
+      maxWidth: isMessagesPanel ? 980 : 660,
     );
   }
 
@@ -3461,6 +3724,8 @@ class _LobbyScreenState extends State<LobbyScreen>
               final friend = _friends[i];
               final blocked = UserState.blockedUserIds.contains(friend['id']);
               final tableId = friend['table_id'];
+              final tableSpectatorsEnabled =
+                  (friend['table_spectators_enabled'] as bool?) ?? true;
 
               return InkWell(
                 onTap: () async {
@@ -3524,11 +3789,12 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
 
                       /// MASADAYSA KATIL BUTONU
-                      if (tableId != null)
+                      if (tableId != null && tableSpectatorsEnabled)
                         Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: InkWell(
                             onTap: () {
+                              if (!tableSpectatorsEnabled) return;
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -5327,21 +5593,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _dockRight() {
     return Row(
       children: [
-        AaaDockIcon(
-          onTap: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
-              ),
-            );
-
-            if (result == true) {
-              await _loadUser(); // coin yeniden y�klenir
-            }
-          },
-          child: const PremiumCoinButton(),
-        ),
+        _coinBuyDockButton(),
         const SizedBox(width: 10),
         AaaDockIcon(
           icon: Icons.emoji_events,
@@ -5360,6 +5612,97 @@ class _LobbyScreenState extends State<LobbyScreen>
           onTap: () => _openRightPanel(_RightPanelType.messages),
         ),
       ],
+    );
+  }
+
+  Widget _coinBuyDockButton() {
+    return AnimatedBuilder(
+      animation: _storePulse,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_storePulse.value);
+        return Transform.scale(
+          scale: 1 + (t * 0.03),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
+                ),
+              );
+              if (result == true) {
+                await _loadUser();
+              }
+            },
+            child: Container(
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
+                ),
+                border: Border.all(color: const Color(0xFFE7C66A), width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFE7C66A).withOpacity(0.22 + (t * 0.15)),
+                    blurRadius: 14,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.78),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    top: 3,
+                    left: 10,
+                    right: 10,
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.white.withOpacity(0.17), Colors.transparent],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.monetization_on_rounded,
+                        color: Color(0xFFE8C988),
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'MAĞAZA',
+                        style: TextStyle(
+                          color: Color(0xFFE8C988),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.35,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

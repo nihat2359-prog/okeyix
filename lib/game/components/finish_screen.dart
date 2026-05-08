@@ -141,7 +141,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       if (model == null) return;
 
       final t = TileComponent(tile: model, position: Vector2(x, y))
-        ..scale = Vector2.all(0.4);
+        ..scale = Vector2.all(0.34);
       rack.add(t);
     }
   }
@@ -154,7 +154,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     if (model == null) return;
 
     final t = TileComponent(tile: model, position: Vector2(0, 60))
-      ..scale = Vector2.all(0.5);
+      ..scale = Vector2.all(0.42);
 
     // 🔥 glow efekti
     t.add(

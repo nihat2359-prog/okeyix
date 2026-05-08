@@ -152,6 +152,12 @@ class LobbyLeagueList extends StatelessWidget {
                   blurRadius: 30,
                   spreadRadius: 2,
                 ),
+              if (selected)
+                const BoxShadow(
+                  color: Color(0x335A3B10),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
             ],
           ),
 
@@ -160,11 +166,11 @@ class LobbyLeagueList extends StatelessWidget {
 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            height: isBig ? 65 : 56,
+            height: isBig ? 67 : 55,
 
             padding: EdgeInsets.symmetric(
               horizontal: l['id'] == 'elite' ? 2 : 8,
-              vertical: 6,
+              vertical: 5,
             ),
 
             decoration: BoxDecoration(
@@ -172,8 +178,16 @@ class LobbyLeagueList extends StatelessWidget {
 
               gradient: LinearGradient(
                 colors: selected
-                    ? [Color(0xFF184A34), Color(0xFF071A12)]
-                    : [Color(0xFF0F2A1E), Color(0xFF071A12)],
+                    ? [const Color(0xFF143C2C), const Color(0xFF061A12)]
+                    : [const Color(0xFF123527), const Color(0xFF081E15)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: selected
+                    ? const Color(0x99F1D58D)
+                    : const Color(0x66BFA66A),
+                width: selected ? 1.1 : 0.9,
               ),
 
               boxShadow: [
@@ -186,9 +200,60 @@ class LobbyLeagueList extends StatelessWidget {
               ],
             ),
 
-            child: l['id'] == 'elite'
-                ? _eliteCard(l, color, isBig)
-                : _normalCard(l, color, isBig),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _SubtleNoisePainter(
+                        noiseOpacity: selected ? 0.04 : 0.025,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withOpacity(selected ? 0.09 : 0.05),
+                            Colors.transparent,
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.28, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withOpacity(selected ? 0.28 : 0.22),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.45],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (l['id'] == 'elite')
+                  _eliteCard(l, color, isBig)
+                else
+                  _normalCard(l, color, isBig),
+              ],
+            ),
           ),
         ),
       ),
@@ -196,7 +261,7 @@ class LobbyLeagueList extends StatelessWidget {
   }
 
   Widget _leagueTitle(String text, Color color, {bool isBig = false}) {
-    final fontSize = isBig ? 22.0 : 16.0;
+    final fontSize = isBig ? 21.0 : 15.5;
 
     return Center(
       child: Stack(
@@ -213,7 +278,7 @@ class LobbyLeagueList extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: fontSize,
-                letterSpacing: 0.7,
+                letterSpacing: 0.35,
                 color: Colors.black.withOpacity(0.9),
               ),
             ),
@@ -242,7 +307,7 @@ class LobbyLeagueList extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: fontSize,
-                letterSpacing: 0.7,
+                letterSpacing: 0.35,
                 color: Colors.white, // shader için
               ),
             ),
@@ -257,7 +322,7 @@ class LobbyLeagueList extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: fontSize,
-              letterSpacing: 0.7,
+              letterSpacing: 0.35,
               color: Colors.transparent,
               shadows: [
                 Shadow(
@@ -371,6 +436,37 @@ class LobbyLeagueList extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
+        Container(
+          width: size + 10,
+          height: size + 10,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFE7C66A), Color(0xFF9A7732)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE7C66A).withOpacity(0.35),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: size + 6,
+          height: size + 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF163628), Color(0xFF091E15)],
+            ),
+            border: Border.all(color: const Color(0x66E7C66A), width: 0.9),
+          ),
+        ),
         /// 🔥 ALT GÖLGE (derinlik)
         Transform.translate(
           offset: const Offset(0, 2),
@@ -454,8 +550,9 @@ class LobbyLeagueList extends StatelessWidget {
                               Text(
                                 "$activePlayers",
                                 style: const TextStyle(
-                                  color: Color(0xFFB9C3BD),
-                                  fontSize: 12,
+                                  color: Color(0xFFD3DBD6),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -481,8 +578,9 @@ class LobbyLeagueList extends StatelessWidget {
                               Text(
                                 "$activeTables",
                                 style: const TextStyle(
-                                  color: Color(0xFFB9C3BD),
-                                  fontSize: 12,
+                                  color: Color(0xFFD3DBD6),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -556,14 +654,54 @@ class LobbyLeagueList extends StatelessWidget {
 
   Widget _leagueTrophy(String id, bool selected) {
     final style = _trophyStyle(id);
+    final outerSize = style.size + (style.size * 0.18);
+    final innerSize = style.size + (style.size * 0.10);
+    const ringWidth = 0.35;
+    final glowBlur = selected ? (style.size * 0.38) : (style.size * 0.24);
+    final slotWidth = outerSize + 4;
 
     return SizedBox(
-      width: 26,
+      width: slotWidth,
       child: Center(
         child: Stack(
           alignment: Alignment.center,
           children: [
-            /// 🔥 glow
+        Container(
+              width: outerSize,
+              height: outerSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFE7C66A), Color(0xFF9A7732)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFE7C66A).withOpacity(
+                      selected ? 0.35 : 0.18,
+                    ),
+                    blurRadius: glowBlur,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: innerSize,
+              height: innerSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF163628), Color(0xFF091E15)],
+                ),
+                border: Border.all(
+                  color: const Color(0x66E7C66A),
+                  width: ringWidth,
+                ),
+              ),
+            ),
             if (style.glow > 0)
               Icon(
                 Icons.emoji_events,
@@ -576,8 +714,6 @@ class LobbyLeagueList extends StatelessWidget {
                   ),
                 ],
               ),
-
-            /// 🔥 gradient kupa
             ShaderMask(
               blendMode: BlendMode.srcATop,
               shaderCallback: (bounds) => LinearGradient(
@@ -701,6 +837,27 @@ class GoldBorderPainter extends CustomPainter {
   }
 }
 
+class _SubtleNoisePainter extends CustomPainter {
+  final double noiseOpacity;
+
+  const _SubtleNoisePainter({required this.noiseOpacity});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = Colors.white.withOpacity(noiseOpacity);
+    for (int i = 0; i < 28; i++) {
+      final dx = (size.width / 27) * i;
+      final dy = (size.height / 9) * (i % 9);
+      canvas.drawCircle(Offset(dx, dy), 0.6, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SubtleNoisePainter oldDelegate) {
+    return oldDelegate.noiseOpacity != noiseOpacity;
+  }
+}
+
 class TrophyStyle {
   final double size;
   final List<Color> colors;
@@ -708,3 +865,8 @@ class TrophyStyle {
 
   TrophyStyle({required this.size, required this.colors, required this.glow});
 }
+
+
+
+
+

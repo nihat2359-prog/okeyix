@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
@@ -34,6 +36,7 @@ class LobbyTableCard extends StatelessWidget {
     final status = (table['status']?.toString() ?? 'waiting').trim();
     final isPlaying = status == 'playing';
     final isFake = table['is_fake'] == true;
+    final spectatorsEnabled = (table['spectators_enabled'] as bool?) ?? true;
 
     return Container(
       decoration: BoxDecoration(
@@ -52,14 +55,59 @@ class LobbyTableCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = constraints.maxWidth;
+          final cardHeight = constraints.maxHeight;
+          return Stack(
         children: [
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/images/lobby/table_surface.png',
-                fit: BoxFit.fill,
+              child: ColorFiltered(
+                colorFilter: const ColorFilter.matrix(<double>[
+                  0.88, 0.04, 0.04, 0, 0,
+                  0.04, 0.88, 0.04, 0, 0,
+                  0.04, 0.04, 0.88, 0, 0,
+                  0, 0, 0, 1, 0,
+                ]),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/table.png',
+                      fit: BoxFit.fill,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          'assets/images/lobby/table_surface.png',
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    ),
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 0.8, sigmaY: 0.8),
+                      child: const SizedBox.expand(),
+                    ),
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x44101514), Color(0x55101514)],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment(0, 0.05),
+                          radius: 1.0,
+                          colors: [Color(0x00101514), Color(0x55101514)],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -69,60 +117,47 @@ class LobbyTableCard extends StatelessWidget {
             top: 8,
             child: _tableMetaColumn(),
           ),
-          if (isPlaying && !isFake)
+          ..._decorativeDiscardAnchors(cardWidth, cardHeight),
+          if (isPlaying && !isFake && spectatorsEnabled)
             Positioned(
               right: 8,
-              top: 7,
+              bottom: 8,
               child: InkWell(
                 onTap: () => onSpectate(table),
                 borderRadius: BorderRadius.circular(999),
-                child: Container(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFEBC778), Color(0xFFC8942D)],
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: const Color(0xFFFFF1BA),
-                      width: 1.1,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x66A16D18),
-                        blurRadius: 10,
-                        spreadRadius: 0.4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
                       Icon(
                         Icons.remove_red_eye_rounded,
-                        size: 12,
-                        color: Color(0xFF493000),
+                        size: 13,
+                        color: Color(0xFFE5C57A),
                       ),
                       SizedBox(width: 4),
                       Text(
                         'IZLE',
                         style: TextStyle(
-                          color: Color(0xFF3F2900),
-                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFE5C57A),
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.3,
-                          fontSize: 10.5,
+                          fontSize: 10.2,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
+          if (!(isPlaying && !isFake))
+            Positioned(
+              right: 10,
+              top: 8,
+              child: _tableStatusIcons(),
             ),
 
           ...List.generate(maxPlayers, (seat) {
@@ -142,6 +177,8 @@ class LobbyTableCard extends StatelessWidget {
             );
           }),
         ],
+      );
+        },
       ),
     );
   }
@@ -163,14 +200,14 @@ class LobbyTableCard extends StatelessWidget {
   }) {
     if (maxPlayers == 2) {
       if (seatIndex == 0) {
-        return Positioned(left: 48, right: 48, bottom: 5, child: child);
+        return Positioned(left: 48, right: 48, bottom: 18, child: child);
       }
       return Positioned(left: 48, right: 48, top: 10, child: child);
     }
 
     switch (seatIndex) {
       case 0:
-        return Positioned(left: 48, right: 48, bottom: 14, child: child);
+        return Positioned(left: 48, right: 48, bottom: 28, child: child);
       case 1:
         return Positioned(
           left: 14,
@@ -207,7 +244,7 @@ class LobbyTableCard extends StatelessWidget {
               LobbyAvatar(
                 username: player['username']?.toString() ?? 'Oyuncu',
                 avatarUrl: player['avatar_url']?.toString(),
-                size: 18,
+                size: 24,
                 blocked: blocked,
               ),
               const SizedBox(height: 3),
@@ -236,18 +273,7 @@ class LobbyTableCard extends StatelessWidget {
     return InkWell(
       onTap: () => onJoin(table),
       borderRadius: BorderRadius.circular(999),
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const RadialGradient(
-            colors: [Color(0xFFFFE887), Color(0xFFF2BE3E), Color(0xFFCB8E20)],
-          ),
-          border: Border.all(color: const Color(0xFFFFF1BA), width: 1.1),
-        ),
-        child: const Icon(Icons.south_rounded, color: Color(0xFF664407)),
-      ),
+      child: const _JoinSeatButton(),
     );
   }
 
@@ -256,7 +282,6 @@ class LobbyTableCard extends StatelessWidget {
     final roundCount = (table['round_count'] as int?) ?? 1;
     final potAmount = (table['pot_amount'] as int?) ?? 0;
     final turnSeconds = (table['turn_seconds'] as int?) ?? 20;
-    final speedIcon = turnSeconds == 15 ? Icons.flash_on_rounded : Icons.schedule;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -281,8 +306,38 @@ class LobbyTableCard extends StatelessWidget {
             text: Format.coin(potAmount),
             accentColor: const Color(0xFFFFB347),
           ),
-          const SizedBox(height: 4),
-          _metaIconOnly(speedIcon),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableStatusIcons() {
+    final turnSeconds = (table['turn_seconds'] as int?) ?? 20;
+    final isFastTable = turnSeconds == 15;
+    final spectatorsEnabled = (table['spectators_enabled'] as bool?) ?? true;
+    final chatEnabled = (table['chat_enabled'] as bool?) ?? true;
+    final showSpectatorOff = !spectatorsEnabled;
+    final showChatOff = !chatEnabled;
+    final hasStatusGroup = isFastTable || showSpectatorOff || showChatOff;
+
+    if (!hasStatusGroup) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0x770B1512),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x44E7C06A), width: 0.8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isFastTable) _metaIconOnly(Icons.flash_on_rounded),
+          if (isFastTable && (showSpectatorOff || showChatOff))
+            const SizedBox(height: 4),
+          if (showSpectatorOff) _metaStruckIcon(Icons.visibility_rounded),
+          if (showSpectatorOff && showChatOff) const SizedBox(height: 4),
+          if (showChatOff) _metaIconOnly(Icons.sms_failed_rounded),
         ],
       ),
     );
@@ -319,11 +374,192 @@ class LobbyTableCard extends StatelessWidget {
   }
 
   Widget _metaIconOnly(IconData icon) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
-      ],
+    return Icon(icon, size: 14, color: const Color(0xFFE7C06A));
+  }
+
+  Widget _metaStruckIcon(IconData icon) {
+    return SizedBox(
+      width: 14,
+      height: 14,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
+          Transform.rotate(
+            angle: 0.75,
+            child: Container(
+              width: 1.6,
+              height: 14,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7C06A),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _decorativeDiscardAnchors(double cardWidth, double cardHeight) {
+    final sideInset = (cardWidth * 0.35).clamp(46.0, 82.0);
+    final topOffset = (cardHeight * 0.25).clamp(34.0, 52.0);
+    final bottomOffset = (cardHeight * 0.24).clamp(32.0, 50.0);
+    return [
+      Positioned(
+        left: sideInset,
+        top: topOffset,
+        child: const IgnorePointer(child: _LobbyDiscardDecor(rotation: 0)),
+      ),
+      Positioned(
+        right: sideInset,
+        top: topOffset,
+        child: const IgnorePointer(child: _LobbyDiscardDecor(rotation: 0)),
+      ),
+      Positioned(
+        left: sideInset,
+        bottom: bottomOffset,
+        child: const IgnorePointer(child: _LobbyDiscardDecor(rotation: 0)),
+      ),
+      Positioned(
+        right: sideInset,
+        bottom: bottomOffset,
+        child: const IgnorePointer(child: _LobbyDiscardDecor(rotation: 0)),
+      ),
+    ];
+  }
+}
+
+class _LobbyDiscardDecor extends StatelessWidget {
+  final double rotation;
+
+  const _LobbyDiscardDecor({required this.rotation});
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: rotation,
+      child: CustomPaint(
+        size: const Size(22, 30),
+        painter: const _LobbyPremiumDiscardPainter(),
+      ),
+    );
+  }
+}
+
+class _LobbyPremiumDiscardPainter extends CustomPainter {
+  const _LobbyPremiumDiscardPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final outer = RRect.fromRectAndRadius(rect, const Radius.circular(6));
+
+    final body = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0x6A1E2D26), Color(0x32101814)],
+      ).createShader(rect);
+    final border = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0xA9896235);
+    final gloss = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x22FFF1C8), Color(0x00FFF1C8)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.5));
+
+    canvas.drawRRect(outer, body);
+    canvas.drawRRect(outer, gloss);
+    canvas.drawRRect(outer, border);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _JoinSeatButton extends StatefulWidget {
+  const _JoinSeatButton();
+
+  @override
+  State<_JoinSeatButton> createState() => _JoinSeatButtonState();
+}
+
+class _JoinSeatButtonState extends State<_JoinSeatButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        return Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              center: Alignment(-0.25, -0.25),
+              radius: 1.05,
+              colors: [Color(0xFFFFE08F), Color(0xFFC48722)],
+            ),
+            border: Border.all(color: const Color(0xFFFFF2C7), width: 1.35),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0x703A2200),
+                blurRadius: 8 + (t * 3),
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: const Color(0x88E1A63E).withOpacity(0.45 + (t * 0.25)),
+                blurRadius: 10 + (t * 3),
+                spreadRadius: 0.35,
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 31,
+                height: 31,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0x66FFF4D6), width: 1),
+                ),
+              ),
+              Transform.translate(
+                offset: Offset(0, -1 + (t * 2)),
+                child: const Icon(
+                  Icons.login_rounded,
+                  size: 19,
+                  color: Color(0xFF4E3000),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
