@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -38,29 +38,29 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
   @override
   Future<void> onLoad() async {
     _playResultSound();
-    // 🔥 TÜM SAHNEYİ ORTALA
+    // ğŸ”¥ TÃœM SAHNEYÄ° ORTALA
     position = gameRef.size / 2;
     anchor = Anchor.center;
     priority = 9999;
 
-    // 🔥 FULL SCREEN KARARTMA
+    // ğŸ”¥ FULL SCREEN KARARTMA
 
     final vp = gameRef.camera.viewport.size;
-    // 🔥 FULL SCREEN OVERLAY
+    // ğŸ”¥ FULL SCREEN OVERLAY
     add(
       RectangleComponent(
-        size: vp, // 🔥 DOĞRU
-        position: -vp / 2, // 🔥 DOĞRU
+        size: vp, // ğŸ”¥ DOÄRU
+        position: -vp / 2, // ğŸ”¥ DOÄRU
         paint: Paint()..color = Colors.black.withOpacity(0.7),
       ),
     );
 
-    // 🔥 RACK PNG
+    // ğŸ”¥ RACK PNG
     final image = await gameRef.images.load('rack.png');
 
     final rackWidth = vp.x * 0.60;
 
-    // oranı koru
+    // oranÄ± koru
     final aspect = 400 / 1380;
 
     final rackHeight = rackWidth * aspect;
@@ -69,7 +69,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       sprite: Sprite(image),
       size: Vector2(rackWidth, rackHeight),
       anchor: Anchor.center,
-      position: Vector2(0, -vp.y * 0.20), // yukarı
+      position: Vector2(0, -vp.y * 0.20), // yukarÄ±
     );
 
     add(rack);
@@ -99,13 +99,13 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
   void _buildTiles() {
     final vp = gameRef.camera.viewport.size;
 
-    // 🔥 rack ile aynı offset (üstte konum)
+    // ğŸ”¥ rack ile aynÄ± offset (Ã¼stte konum)
 
-    // 🔥 rack boyutuna bağlı hesap
+    // ğŸ”¥ rack boyutuna baÄŸlÄ± hesap
     final rackWidth = vp.x * 0.65;
     final rackHeight = rackWidth * (400 / 1380);
 
-    // 🔥 slotları sırala
+    // ğŸ”¥ slotlarÄ± sÄ±rala
     slots.sort((a, b) => (a['i'] as int).compareTo(b['i'] as int));
 
     for (final s in slots) {
@@ -115,11 +115,11 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       // Rack indexing is: 0-12 bottom row, 13-25 top row.
       final isTop = i >= 13;
 
-      // 🔥 X PARAM
+      // ğŸ”¥ X PARAM
       double scaleX = 0.75;
       double offsetX = 0.44;
 
-      // 🔥 Y PARAM
+      // ğŸ”¥ Y PARAM
       double centerY = 0.35;
       double rowSpacing = 0.30;
 
@@ -156,7 +156,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     final t = TileComponent(tile: model, position: Vector2(0, 60))
       ..scale = Vector2.all(0.42);
 
-    // 🔥 glow efekti
+    // ğŸ”¥ glow efekti
     t.add(
       CircleComponent(
         radius: 45,
@@ -179,12 +179,12 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
 
     if (isWinner) {
       if (isOkeyFinish) return "OKEY +$winAmount";
-      if (isDoubleFinish) return "ÇİFT +$winAmount";
+      if (isDoubleFinish) return "CIFT +$winAmount";
 
       return "KAZANDIN $amountText";
     }
 
-    return "KAYBETTİN $amountText";
+    return "KAYBETTIN $amountText";
   }
 
   TextStyle _getResultStyle() {
@@ -218,7 +218,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
 
   Future<void> _playResultSound() async {
     if (!FeedbackSettingsService.soundEnabled) return;
-    if (_isPlayingSound) return; // 🔥 ÇAKIŞMA ENGEL
+    if (_isPlayingSound) return; // ğŸ”¥ Ã‡AKIÅMA ENGEL
 
     _isPlayingSound = true;
 
@@ -237,7 +237,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
         }
       });
     } catch (e) {
-      // 🔥 ARTIK STREAM BOZULMAZ
+      // ğŸ”¥ ARTIK STREAM BOZULMAZ
       debugPrint("Sound error ignored: $e");
     } finally {
       _isPlayingSound = false;
@@ -247,7 +247,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
   }
 
   TileModel? _tileModelFromPayload(Map<String, dynamic> raw) {
-    // 🔥 ID ZORUNLU
+    // ğŸ”¥ ID ZORUNLU
     final id = raw['id'];
     if (id == null || id.toString().isEmpty) {
       print("Tile payload missing id: $raw");
@@ -287,7 +287,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     }
 
     return TileModel(
-      id: id.toString(), // 🔥 EN KRİTİK
+      id: id.toString(), // ğŸ”¥ EN KRÄ°TÄ°K
       value: value,
       color: color,
       isJoker:
@@ -311,15 +311,15 @@ class FinishOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 🔥 KARARTMA
+        // ğŸ”¥ KARARTMA
         Positioned.fill(child: Container(color: Colors.black.withOpacity(0.7))),
 
-        // 🔥 ORTA ALAN
+        // ğŸ”¥ ORTA ALAN
         Center(
           child: SizedBox(
             width: MediaQuery.of(context).size.width,
             height: MediaQuery.of(context).size.height,
-            child: GameWidget(game: game), // aynı game
+            child: GameWidget(game: game), // aynÄ± game
           ),
         ),
       ],

@@ -3507,7 +3507,16 @@ class OkeyGame extends FlameGame with TapDetector {
       if (status == null) {
         return;
       }
-      _maybeShowFinishFromTable(table);
+      final handledFinish = _maybeShowFinishFromTable(table);
+      if (handledFinish) {
+        // Finish yakalandığında bu update turunda ek state churn yapma.
+        // Aksi halde rakipte kısa süreli tekrar taş dizimi görülebiliyor.
+        _cancelStartCountdown();
+        _startCalled = false;
+        _countdownRunning = false;
+        _localCountdownStart = null;
+        return;
+      }
 
       if (status == 'playing' && !_gameStarted) {
         _gameStarted = true;

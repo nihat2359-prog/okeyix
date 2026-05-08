@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
@@ -83,10 +81,6 @@ class LobbyTableCard extends StatelessWidget {
                           fit: BoxFit.cover,
                         );
                       },
-                    ),
-                    BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 0.8, sigmaY: 0.8),
-                      child: const SizedBox.expand(),
                     ),
                     Container(
                       decoration: const BoxDecoration(

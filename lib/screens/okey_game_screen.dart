@@ -530,8 +530,44 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       _finishSlots = slots;
       _showFinish = true;
     });
-
     _autoCloseFinish();
+  }
+
+  bool _openFinishFromTableRow(
+    Map<String, dynamic> row,
+    String winnerName,
+    bool isWinner,
+  ) {
+    final rawSlots = row['last_final_slots'];
+    final rawFinishTile = row['last_finish_tile'];
+    if (rawSlots == null || rawSlots is! List || rawFinishTile == null) {
+      return false;
+    }
+
+    final slots = List<Map<String, dynamic>>.from(rawSlots);
+    final finishTile = Map<String, dynamic>.from(
+      rawFinishTile as Map<dynamic, dynamic>,
+    );
+    final winAmount = (row['last_win_amount'] as num?)?.toInt() ?? 0;
+    final isDraw = ((row['pot_amount'] as num?)?.toInt() ?? 1) == 0;
+
+    _game.showFinishFromGame(
+      slots,
+      finishTile,
+      winnerName,
+      isWinner,
+      false,
+      winAmount,
+      isDraw,
+      false,
+    );
+
+    setState(() {
+      _finishSlots = slots;
+      _showFinish = true;
+    });
+    _autoCloseFinish();
+    return true;
   }
 
   Future<void> _autoCloseFinish() async {
@@ -548,7 +584,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       final row = await _supabase
           .from('tables')
           .select(
-            'status,max_players,ready_since,last_finish_at,last_winner_user_id,chat_enabled,spectators_enabled',
+            'status,max_players,ready_since,last_finish_at,last_winner_user_id,chat_enabled,spectators_enabled,last_final_slots,last_finish_tile,last_win_amount,pot_amount',
           )
           .eq('id', widget.tableId)
           .maybeSingle();
@@ -563,10 +599,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       final chatEnabled = (row['chat_enabled'] as bool?) ?? true;
       final spectatorsEnabled = (row['spectators_enabled'] as bool?) ?? true;
 
-      final shouldShowFinishFx =
-          finishAt != null &&
-          (_lastFinishAt == null || finishAt.isAfter(_lastFinishAt!));
-
+      final prevFinishAt = _lastFinishAt;
       _tableStatus = status;
       _maxPlayers = maxPlayers;
       _lastFinishAt = finishAt;
@@ -581,22 +614,14 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         _chatOpen = false;
       }
 
+      final shouldShowFinishFx =
+          finishAt != null &&
+          (prevFinishAt == null || finishAt.isAfter(prevFinishAt));
       if (shouldShowFinishFx) {
         final winnerName = winner == null
             ? 'Kazanan belli deÄŸil'
             : (_userNames[winner] ?? 'Bir oyuncu');
-        final isWinner = _game.isMeWinner(winner);
-        if (winner == null) {
-          _showFinishMessage('$winnerName kazandÄ±');
-        } else {
-          final snapshot = await _loadFinishSnapshotWithRetry();
-
-          if (snapshot != null) {
-            _openFinishScreen(snapshot, winnerName, isWinner);
-          } else {
-            _showFinishMessage('$winnerName kazandÄ±');
-          }
-        }
+        _showFinishMessage("$winnerName kazandi");
       }
 
       if (mounted) setState(() {});

@@ -439,92 +439,161 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 360),
             child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xE6162621), Color(0xE60E1815)],
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xE6162621), Color(0xE60E1815)],
+                ),
+                border: Border.all(color: const Color(0x99D9B97A), width: 1.1),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0x99100600).withOpacity(.48),
+                    blurRadius: 28,
+                    offset: const Offset(0, 14),
+                  ),
+                  const BoxShadow(
+                    color: Color(0x3328FFE0),
+                    blurRadius: 8,
+                    spreadRadius: -4,
+                    offset: Offset(0, -2),
+                  ),
+                ],
               ),
-              border: Border.all(color: const Color(0x99D9B97A), width: 1.1),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0x99100600).withOpacity(.48),
-                  blurRadius: 28,
-                  offset: const Offset(0, 14),
-                ),
-                const BoxShadow(
-                  color: Color(0x3328FFE0),
-                  blurRadius: 8,
-                  spreadRadius: -4,
-                  offset: Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.local_activity_rounded, color: Color(0xFFD9B97A), size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Masa Daveti',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.2,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(
+                        Icons.local_activity_rounded,
+                        color: Color(0xFFD9B97A),
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Masa Daveti',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0x3D274137), Color(0x2A17231E)],
+                      ),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                        color: const Color(0x66D9B97A),
+                        width: 1,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0x3D274137), Color(0x2A17231E)],
+                    child: Row(
+                      children: [
+                        LobbyAvatar(
+                          username: inviterName,
+                          avatarUrl: inviterAvatar,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                color: Color(0xFFD6E1DB),
+                                fontSize: 13.5,
+                                height: 1.3,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: inviterName,
+                                  style: const TextStyle(
+                                    color: Color(0xFFE6C788),
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const TextSpan(text: ' seni masaya davet etti'),
+                                const TextSpan(
+                                  text: '. Hemen katılmak ister misin?',
+                                  style: TextStyle(color: Color(0xFFBFCBC5)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(color: const Color(0x66D9B97A), width: 1),
                   ),
-                  child: Row(
+                  const SizedBox(height: 15),
+                  Row(
                     children: [
-                      LobbyAvatar(
-                        username: inviterName,
-                        avatarUrl: inviterAvatar,
-                        size: 18,
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: Color(0x66C8D2CC),
+                              width: 1,
+                            ),
+                            foregroundColor: const Color(0xFFD8E0DB),
+                            backgroundColor: const Color(0x22101815),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                          child: const Text(
+                            'Reddet',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: RichText(
-                          text: TextSpan(
-                            style: const TextStyle(
-                              color: Color(0xFFD6E1DB),
-                              fontSize: 13.5,
-                              height: 1.3,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD9B97A),
+                            foregroundColor: const Color(0xFF2A1A04),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
                             ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              TextSpan(
-                                text: inviterName,
-                                style: const TextStyle(
-                                  color: Color(0xFFE6C788),
+                              Icon(Icons.login_rounded, size: 15),
+                              SizedBox(width: 6),
+                              Text(
+                                'Masaya Katıl',
+                                style: TextStyle(
                                   fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.2,
                                 ),
-                              ),
-                              const TextSpan(text: ' seni masaya davet etti'),
-                              const TextSpan(
-                                text: '. Hemen katılmak ister misin?',
-                                style: TextStyle(color: Color(0xFFBFCBC5)),
                               ),
                             ],
                           ),
@@ -532,59 +601,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0x66C8D2CC), width: 1),
-                          foregroundColor: const Color(0xFFD8E0DB),
-                          backgroundColor: const Color(0x22101815),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                        ),
-                        child: const Text(
-                          'Reddet',
-                          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD9B97A),
-                          foregroundColor: const Color(0xFF2A1A04),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.login_rounded, size: 15),
-                            SizedBox(width: 6),
-                            Text(
-                              'Masaya Katıl',
-                              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           ),
         );
       },
@@ -1130,8 +1149,8 @@ class _LobbyScreenState extends State<LobbyScreen>
               'turn_seconds': 15,
               'spectators_enabled': false,
               'chat_enabled': false,
-                  'is_fake': true,
-                  '_players': [
+              'is_fake': true,
+              '_players': [
                 {
                   'seat_index': 0,
                   'user_id': b1['id']?.toString(),
@@ -2719,7 +2738,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 ),
                               ),
 
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 5),
 
                               Text(
                                 league['name'],
@@ -3071,7 +3090,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     },
                                   ),
                                 ),
-                                const SizedBox(height: 14),
 
                                 /// ? OYUN HIZI (AAA SEGMENTED)
                                 Container(
@@ -3255,7 +3273,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                     ),
                                                 decoration: BoxDecoration(
                                                   borderRadius:
-                                                      BorderRadius.circular(999),
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
                                                   color: draftSpectatorEnabled
                                                       ? const Color(0x33E7C66A)
                                                       : const Color(0x22FFFFFF),
@@ -3295,7 +3315,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       child: GestureDetector(
                                         onTap: () {
                                           setDialogState(() {
-                                            draftChatEnabled = !draftChatEnabled;
+                                            draftChatEnabled =
+                                                !draftChatEnabled;
                                           });
                                         },
                                         child: AnimatedContainer(
@@ -3351,7 +3372,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                     ),
                                                 decoration: BoxDecoration(
                                                   borderRadius:
-                                                      BorderRadius.circular(999),
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
                                                   color: draftChatEnabled
                                                       ? const Color(0x33E7C66A)
                                                       : const Color(0x22FFFFFF),
@@ -5645,10 +5668,15 @@ class _LobbyScreenState extends State<LobbyScreen>
                   end: Alignment.bottomRight,
                   colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
                 ),
-                border: Border.all(color: const Color(0xFFE7C66A), width: 3),
+                border: Border.all(
+                  color: const Color.fromARGB(169, 231, 198, 106),
+                  width: 2,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFE7C66A).withOpacity(0.22 + (t * 0.15)),
+                    color: const Color(
+                      0xFFE7C66A,
+                    ).withOpacity(0.22 + (t * 0.15)),
                     blurRadius: 14,
                   ),
                   BoxShadow(
@@ -5662,17 +5690,20 @@ class _LobbyScreenState extends State<LobbyScreen>
                 alignment: Alignment.center,
                 children: [
                   Positioned(
-                    top: 3,
-                    left: 10,
-                    right: 10,
+                    top: 0,
+                    left: -10,
+                    right: -20,
                     child: Container(
-                      height: 8,
+                      height: 60,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Colors.white.withOpacity(0.17), Colors.transparent],
+                          colors: [
+                            Colors.white.withOpacity(0.17),
+                            Colors.transparent,
+                          ],
                         ),
                       ),
                     ),
@@ -5704,23 +5735,6 @@ class _LobbyScreenState extends State<LobbyScreen>
         );
       },
     );
-  }
-
-  IconData _leagueIcon(String id) {
-    switch (id) {
-      case 'standard':
-        return Icons.star;
-      case 'bronze':
-        return Icons.extension; // puzzle hissi
-      case 'silver':
-        return Icons.build; // kalfa
-      case 'gold':
-        return Icons.workspace_premium; // usta
-      case 'elite':
-        return Icons.emoji_events; // �ampiyon
-      default:
-        return Icons.circle;
-    }
   }
 
   void _openLeaderboard() {
