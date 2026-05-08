@@ -179,27 +179,26 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
             borderRadius: BorderRadius.circular(22),
 
             // 🔥 DARK GLASS + DEPTH
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
+              colors: [Color(0xFF18120F), Color(0xFF0F0B09)],
             ),
-
-            border: Border.all(color: Colors.amber.withOpacity(0.35), width: 1),
+            border: Border.all(color: const Color(0xAA9A6A3C), width: 1.05),
 
             boxShadow: [
               // glow
               BoxShadow(
-                color: Colors.amber.withOpacity(0.18),
-                blurRadius: 20,
-                spreadRadius: 1,
+                color: const Color(0xAA000000).withOpacity(0.9),
+                blurRadius: 26,
+                offset: const Offset(0, 12),
               ),
 
               // depth
               BoxShadow(
-                color: Colors.black.withOpacity(0.8),
-                offset: const Offset(0, 10),
-                blurRadius: 18,
+                color: const Color(0x668E5C31).withOpacity(0.5),
+                blurRadius: 20,
+                spreadRadius: -3,
               ),
             ],
           ),
@@ -244,12 +243,20 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     ),
                   ),
 
-                  const Text(
-                    "Kilitli",
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: const Color(0x332E2017),
+                      border: Border.all(color: const Color(0xAA9A6A3C), width: 0.8),
+                    ),
+                    child: const Text(
+                      "Kilitli",
+                      style: TextStyle(
+                        color: Color(0xFFE3A27F),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
                 ],
@@ -304,14 +311,14 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
         gradient: LinearGradient(
           colors: ok
-              ? [const Color(0xFF1F3D2B), const Color(0xFF13251B)]
-              : [const Color(0xFF3A1F1F), const Color(0xFF261313)],
+              ? [const Color(0xFF1A2620), const Color(0xFF101712)]
+              : [const Color(0xFF2C1A14), const Color(0xFF1A100C)],
         ),
 
         border: Border.all(
           color: ok
-              ? Colors.greenAccent.withOpacity(0.35)
-              : Colors.redAccent.withOpacity(0.35),
+              ? const Color(0x667C9A85)
+              : const Color(0xAA9F5A42),
         ),
       ),
 
@@ -326,16 +333,14 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               width: 30,
               height: 30,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: (ok ? Colors.greenAccent : Colors.redAccent).withOpacity(
-                  0.12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: ok ? const Color(0x333B5D4B) : const Color(0x334A2820),
                 ),
-              ),
               child: Icon(
                 icon,
                 size: 16,
-                color: ok ? Colors.greenAccent : Colors.redAccent,
+                color: ok ? const Color(0xFF9CC2A9) : const Color(0xFFE3A27F),
               ),
             ),
 
@@ -349,13 +354,13 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  style: const TextStyle(color: Color(0xFFC9D1CD), fontSize: 11),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFFEFF3F1),
                     fontWeight: FontWeight.w900,
                     fontSize: 13,
                   ),
@@ -389,7 +394,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
           /// 🔥 GOLD GRADIENT
           gradient: const LinearGradient(
-            colors: [Color(0xFFF2C14E), Color(0xFFD4A24C)],
+            colors: [Color(0xFFE8C77A), Color(0xFFB17833)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -397,9 +402,9 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           /// 🔥 GLOW
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFF2C14E).withOpacity(0.5),
+              color: const Color(0xAA5A391A).withOpacity(0.75),
               blurRadius: 12,
-              spreadRadius: 1,
+              offset: const Offset(0, 4),
             ),
           ],
         ),

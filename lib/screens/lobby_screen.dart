@@ -1564,7 +1564,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
@@ -1586,7 +1586,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         Icon(
                           Icons.access_time_filled,
                           color: Color(0xFFE7C06A),
-                          size: 16,
+                          size: 14,
                         ),
                         SizedBox(width: 6),
                         Text(
@@ -1600,7 +1600,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         Icon(
                           Icons.monetization_on,
                           color: Colors.amber,
-                          size: 16,
+                          size: 14,
                         ),
                         SizedBox(width: 4),
                         Text(
@@ -1921,7 +1921,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 7),
                     TextField(
                       controller: messageController,
                       minLines: 5,
@@ -2060,7 +2060,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       : ListView.separated(
                           itemCount: _systemMessages.length,
                           separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 7),
                           itemBuilder: (_, i) {
                             final row = _systemMessages[i];
                             final title = _normalizeTrText(
@@ -2691,13 +2691,13 @@ class _LobbyScreenState extends State<LobbyScreen>
               child: Center(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final width = constraints.maxWidth * 0.65;
-                    final height = constraints.maxHeight * 0.85;
+                    final width = constraints.maxWidth * 0.62;
+                    final height = constraints.maxHeight * 0.94;
 
                     return Container(
                       width: width,
                       height: height,
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(26),
                         border: Border.all(
@@ -2707,17 +2707,17 @@ class _LobbyScreenState extends State<LobbyScreen>
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xF01A3529), Color(0xF00C1813)],
+                          colors: [Color(0xF31A3529), Color(0xF20B1512)],
                         ),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0xB3000000),
-                            blurRadius: 30,
-                            offset: Offset(0, 14),
+                            blurRadius: 36,
+                            offset: Offset(0, 16),
                           ),
                           BoxShadow(
-                            color: Color(0x3FE7C66A),
-                            blurRadius: 18,
+                            color: Color(0x44E7C66A),
+                            blurRadius: 22,
                             spreadRadius: -2,
                           ),
                         ],
@@ -2733,19 +2733,32 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 style: TextStyle(
                                   color: Color(0xFFF2D38D),
                                   fontWeight: FontWeight.w900,
-                                  fontSize: 18,
+                                  fontSize: 22,
                                   letterSpacing: 0.5,
                                 ),
                               ),
 
-                              const SizedBox(width: 5),
-
-                              Text(
-                                league['name'],
-                                style: const TextStyle(
-                                  color: Color(0xFFEAF3EE),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  color: const Color(0x223A5C4D),
+                                  border: Border.all(
+                                    color: const Color(0x66779B8A),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Text(
+                                  league['name'],
+                                  style: const TextStyle(
+                                    color: Color(0xFFEAF3EE),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11.5,
+                                  ),
                                 ),
                               ),
 
@@ -2772,13 +2785,13 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                                 /// ?? SLIDER (AAA)
                                 SizedBox(
-                                  height: 90,
+                                  height: 72,
                                   child: LayoutBuilder(
                                     builder: (context, constraints) {
                                       final width = constraints.maxWidth;
 
-                                      const handleWidth = 120.0;
-                                      const sidePadding = 58.0;
+                                      const handleWidth = 94.0;
+                                      const sidePadding = 48.0;
 
                                       final usableWidth =
                                           width - (sidePadding * 2);
@@ -2797,12 +2810,19 @@ class _LobbyScreenState extends State<LobbyScreen>
                                             child: Container(
                                               margin:
                                                   const EdgeInsets.symmetric(
-                                                    vertical: 18,
+                                                    vertical: 14,
                                                   ),
                                               decoration: BoxDecoration(
                                                 borderRadius:
                                                     BorderRadius.circular(30),
-                                                color: const Color(0x26111915),
+                                                gradient: const LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                  colors: [
+                                                    Color(0x3318221E),
+                                                    Color(0x22101814),
+                                                  ],
+                                                ),
                                                 border: Border.all(
                                                   color: const Color(
                                                     0x446E8F7F,
@@ -2814,6 +2834,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                     color: Color(0x6A000000),
                                                     blurRadius: 12,
                                                     offset: Offset(0, 4),
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Color(0x2AE7C66A),
+                                                    blurRadius: 16,
+                                                    spreadRadius: -6,
                                                   ),
                                                 ],
                                               ),
@@ -2872,7 +2897,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                           /// ?? HANDLE + DRAG
                                           Positioned(
                                             left: left,
-                                            top: 22,
+                                            top: 20,
                                             child: GestureDetector(
                                               onHorizontalDragStart: (_) {
                                                 setDialogState(
@@ -3027,13 +3052,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                       milliseconds: 120,
                                                     ),
                                                     width: handleWidth,
-                                                    height: 44,
+                                                    height: 34,
                                                     alignment: Alignment.center,
                                                     decoration: BoxDecoration(
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
+                                                          BorderRadius.circular(15),
 
                                                       gradient:
                                                           const LinearGradient(
@@ -3077,7 +3100,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                         ),
                                                         fontWeight:
                                                             FontWeight.w900,
-                                                        fontSize: 15,
+                                                        fontSize: 13,
                                                       ),
                                                     ),
                                                   ),
@@ -3090,6 +3113,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     },
                                   ),
                                 ),
+                                const SizedBox(height: 12),
 
                                 /// ? OYUN HIZI (AAA SEGMENTED)
                                 Container(
@@ -3101,6 +3125,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       color: const Color(0x44779B8A),
                                       width: 1,
                                     ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x66000000),
+                                        blurRadius: 10,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
                                   ),
                                   child: Row(
                                     children: [
@@ -3117,13 +3148,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               milliseconds: 200,
                                             ),
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
+                                              vertical: 8,
                                             ),
                                             decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                               color: draftTurnSeconds == 15
-                                                  ? const Color(0x2EF2C14E)
+                                                  ? const Color(0x33E7C66A)
                                                   : Colors.transparent,
                                             ),
                                             child: Row(
@@ -3132,7 +3163,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               children: [
                                                 Icon(
                                                   Icons.flash_on,
-                                                  size: 16,
+                                                  size: 14,
                                                   color: draftTurnSeconds == 15
                                                       ? const Color(0xFFF2D38D)
                                                       : Colors.white54,
@@ -3169,13 +3200,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               milliseconds: 200,
                                             ),
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
+                                              vertical: 8,
                                             ),
                                             decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                               color: draftTurnSeconds == 20
-                                                  ? const Color(0x2E5FA8FF)
+                                                  ? const Color(0x33E7C66A)
                                                   : Colors.transparent,
                                             ),
                                             child: Row(
@@ -3184,9 +3215,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                               children: [
                                                 Icon(
                                                   Icons.schedule,
-                                                  size: 16,
+                                                  size: 14,
                                                   color: draftTurnSeconds == 20
-                                                      ? Colors.blue
+                                                      ? const Color(0xFFF2D38D)
                                                       : Colors.white54,
                                                 ),
                                                 const SizedBox(width: 6),
@@ -3195,7 +3226,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                   style: TextStyle(
                                                     color:
                                                         draftTurnSeconds == 20
-                                                        ? Colors.blue
+                                                        ? const Color(0xFFF2D38D)
                                                         : Colors.white70,
                                                     fontWeight: FontWeight.w700,
                                                   ),
@@ -3209,203 +3240,149 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   ),
                                 ),
 
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setDialogState(() {
-                                            draftSpectatorEnabled =
-                                                !draftSpectatorEnabled;
-                                          });
-                                        },
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 180,
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 180),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 7,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(10),
+                                          color: draftSpectatorEnabled
+                                              ? const Color(0x2B3E5F4D)
+                                              : const Color(0x1F101A16),
+                                          border: Border.all(
+                                            color: const Color(0x44779B8A),
+                                            width: 1,
                                           ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 10,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x55000000),
+                                              blurRadius: 8,
+                                              offset: Offset(0, 2),
                                             ),
-                                            color: draftSpectatorEnabled
-                                                ? const Color(0x2EE7C66A)
-                                                : const Color(0x1F101A16),
-                                            border: Border.all(
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.visibility_rounded,
+                                              size: 14,
                                               color: draftSpectatorEnabled
-                                                  ? const Color(0x99E7C66A)
-                                                  : const Color(0x44779B8A),
-                                              width: 1,
+                                                  ? const Color(0xFFE6F3EC)
+                                                  : Colors.white70,
                                             ),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.visibility_rounded,
-                                                size: 14,
-                                                color: draftSpectatorEnabled
-                                                    ? const Color(0xFFF2D38D)
-                                                    : Colors.white70,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
                                                 'Seyirci',
                                                 style: TextStyle(
                                                   color: draftSpectatorEnabled
-                                                      ? const Color(0xFFF2D38D)
+                                                      ? const Color(0xFFE6F3EC)
                                                       : Colors.white70,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        999,
-                                                      ),
-                                                  color: draftSpectatorEnabled
-                                                      ? const Color(0x33E7C66A)
-                                                      : const Color(0x22FFFFFF),
-                                                  border: Border.all(
-                                                    color: draftSpectatorEnabled
-                                                        ? const Color(
-                                                            0x99E7C66A,
-                                                          )
-                                                        : const Color(
-                                                            0x44FFFFFF,
-                                                          ),
-                                                    width: 0.8,
-                                                  ),
+                                            ),
+                                            Transform.scale(
+                                              scale: 0.82,
+                                              child: Switch(
+                                                value: draftSpectatorEnabled,
+                                                onChanged: (v) {
+                                                  setDialogState(() {
+                                                    draftSpectatorEnabled = v;
+                                                  });
+                                                },
+                                                activeColor: const Color(
+                                                  0xFFE6F3EC,
                                                 ),
-                                                child: Text(
-                                                  draftSpectatorEnabled
-                                                      ? 'Açık'
-                                                      : 'Kapalı',
-                                                  style: TextStyle(
-                                                    color: draftSpectatorEnabled
-                                                        ? const Color(
-                                                            0xFFF2D38D,
-                                                          )
-                                                        : Colors.white70,
-                                                    fontSize: 9.5,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
+                                                activeTrackColor: const Color(
+                                                  0xAA5B8D74,
                                                 ),
+                                                inactiveThumbColor:
+                                                    const Color(0xFFD9D6CC),
+                                                inactiveTrackColor:
+                                                    const Color(0x554B5A53),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setDialogState(() {
-                                            draftChatEnabled =
-                                                !draftChatEnabled;
-                                          });
-                                        },
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 180,
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 180),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 7,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(10),
+                                          color: draftChatEnabled
+                                              ? const Color(0x2B3E5F4D)
+                                              : const Color(0x1F101A16),
+                                          border: Border.all(
+                                            color: const Color(0x44779B8A),
+                                            width: 1,
                                           ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 10,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x55000000),
+                                              blurRadius: 8,
+                                              offset: Offset(0, 2),
                                             ),
-                                            color: draftChatEnabled
-                                                ? const Color(0x2EE7C66A)
-                                                : const Color(0x1F101A16),
-                                            border: Border.all(
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.chat_bubble_rounded,
+                                              size: 14,
                                               color: draftChatEnabled
-                                                  ? const Color(0x99E7C66A)
-                                                  : const Color(0x44779B8A),
-                                              width: 1,
+                                                  ? const Color(0xFFE6F3EC)
+                                                  : Colors.white70,
                                             ),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.chat_bubble_rounded,
-                                                size: 14,
-                                                color: draftChatEnabled
-                                                    ? const Color(0xFFF2D38D)
-                                                    : Colors.white70,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
                                                 'Sohbet',
                                                 style: TextStyle(
                                                   color: draftChatEnabled
-                                                      ? const Color(0xFFF2D38D)
+                                                      ? const Color(0xFFE6F3EC)
                                                       : Colors.white70,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        999,
-                                                      ),
-                                                  color: draftChatEnabled
-                                                      ? const Color(0x33E7C66A)
-                                                      : const Color(0x22FFFFFF),
-                                                  border: Border.all(
-                                                    color: draftChatEnabled
-                                                        ? const Color(
-                                                            0x99E7C66A,
-                                                          )
-                                                        : const Color(
-                                                            0x44FFFFFF,
-                                                          ),
-                                                    width: 0.8,
-                                                  ),
+                                            ),
+                                            Transform.scale(
+                                              scale: 0.82,
+                                              child: Switch(
+                                                value: draftChatEnabled,
+                                                onChanged: (v) {
+                                                  setDialogState(() {
+                                                    draftChatEnabled = v;
+                                                  });
+                                                },
+                                                activeColor: const Color(
+                                                  0xFFE6F3EC,
                                                 ),
-                                                child: Text(
-                                                  draftChatEnabled
-                                                      ? 'Açık'
-                                                      : 'Kapalı',
-                                                  style: TextStyle(
-                                                    color: draftChatEnabled
-                                                        ? const Color(
-                                                            0xFFF2D38D,
-                                                          )
-                                                        : Colors.white70,
-                                                    fontSize: 9.5,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
+                                                activeTrackColor: const Color(
+                                                  0xAA5B8D74,
                                                 ),
+                                                inactiveThumbColor:
+                                                    const Color(0xFFD9D6CC),
+                                                inactiveTrackColor:
+                                                    const Color(0x554B5A53),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -3414,7 +3391,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ],
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 12),
 
                           /// CREATE BUTTON
                           SizedBox(
@@ -3523,7 +3500,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xFF221A08),
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.4,
                         shadows: [
@@ -3547,8 +3524,8 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Widget _circleButton(IconData icon) {
     return Container(
-      width: 42,
-      height: 42,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
@@ -3558,7 +3535,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8),
         ],
       ),
-      child: Icon(icon, color: Colors.black),
+      child: Icon(icon, color: Colors.black, size: 18),
     );
   }
 
@@ -3626,7 +3603,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             bottom: false,
             child: Column(
               children: [
-                const SizedBox(height: 10),
+                const SizedBox(height: 7),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -3963,7 +3940,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   friend['username']?.toString() ?? 'Oyuncu',
                               avatarUrl: friend['avatar_url']?.toString(),
                               isOnline: (friend['is_online'] as bool?) ?? false,
-                              size: 16,
+                              size: 14,
                             ),
 
                             const SizedBox(width: 8),
@@ -4651,12 +4628,12 @@ class _LobbyScreenState extends State<LobbyScreen>
                     "Sohbeti sil",
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 7),
 
                   /// ⚠️ DESCRIPTION
                   const Text(
@@ -5133,7 +5110,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 7),
 
         // 🔥 YEN� EKLED�Ğ�M�Z
         lobbySideMenuButton(
@@ -5408,7 +5385,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 7),
 
                   /// 🔥 L�G L�STES�
                   Expanded(
@@ -5524,7 +5501,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFFE7C06A)),
+          Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
           const SizedBox(width: 4),
           Text(
             coin ? Format.coin(value) : Format.rating(value),
@@ -5914,3 +5891,4 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
+

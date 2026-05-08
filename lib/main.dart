@@ -10,6 +10,7 @@ import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/gift_listener.dart';
 import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/push_notification_service.dart';
+import 'package:okeyix/services/update_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 
@@ -372,6 +373,15 @@ class AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<AppRoot> {
   bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(UpdateService.instance.checkForUpdatesOnStartup(context));
+    });
+  }
 
   @override
   void didChangeDependencies() {

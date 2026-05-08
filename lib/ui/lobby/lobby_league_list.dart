@@ -135,12 +135,11 @@ class LobbyLeagueList extends StatelessWidget {
             gradient: LinearGradient(
               colors: selected
                   ? [
-                      Color(0xFFC8A94E),
-                      Color(0xFFE7C66A),
-                      Color(0xFFFFF3A0),
-                      Color(0xFFE7C66A),
+                      Color(0xAA6C4A2F),
+                      Color(0xCCB27A43),
+                      Color(0xAA6C4A2F),
                     ]
-                  : [Color(0x55C8A94E), Color(0x88E7C66A)],
+                  : [Color(0x5535231A), Color(0x77402A1F)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -148,15 +147,15 @@ class LobbyLeagueList extends StatelessWidget {
             boxShadow: [
               if (selected)
                 BoxShadow(
-                  color: const Color(0xFFFFD76A).withOpacity(0.4),
-                  blurRadius: 30,
-                  spreadRadius: 2,
+                  color: const Color(0x665E735F).withOpacity(0.45),
+                  blurRadius: 18,
+                  spreadRadius: 0.5,
                 ),
               if (selected)
                 const BoxShadow(
-                  color: Color(0x335A3B10),
-                  blurRadius: 16,
-                  offset: Offset(0, 4),
+                  color: Color(0x44000000),
+                  blurRadius: 14,
+                  offset: Offset(0, 3),
                 ),
             ],
           ),
@@ -178,23 +177,23 @@ class LobbyLeagueList extends StatelessWidget {
 
               gradient: LinearGradient(
                 colors: selected
-                    ? [const Color(0xFF143C2C), const Color(0xFF061A12)]
-                    : [const Color(0xFF123527), const Color(0xFF081E15)],
+                    ? [const Color(0xFF241B16), const Color(0xFF1B1512)]
+                    : [const Color(0xFF211914), const Color(0xFF16110E)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
                 color: selected
-                    ? const Color(0x99F1D58D)
-                    : const Color(0x66BFA66A),
+                    ? const Color(0xB38F623D)
+                    : const Color(0x77523624),
                 width: selected ? 1.1 : 0.9,
               ),
 
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8),
                 const BoxShadow(
-                  color: Color(0xFF0A3A28),
-                  blurRadius: 30,
+                  color: Color(0xFF2A1A13),
+                  blurRadius: 24,
                   spreadRadius: -10,
                 ),
               ],
