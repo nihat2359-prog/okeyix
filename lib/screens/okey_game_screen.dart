@@ -621,7 +621,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         final winnerName = winner == null
             ? 'Kazanan belli deÄŸil'
             : (_userNames[winner] ?? 'Bir oyuncu');
-        _showFinishMessage("$winnerName kazandi");
+        _showFinishMessage("$winnerName kazandı");
       }
 
       if (mounted) setState(() {});
