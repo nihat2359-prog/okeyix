@@ -765,12 +765,10 @@ class OkeyGame extends FlameGame with TapDetector {
     //-------------------------------------------------
     if (!stillInTable && !_kickedHandled) {
       _kickedHandled = true;
-
       debugPrint("PLAYER REMOVED FROM TABLE");
-
       _gameStarted = false;
-      overlays.clear();
-      overlays.add('LobbyOverlay');
+      // Never clear overlays here; transient player list races can hide HUD/avatars.
+      // Screen-level flow should decide navigation/leave behavior.
       return;
     }
 
@@ -1674,6 +1672,8 @@ class OkeyGame extends FlameGame with TapDetector {
     return currentTurn == mySeat;
   }
 
+  bool get isMyTurnForLocalUser => _isMyTurn();
+
   int? _resolveMySeatIndex() {
     if (_mySeatIndexAbs != null) return _mySeatIndexAbs;
     final uid = Supabase.instance.client.auth.currentUser?.id;
@@ -2534,6 +2534,12 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     return best;
+  }
+
+  bool arrangeSerialByVoice() {
+    if (occupiedSlots.isEmpty) return false;
+    arrangeSerial();
+    return true;
   }
 
   List<List<_TileRef>> _collectGroupCandidates(List<_TileRef> refs) {
@@ -4584,6 +4590,15 @@ class OkeyGame extends FlameGame with TapDetector {
     _serverDraw(source: 'closed');
   }
 
+  bool drawFromClosedPileByVoice() {
+    if (!_isMyTurn()) return false;
+    if (hasDrawnThisTurn) return false;
+    if (_myHandCount >= 15) return false;
+    if (closedPile.length <= 1) return false;
+    drawFromClosedPile();
+    return true;
+  }
+
   void updatePreview(Vector2 pos) {
     final index = getNearestSlotIndex(pos);
 
@@ -4911,7 +4926,14 @@ class OkeyGame extends FlameGame with TapDetector {
         );
         return true;
       } else {
-        AppMsg.show('El geçersiz');
+        final errCode = res is Map ? (res['error_code']?.toString() ?? '') : '';
+        final invalidTileIds = _extractInvalidTileIds(res);
+        _highlightInvalidFinishTiles(invalidTileIds, fallback: tile);
+        if (errCode == 'INVALID_FINISH') {
+          AppMsg.show('Geçersiz bitiş');
+        } else {
+          AppMsg.show('El geçersiz');
+        }
         return false;
       }
     } catch (e) {
@@ -4922,6 +4944,7 @@ class OkeyGame extends FlameGame with TapDetector {
 
       if (err.contains('INVALID_FINISH')) {
         msg = 'Geçersiz bitiş';
+        _highlightInvalidFinishTiles(const [], fallback: tile);
       } else if (err.contains('INVALID_HAND_COUNT')) {
         msg = 'Taş sayısı hatalı';
       } else if (err.contains('HAND_MISMATCH')) {
@@ -4943,6 +4966,33 @@ class OkeyGame extends FlameGame with TapDetector {
     return false;
   }
 
+  List<String> _extractInvalidTileIds(dynamic rpcRes) {
+    if (rpcRes is! Map) return const [];
+    final raw = rpcRes['invalid_tile_ids'];
+    if (raw is! List) return const [];
+    return raw
+        .map((e) => e?.toString() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  void _highlightInvalidFinishTiles(
+    List<String> tileIds, {
+    TileComponent? fallback,
+  }) {
+    if (tileIds.isEmpty) {
+      fallback?.playInvalidFinishHighlight();
+      return;
+    }
+    final seen = <String>{};
+    for (final id in tileIds) {
+      if (!seen.add(id)) continue;
+      final tile = tileComponentMap[id];
+      if (tile == null || !tile.isMounted) continue;
+      tile.playInvalidFinishHighlight();
+    }
+  }
+
   void placeDrawnTileIntoRack(TileComponent tile) {
     tile.removeFromParent();
   }
@@ -4962,6 +5012,141 @@ class OkeyGame extends FlameGame with TapDetector {
     final slot = _discardSlotsByIndex[slotIndex];
     if (slot == null || !_canTakeFromDiscardSlot(slot)) return;
     _serverDraw(source: 'discard', fromSeat: expectedSeat);
+  }
+
+  bool takeFromDiscardByVoice() {
+    if (_myHandCount >= 15) return false;
+    final expectedSeat = _expectedDiscardSeatForCurrentTurn();
+    if (expectedSeat == null) return false;
+    final slotIndex = _slotIndexForAbsoluteSeat(expectedSeat);
+    final slot = _discardSlotsByIndex[slotIndex];
+    if (slot == null || !_canTakeFromDiscardSlot(slot)) return false;
+    takeFromDiscard();
+    return true;
+  }
+
+  TileComponent? findDiscardCandidateForVoice({
+    required TileColor color,
+    required int value,
+  }) {
+    if (occupiedSlots.isEmpty) return null;
+    final entries = occupiedSlots.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in entries) {
+      final tile = entry.value;
+      if (!tile.isMounted) continue;
+      if (tile.isJoker || tile.isFakeJoker) continue;
+      if (tile.color == color && tile.value == value) {
+        return tile;
+      }
+    }
+    return null;
+  }
+
+  bool canDiscardByVoice() {
+    if (!_isMyTurn()) return false;
+    if (_actionInFlight || _uiLocked) return false;
+    return hasDrawnThisTurn || _myHandCount == 15;
+  }
+
+  Future<bool> discardTileByVoice({
+    required TileColor color,
+    required int value,
+  }) async {
+    if (!canDiscardByVoice()) return false;
+    final tile = findDiscardCandidateForVoice(color: color, value: value);
+    if (tile == null) return false;
+    await autoDiscard(tile);
+    return true;
+  }
+
+  Future<bool> finishGameByVoice() async {
+    if (!_isMyTurn()) {
+      _pollLiveTableState();
+      return false;
+    }
+    if (_actionInFlight) return false;
+    if (_myHandCount != 15) return false;
+
+    final handEntries = occupiedSlots.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    if (handEntries.length != 15) return false;
+
+    final hand = handEntries
+        .map(
+          (e) => <String, dynamic>{
+            'id': e.value.tile.id,
+            'value': e.value.tile.value,
+            'color': tileColorToString(e.value.tile.color),
+            'is_joker': e.value.tile.isJoker,
+            'is_fake_joker': e.value.tile.isFakeJoker,
+          },
+        )
+        .toList(growable: false);
+
+    final finishPlan = _buildBotFinishPlan(hand);
+    if (finishPlan == null) return false;
+
+    final slots = List<Map<String, dynamic>>.from(finishPlan['slots'] as List);
+    final lastTile = Map<String, dynamic>.from(
+      finishPlan['last_tile'] as Map,
+    );
+    if (!_isServerValidSlotsPayload(slots)) return false;
+
+    _actionInFlight = true;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      _actionInFlight = false;
+      return false;
+    }
+
+    try {
+      final res = await Supabase.instance.client.rpc(
+        'game_finish',
+        params: {
+          'p_table_id': tableId,
+          'p_user_id': userId,
+          'p_slots': slots,
+          'p_last_tile': lastTile,
+        },
+      );
+
+      if (res != null && res['ok'] == true) {
+        _finishShown = true;
+        _gameStarted = false;
+        _cancelStartCountdown();
+        final winAmount = (res['win_amount'] as int?) ?? 0;
+        final isOkeyFinish = res['is_okey'] == true;
+        final isDoubleFinish = res['is_double'] == true;
+        final winnerName = (res['winner_name']?.toString().isNotEmpty ?? false)
+            ? res['winner_name'].toString()
+            : getPlayerName(userId);
+        _lastHandledFinishCore = _buildFinishCoreId(
+          winnerId: userId,
+          slots: slots,
+          finishTile: lastTile,
+        );
+        _lastLocalFinishAt = DateTime.now();
+        _clearRenderedHand();
+        _clearTableVisualState();
+        showFinishFromGame(
+          slots,
+          lastTile,
+          winnerName,
+          true,
+          false,
+          winAmount,
+          isOkeyFinish,
+          isDoubleFinish,
+        );
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    } finally {
+      _actionInFlight = false;
+    }
   }
 
   void takeFromDiscardDrag(DiscardSlotComponent slot, Vector2 startPosition) {

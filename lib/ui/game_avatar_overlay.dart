@@ -1689,3 +1689,4 @@ class _ChatBubbleTailPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+

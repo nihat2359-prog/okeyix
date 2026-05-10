@@ -5786,6 +5786,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           senderName: senderName,
           emoji: emoji,
           giftName: giftName,
+          giftType: giftType?.toString() ?? '',
           senderId: senderId,
         );
       } else {
@@ -5794,6 +5795,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           senderName: senderName,
           emoji: "??",
           giftName: "${gifts.length} hediye gönderdi!",
+          giftType: '',
           senderId: senderId,
         );
       }

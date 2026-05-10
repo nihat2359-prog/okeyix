@@ -78,41 +78,7 @@ class LobbyRightPanel extends StatelessWidget {
                       ],
                     ),
 
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Spacer(),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: onClose,
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0x1FFFFFFF),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(0x66D4B46A),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    color: Color(0xFFE6D5A6),
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(child: panelContent),
-                      ],
-                    ),
+                    child: Column(children: [Expanded(child: panelContent)]),
                   ),
                 ),
               ),

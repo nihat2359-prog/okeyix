@@ -11,6 +11,7 @@ class GiftOverlay {
     required String senderName,
     required String emoji,
     required String giftName,
+    required String giftType,
   }) {
     final overlay = overlayKey.currentState;
     if (overlay == null) return;
@@ -30,6 +31,7 @@ class GiftOverlay {
                   senderName: senderName,
                   emoji: emoji,
                   giftName: giftName,
+                  giftType: giftType,
 
                   // 👤 PROFİL AÇ
                   onTapUser: () {

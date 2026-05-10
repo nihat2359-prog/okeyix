@@ -82,6 +82,7 @@ void listenIncomingGifts(String myUserId) {
             emoji: emoji,
             giftName: giftName,
             senderId: senderId,
+            giftType: giftType?.toString() ?? '',
           );
         },
       )

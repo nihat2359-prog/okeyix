@@ -2,6 +2,7 @@
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/game/theme_flags.dart';
 
 import 'package:flame/components.dart';
 import 'okey_game.dart';
@@ -28,6 +29,11 @@ class Stage extends Component with HasGameReference<OkeyGame> {
         position: _rack.size / 2,
       ),
     );
+    if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicRack) {
+      _rack.add(
+        RackCinematicFx(size: _rack.size, position: _rack.size / 2),
+      );
+    }
 
     _rack.priority = 0;
     add(_rack);
@@ -94,6 +100,43 @@ class Stage extends Component with HasGameReference<OkeyGame> {
     add(seri);
     add(cifte);
     add(git);
+  }
+}
+
+class RackCinematicFx extends PositionComponent {
+  RackCinematicFx({required Vector2 size, required Vector2 position}) {
+    this.size = size;
+    this.position = position;
+    anchor = Anchor.center;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final glowA = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0x6627D8FF), Color(0x33FF5BF1), Color(0x4D2AB3FF)],
+        stops: [0.0, 0.48, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, glowA);
+
+    final stripTop = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Color(0x0064F3FF), Color(0xAA64F3FF), Color(0x0064F3FF)],
+      ).createShader(Rect.fromLTWH(0, size.y * 0.28, size.x, 6));
+    canvas.drawRect(Rect.fromLTWH(0, size.y * 0.28, size.x, 6), stripTop);
+
+    final stripMid = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Color(0x00FF57E8), Color(0x99FF57E8), Color(0x00FF57E8)],
+      ).createShader(Rect.fromLTWH(0, size.y * 0.52, size.x, 5));
+    canvas.drawRect(Rect.fromLTWH(0, size.y * 0.52, size.x, 5), stripMid);
   }
 }
 

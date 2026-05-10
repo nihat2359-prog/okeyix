@@ -8,12 +8,15 @@ import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/components/finish_screen.dart';
 import 'package:okeyix/game/components/radial_quick_chat.dart';
 import 'package:okeyix/game/okey_game.dart';
+import 'package:okeyix/game/theme_flags.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
+import 'package:okeyix/services/voice_command_service.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/game_avatar_overlay.dart' as overlay;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'store_screen.dart';
@@ -103,6 +106,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   String _recordDuration = "0:00";
   final _recorder = AudioRecorder();
   final ja.AudioPlayer _audioPlayer = ja.AudioPlayer();
+  final VoiceCommandService _voiceCommands = VoiceCommandService();
+  Timer? _voiceFeedbackTimer;
   bool _showFinish = false;
   List? _finishSlots;
   String? _winnerId;
@@ -110,6 +115,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   late final AnimationController _hourglassCtrl;
   int _indicatorRewardAmount = 0;
   bool _showIndicatorRewardFx = false;
+  bool _showVoiceCoachmark = false;
+  static const String _voiceCoachmarkKey = 'voice_coachmark_seen_v1';
 
   @override
   void initState() {
@@ -140,6 +147,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     };
 
     _myUserId = _supabase.auth.currentUser?.id;
+    _prepareVoiceCoachmark();
     _bootstrap();
     _loadChatMessages();
     _subscribeRealtime();
@@ -161,6 +169,46 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
+    _voiceCommands.addListener(_onVoiceCommandsChanged);
+    _voiceCommands.initialize();
+  }
+
+  void _onVoiceCommandsChanged() {
+    if (!mounted) return;
+    final hasFeedback = _voiceCommands.feedback != null;
+    if (hasFeedback) {
+      _voiceFeedbackTimer?.cancel();
+      _voiceFeedbackTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted) return;
+        _voiceCommands.clearFeedback();
+      });
+    }
+    setState(() {});
+  }
+
+  Future<void> _prepareVoiceCoachmark() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = '$_voiceCoachmarkKey:${_myUserId ?? 'guest'}';
+      final seen = prefs.getBool(key) ?? false;
+      if (!seen && mounted) {
+        setState(() => _showVoiceCoachmark = true);
+      }
+    } catch (_) {
+      // Best-effort only.
+    }
+  }
+
+  Future<void> _dismissVoiceCoachmark() async {
+    if (!_showVoiceCoachmark) return;
+    if (mounted) {
+      setState(() => _showVoiceCoachmark = false);
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = '$_voiceCoachmarkKey:${_myUserId ?? 'guest'}';
+      await prefs.setBool(key, true);
+    } catch (_) {}
   }
 
   Future<void> _prepareVisuals() async {
@@ -175,6 +223,75 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     }
     if (!mounted) return;
     setState(() => _visualReady = true);
+  }
+
+  Widget _buildTableBackdrop() {
+    if (!ThemeFlags.useCinematicTheme) {
+      return Image.asset('assets/images/table.png', fit: BoxFit.fill);
+    }
+    return AnimatedBuilder(
+      animation: _hourglassCtrl,
+      builder: (context, _) {
+        final t = _hourglassCtrl.value;
+        final pulse = 0.18 + (t * 0.12);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset('assets/images/table.png', fit: BoxFit.fill),
+            // Ambient color pass for a more cinematic look.
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF0F2942).withOpacity(0.26),
+                      const Color(0xFF2F1D49).withOpacity(0.18),
+                      const Color(0xFF112D3C).withOpacity(0.24),
+                    ],
+                    stops: const [0.0, 0.48, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // Soft center glow.
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 0.72,
+                    colors: [
+                      const Color(0xFF66D1FF).withOpacity(pulse),
+                      const Color(0xFFEA57FF).withOpacity(pulse * 0.55),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.48, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // Vignette to add depth.
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 1.05,
+                    colors: [
+                      Colors.transparent,
+                      const Color(0xCC05070B).withOpacity(0.45),
+                    ],
+                    stops: const [0.62, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -196,6 +313,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _startGameSfxPlayer.dispose();
     _audioPlayer.dispose();
     _hourglassCtrl.dispose();
+    _voiceFeedbackTimer?.cancel();
+    _voiceCommands.removeListener(_onVoiceCommandsChanged);
+    _voiceCommands.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -605,6 +725,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       _lastFinishAt = finishAt;
       _tableChatEnabled = chatEnabled;
       _tableSpectatorsEnabled = spectatorsEnabled;
+
+      // If a fresh game has started, clear any stale finish overlay state.
+      if (_tableStatus == 'playing' && _game.isFinishOpen) {
+        _game.hideFinish();
+        _showFinish = false;
+      }
 
       _readySince = (_tableStatus == 'waiting' || _tableStatus == 'start')
           ? readySince
@@ -1176,6 +1302,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     final showWaitingOverlay =
         (_tableStatus == 'waiting' || _tableStatus == 'start') &&
         !_game.gameStarted;
+    // User requested: upper panels should never close under any condition.
+    const finishOverlayOpen = false;
 
     if (!_visualReady) {
       return Scaffold(
@@ -1252,10 +1380,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                       /// ğŸ”¥ MASA (FULL STRETCH)
                       Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/table.png',
-                          fit: BoxFit.fill, // ğŸ”¥ KRÄ°TÄ°K
-                        ),
+                        child: _buildTableBackdrop(),
                       ),
 
                       /// ğŸ® GAME (FULL)
@@ -1265,10 +1390,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                           overlayBuilderMap: {
                             'Avatars': (context, game) {
-                              // ğŸ”¥ FINISH AÃ‡IKKEN GÃ–STERME
-                              if (_game.isFinishOpen) {
-                                return const SizedBox.shrink();
-                              }
                               return overlay.GameAvatarOverlay(
                                 tableId: widget.tableId,
                                 topInset: 5,
@@ -1295,16 +1416,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               SafeArea(
                 child: Stack(
                   children: [
-                    _buildTopLeftPanel(),
-                    _buildTopRightLeague(),
-
-                    if (showWaitingOverlay) _buildWaitingOverlay(),
-                    if (_menuOpen) _buildMenuPanel(),
-                    if (_chatOpen) _buildChatPanel(),
+                    if (!finishOverlayOpen && showWaitingOverlay)
+                      _buildWaitingOverlay(),
+                    if (!finishOverlayOpen && _menuOpen) _buildMenuPanel(),
+                    if (!finishOverlayOpen && _chatOpen) _buildChatPanel(),
                     if (_showFinishFx) _buildFinishFx(),
                     if (_showIndicatorRewardFx) _buildIndicatorRewardFx(),
 
-                    if (_showMessageBanner && _lastIncomingMessage != null)
+                    if (!finishOverlayOpen &&
+                        _showMessageBanner &&
+                        _lastIncomingMessage != null)
                       Positioned(
                         top: 60,
                         right: 12,
@@ -1321,6 +1442,18 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                           ),
                         ),
                       ),
+                  ],
+                ),
+              ),
+              // Absolute top HUD layer: fully detached from game/overlay conditions.
+              SafeArea(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildTopLeftPanel(),
+                    _buildTopRightLeague(),
+                    _buildVoiceCommandHud(),
+                    if (_showVoiceCoachmark) _buildVoiceCoachmark(),
                   ],
                 ),
               ),
@@ -1408,6 +1541,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             ] else ...[
               const SizedBox(width: 2),
             ],
+            _voiceButton(),
+            _divider(),
 
             /// ğŸ”¥ ROUND
             Row(
@@ -1460,6 +1595,213 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceCoachmark() {
+    return Positioned(
+      top: 54,
+      left: 8,
+      child: Container(
+        width: 340,
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xEE101814),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x88DAB971)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.mic, color: Color(0xFFE8C774), size: 16),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Yeni: Sesli Oyna',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _dismissVoiceCoachmark,
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Mikrofonu açıp komut verebilirsin:\n'
+              '"ortadan çek", "yandan al", "sarı 13 at", "seri diz", "bitir".',
+              style: TextStyle(
+                color: Color(0xFFE2ECE6),
+                fontSize: 12,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: _dismissVoiceCoachmark,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1D2A23),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0x88DAB971)),
+                  ),
+                  child: const Text(
+                    'Anladım',
+                    style: TextStyle(
+                      color: Color(0xFFE8C774),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _voiceButton() {
+    final listening = _voiceCommands.isListening;
+    final busy = _voiceCommands.isExecuting;
+    return GestureDetector(
+      onTap: busy
+          ? null
+          : () async {
+              await _voiceCommands.toggleListening(_game);
+            },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(11),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: listening
+                ? const [Color(0xFF3A1A1A), Color(0xFF1D0F0F)]
+                : const [Color(0xFF2E3A33), Color(0xFF171F1B)],
+          ),
+          border: Border.all(
+            color: listening
+                ? const Color(0xFFFF7A7A)
+                : const Color(0xB3D7B366),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: listening
+                  ? const Color(0x80FF5252)
+                  : const Color(0x66200F00),
+              blurRadius: listening ? 12 : 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Icon(
+          listening ? Icons.mic : Icons.mic_none,
+          color: listening ? const Color(0xFFFFB3B3) : const Color(0xFFE8C774),
+          size: 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceCommandHud() {
+    final listening = _voiceCommands.isListening;
+    final executing = _voiceCommands.isExecuting;
+    final recognized = _voiceCommands.recognizedText;
+    final feedback = _voiceCommands.feedback;
+    if (!listening && !executing && feedback == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isError = feedback?.isError == true;
+    final text = feedback?.message ??
+        (recognized.isNotEmpty ? recognized : 'Dinleniyor...');
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 18,
+      child: IgnorePointer(
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            constraints: const BoxConstraints(maxWidth: 420),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: const Color(0xDD0E1310),
+              border: Border.all(
+                color: isError
+                    ? const Color(0xCCFF6B6B)
+                    : const Color(0xCC7DD19B),
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 14,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isError ? Icons.error_outline : Icons.record_voice_over_rounded,
+                  color: isError
+                      ? const Color(0xFFFF8A80)
+                      : const Color(0xFF9AF3B9),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

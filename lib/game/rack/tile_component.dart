@@ -1,8 +1,10 @@
 import 'package:flame/components.dart';
+import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/engine/models/tile.dart';
+import 'package:okeyix/game/theme_flags.dart';
 import '../okey_game.dart';
 import 'rack_config.dart';
 import 'dart:math' as math;
@@ -53,6 +55,8 @@ class TileComponent extends PositionComponent
     this.position = position;
     size = Vector2(RackConfig.tileWidth, RackConfig.tileHeight);
     anchor = Anchor.center;
+    // Keep tiles above rack visuals so dealt tiles never hide behind the rack.
+    priority = 20;
   }
 
   @override
@@ -84,13 +88,22 @@ class TileComponent extends PositionComponent
       isFaceDown = true;
       add(backSprite);
       add(backFrameFx);
+      if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
+        add(TileBackCinematicFx(size: size, position: size / 2));
+      }
     } else {
       add(baseSprite);
+      if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
+        add(TileFrontCinematicFx(size: size, position: size / 2));
+      }
     }
 
     // Eğer sahte okeyse ⭐ çiz
     if (isFakeJoker) {
       add(baseSprite);
+      if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
+        add(TileFrontCinematicFx(size: size, position: size / 2));
+      }
 
       final centerPos = Vector2(size.x / 2, size.y * 0.32);
 
@@ -192,7 +205,7 @@ class TileComponent extends PositionComponent
     add(
       TileGemBadge(
         radius: 10.5,
-        center: Vector2(size.x / 2, size.y * 0.74),
+        center: Vector2(size.x / 2, size.y * 0.71),
         coreColor: badgeColors,
         rimColor: badgeColors,
       ),
@@ -217,6 +230,58 @@ class TileComponent extends PositionComponent
     gameRef.onTileDoubleTap(this);
   }
 
+  void playInvalidFinishHighlight() {
+    if (!isMounted) return;
+    final startPos = position.clone();
+    final startScale = scale.clone();
+    final startPriority = priority;
+    priority = 120;
+
+    children
+        .whereType<MoveEffect>()
+        .toList()
+        .forEach((e) => e.removeFromParent());
+    children
+        .whereType<ScaleEffect>()
+        .toList()
+        .forEach((e) => e.removeFromParent());
+    children
+        .whereType<_InvalidFinishFx>()
+        .toList()
+        .forEach((e) => e.removeFromParent());
+
+    add(_InvalidFinishFx(size: size, position: size / 2));
+
+    add(
+      SequenceEffect(
+        [
+          MoveEffect.by(
+            Vector2(0, -16),
+            EffectController(duration: 0.11, curve: Curves.easeOutCubic),
+          ),
+          ScaleEffect.to(
+            Vector2(1.08, 1.08),
+            EffectController(duration: 0.11, curve: Curves.easeOutBack),
+          ),
+          MoveEffect.to(
+            startPos,
+            EffectController(duration: 0.15, curve: Curves.easeInCubic),
+          ),
+          ScaleEffect.to(
+            startScale,
+            EffectController(duration: 0.12, curve: Curves.easeInOut),
+          ),
+        ],
+        onComplete: () {
+          if (!isMounted) return;
+          if (priority == 120) {
+            priority = startPriority;
+          }
+        },
+      ),
+    );
+  }
+
   Color _lighten(Color color, double amount) {
     final hsl = HSLColor.fromColor(color);
     return hsl.withLightness((hsl.lightness + amount).clamp(0, 1)).toColor();
@@ -237,6 +302,9 @@ class TileComponent extends PositionComponent
     if (isFaceDown) {
       add(backSprite);
       add(backFrameFx);
+      if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
+        add(TileBackCinematicFx(size: size, position: size / 2));
+      }
     } else {
       add(baseSprite);
       onLoad(); // tekrar ön yüzü çiz
@@ -302,7 +370,7 @@ class TileComponent extends PositionComponent
         } else {
           gameRef.scheduleTileRemoval(this);
         }
-        priority = 0;
+        priority = 20;
         gameRef.clearPreview();
         gameRef.clearTemporaryShift();
         return;
@@ -318,7 +386,7 @@ class TileComponent extends PositionComponent
         } else {
           _restoreToOriginalSlot();
         }
-        priority = 0;
+        priority = 20;
         gameRef.clearPreview();
         gameRef.clearTemporaryShift();
         return;
@@ -336,14 +404,14 @@ class TileComponent extends PositionComponent
         _restoreToOriginalSlot();
       }
 
-      priority = 0;
+      priority = 20;
       gameRef.clearPreview();
       gameRef.clearTemporaryShift();
     } catch (_) {
       final gameRef = _tryGame();
       if (gameRef != null) {
         _restoreToOriginalSlot();
-        priority = 0;
+        priority = 20;
         gameRef.clearPreview();
         gameRef.clearTemporaryShift();
       }
@@ -424,6 +492,11 @@ class TileSurfaceFx extends PositionComponent {
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    final borderRect = rect.deflate(0.6);
+    final borderRRect = RRect.fromRectAndRadius(
+      borderRect,
+      const Radius.circular(11.4),
+    );
 
     final topGloss = Paint()
       ..shader = const LinearGradient(
@@ -449,34 +522,38 @@ class TileSurfaceFx extends PositionComponent {
       ..color = const Color(0x59FFFFFF);
     canvas.drawRRect(rrect.deflate(1.2), innerStroke);
 
-    final silverShadow = Paint()
+    final outerShadow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.2
-      ..color = const Color(0x995E636A);
-    canvas.drawRRect(rrect.deflate(0.8), silverShadow);
+      ..strokeWidth = 4.0
+      ..color = const Color(0x8F4A525C);
+    canvas.drawRRect(borderRRect, outerShadow);
 
-    final silverCore = Paint()
+    final outerCore = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 2.6
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFEDEFF2), Color(0xFFC9CED4), Color(0xFFA8AFB7)],
-        stops: [0.0, 0.52, 1.0],
+        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
+        stops: [0.0, 0.56, 1.0],
       ).createShader(rect);
-    canvas.drawRRect(rrect.deflate(1.5), silverCore);
+    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
 
-    final silverHighlight = Paint()
+    final edgeSpecular = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
+      ).createShader(rect);
+    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
+
+    final innerCore = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.9
-      ..color = const Color(0xCCFFFFFF);
-    canvas.drawRRect(rrect.deflate(2.7), silverHighlight);
-
-    final silverInnerShadow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.7
-      ..color = const Color(0x889299A3);
-    canvas.drawRRect(rrect.deflate(3.6), silverInnerShadow);
+      ..color = const Color(0x8A7D8792);
+    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
   }
 }
 
@@ -491,35 +568,44 @@ class TileBackFrameFx extends PositionComponent {
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    final borderRect = rect.deflate(0.6);
+    final borderRRect = RRect.fromRectAndRadius(
+      borderRect,
+      const Radius.circular(11.4),
+    );
 
-    final silverShadow = Paint()
+    final outerShadow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.2
-      ..color = const Color(0x995E636A);
-    canvas.drawRRect(rrect.deflate(0.8), silverShadow);
+      ..strokeWidth = 4.0
+      ..color = const Color(0x8F4A525C);
+    canvas.drawRRect(borderRRect, outerShadow);
 
-    final silverCore = Paint()
+    final outerCore = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 2.6
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFEDEFF2), Color(0xFFC9CED4), Color(0xFFA8AFB7)],
-        stops: [0.0, 0.52, 1.0],
+        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
+        stops: [0.0, 0.56, 1.0],
       ).createShader(rect);
-    canvas.drawRRect(rrect.deflate(1.5), silverCore);
+    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
 
-    final silverHighlight = Paint()
+    final edgeSpecular = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
+      ).createShader(rect);
+    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
+
+    final innerCore = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.9
-      ..color = const Color(0xCCFFFFFF);
-    canvas.drawRRect(rrect.deflate(2.7), silverHighlight);
-
-    final silverInnerShadow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.7
-      ..color = const Color(0x889299A3);
-    canvas.drawRRect(rrect.deflate(3.6), silverInnerShadow);
+      ..color = const Color(0x8A7D8792);
+    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
   }
 }
 
@@ -563,6 +649,103 @@ class TileGemBadge extends PositionComponent {
   }
 }
 
+class TileFrontCinematicFx extends PositionComponent {
+  TileFrontCinematicFx({required Vector2 size, required Vector2 position}) {
+    this.size = size;
+    this.position = position;
+    anchor = Anchor.center;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+
+    final aura = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0x202AD8FF), Color(0x08FFFFFF), Color(0x22FF5BF1)],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, aura);
+
+    final topSheen = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x33FFFFFF), Color(0x00FFFFFF)],
+        stops: [0.0, 0.42],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, topSheen);
+  }
+}
+
+class TileBackCinematicFx extends PositionComponent {
+  TileBackCinematicFx({required Vector2 size, required Vector2 position}) {
+    this.size = size;
+    this.position = position;
+    anchor = Anchor.center;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+
+    final glow = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0x2B26CFFF), Color(0x00000000), Color(0x20FF4BE6)],
+      ).createShader(rect);
+    canvas.drawRRect(rrect, glow);
+  }
+}
+
+class _InvalidFinishFx extends PositionComponent {
+  double _elapsed = 0;
+
+  _InvalidFinishFx({required Vector2 size, required Vector2 position}) {
+    this.size = size;
+    this.position = position;
+    anchor = Anchor.center;
+    priority = 130;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _elapsed += dt;
+    if (_elapsed >= 0.9) {
+      removeFromParent();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    final p = (_elapsed / 0.9).clamp(0.0, 1.0);
+    final pulse = (1.0 - p) * (0.6 + 0.4 * math.sin(_elapsed * 24).abs());
+
+    final fill = Paint()
+      ..color = const Color(0x66FF6B6B).withOpacity(pulse * 0.42);
+    canvas.drawRRect(rrect, fill);
+
+    final glow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..color = const Color(0xFFFF8A80).withOpacity(pulse * 0.95);
+    canvas.drawRRect(rrect.deflate(1.0), glow);
+
+    final inner = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0xFFFFE082).withOpacity(pulse * 0.9);
+    canvas.drawRRect(rrect.deflate(3.0), inner);
+  }
+}
+
 class StarComponent extends PositionComponent {
   final double radius;
   final Paint paint;
@@ -597,4 +780,5 @@ class StarComponent extends PositionComponent {
     canvas.drawPath(path, paint);
   }
 }
+
 

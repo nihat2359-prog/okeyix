@@ -72,6 +72,8 @@
 		</array>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Voice messages in game chat</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>Sesli komutları algılayıp oyunda işlem yapmak için konuşma tanıma kullanılır.</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

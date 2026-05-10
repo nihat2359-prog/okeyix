@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class GiftExplosionWidget extends StatefulWidget {
   final String senderName;
   final String emoji;
   final String giftName;
+  final String giftType;
   final VoidCallback onClose;
   final VoidCallback? onTapUser;
   const GiftExplosionWidget({
@@ -11,6 +12,7 @@ class GiftExplosionWidget extends StatefulWidget {
     required this.senderName,
     required this.emoji,
     required this.giftName,
+    required this.giftType,
     required this.onClose,
     this.onTapUser,
   });
@@ -49,7 +51,6 @@ class _GiftExplosionWidgetState extends State<GiftExplosionWidget>
             opacity: t.clamp(0.0, 1.0),
             child: Stack(
               children: [
-                // 💥 SOFT GLOW (DAHA PREMIUM)
                 Positioned.fill(
                   child: IgnorePointer(
                     child: Transform.scale(
@@ -73,23 +74,17 @@ class _GiftExplosionWidgetState extends State<GiftExplosionWidget>
                     ),
                   ),
                 ),
-
-                // 🎁 GLASS CARD
                 Container(
                   width: 130,
                   height: 130,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
-
-                    // 🔥 GLASS EFFECT
                     color: Colors.black.withOpacity(0.55),
-
                     border: Border.all(
                       color: Colors.amber.withOpacity(0.35),
                       width: 1,
                     ),
-
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.5),
@@ -102,11 +97,9 @@ class _GiftExplosionWidgetState extends State<GiftExplosionWidget>
                       ),
                     ],
                   ),
-
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ❌ CLOSE
                       Align(
                         alignment: Alignment.topRight,
                         child: GestureDetector(
@@ -118,15 +111,9 @@ class _GiftExplosionWidgetState extends State<GiftExplosionWidget>
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 4),
-
-                      // 🔥 EMOJI (BÜYÜTÜLDÜ)
                       Text(widget.emoji, style: const TextStyle(fontSize: 36)),
-
                       const SizedBox(height: 8),
-
-                      // 👤 USER (AAA UX)
                       InkWell(
                         onTap: widget.onTapUser,
                         borderRadius: BorderRadius.circular(8),
@@ -146,10 +133,7 @@ class _GiftExplosionWidgetState extends State<GiftExplosionWidget>
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-
                               const SizedBox(width: 4),
-
-                              // 🔥 PROFİL İKONU
                               Icon(
                                 Icons.person_outline,
                                 size: 14,

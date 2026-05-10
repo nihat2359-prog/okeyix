@@ -68,35 +68,44 @@ class ClosedPileComponent extends PositionComponent
   void _renderBackFrame(Canvas canvas, Vector2 pos) {
     final rect = Rect.fromLTWH(pos.x, pos.y, size.x, size.y);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    final borderRect = rect.deflate(0.6);
+    final borderRRect = RRect.fromRectAndRadius(
+      borderRect,
+      const Radius.circular(11.4),
+    );
 
-    final silverShadow = Paint()
+    final outerShadow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.8
-      ..color = const Color(0x995E636A);
-    canvas.drawRRect(rrect.deflate(0.8), silverShadow);
+      ..strokeWidth = 4.0
+      ..color = const Color(0x8F4A525C);
+    canvas.drawRRect(borderRRect, outerShadow);
 
-    final silverCore = Paint()
+    final outerCore = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.6
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFEDEFF2), Color(0xFFC9CED4), Color(0xFFA8AFB7)],
-        stops: [0.0, 0.52, 1.0],
+        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
+        stops: [0.0, 0.56, 1.0],
       ).createShader(rect);
-    canvas.drawRRect(rrect.deflate(1.6), silverCore);
+    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
 
-    final silverHighlight = Paint()
+    final edgeSpecular = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.95
-      ..color = const Color(0xCCFFFFFF);
-    canvas.drawRRect(rrect.deflate(2.8), silverHighlight);
+      ..strokeWidth = 1.2
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
+      ).createShader(rect);
+    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
 
-    final silverInnerShadow = Paint()
+    final innerCore = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8
-      ..color = const Color(0x889299A3);
-    canvas.drawRRect(rrect.deflate(3.7), silverInnerShadow);
+      ..strokeWidth = 0.9
+      ..color = const Color(0x8A7D8792);
+    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
   }
 
   @override
