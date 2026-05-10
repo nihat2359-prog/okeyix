@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
 import '../game/spectator_game.dart';
 
@@ -41,10 +42,15 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   bool _showFinishOverlay = false;
   String _finishWinnerName = 'Oyuncu';
   bool _tableChatEnabled = true;
+  int _currentTurnSeat = 0;
+  DateTime? _turnStartedAt;
+  int _turnSeconds = 20;
+  Timer? _turnTicker;
 
   bool _isPressing = false;
   bool _isRecording = false;
   bool _showPreview = false;
+  bool _showEmojiPicker = false;
   bool _previewPlaying = false;
 
   int _recordSeconds = 0;
@@ -68,6 +74,33 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     "Şanslısın",
     "Harika hamle",
   ];
+  static const List<String> _chatEmojis = <String>[
+    '\u{1F600}',
+    '\u{1F602}',
+    '\u{1F60D}',
+    '\u{1F60E}',
+    '\u{1F44F}',
+    '\u{1F525}',
+    '\u{1F44D}',
+    '\u{1F64F}',
+    '\u{1F389}',
+    '\u{2764}\u{FE0F}',
+    '\u{1F621}',
+    '\u{1F605}',
+  ];
+
+  void _insertEmojiToChat(String emoji) {
+    final value = chatController.value;
+    final start = value.selection.start >= 0
+        ? value.selection.start
+        : value.text.length;
+    final end = value.selection.end >= 0 ? value.selection.end : start;
+    final newText = value.text.replaceRange(start, end, emoji);
+    chatController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+  }
   @override
   void initState() {
     super.initState();
@@ -92,6 +125,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         .eq('id', widget.tableId)
         .single();
     final tableChatEnabled = (t['chat_enabled'] as bool?) ?? true;
+    final turnStartedAt = _parseServerTime(t['turn_started_at']);
+    final turnSeconds = (t['turn_seconds'] as int?) ?? 20;
+    final currentTurnSeat = (t['current_turn'] as int?) ?? 0;
 
     final p = await supabase
         .from('table_players')
@@ -112,7 +148,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     spectatorChannel = supabase.channel('spectators:${widget.tableId}');
 
     spectatorChannel
-        /// 👀 BİRİ GİRİNCE
+        /// ğŸ‘€ BÄ°RÄ° GÄ°RÄ°NCE
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
@@ -130,7 +166,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             });
           },
         )
-        /// 👀 BİRİ ÇIKINCA
+        /// ğŸ‘€ BÄ°RÄ° Ã‡IKINCA
         .onPostgresChanges(
           event: PostgresChangeEvent.delete,
           schema: 'public',
@@ -188,6 +224,17 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           ),
           callback: (payload) async {
             final row = payload.newRecord;
+            final turnStartedAt = _parseServerTime(row['turn_started_at']);
+            final turnSeconds = (row['turn_seconds'] as int?) ?? _turnSeconds;
+            final currentTurnSeat = (row['current_turn'] as int?) ?? _currentTurnSeat;
+            if (mounted) {
+              setState(() {
+                table = {...?table, ...row};
+                _turnStartedAt = turnStartedAt;
+                _turnSeconds = turnSeconds;
+                _currentTurnSeat = currentTurnSeat;
+              });
+            }
             final finishAtRaw = row['last_finish_at']?.toString();
             final finishAt = finishAtRaw == null
                 ? null
@@ -222,7 +269,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       spectators = s.length;
       messages = m;
       _tableChatEnabled = tableChatEnabled;
+      _turnStartedAt = turnStartedAt;
+      _turnSeconds = turnSeconds;
+      _currentTurnSeat = currentTurnSeat;
       if (!_tableChatEnabled) chatOpen = false;
+    });
+    _turnTicker?.cancel();
+    _turnTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -272,7 +326,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       "sender_id": user!.id,
       "content": chatController.text,
       "role": "spectator",
-      "type": "text", // 🔥 EKLENDİ
+      "type": "text", // ğŸ”¥ EKLENDÄ°
     });
 
     chatController.clear();
@@ -314,47 +368,58 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               left: 20,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(.45),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white24),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Wrap(
+                  spacing: 14,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(
-                      "${table!['league_id']}  •  ${table!['entry_coin']} coin",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    _headerChip(
+                      icon: Icons.shield_rounded,
+                      text: 'Lig ${table!['league_id'] ?? '-'}',
                     ),
-
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.remove_red_eye,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          spectators.toString(),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ],
+                    _headerChip(
+                      icon: Icons.monetization_on_rounded,
+                      text: Format.coin((table!['entry_coin'] as int?) ?? 0),
+                      highlight: true,
+                    ),
+                    _headerChip(
+                      icon: Icons.soup_kitchen_rounded,
+                      text: Format.coin((table!['pot_amount'] as int?) ?? 0),
+                    ),
+                    _headerChip(
+                      icon: Icons.flag_rounded,
+                      text: '${(table!['round_count'] as int?) ?? 1} el',
+                    ),
+                    _headerChip(
+                      icon: Icons.timer_rounded,
+                      text: '${(table!['turn_seconds'] as int?) ?? 20} sn',
+                    ),
+                    _headerChip(
+                      icon: Icons.people_alt_rounded,
+                      text: '${players.length}/${(table!['max_players'] as int?) ?? 2}',
+                    ),
+                    _headerChip(
+                      icon: Icons.remove_red_eye_rounded,
+                      text: '$spectators',
+                    ),
+                    _headerChip(
+                      icon: _tableChatEnabled
+                          ? Icons.chat_bubble_rounded
+                          : Icons.chat_bubble_outline_rounded,
+                      text: _tableChatEnabled ? 'Sohbet Açık' : 'Sohbet Kapalı',
                     ),
                   ],
                 ),
               ),
             ),
 
-          /// ÜST OYUNCU
+          /// ÃœST OYUNCU
           if (top != null)
             Positioned(
               top: 80,
@@ -370,7 +435,11 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                   if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
                       .isNotEmpty)
                     const SizedBox(height: 6),
-                  avatar(top['users']['avatar_url'], key: topAvatarKey),
+                  _buildTurnAvatar(
+                    seatIndex: 1,
+                    avatarPath: top['users']['avatar_url']?.toString(),
+                    avatarKey: topAvatarKey,
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     top['users']['username'] ?? "",
@@ -396,7 +465,11 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                   if ((_avatarChatByUserId[bottom['user_id']?.toString()] ?? '')
                       .isNotEmpty)
                     const SizedBox(height: 6),
-                  avatar(bottom['users']['avatar_url'], key: bottomAvatarKey),
+                  _buildTurnAvatar(
+                    seatIndex: 0,
+                    avatarPath: bottom['users']['avatar_url']?.toString(),
+                    avatarKey: bottomAvatarKey,
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     bottom['users']['username'] ?? "",
@@ -470,8 +543,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                         duration: const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
 
-                        width: 360,
-                        margin: const EdgeInsets.fromLTRB(0, 40, 12, 20),
+                        width: 560,
+                        margin: const EdgeInsets.fromLTRB(0, 8, 12, 8),
                         padding: const EdgeInsets.all(12),
 
                         decoration: BoxDecoration(
@@ -520,7 +593,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
                             const SizedBox(height: 10),
 
-                            /// 🔥 MESSAGE LIST
+                            /// ğŸ”¥ MESSAGE LIST
                             Expanded(
                               child: ListView.builder(
                                 controller: _chatScrollController,
@@ -588,7 +661,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                               ),
                             ),
 
-                            /// 🔥 PREVIEW
+                            /// ğŸ”¥ PREVIEW
                             if (_showPreview && _previewPath != null)
                               Container(
                                 margin: const EdgeInsets.only(bottom: 8),
@@ -647,7 +720,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                 ),
                               ),
 
-                            /// 🔥 QUICK CHAT
+                            /// ğŸ”¥ QUICK CHAT
                             SizedBox(
                               height: 42,
                               child: ListView(
@@ -686,10 +759,44 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
                             const SizedBox(height: 8),
 
-                            /// 🔥 INPUT + VOICE
+                            /// ğŸ”¥ INPUT + VOICE
+                            if (_showEmojiPicker) ...[
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xAA1E2B24),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0x3359A588),
+                                  ),
+                                ),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: _chatEmojis.map((emoji) {
+                                    return InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => _insertEmojiToChat(emoji),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Text(
+                                          emoji,
+                                          style: const TextStyle(fontSize: 22),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
                             Row(
                               children: [
-                                /// 🎤 RECORD
+                                /// ğŸ¤ RECORD
                                 Listener(
                                   onPointerDown: (_) async {
                                     _isPressing = true;
@@ -710,6 +817,21 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                 ),
 
                                 const SizedBox(width: 6),
+
+                                IconButton(
+                                  tooltip: 'Emoji',
+                                  onPressed: () {
+                                    setState(() {
+                                      _showEmojiPicker = !_showEmojiPicker;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _showEmojiPicker
+                                        ? Icons.emoji_emotions
+                                        : Icons.emoji_emotions_outlined,
+                                    color: const Color(0xFFD4AF37),
+                                  ),
+                                ),
 
                                 /// TEXT
                                 Expanded(
@@ -759,7 +881,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               ),
             ),
           if (_showMessageBanner && _lastIncomingMessage != null)
-            Positioned(top: 60, right: 12, width: 320, child: _buildMessageBanner()),
+            Positioned(top: 72, right: 12, width: 360, child: _buildMessageBanner()),
           if (_showFinishOverlay) Positioned.fill(child: _buildFinishOverlay()),
         ],
       ),
@@ -775,19 +897,19 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         return;
       }
 
-      /// aynı mesaj → stop
+      /// aynÄ± mesaj â†’ stop
       if (_playingMessageId == msg['id']) {
         await _audioPlayer.stop();
         setState(() => _playingMessageId = null);
         return;
       }
 
-      /// yeni mesaj başlat
+      /// yeni mesaj baÅŸlat
       final url = await supabase.storage
           .from('voice')
           .createSignedUrl(path, 60);
 
-      await _audioPlayer.stop(); // 💥 önemli (önceki sesi kes)
+      await _audioPlayer.stop(); // ğŸ’¥ Ã¶nemli (Ã¶nceki sesi kes)
 
       await _audioPlayer.setUrl(url);
 
@@ -836,10 +958,50 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     );
   }
 
+  Widget _headerChip({
+    required IconData icon,
+    required String text,
+    bool highlight = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0x770B1512),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: highlight ? const Color(0x88E7C06A) : const Color(0x44E7C06A),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 15,
+            color: highlight ? const Color(0xFFE7C06A) : Colors.white70,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              color: highlight ? const Color(0xFFE7C06A) : Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageBanner() {
     final msg = _lastIncomingMessage!;
     final name = (msg['users']?['username'] ?? 'İzleyici').toString();
-    final text = (msg['content'] ?? '').toString();
+    final type = (msg['type'] ?? 'text').toString();
+    final text = type == 'voice'
+        ? 'Sesli mesaj gönderdi'
+        : (msg['content'] ?? '').toString();
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -918,7 +1080,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   void _handleIncomingMessageEffects(Map<String, dynamic> msg) {
     final senderId = msg['sender_id']?.toString();
     if (senderId == null) return;
-    final text = (msg['content'] ?? '').toString().trim();
+    final type = (msg['type'] ?? 'text').toString();
+    final text = type == 'voice'
+        ? 'Sesli mesaj gönderdi'
+        : (msg['content'] ?? '').toString().trim();
     final role = (msg['role'] ?? '').toString();
     final mine = senderId == supabase.auth.currentUser?.id;
 
@@ -965,9 +1130,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     final isPlaying = _playingMessageId == msg['id'];
 
     return Row(
-      mainAxisSize: MainAxisSize.min, // ❗ önemli
+      mainAxisSize: MainAxisSize.min, // â— Ã¶nemli
       children: [
-        /// ▶️ PLAY
+        /// â–¶ï¸ PLAY
         GestureDetector(
           onTap: () => _playVoice(msg),
           child: Container(
@@ -991,9 +1156,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
         const SizedBox(width: 8),
 
-        /// 🔊 WAVE
+        /// ğŸ”Š WAVE
         SizedBox(
-          width: 80, // ❗ sabit width
+          width: 80, // â— sabit width
           child: Row(
             children: List.generate(12, (i) {
               final height = (i % 5 + 3).toDouble();
@@ -1013,7 +1178,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
         const SizedBox(width: 6),
 
-        /// ⏱️ süre
+        /// â±ï¸ sÃ¼re
         Text(
           "${msg['duration'] ?? 0}s",
           style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -1051,30 +1216,30 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
       if (!await file.exists()) return;
 
-      /// 🆔 unique id
+      /// ğŸ†” unique id
       final messageId = const Uuid().v4();
 
-      /// 🔗 storage path (table bazlı)
+      /// ğŸ”— storage path (table bazlÄ±)
       final storagePath = 'table/${widget.tableId}/$messageId.m4a';
 
-      /// 📦 STORAGE UPLOAD
+      /// ğŸ“¦ STORAGE UPLOAD
       await supabase.storage.from('voice').upload(storagePath, file);
 
-      /// 🧾 DB INSERT
+      /// ğŸ§¾ DB INSERT
       await supabase.from('table_messages').insert({
         "table_id": widget.tableId,
         "sender_id": user.id,
         "role": "spectator", // veya player
-        "content": "", // boş
+        "content": "", // boÅŸ
         "type": "voice",
         "voice_url": storagePath,
-        "duration": 5, // şimdilik sabit
+        "duration": 5, // ÅŸimdilik sabit
       });
 
-      /// 🧹 local temizle
+      /// ğŸ§¹ local temizle
       await file.delete();
 
-      /// 🔄 refresh
+      /// ğŸ”„ refresh
       await _load();
       _scrollToBottom();
     } catch (e) {
@@ -1105,7 +1270,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
     _startTimer();
 
-    /// 💥 EN KRİTİK (recorder warmup)
+    /// ğŸ’¥ EN KRÄ°TÄ°K (recorder warmup)
     _canStop = false;
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -1144,7 +1309,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       return;
     }
 
-    /// ❗ ARTIK GÖNDERMEYİZ
+    /// â— ARTIK GÃ–NDERMEYÄ°Z
     setState(() {
       _previewPath = path;
       _showPreview = true;
@@ -1166,16 +1331,16 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
 
-        /// 🎨 BACKGROUND
+        /// ğŸ¨ BACKGROUND
         color: _isRecording ? Colors.redAccent : const Color(0xFF1E2A25),
 
-        /// 💎 BORDER
+        /// ğŸ’ BORDER
         border: Border.all(
           color: _isRecording ? Colors.redAccent : const Color(0x3359A588),
           width: _isRecording ? 1.6 : 1,
         ),
 
-        /// ✨ GLOW
+        /// âœ¨ GLOW
         boxShadow: _isRecording
             ? [
                 BoxShadow(
@@ -1212,7 +1377,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     final centerX = pos.dx + size.width / 2;
     final centerY = pos.dy + size.height / 2;
 
-    // 🔥 Flutter → Flame dönüşüm
+    // ğŸ”¥ Flutter â†’ Flame dÃ¶nÃ¼ÅŸÃ¼m
     final screenSize = MediaQuery.of(context).size;
 
     final scaleX = 1600 / screenSize.width;
@@ -1221,12 +1386,87 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     return Vector2(centerX * scaleX, centerY * scaleY);
   }
 
+  Widget _buildTurnAvatar({
+    required int seatIndex,
+    required String? avatarPath,
+    required Key avatarKey,
+  }) {
+    final isTurn = _currentTurnSeat == seatIndex;
+    final progress = _turnProgress();
+    final remain = _turnRemaining();
+    return SizedBox(
+      width: 66,
+      height: 66,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (isTurn)
+            SizedBox(
+              width: 66,
+              height: 66,
+              child: CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 4,
+                backgroundColor: Colors.white24,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFFD4AF37),
+                ),
+              ),
+            ),
+          avatar(avatarPath, key: avatarKey),
+          if (isTurn)
+            Positioned(
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x66D4AF37)),
+                ),
+                child: Text(
+                  '${remain}s',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  DateTime? _parseServerTime(dynamic raw) {
+    if (raw == null) return null;
+    final parsed = DateTime.tryParse(raw.toString());
+    return parsed?.toLocal();
+  }
+
+  double _turnProgress() {
+    if (_turnStartedAt == null || _turnSeconds <= 0) return 0;
+    final elapsed = DateTime.now().difference(_turnStartedAt!).inMilliseconds;
+    final ratio = elapsed / (_turnSeconds * 1000);
+    return ratio.clamp(0.0, 1.0);
+  }
+
+  int _turnRemaining() {
+    if (_turnStartedAt == null || _turnSeconds <= 0) return 0;
+    final elapsed = DateTime.now().difference(_turnStartedAt!).inSeconds;
+    final remain = _turnSeconds - elapsed;
+    if (remain <= 0) return 0;
+    return remain;
+  }
+
   @override
   void dispose() {
     for (final t in _avatarChatTimers.values) {
       t.cancel();
     }
     _avatarChatTimers.clear();
+    _turnTicker?.cancel();
     _chatScrollController.dispose();
     spectatorChannel.unsubscribe();
     _leaveSpectator();

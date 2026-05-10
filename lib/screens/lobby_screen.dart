@@ -109,6 +109,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _previewPath;
   bool _previewPlaying = false;
   bool _showPreview = false;
+  bool _showEmojiPicker = false;
   bool _deviceReady = false;
   bool _initCalled = false;
   bool _soundEnabled = true;
@@ -121,10 +122,37 @@ class _LobbyScreenState extends State<LobbyScreen>
   DateTime? _globalSpectatorPassUntil;
   bool _campaignChecked = false;
   bool _autoResumeAttempted = false;
+  static const List<String> _chatEmojis = <String>[
+    '😀',
+    '😂',
+    '😍',
+    '😎',
+    '👏',
+    '🔥',
+    '👍',
+    '🙏',
+    '🎉',
+    '❤️',
+    '😡',
+    '😅',
+  ];
 
   int selectedIndex = 0;
   bool isLeagueLocked = false;
   dynamic lockedLeague;
+
+  void _insertEmojiToChat(String emoji) {
+    final value = _chatController.value;
+    final start = value.selection.start >= 0
+        ? value.selection.start
+        : value.text.length;
+    final end = value.selection.end >= 0 ? value.selection.end : start;
+    final newText = value.text.replaceRange(start, end, emoji);
+    _chatController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+  }
 
   @override
   void initState() {
@@ -4336,8 +4364,45 @@ class _LobbyScreenState extends State<LobbyScreen>
                             top: BorderSide(color: Color(0x334F8F75)),
                           ),
                         ),
-                        child: Row(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (_showEmojiPicker) ...[
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xAA1E2B24),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0x3359A588),
+                                  ),
+                                ),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: _chatEmojis.map((emoji) {
+                                    return InkWell(
+                                      borderRadius: BorderRadius.circular(8),
+                                      onTap: () => _insertEmojiToChat(emoji),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Text(
+                                          emoji,
+                                          style: const TextStyle(fontSize: 22),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
+                            Row(
+                              children: [
                             Listener(
                               onPointerDown: (_) async {
                                 print("DOWN");
@@ -4384,6 +4449,22 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                             /// 🎤 VOICE BUTTON
                             const SizedBox(width: 8),
+
+                            /// EMOJI BUTTON
+                            IconButton(
+                              tooltip: 'Emoji',
+                              onPressed: () {
+                                setState(() {
+                                  _showEmojiPicker = !_showEmojiPicker;
+                                });
+                              },
+                              icon: Icon(
+                                _showEmojiPicker
+                                    ? Icons.emoji_emotions
+                                    : Icons.emoji_emotions_outlined,
+                                color: const Color(0xFFE7C06A),
+                              ),
+                            ),
 
                             /// TEXTFIELD
                             Expanded(
@@ -4462,6 +4543,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   ),
                                 ),
                               ),
+                            ),
+                          ],
                             ),
                           ],
                         ),
@@ -5591,6 +5674,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _dockRight() {
+    final unreadTotal = _unreadTotal;
     return Row(
       children: [
         _coinBuyDockButton(),
@@ -5608,8 +5692,45 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
         const SizedBox(width: 10),
         AaaDockIcon(
-          icon: Icons.mail,
           onTap: () => _openRightPanel(_RightPanelType.messages),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              const Icon(Icons.mail, size: 20, color: Color(0xFFE7C66A)),
+              if (unreadTotal > 0)
+                Positioned(
+                  right: -10,
+                  top: -10,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE74C3C),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white, width: 1.2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x66000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadTotal > 99 ? '99+' : '$unreadTotal',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     );

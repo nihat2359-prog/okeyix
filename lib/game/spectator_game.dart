@@ -165,11 +165,20 @@ class SpectatorGame extends FlameGame {
       return;
     }
 
-    final tile = raw is String ? jsonDecode(raw) : raw;
+    final tile = _parseTilePayload(raw);
+    if (tile == null) {
+      print('Invalid indicator_tile payload: $raw');
+      return;
+    }
+    final model = _tileModelFromPayload(tile);
+    if (model == null) {
+      print('Invalid indicator_tile model: $tile');
+      return;
+    }
 
     indicatorTile?.removeFromParent();
 
-    indicatorTile = _createTileFromModel(tile, indicatorPos);
+    indicatorTile = _createTileFromModel(model, indicatorPos);
     indicatorTile!.priority = 500;
 
     world.add(indicatorTile!);
@@ -189,13 +198,22 @@ class SpectatorGame extends FlameGame {
     for (final r in rows) {
       final seat = r['seat_index'];
       final raw = r['tile'];
-      final tile = raw is String ? jsonDecode(raw) : raw;
+      final tile = _parseTilePayload(raw);
+      if (tile == null) {
+        print('Invalid discard payload: $raw');
+        continue;
+      }
+      final model = _tileModelFromPayload(tile);
+      if (model == null) {
+        print('Invalid discard model: $tile');
+        continue;
+      }
 
       final pos = seat == 0 ? discardRightPos : discardLeftPos;
 
       final stack = seat == 0 ? discardRightStack : discardLeftStack;
 
-      final newTile = _createTileFromModel(tile, pos);
+      final newTile = _createTileFromModel(model, pos);
 
       /// 🔥 STACK OFFSET (üst üste dizilim)
       final offset = Vector2(0, -2.0 * stack.length.toDouble());
@@ -270,23 +288,7 @@ class SpectatorGame extends FlameGame {
       callback: (payload) async {
         final row = payload.newRecord;
 
-        final finishAt = row['last_finish_at'];
-
-        if (finishAt != null) {
-          // snapshot çek
-          final snapshot = await _loadFinishSnapshot(tableId);
-          final winnerId = row['last_winner_user_id'];
-          final user = await supabase
-              .from('users')
-              .select('username')
-              .eq('id', winnerId)
-              .single();
-
-          final winnerName = user['username'];
-          if (snapshot != null) {
-            _openFinishScreen(snapshot, winnerName); // 🔥 AYNI METHOD
-          }
-        }
+        // Finish overlay is driven by SpectatorScreen to keep one consistent UI flow.
       },
     );
 
@@ -559,6 +561,22 @@ class SpectatorGame extends FlameGame {
           raw['is_fake_joker'] == true ||
           raw['isFakeJoker'] == true,
     );
+  }
+
+  Map<String, dynamic>? _parseTilePayload(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    if (raw is String) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) return decoded;
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   Future<Sprite> loadAvatarFromAsset(String fullPath) async {

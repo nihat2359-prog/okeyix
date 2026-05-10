@@ -796,11 +796,6 @@ class ProfileService {
 
       if (u1 == null || u2 == null) return;
 
-      final ids = [u1, u2]..sort();
-
-      final userA = ids[0];
-      final userB = ids[1];
-
       final existing = await supabase
           .from('friends')
           .select('id')
@@ -811,8 +806,8 @@ class ProfileService {
 
       if (existing == null) {
         await supabase.from('friends').insert({
-          'user_id': userA,
-          'friend_id': userB,
+          'user_id': u1,
+          'friend_id': u2,
           'status': 'pending',
         });
 
