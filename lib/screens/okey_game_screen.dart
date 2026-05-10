@@ -85,6 +85,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   final _player = jo.AudioPlayer();
   final jo.AudioPlayer _tileSfxPlayer = jo.AudioPlayer();
   final jo.AudioPlayer _startGameSfxPlayer = jo.AudioPlayer();
+  final jo.AudioPlayer _turnTickSfxPlayer = jo.AudioPlayer();
   final ScrollController _chatScroll = ScrollController();
   final _quickChatBtnKey = GlobalKey();
 
@@ -111,12 +112,14 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   Timer? _voiceFeedbackTimer;
   bool _showFinish = false;
   List? _finishSlots;
+  bool _hideTopHudForFinish = false;
   String? _winnerId;
   bool _visualReady = false;
   late final AnimationController _hourglassCtrl;
   int _indicatorRewardAmount = 0;
   bool _showIndicatorRewardFx = false;
   bool _showVoiceCoachmark = false;
+  int? _lastTurnTickSecond;
   static const String _voiceCoachmarkKey = 'voice_coachmark_seen_v1';
   static const List<String> _chatEmojis = <String>[
     '\u{1F44D}',
@@ -158,11 +161,18 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     );
     _tileSfxPlayer.setReleaseMode(jo.ReleaseMode.stop);
     _startGameSfxPlayer.setReleaseMode(jo.ReleaseMode.stop);
+    _turnTickSfxPlayer.setReleaseMode(jo.ReleaseMode.stop);
 
     _game.onHudChanged = () {
       if (mounted) setState(() {});
     };
     _game.onIndicatorBonusAwarded = _showIndicatorRewardFxBanner;
+    _game.onFinishVisibilityChanged = (visible) {
+      if (!mounted) return;
+      setState(() {
+        _setFinishPresentation(visible);
+      });
+    };
 
     _game.onFinish = () async {
       if (_showFinish) return; // ğŸ”¥ double trigger engelle
@@ -181,6 +191,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _subscribeRealtime();
     _ticker = Timer.periodic(const Duration(milliseconds: 150), (_) {
       if (mounted) {
+        _syncTurnTickSfx();
         setState(() {});
       }
     });
@@ -212,6 +223,19 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       });
     }
     setState(() {});
+  }
+
+  void _setFinishPresentation(bool visible) {
+    _hideTopHudForFinish = visible;
+    if (visible) {
+      if (_game.overlays.isActive('Avatars')) {
+        _game.overlays.remove('Avatars');
+      }
+    } else {
+      if (!_game.overlays.isActive('Avatars')) {
+        _game.overlays.add('Avatars');
+      }
+    }
   }
 
   Future<void> _prepareVoiceCoachmark() async {
@@ -339,6 +363,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _player.dispose();
     _tileSfxPlayer.dispose();
     _startGameSfxPlayer.dispose();
+    _turnTickSfxPlayer.dispose();
     _audioPlayer.dispose();
     _hourglassCtrl.dispose();
     _voiceFeedbackTimer?.cancel();
@@ -477,7 +502,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _lastTileSound = now;
 
     _tileSfxPlayer.stop();
-    _tileSfxPlayer.play(jo.AssetSource('sounds/drop.mp3'), volume: 0.35);
+    _tileSfxPlayer.play(jo.AssetSource('sounds/drop_tile.wav'), volume: 0.42);
 
     FeedbackSettingsService.triggerHaptic();
   }
@@ -723,8 +748,56 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     if (!mounted) return;
     _game.hideFinish();
-    _showFinish = false;
-    setState(() {});
+    setState(() {
+      _showFinish = false;
+    });
+  }
+
+  void _syncTurnTickSfx() {
+    final turnActive =
+        _tableStatus == 'playing' &&
+        !_hideTopHudForFinish &&
+        _game.isMyTurnForLocalUser;
+
+    if (!turnActive || !FeedbackSettingsService.soundEnabled) {
+      _lastTurnTickSecond = null;
+      _turnTickSfxPlayer.stop();
+      return;
+    }
+
+    final turnSeconds = _game.getTurnSeconds();
+    if (turnSeconds <= 0) {
+      _lastTurnTickSecond = null;
+      _turnTickSfxPlayer.stop();
+      return;
+    }
+
+    final remaining = (_game.getTurnProgress() * turnSeconds).ceil().clamp(
+      0,
+      turnSeconds,
+    );
+
+    if (remaining <= 0) {
+      _lastTurnTickSecond = null;
+      _turnTickSfxPlayer.stop();
+      return;
+    }
+
+    if (_lastTurnTickSecond == remaining) return;
+    _lastTurnTickSecond = remaining;
+
+    _turnTickSfxPlayer.stop();
+    if (remaining <= 5) {
+      _turnTickSfxPlayer.play(
+        jo.AssetSource('sounds/tick_urgent.wav'),
+        volume: 0.40,
+      );
+    } else {
+      _turnTickSfxPlayer.play(
+        jo.AssetSource('sounds/tick_normal.wav'),
+        volume: 0.28,
+      );
+    }
   }
 
   Future<void> _loadTable() async {
@@ -1331,8 +1404,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     final showWaitingOverlay =
         (_tableStatus == 'waiting' || _tableStatus == 'start') &&
         !_game.gameStarted;
-    // User requested: upper panels should never close under any condition.
-    const finishOverlayOpen = false;
+    final finishOverlayOpen = _hideTopHudForFinish;
 
     if (!_visualReady) {
       return Scaffold(
@@ -1471,19 +1543,19 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   ],
                 ),
               ),
-              // Absolute top HUD layer: fully detached from game/overlay conditions.
-              SafeArea(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildTopLeftPanel(),
-                    _buildTopRightLeague(),
-                    _buildVoiceCommandHud(),
-                    if (_showVoiceCoachmark) _buildVoiceCoachmark(),
-                    if (!finishOverlayOpen && _chatOpen) _buildChatPanel(),
-                  ],
+              if (!finishOverlayOpen)
+                SafeArea(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildTopLeftPanel(),
+                      _buildTopRightLeague(),
+                      _buildVoiceCommandHud(),
+                      if (_showVoiceCoachmark) _buildVoiceCoachmark(),
+                      if (_chatOpen) _buildChatPanel(),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),

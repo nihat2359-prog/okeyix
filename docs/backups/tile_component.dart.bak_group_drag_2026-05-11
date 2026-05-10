@@ -8,7 +8,6 @@ import 'package:okeyix/game/theme_flags.dart';
 import '../okey_game.dart';
 import 'rack_config.dart';
 import 'dart:math' as math;
-import 'dart:async' as async;
 
 enum TileColorType { red, blue, black, yellow }
 
@@ -43,9 +42,6 @@ class TileComponent extends PositionComponent
   int? originalSlotIndex;
   bool isLocked = false;
   DateTime? _lastTap;
-  async.Timer? _longPressTimer;
-  bool _isGroupMarked = false;
-  RectangleComponent? _groupMarkFx;
 
   int get value => tile.value;
   TileColor get color => tile.color;
@@ -218,14 +214,6 @@ class TileComponent extends PositionComponent
 
   @override
   void onTapDown(TapDownEvent event) {
-    _longPressTimer?.cancel();
-    _longPressTimer = async.Timer(const Duration(milliseconds: 550), () {
-      final gameRef = _tryGame();
-      if (gameRef == null) return;
-      if (currentSlotIndex == null) return;
-      gameRef.tryActivateGroupDrag(this);
-    });
-
     final now = DateTime.now();
 
     if (_lastTap != null &&
@@ -325,13 +313,6 @@ class TileComponent extends PositionComponent
 
   @override
   void onTapUp(TapUpEvent event) {
-    _longPressTimer?.cancel();
-    final gameRef = _tryGame();
-    if (gameRef != null &&
-        gameRef.isGroupDragAnchor(this) &&
-        currentSlotIndex != null) {
-      gameRef.cancelActiveGroupDragSelection();
-    }
     if (isJoker) {
       toggleFace();
     }
@@ -344,20 +325,12 @@ class TileComponent extends PositionComponent
   @override
   void onDragStart(DragStartEvent event) {
     super.onDragStart(event);
-    _longPressTimer?.cancel();
     if (isLocked) {
       event.handled = true;
       return;
     }
     final gameRef = _tryGame();
     if (gameRef == null) return;
-
-    if (gameRef.isGroupDragAnchor(this)) {
-      priority = 100;
-      gameRef.startActiveGroupDrag(this);
-      return;
-    }
-
     originalPosition = position.clone();
     dragOffset = event.localPosition;
     priority = 100;
@@ -376,31 +349,17 @@ class TileComponent extends PositionComponent
     if (gameRef == null) return;
     final zoom = gameRef.cameraComponent.viewfinder.zoom;
 
-    if (gameRef.isGroupDragAnchor(this)) {
-      gameRef.updateActiveGroupDrag(this, event.localDelta / zoom);
-      return;
-    }
-
     position += event.localDelta / zoom;
+
     gameRef.updatePreview(position);
   }
 
   @override
   Future<void> onDragEnd(DragEndEvent event) async {
     super.onDragEnd(event);
-    _longPressTimer?.cancel();
     try {
       final gameRef = _tryGame();
       if (gameRef == null) return;
-
-      if (gameRef.isGroupDragAnchor(this)) {
-        gameRef.endActiveGroupDrag(this);
-        priority = 20;
-        gameRef.clearPreview();
-        gameRef.clearTemporaryShift();
-        return;
-      }
-
       final worldPos = absolutePosition;
       // 0) Kapali desteye birakildiysa bitirme denemesi
       if (gameRef.isPointNearClosedPile(worldPos)) {
@@ -492,26 +451,6 @@ class TileComponent extends PositionComponent
   bool containsLocalPoint(Vector2 point) {
     if (isLocked) return false;
     return super.containsLocalPoint(point);
-  }
-
-  void setGroupMarked(bool marked) {
-    if (_isGroupMarked == marked) return;
-    _isGroupMarked = marked;
-    _groupMarkFx?.removeFromParent();
-    _groupMarkFx = null;
-    if (!marked) return;
-
-    final fx = RectangleComponent(
-      size: Vector2(size.x - 6, size.y - 6),
-      position: size / 2,
-      anchor: Anchor.center,
-      paint: Paint()
-        ..style = PaintingStyle.fill
-        ..color = const Color(0x334DD0E1),
-      priority: 300,
-    );
-    add(fx);
-    _groupMarkFx = fx;
   }
 
   // =============================

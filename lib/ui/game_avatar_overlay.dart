@@ -537,6 +537,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.game.isFinishOpen) {
+      return const SizedBox.shrink();
+    }
     final size = MediaQuery.of(context).size;
     final bySeat = <int, _SeatPlayer>{for (final p in players) p.seatIndex: p};
     final useDuelLayout = players.length <= 2;

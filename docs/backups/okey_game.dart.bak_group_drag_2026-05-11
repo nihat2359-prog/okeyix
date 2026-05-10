@@ -4753,10 +4753,6 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   int? _lastPreviewIndex;
-  TileComponent? _groupDragAnchor;
-  final List<TileComponent> _groupDragTiles = <TileComponent>[];
-  final Map<TileComponent, int> _groupDragOriginalSlots = <TileComponent, int>{};
-  int _groupDragAnchorOffset = 0;
 
   void _rebuildOccupiedSlots() {
     occupiedSlots.clear();
@@ -4906,143 +4902,6 @@ class OkeyGame extends FlameGame with TapDetector {
     _emitTileSfx();
   }
 
-  bool isGroupDragAnchor(TileComponent tile) =>
-      _groupDragAnchor != null && identical(_groupDragAnchor, tile);
-
-  bool tryActivateGroupDrag(TileComponent anchor) {
-    _clearGroupDragVisuals();
-    _rebuildOccupiedSlots();
-    final anchorSlot = anchor.currentSlotIndex;
-    if (anchorSlot == null) return false;
-
-    final row = anchorSlot ~/ RackConfig.columns;
-    final rowStart = row * RackConfig.columns;
-    final rowEnd = rowStart + RackConfig.columns - 1;
-
-    int left = anchorSlot;
-    while (left - 1 >= rowStart && _mountedTileAtSlot(left - 1) != null) {
-      left--;
-    }
-    int right = anchorSlot;
-    while (right + 1 <= rowEnd && _mountedTileAtSlot(right + 1) != null) {
-      right++;
-    }
-
-    final tiles = <TileComponent>[];
-    for (int i = left; i <= right; i++) {
-      final t = _mountedTileAtSlot(i);
-      if (t != null) tiles.add(t);
-    }
-    if (tiles.length < 2) return false;
-
-    tiles.sort(
-      (a, b) => (a.currentSlotIndex ?? 0).compareTo(b.currentSlotIndex ?? 0),
-    );
-    _groupDragTiles
-      ..clear()
-      ..addAll(tiles);
-    _groupDragAnchor = anchor;
-    _groupDragAnchorOffset = anchorSlot - left;
-    for (final t in _groupDragTiles) {
-      final slot = t.currentSlotIndex;
-      if (slot != null) {
-        _groupDragOriginalSlots[t] = slot;
-      }
-      t.setGroupMarked(true);
-    }
-    return true;
-  }
-
-  void startActiveGroupDrag(TileComponent anchor) {
-    if (!isGroupDragAnchor(anchor)) return;
-    _rebuildOccupiedSlots();
-    for (final t in _groupDragTiles) {
-      final idx = t.currentSlotIndex;
-      if (idx != null) {
-        occupiedSlots.remove(idx);
-      }
-      t.currentSlotIndex = null;
-      t.originalSlotIndex = _groupDragOriginalSlots[t];
-      t.originalPosition = t.position.clone();
-    }
-  }
-
-  void updateActiveGroupDrag(TileComponent anchor, Vector2 delta) {
-    if (!isGroupDragAnchor(anchor)) return;
-    for (final t in _groupDragTiles) {
-      t.position += delta;
-    }
-  }
-
-  void endActiveGroupDrag(TileComponent anchor) {
-    if (!isGroupDragAnchor(anchor)) return;
-
-    final targetIndex = getNearestSlotIndex(anchor.position);
-    if (targetIndex == null || _groupDragTiles.isEmpty) {
-      _restoreGroupDragToOriginal();
-      _clearGroupDragVisuals();
-      return;
-    }
-
-    final groupSize = _groupDragTiles.length;
-    final row = targetIndex ~/ RackConfig.columns;
-    final rowStart = row * RackConfig.columns;
-    final rowEnd = rowStart + RackConfig.columns - 1;
-
-    final startIndex = targetIndex - _groupDragAnchorOffset;
-    final endIndex = startIndex + groupSize - 1;
-    if (startIndex < rowStart || endIndex > rowEnd) {
-      _restoreGroupDragToOriginal();
-      _clearGroupDragVisuals();
-      return;
-    }
-
-    _rebuildOccupiedSlots();
-    for (int i = startIndex; i <= endIndex; i++) {
-      if (_mountedTileAtSlot(i) != null || occupiedSlots.containsKey(i)) {
-        _restoreGroupDragToOriginal();
-        _clearGroupDragVisuals();
-        return;
-      }
-    }
-
-    for (int i = 0; i < _groupDragTiles.length; i++) {
-      final tile = _groupDragTiles[i];
-      final slot = startIndex + i;
-      occupiedSlots[slot] = tile;
-      tile.currentSlotIndex = slot;
-      tile.originalSlotIndex = slot;
-      moveTileSmooth(tile, slotPositions[slot]);
-    }
-    _emitTileSfx();
-    _clearGroupDragVisuals();
-  }
-
-  void _restoreGroupDragToOriginal() {
-    for (final t in _groupDragTiles) {
-      final slot = _groupDragOriginalSlots[t];
-      if (slot == null) continue;
-      occupiedSlots[slot] = t;
-      t.currentSlotIndex = slot;
-      t.originalSlotIndex = slot;
-      t.position = slotPositions[slot];
-    }
-  }
-
-  void _clearGroupDragVisuals() {
-    for (final t in _groupDragTiles) {
-      t.setGroupMarked(false);
-    }
-    _groupDragTiles.clear();
-    _groupDragOriginalSlots.clear();
-    _groupDragAnchor = null;
-    _groupDragAnchorOffset = 0;
-  }
-
-  void cancelActiveGroupDragSelection() {
-    _clearGroupDragVisuals();
-  }
-
   void _restoreTileToOriginalSlot(TileComponent tile) {
     final original = tile.originalSlotIndex;
     if (original != null &&
@@ -5149,16 +5008,6 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     final slots = _buildSlotsJson(occupiedSlots);
-    final lastTilePayload = tile.tile.toJson();
-    _dbg('FINISH_ATTEMPT', {
-      'source': 'manual',
-      'user_id': userId,
-      'turn': currentTurn,
-      'turn_seconds': _turnSeconds,
-      'hand_count': _myHandCount,
-      'slots': slots,
-      'last_tile': lastTilePayload,
-    });
 
     try {
       final res = await Supabase.instance.client.rpc(
@@ -5167,7 +5016,7 @@ class OkeyGame extends FlameGame with TapDetector {
           'p_table_id': tableId,
           'p_user_id': userId,
           'p_slots': slots,
-          'p_last_tile': lastTilePayload,
+          'p_last_tile': tile.tile.toJson(),
         },
       );
 
@@ -5206,15 +5055,6 @@ class OkeyGame extends FlameGame with TapDetector {
       } else {
         final errCode = res is Map ? (res['error_code']?.toString() ?? '') : '';
         final invalidTileIds = _extractInvalidTileIds(res);
-        _dbg('FINISH_REJECTED', {
-          'source': 'manual',
-          'user_id': userId,
-          'error_code': errCode,
-          'invalid_tile_ids': invalidTileIds,
-          'slots': slots,
-          'last_tile': lastTilePayload,
-          'rpc_response': res,
-        });
         _highlightInvalidFinishTiles(invalidTileIds, fallback: tile);
         if (errCode == 'INVALID_FINISH') {
           AppMsg.show('Geçersiz bitiş');
@@ -5224,13 +5064,6 @@ class OkeyGame extends FlameGame with TapDetector {
         return false;
       }
     } catch (e) {
-      _dbg('FINISH_EXCEPTION', {
-        'source': 'manual',
-        'user_id': userId,
-        'error': '$e',
-        'slots': slots,
-        'last_tile': lastTilePayload,
-      });
       print(e);
       String msg = 'Bitirme başarısız';
 
@@ -5395,15 +5228,6 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     try {
-      _dbg('FINISH_ATTEMPT', {
-        'source': 'voice',
-        'user_id': userId,
-        'turn': currentTurn,
-        'turn_seconds': _turnSeconds,
-        'hand_count': _myHandCount,
-        'slots': slots,
-        'last_tile': lastTile,
-      });
       final res = await Supabase.instance.client.rpc(
         'game_finish',
         params: {
@@ -5444,24 +5268,8 @@ class OkeyGame extends FlameGame with TapDetector {
         );
         return true;
       }
-      _dbg('FINISH_REJECTED', {
-        'source': 'voice',
-        'user_id': userId,
-        'error_code': res is Map ? (res['error_code']?.toString() ?? '') : '',
-        'invalid_tile_ids': _extractInvalidTileIds(res),
-        'slots': slots,
-        'last_tile': lastTile,
-        'rpc_response': res,
-      });
       return false;
-    } catch (e) {
-      _dbg('FINISH_EXCEPTION', {
-        'source': 'voice',
-        'user_id': userId,
-        'error': '$e',
-        'slots': slots,
-        'last_tile': lastTile,
-      });
+    } catch (_) {
       return false;
     } finally {
       _actionInFlight = false;

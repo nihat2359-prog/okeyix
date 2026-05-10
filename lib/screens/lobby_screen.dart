@@ -94,6 +94,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _activeChatUserTableId;
   RealtimeChannel? _tableInviteChannel;
   String? _tableInviteBoundUserId;
+  RealtimeChannel? _messagesChannel;
+  String? _messagesBoundUserId;
 
   late AnimationController _storePulse;
   bool _isRecording = false;
@@ -194,6 +196,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
     _tableInvitePollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       _ensureTableInviteListener();
+      _ensureMessagesListener();
     });
 
     _initDevice();
@@ -300,6 +303,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     _storePulse.dispose();
     _audioPlayer.dispose();
     _tableInviteChannel?.unsubscribe();
+    _messagesChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -310,6 +314,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     await _loadUser();
     await _ensureTableInviteListener();
+    await _ensureMessagesListener();
     await _refreshGlobalSpectatorPassStatus();
     await _checkOnboarding();
     await _loadSocialData();
@@ -335,6 +340,53 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
     // Realtime gecikse bile pending davetler mutlaka yakalansın.
     await _loadPendingTableInvites(myUserId);
+  }
+
+  Future<void> _ensureMessagesListener() async {
+    final myUserId = UserState.userId ?? supabase.auth.currentUser?.id;
+    if (myUserId == null || myUserId.isEmpty) return;
+    if (_messagesBoundUserId == myUserId && _messagesChannel != null) return;
+    _bindMessagesListener(myUserId);
+  }
+
+  void _bindMessagesListener(String myUserId) {
+    _messagesChannel?.unsubscribe();
+    _messagesBoundUserId = myUserId;
+    _messagesChannel = supabase.channel('messages-unread-$myUserId');
+
+    _messagesChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'receiver_id',
+            value: myUserId,
+          ),
+          callback: (payload) {
+            if (!mounted) return;
+            final row = Map<String, dynamic>.from(payload.newRecord);
+            final senderId = row['sender_id']?.toString();
+            final receiverId = row['receiver_id']?.toString();
+            final readAt = row['read_at'];
+            if (senderId == null ||
+                senderId.isEmpty ||
+                receiverId != myUserId ||
+                readAt != null) {
+              return;
+            }
+            if (_rightPanelType == _RightPanelType.messages &&
+                _activeChatUserId == senderId) {
+              return;
+            }
+            setState(() {
+              _unreadByUser = Map<String, int>.from(_unreadByUser)
+                ..update(senderId, (v) => v + 1, ifAbsent: () => 1);
+            });
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _tryResumeActiveGame() async {
