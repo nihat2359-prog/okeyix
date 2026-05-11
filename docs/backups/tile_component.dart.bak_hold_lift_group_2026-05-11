@@ -43,8 +43,9 @@ class TileComponent extends PositionComponent
   int? originalSlotIndex;
   bool isLocked = false;
   DateTime? _lastTap;
-  async.Timer? _liftHoldTimer;
-  Vector2? _liftHoldAnchor;
+  async.Timer? _longPressTimer;
+  bool _isGroupMarked = false;
+  RectangleComponent? _groupMarkFx;
 
   int get value => tile.value;
   TileColor get color => tile.color;
@@ -220,6 +221,14 @@ class TileComponent extends PositionComponent
     final gameRef = _tryGame();
     gameRef?.clearGroupSelectionIfDifferent(this);
 
+    _longPressTimer?.cancel();
+    _longPressTimer = async.Timer(const Duration(milliseconds: 550), () {
+      final gameRef2 = _tryGame();
+      if (gameRef2 == null) return;
+      if (currentSlotIndex == null) return;
+      gameRef2.tryActivateGroupDrag(this);
+    });
+
     final now = DateTime.now();
 
     if (_lastTap != null &&
@@ -319,9 +328,7 @@ class TileComponent extends PositionComponent
 
   @override
   void onTapUp(TapUpEvent event) {
-    _liftHoldTimer?.cancel();
-    _liftHoldTimer = null;
-    _liftHoldAnchor = null;
+    _longPressTimer?.cancel();
     final gameRef = _tryGame();
     if (gameRef != null && gameRef.isGroupDragAnchor(this)) {
       gameRef.cancelActiveGroupDragSelection();
@@ -338,9 +345,7 @@ class TileComponent extends PositionComponent
   @override
   void onDragStart(DragStartEvent event) {
     super.onDragStart(event);
-    _liftHoldTimer?.cancel();
-    _liftHoldTimer = null;
-    _liftHoldAnchor = null;
+    _longPressTimer?.cancel();
     if (isLocked) {
       event.handled = true;
       return;
@@ -381,15 +386,12 @@ class TileComponent extends PositionComponent
 
     position += event.localDelta / zoom;
     gameRef.updatePreview(position);
-    _tryActivateGroupByLiftHold(gameRef);
   }
 
   @override
   Future<void> onDragEnd(DragEndEvent event) async {
     super.onDragEnd(event);
-    _liftHoldTimer?.cancel();
-    _liftHoldTimer = null;
-    _liftHoldAnchor = null;
+    _longPressTimer?.cancel();
     try {
       final gameRef = _tryGame();
       if (gameRef == null) return;
@@ -495,40 +497,24 @@ class TileComponent extends PositionComponent
     return super.containsLocalPoint(point);
   }
 
-  void _tryActivateGroupByLiftHold(OkeyGame gameRef) {
-    if (gameRef.isGroupDragAnchor(this)) return;
+  void setGroupMarked(bool marked) {
+    if (_isGroupMarked == marked) return;
+    _isGroupMarked = marked;
+    _groupMarkFx?.removeFromParent();
+    _groupMarkFx = null;
+    if (!marked) return;
 
-    final liftedEnough = (originalPosition.y - position.y) >= 20;
-    if (!liftedEnough) {
-      _liftHoldTimer?.cancel();
-      _liftHoldTimer = null;
-      _liftHoldAnchor = null;
-      return;
-    }
-
-    if (_liftHoldTimer == null) {
-      _liftHoldAnchor = position.clone();
-      _liftHoldTimer = async.Timer(const Duration(milliseconds: 320), () {
-        final gameRef2 = _tryGame();
-        if (gameRef2 == null) return;
-        final anchor = _liftHoldAnchor;
-        if (anchor == null) return;
-        final liftedNow = (originalPosition.y - position.y) >= 20;
-        final stable = position.distanceTo(anchor) <= 10;
-        if (!liftedNow || !stable) return;
-        if (gameRef2.tryActivateGroupDrag(this)) {
-          gameRef2.startActiveGroupDrag(this);
-        }
-      });
-      return;
-    }
-
-    final anchor = _liftHoldAnchor;
-    if (anchor != null && position.distanceTo(anchor) > 10) {
-      _liftHoldTimer?.cancel();
-      _liftHoldTimer = null;
-      _liftHoldAnchor = null;
-    }
+    final fx = RectangleComponent(
+      size: Vector2(size.x - 6, size.y - 6),
+      position: size / 2,
+      anchor: Anchor.center,
+      paint: Paint()
+        ..style = PaintingStyle.fill
+        ..color = const Color(0x334DD0E1),
+      priority: 300,
+    );
+    add(fx);
+    _groupMarkFx = fx;
   }
 
   // =============================

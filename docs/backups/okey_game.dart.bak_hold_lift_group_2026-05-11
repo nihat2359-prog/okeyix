@@ -4918,49 +4918,43 @@ class OkeyGame extends FlameGame with TapDetector {
   bool tryActivateGroupDrag(TileComponent anchor) {
     _clearGroupDragVisuals();
     _rebuildOccupiedSlots();
-    final anchorSlot = anchor.currentSlotIndex ?? anchor.originalSlotIndex;
+    final anchorSlot = anchor.currentSlotIndex;
     if (anchorSlot == null) return false;
 
     final row = anchorSlot ~/ RackConfig.columns;
     final rowStart = row * RackConfig.columns;
     final rowEnd = rowStart + RackConfig.columns - 1;
 
-    bool hasTileAt(int i) {
-      if (i == anchorSlot) return true;
-      return _mountedTileAtSlot(i, ignore: anchor) != null;
-    }
-
     int left = anchorSlot;
-    while (left - 1 >= rowStart && hasTileAt(left - 1)) {
+    while (left - 1 >= rowStart && _mountedTileAtSlot(left - 1) != null) {
       left--;
     }
     int right = anchorSlot;
-    while (right + 1 <= rowEnd && hasTileAt(right + 1)) {
+    while (right + 1 <= rowEnd && _mountedTileAtSlot(right + 1) != null) {
       right++;
     }
 
     final tiles = <TileComponent>[];
     for (int i = left; i <= right; i++) {
-      final t = i == anchorSlot
-          ? anchor
-          : _mountedTileAtSlot(i, ignore: anchor);
+      final t = _mountedTileAtSlot(i);
       if (t != null) tiles.add(t);
     }
     if (tiles.length < 2) return false;
 
-    int slotOf(TileComponent t) => t.currentSlotIndex ?? t.originalSlotIndex ?? -1;
-
-    tiles.sort((a, b) => slotOf(a).compareTo(slotOf(b)));
+    tiles.sort(
+      (a, b) => (a.currentSlotIndex ?? 0).compareTo(b.currentSlotIndex ?? 0),
+    );
     _groupDragTiles
       ..clear()
       ..addAll(tiles);
     _groupDragAnchor = anchor;
     _groupDragAnchorOffset = anchorSlot - left;
     for (final t in _groupDragTiles) {
-      final slot = t.currentSlotIndex ?? t.originalSlotIndex;
+      final slot = t.currentSlotIndex;
       if (slot != null) {
         _groupDragOriginalSlots[t] = slot;
       }
+      t.setGroupMarked(true);
     }
     return true;
   }
@@ -4968,7 +4962,6 @@ class OkeyGame extends FlameGame with TapDetector {
   void startActiveGroupDrag(TileComponent anchor) {
     if (!isGroupDragAnchor(anchor)) return;
     _rebuildOccupiedSlots();
-    final anchorSlot = _groupDragOriginalSlots[anchor];
     for (final t in _groupDragTiles) {
       final idx = t.currentSlotIndex;
       if (idx != null) {
@@ -4977,19 +4970,6 @@ class OkeyGame extends FlameGame with TapDetector {
       t.currentSlotIndex = null;
       t.originalSlotIndex = _groupDragOriginalSlots[t];
       t.originalPosition = t.position.clone();
-    }
-
-    // Visual feedback: when group mode activates, lift whole group to anchor level.
-    if (anchorSlot != null) {
-      final anchorBasePos = slotPositions[anchorSlot];
-      for (final t in _groupDragTiles) {
-        if (identical(t, anchor)) continue;
-        final slot = _groupDragOriginalSlots[t];
-        if (slot == null) continue;
-        final slotBasePos = slotPositions[slot];
-        final dx = slotBasePos.x - anchorBasePos.x;
-        t.position = Vector2(anchor.position.x + dx, anchor.position.y);
-      }
     }
   }
 
@@ -5056,6 +5036,9 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   void _clearGroupDragVisuals() {
+    for (final t in _groupDragTiles) {
+      t.setGroupMarked(false);
+    }
     _groupDragTiles.clear();
     _groupDragOriginalSlots.clear();
     _groupDragAnchor = null;
