@@ -42,8 +42,8 @@ class _DockActionButtonState extends State<DockActionButton> {
             borderRadius: BorderRadius.circular(26),
             gradient: const LinearGradient(
               colors: [Color(0xFFFFE7A8), Color(0xFFE7C66A), Color(0xFFB9932F)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
             boxShadow: _pressed
                 ? [
@@ -179,41 +179,41 @@ class AuthButton extends StatelessWidget {
 
     switch (type) {
       case AuthButtonType.apple:
-        bg = [const Color(0xFF2A2A2F), const Color(0xFF0F0F12)];
-        border = Colors.white.withOpacity(0.28);
+        bg = [const Color(0xFF2A2D34), const Color(0xFF171A20)];
+        border = Colors.white.withOpacity(0.18);
         textColor = Colors.white;
         break;
 
       case AuthButtonType.google:
-        bg = [const Color(0xFFFFFFFF), const Color(0xFFF1F4FF)];
-        border = const Color(0xFF4285F4).withOpacity(0.75);
-        textColor = const Color(0xFF1A2A4A);
+        bg = [const Color(0xFFFFFFFF), const Color(0xFFF8FAFF)];
+        border = const Color(0xFF4285F4).withOpacity(0.45);
+        textColor = const Color(0xFF22304A);
         break;
 
       case AuthButtonType.guest:
-        bg = [const Color(0xFF2F333A), const Color(0xFF171A20)];
-        border = const Color(0xFFB8C0CC).withOpacity(0.45);
+        bg = [const Color(0xFF2B313A), const Color(0xFF1C212A)];
+        border = const Color(0xFFE7C66A).withOpacity(0.35);
         textColor = const Color(0xFFE7ECF3);
         break;
     }
 
     return SizedBox(
-      height: 56,
+      height: 58,
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onTap,
         style: ButtonStyle(
           elevation: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.pressed)) return 2;
-            return 6;
+            if (states.contains(MaterialState.pressed)) return 2.0;
+            return 4.0;
           }),
           backgroundColor: MaterialStateProperty.all(Colors.transparent),
-          shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.6)),
+          shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.35)),
           shape: MaterialStateProperty.all(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           overlayColor: MaterialStateProperty.all(
-            Colors.white.withOpacity(0.04),
+            Colors.white.withOpacity(0.12),
           ),
           padding: MaterialStateProperty.all(EdgeInsets.zero),
         ),
@@ -221,21 +221,21 @@ class AuthButton extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             // color: bg, // 🔥 ANA YÜZEY
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
 
             border: Border.all(color: border, width: 1),
 
             /// 🔥 DERİNLİK (çok önemli)
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.6),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.24),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
               ),
             ],
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: bg,
             ),
           ),
@@ -247,12 +247,12 @@ class AuthButton extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: Container(
-                    height: 12,
+                    height: 16,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(14),
                       gradient: LinearGradient(
                         colors: [
-                          Colors.white.withOpacity(0.06),
+                          Colors.white.withOpacity(0.12),
                           Colors.transparent,
                         ],
                         begin: Alignment.topCenter,
@@ -280,15 +280,15 @@ class AuthButton extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             icon,
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Text(
                               text,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: textColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.5,
                               ),
                             ),
                           ],
@@ -367,8 +367,8 @@ class _PremiumCoinButtonState extends State<PremiumCoinButton>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                   colors: [
                     Color(0xFF3E3212), // çok koyu edge
                     Color(0xFF0F2A1E), // mid gold
@@ -410,8 +410,8 @@ class _PremiumCoinButtonState extends State<PremiumCoinButton>
                                         Colors.transparent,
                                       ],
                                       stops: const [0.3, 0.5, 0.7],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
                                     ),
                                   ),
                                 ),
