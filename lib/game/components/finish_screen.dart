@@ -3,6 +3,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/format.dart';
 import 'package:okeyix/engine/models/tile.dart';
 
 import 'package:okeyix/game/okey_game.dart';
@@ -171,15 +172,16 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
   }
 
   String _getResultText() {
-    final amountText = "${winAmount >= 0 ? '+' : ''}$winAmount";
+    final amountText =
+        "${winAmount >= 0 ? '+' : '-'}${Format.coin(winAmount.abs())}";
 
     if (isSpectator) {
       return "$winnerName $amountText KAZANDI";
     }
 
     if (isWinner) {
-      if (isOkeyFinish) return "OKEY +$winAmount";
-      if (isDoubleFinish) return "CIFT +$winAmount";
+      if (isOkeyFinish) return "OKEY $amountText";
+      if (isDoubleFinish) return "CIFT $amountText";
 
       return "KAZANDIN $amountText";
     }

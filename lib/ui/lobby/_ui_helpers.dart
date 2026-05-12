@@ -400,39 +400,44 @@ Widget lobbyDockIcon({
   required String asset,
   String? badgeValue,
   required VoidCallback onTap,
+  double iconSize = 32,
+  double iconOpacity = 1,
 }) {
   return Stack(
     clipBehavior: Clip.none,
     children: [
       InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Container(
           width: 52,
           height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            shape: BoxShape.circle,
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF2A2018), Color(0xFF17110D)],
+              colors: [Color(0xFF18352D), Color(0xFF0E231E)],
             ),
-            border: Border.all(color: const Color(0x66D9B97A), width: 1.1),
+            border: Border.all(color: const Color(0xFFE7C66A), width: 1.6),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x66000000),
-                blurRadius: 8,
-                offset: Offset(0, 3),
+                blurRadius: 10,
+                offset: Offset(0, 4),
               ),
             ],
           ),
 
-          child: Image.asset(
-            asset,
-            width: 32,
-            height: 32,
-            filterQuality: FilterQuality.high,
+          child: Opacity(
+            opacity: iconOpacity,
+            child: Image.asset(
+              asset,
+              width: iconSize,
+              height: iconSize,
+              filterQuality: FilterQuality.high,
+            ),
           ),
         ),
       ),

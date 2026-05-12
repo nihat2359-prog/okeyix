@@ -24,7 +24,7 @@ class LobbyBottomDock extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: SizedBox(
-          height: 96,
+          height: 82,
           child: LayoutBuilder(
             builder: (context, constraints) {
               const double sidePadding = 12;
@@ -46,26 +46,30 @@ class LobbyBottomDock extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(22),
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                         child: Container(
-                          height: 74,
+                          height: 60,
                           width: double.infinity,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(22),
                             gradient: const LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Color(0xD1151D1A), Color(0xE00D1210)],
+                              colors: [Color(0x2A1A2521), Color(0x30101513)],
                             ),
                             border: Border.all(
-                              color: const Color(0x66D9B97A),
-                              width: 1.1,
+                              color: const Color(0x33FFEBC6),
+                              width: 1.0,
                             ),
                             boxShadow: const [
                               BoxShadow(
-                                color: Color(0x66000000),
-                                blurRadius: 18,
-                                offset: Offset(0, 8),
+                                color: Color(0x1AFFD76A),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Color(0x59000000),
+                                blurRadius: 12,
                               ),
                             ],
                           ),
@@ -106,7 +110,7 @@ class LobbyBottomDock extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    top: -4,
+                    top: -1,
                     child: center,
                   ),
                 ],

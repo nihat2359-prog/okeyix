@@ -49,15 +49,15 @@ class _CreateButtonState extends State<CreateButton>
             final glow = 0.4 + (_glowController.value * 0.4);
 
             return Container(
-              width: 82,
-              height: 82,
+              width: 74,
+              height: 74,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFE7C66A).withOpacity(glow),
-                    blurRadius: 28,
-                    spreadRadius: 3,
+                    blurRadius: 20,
+                    spreadRadius: 1,
                   ),
                   BoxShadow(
                     color: Colors.black.withOpacity(0.8),
@@ -74,13 +74,13 @@ class _CreateButtonState extends State<CreateButton>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
+                        colors: [Color(0xFF163A33), Color(0xFF0B221F)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       border: Border.all(
                         color: const Color(0xB3D9B97A),
-                        width: 1.8,
+                        width: 1.6,
                       ),
                     ),
                   ),
@@ -101,8 +101,8 @@ class _CreateButtonState extends State<CreateButton>
 
                   /// LIGHT RING
                   Container(
-                    width: 60,
-                    height: 60,
+                    width: 54,
+                    height: 54,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white.withOpacity(0.12)),
@@ -157,8 +157,8 @@ class AaaPlus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 30,
-      height: 30,
+      width: 28,
+      height: 28,
       child: Stack(
         alignment: Alignment.center,
         children: [

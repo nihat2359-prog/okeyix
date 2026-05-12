@@ -135,11 +135,11 @@ class LobbyLeagueList extends StatelessWidget {
             gradient: LinearGradient(
               colors: selected
                   ? [
-                      Color(0xAA6C4A2F),
+                      Color(0xAA2E5A52),
                       Color(0xCCB27A43),
-                      Color(0xAA6C4A2F),
+                      Color(0xAA2E5A52),
                     ]
-                  : [Color(0x5535231A), Color(0x77402A1F)],
+                  : [Color(0x55304640), Color(0x77405E57)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -183,8 +183,8 @@ class LobbyLeagueList extends StatelessWidget {
 
               gradient: LinearGradient(
                 colors: selected
-                    ? [const Color(0xFF2A201A), const Color(0xFF1E1713)]
-                    : [const Color(0xFF251D18), const Color(0xFF181311)],
+                    ? [const Color(0xFF18352F), const Color(0xFF102722)]
+                    : [const Color(0xFF152D29), const Color(0xFF0E201D)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -198,7 +198,7 @@ class LobbyLeagueList extends StatelessWidget {
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8),
                 const BoxShadow(
-                  color: Color(0xFF2A1A13),
+                  color: Color(0xFF10201D),
                   blurRadius: 24,
                   spreadRadius: -10,
                 ),
@@ -294,11 +294,11 @@ class LobbyLeagueList extends StatelessWidget {
             blendMode: BlendMode.srcATop,
             shaderCallback: (bounds) => const LinearGradient(
               colors: [
-                Color(0xFF7A5A1F), // 🔥 koyu altın (alt)
-                Color(0xFFCFAE54), // 🔥 ana
-                Color(0xFFE7C66A), // 🔥 parlak altın
+                Color(0xFF7A5A1F),
                 Color(0xFFCFAE54),
-                Color(0xFF7A5A1F), // 🔥 tekrar koyu
+                Color(0xFFE7C66A),
+                Color(0xFFCFAE54),
+                Color(0xFF7A5A1F),
               ],
               stops: [0.0, 0.35, 0.55, 0.75, 1.0],
               begin: Alignment.bottomCenter,
@@ -345,19 +345,19 @@ class LobbyLeagueList extends StatelessWidget {
   Color _leagueColorById(String id) {
     switch (id) {
       case 'standard': // Acemiler
-        return const Color(0xFFFFD54F); // neon green
+        return const Color(0xFFFFD54F);
 
       case 'bronze': // Çıraklar
-        return const Color(0xFFFFD54F); // canlı bronze (turuncuya yakın)
+        return const Color(0xFFFFD54F);
 
       case 'silver': // Kalfalar
-        return const Color(0xFFFFD54F); // açık silver (parlak)
+        return const Color(0xFFFFD54F);
 
       case 'gold': // Ustalar
-        return const Color(0xFFFFD54F); // vivid gold
+        return const Color(0xFFFFD54F);
 
       case 'elite': // Şampiyonlar
-        return const Color(0xFFFFD54F); // premium neon gold (🔥)
+        return const Color(0xFFFFD54F);
 
       default:
         return const Color(0xFFFFD54F);
@@ -449,7 +449,7 @@ class LobbyLeagueList extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFE7C66A), Color(0xFF9A7732)],
+              colors: [Color(0xFF5BAF9F), Color(0xFF2A5B53)],
             ),
             boxShadow: [
               BoxShadow(
@@ -467,7 +467,7 @@ class LobbyLeagueList extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF2B241F), Color(0xFF171311)],
+                colors: [Color(0xFF1A3430), Color(0xFF101E1C)],
               ),
             border: Border.all(color: const Color(0x66D5B981), width: 0.9),
             ),
@@ -487,11 +487,11 @@ class LobbyLeagueList extends StatelessWidget {
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) => const LinearGradient(
             colors: [
-              Color(0xFF7A5A1F), // koyu altın
-              Color(0xFFCFAE54), // ana
-              Color(0xFFE7C66A), // parlak
-              Color(0xFFCFAE54),
-              Color(0xFF7A5A1F),
+              Color(0xFF2B6B62),
+              Color(0xFF58AFA0),
+              Color(0xFFE7C66A),
+              Color(0xFF58AFA0),
+              Color(0xFF2B6B62),
             ],
             stops: [0.0, 0.35, 0.55, 0.75, 1.0],
             begin: Alignment.bottomCenter,
@@ -679,7 +679,7 @@ class LobbyLeagueList extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFFE7C66A), Color(0xFF9A7732)],
+                  colors: [Color(0xFF5BAF9F), Color(0xFF2A5B53)],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -699,7 +699,7 @@ class LobbyLeagueList extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF2B241F), Color(0xFF171311)],
+                  colors: [Color(0xFF1A3430), Color(0xFF101E1C)],
                 ),
                 border: Border.all(
                   color: const Color(0x66D5B981),
@@ -823,9 +823,9 @@ class GoldBorderPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: selected
             ? [
-                Color(0xFFC8A94E),
+                Color(0xFF4D978A),
                 Color(0xFFE7C66A),
-                Color(0xFFFFF3A0),
+                Color(0xFFC5F3E9),
                 Color(0xFFE7C66A),
               ]
             : [Color(0x55C8A94E), Color(0x88E7C66A)],

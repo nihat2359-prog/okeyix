@@ -5654,9 +5654,17 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _dockLeft() {
     return Row(
       children: [
-        lobbyDockIcon(
-          asset: "assets/images/lobby/menu_bar.png",
+        AaaDockIcon(
           onTap: _toggleSideMenu,
+          child: Opacity(
+            opacity: 0.88,
+            child: Image.asset(
+              "assets/images/lobby/menu_bar.png",
+              width: 24,
+              height: 24,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
         ),
         const SizedBox(width: 10),
 
@@ -5717,7 +5725,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Widget _dockCenter() {
     return Transform.translate(
-      offset: const Offset(0, -2),
+      offset: const Offset(0, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [CreateButton(onTap: _showCreateModal)],
@@ -5730,19 +5738,19 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Row(
       children: [
         _coinBuyDockButton(),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         AaaDockIcon(
           icon: Icons.emoji_events,
           onTap: () {
             _openLeaderboard();
           },
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         AaaDockIcon(
           icon: Icons.people,
           onTap: () => _openRightPanel(_RightPanelType.friends),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         AaaDockIcon(
           onTap: () => _openRightPanel(_RightPanelType.messages),
           child: Stack(
@@ -5809,18 +5817,18 @@ class _LobbyScreenState extends State<LobbyScreen>
               }
             },
             child: Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF2A2018), Color(0xFF17110D)],
+                  colors: [Color(0xFF18352D), Color(0xFF0E231E)],
                 ),
                 border: Border.all(
                   color: const Color.fromARGB(169, 231, 198, 106),
-                  width: 2,
+                  width: 1.6,
                 ),
                 boxShadow: [
                   BoxShadow(

@@ -41,26 +41,50 @@ begin
   -- i=0..25 normalize edilir, 26 slot kesin korunur.
   -- Son eşleşen slotta tile=null yapılır.
   -------------------------------------------------
-  with normalized as (
+  with exploded as (
+    select
+      e.ordinality::int - 1 as idx,
+      e.value as slot
+    from jsonb_array_elements(p_slots) with ordinality as e(value, ordinality)
+  ),
+  normalized as (
     select
       gs as idx,
       coalesce(
-        (
-          select s
-          from jsonb_array_elements(p_slots) s
-          where coalesce((s->>'i')::int, -1) = gs
-          limit 1
-        ),
+        (select ex.slot from exploded ex where ex.idx = gs limit 1),
         jsonb_build_object('i', gs)
       ) as slot
     from generate_series(0, 25) gs
   ),
-  to_clear as (
-    select idx
+  tile_counts as (
+    select count(*)::int as tile_count
     from normalized
     where slot->'tile' is not null
-      and slot->'tile'->>'id' = p_last_tile->>'id'
-    order by idx desc
+  ),
+  to_clear as (
+    (
+      select idx
+      from normalized
+      where slot->'tile' is not null
+        and slot->'tile'->>'id' = p_last_tile->>'id'
+      order by idx desc
+      limit 1
+    )
+    union all
+    (
+      select n.idx
+      from normalized n
+      where n.slot->'tile' is not null
+        and not exists (
+          select 1
+          from normalized m
+          where m.slot->'tile' is not null
+            and m.slot->'tile'->>'id' = p_last_tile->>'id'
+        )
+        and (select tile_count from tile_counts) > 14
+      order by n.idx desc
+      limit 1
+    )
     limit 1
   ),
   rebuilt as (
@@ -76,11 +100,6 @@ begin
   select coalesce(jsonb_agg(slot order by idx), '[]'::jsonb)
   into v_slots
   from rebuilt;
-
-  raise notice 'GF slots input=% rebuilt=% last_tile_id=%',
-    jsonb_array_length(coalesce(p_slots, '[]'::jsonb)),
-    jsonb_array_length(coalesce(v_slots, '[]'::jsonb)),
-    coalesce(p_last_tile->>'id', '');
 
   -------------------------------------------------
   -- TABLE LOCK
@@ -249,20 +268,27 @@ begin
   where id = p_user_id;
 
   -------------------------------------------------
-  -- WIN / LOSS STATS (users)
+  -- WIN / LOSS STATS (users) [safe / non-blocking]
   -------------------------------------------------
-  update public.users
-  set wins = coalesce(wins, 0) + 1
-  where id = p_user_id;
+  begin
+    if to_regclass('public.users') is not null then
+      update public.users
+      set wins = coalesce(wins, 0) + 1
+      where id = p_user_id;
 
-  update public.users u
-  set losses = coalesce(losses, 0) + 1
-  where u.id in (
-    select tp.user_id
-    from public.table_players tp
-    where tp.table_id = p_table_id
-      and tp.user_id <> p_user_id
-  );
+      update public.users u
+      set losses = coalesce(losses, 0) + 1
+      where u.id in (
+        select tp.user_id
+        from public.table_players tp
+        where tp.table_id = p_table_id
+          and tp.user_id <> p_user_id
+      );
+    end if;
+  exception
+    when others then
+      raise notice 'GF stats update skipped: %', SQLERRM;
+  end;
 
   insert into public.wallet_transactions(user_id, amount, reason)
   values (p_user_id, v_winner_reward, 'game_win');
