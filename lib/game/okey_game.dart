@@ -62,6 +62,7 @@ class OkeyGame extends FlameGame with TapDetector {
   bool _hasDrawnFromSourceThisRound = false;
   bool _indicatorBonusClaimedThisRound = false;
   bool _indicatorBonusInFlight = false;
+  bool _indicatorBonusAcceptAnyTileForTest = false;
   VoidCallback? onHudChanged;
   void Function(int amount)? onIndicatorBonusAwarded;
   void Function(bool visible)? onFinishVisibilityChanged;
@@ -1133,6 +1134,7 @@ class OkeyGame extends FlameGame with TapDetector {
         '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
 
     try {
+      var didDrawThisTurn = false;
       var rows = await Supabase.instance.client
           .from('table_players')
           .select('hand')
@@ -1158,6 +1160,7 @@ class OkeyGame extends FlameGame with TapDetector {
 
       /// draw
       if (hand.length == 14) {
+        didDrawThisTurn = true;
         final fromSeat = (currentTurn - 1 + _maxPlayers) % _maxPlayers;
         final topDiscard = await _fetchDiscardTopForSeat(fromSeat);
         _decayBotRecentDiscards(botUserId);
@@ -1255,6 +1258,12 @@ class OkeyGame extends FlameGame with TapDetector {
 
       if (hand is! List || hand.length != 15) return;
       _botNoHandRetryAfter = null;
+
+      // Human-like pacing: after drawing, wait a bit before discard/finish.
+      if (didDrawThisTurn) {
+        final jitterMs = DateTime.now().millisecond % 420;
+        await Future<void>.delayed(Duration(milliseconds: 780 + jitterMs));
+      }
 
       final finishPlan = _buildBotFinishPlan(hand);
       final canFinish = finishPlan != null;
@@ -2199,10 +2208,10 @@ class OkeyGame extends FlameGame with TapDetector {
       //-------------------------------------------------
       // TILE OLUŞTUR
       //-------------------------------------------------
-      final tile = TileComponent(
-        tile: model,
-        position: (closedPileComponent?.position ?? Vector2(800, 430)).clone(),
-      );
+      final initialPos = wasHandEmptyBeforeRender
+          ? (closedPileComponent?.position ?? Vector2(800, 430)).clone()
+          : slotPositions[slotIndex].clone();
+      final tile = TileComponent(tile: model, position: initialPos);
 
       tile.currentSlotIndex = slotIndex;
       _lastKnownSlotByTileId[model.id] = slotIndex;
@@ -2788,6 +2797,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   bool _isMatchingIndicatorTile(TileComponent tile) {
+    if (_indicatorBonusAcceptAnyTileForTest) return true;
     final indicator = indicatorTileComponent;
     if (indicator == null) return false;
     if (tile.isJoker || tile.isFakeJoker) return false;
@@ -2796,8 +2806,11 @@ class OkeyGame extends FlameGame with TapDetector {
 
   Future<bool> tryClaimIndicatorBonus(TileComponent tile) async {
     if (_indicatorBonusInFlight || _indicatorBonusClaimedThisRound) return false;
-    if (!_isMyTurn()) return false;
-    if (_hasDrawnFromSourceThisRound || hasDrawnThisTurn) return false;
+    if (!_indicatorBonusAcceptAnyTileForTest && !_isMyTurn()) return false;
+    if (!_indicatorBonusAcceptAnyTileForTest &&
+        (_hasDrawnFromSourceThisRound || hasDrawnThisTurn)) {
+      return false;
+    }
     if (!_isMatchingIndicatorTile(tile)) return false;
     final indicator = indicatorTileComponent;
     if (indicator == null) return false;
@@ -2825,6 +2838,12 @@ class OkeyGame extends FlameGame with TapDetector {
         ),
       );
       await Future<void>.delayed(const Duration(milliseconds: 760));
+
+      if (_indicatorBonusAcceptAnyTileForTest) {
+        _indicatorBonusClaimedThisRound = true;
+        onIndicatorBonusAwarded?.call(1);
+        return true;
+      }
 
       final reward = await _claimIndicatorBonusFromPot();
       if (reward <= 0) return false;
@@ -3216,6 +3235,14 @@ class OkeyGame extends FlameGame with TapDetector {
   Future<void> _handleMove(Map<String, dynamic> move) async {
     final type = move['move_type']?.toString();
     final playerId = move['player_id'];
+    final myUserId = UserState.userId;
+
+    // Never replay our own realtime moves locally; local UX already handled.
+    if (myUserId != null &&
+        playerId != null &&
+        playerId.toString() == myUserId) {
+      return;
+    }
 
     final seat = _seatFromUserId(playerId);
     if (seat == null) return;
@@ -3265,6 +3292,7 @@ class OkeyGame extends FlameGame with TapDetector {
   Future<void> _animateDiscardToPlayer({
     required int fromSeat,
     required int toSeat,
+    int? preferredRackSlot,
     Map<String, dynamic>? tileData,
   }) async {
     final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
@@ -3286,8 +3314,12 @@ class OkeyGame extends FlameGame with TapDetector {
     // 🔥 başlangıç: discard slotu (SENDE VAR)
     final start = fromSlot.position.clone();
 
-    // 🔥 hedef: oyuncunun çekme noktası (SENDE VAR)
-    final end = _drawAnimationTargetForSeat(toSeat);
+    // Hedefi dogrudan rackteki bos slota verelim; merkeze dusup sonra slota atlamasin.
+    final end = (preferredRackSlot != null &&
+            preferredRackSlot >= 0 &&
+            preferredRackSlot < slotPositions.length)
+        ? slotPositions[preferredRackSlot].clone()
+        : _drawAnimationTargetForSeat(toSeat);
 
     final transient = TileComponent(
       tile: tileModel!, // 🔥 zorunlu
@@ -5509,6 +5541,17 @@ class OkeyGame extends FlameGame with TapDetector {
     }
     final fromSeat = _absoluteSeatForSlot(slot);
     if (fromSeat == null) return;
+
+    // Keep drag-selected target slot if it already exists; otherwise fallback.
+    if (_pendingPreferredDrawSlot == null) {
+      final preferredRackSlot = _findFirstEmptySlot();
+      if (preferredRackSlot != -1) {
+        _pendingPreferredDrawSlot = preferredRackSlot;
+      }
+    }
+    _holdDiscardSeatSync(fromSeat);
+    _consumeDiscardTopVisualAfterDraw(fromSeat);
+
     _serverDraw(source: 'discard', fromSeat: fromSeat);
   }
 
@@ -5608,6 +5651,34 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     return null;
+  }
+
+  void _consumeDiscardTopVisualAfterDraw(int fromSeat) {
+    final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
+    final fromSlot = _discardSlotsByIndex[fromSlotIndex];
+    if (fromSlot == null) return;
+
+    final removed = _popDiscardStack(fromSeat);
+    final revealed = _peekDiscardStack(fromSeat);
+    final previousTop = _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
+
+    if (previousTop != null) {
+      previousTop.removeFromParent();
+      _discardTopTilesBySeat.remove(fromSeat);
+      fromSlot.currentTile = null;
+    }
+
+    if (revealed != null) {
+      final revealedTile =
+          TileComponent(tile: revealed, position: fromSlot.position.clone())
+            ..priority = 50
+            ..isLocked = true;
+      world.add(revealedTile);
+      _discardTopTilesBySeat[fromSeat] = revealedTile;
+      fromSlot.currentTile = revealedTile;
+    } else if (removed != null) {
+      _fetchAndShowPreviousDiscardTop(fromSeat, removed.id);
+    }
   }
 
   List<_FinishTile> buildFinishTilesFromHand(List hand) {

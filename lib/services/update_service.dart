@@ -14,10 +14,13 @@ class UpdateService {
   static final UpdateService instance = UpdateService._();
 
   bool _didCheckThisSession = false;
+  bool _checkInFlight = false;
   bool _dialogOpen = false;
+  String? _shownUpdateTokenThisSession;
 
   Future<void> checkForUpdatesOnStartup(BuildContext context) async {
-    if (_didCheckThisSession) return;
+    if (_didCheckThisSession || _checkInFlight) return;
+    _checkInFlight = true;
     _didCheckThisSession = true;
 
     try {
@@ -30,6 +33,8 @@ class UpdateService {
       }
     } catch (e) {
       debugPrint('UPDATE_CHECK_ERROR: $e');
+    } finally {
+      _checkInFlight = false;
     }
   }
 
@@ -39,13 +44,18 @@ class UpdateService {
 
     final staleDays = info.clientVersionStalenessDays ?? 0;
     final critical = info.immediateUpdateAllowed && staleDays >= 7;
+    final androidToken =
+        'android:${info.availableVersionCode ?? 0}:${info.installStatus.name}';
+    if (_shownUpdateTokenThisSession == androidToken) return;
 
     if (critical) {
+      _shownUpdateTokenThisSession = androidToken;
       await InAppUpdate.performImmediateUpdate();
       return;
     }
 
     if (info.flexibleUpdateAllowed) {
+      _shownUpdateTokenThisSession = androidToken;
       final accepted = await _showOptionalUpdateDialog(
         context,
         title: 'Yeni Surum Hazir',
@@ -61,6 +71,7 @@ class UpdateService {
     }
 
     if (info.immediateUpdateAllowed) {
+      _shownUpdateTokenThisSession = androidToken;
       final accepted = await _showOptionalUpdateDialog(
         context,
         title: 'Yeni Surum Hazir',
@@ -103,6 +114,9 @@ class UpdateService {
 
       final needsUpdate = _compareVersion(currentVersion, latest) < 0;
       if (!needsUpdate) return;
+      final iosToken = 'ios:$latest';
+      if (_shownUpdateTokenThisSession == iosToken) return;
+      _shownUpdateTokenThisSession = iosToken;
 
       final accepted = await _showOptionalUpdateDialog(
         context,

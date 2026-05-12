@@ -79,8 +79,8 @@ class _CreateButtonState extends State<CreateButton>
                         end: Alignment.bottomRight,
                       ),
                       border: Border.all(
-                        color: const Color(0xFFE7C66A),
-                        width: 3,
+                        color: const Color(0xB3D9B97A),
+                        width: 1.8,
                       ),
                     ),
                   ),

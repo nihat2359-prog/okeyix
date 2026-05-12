@@ -147,15 +147,21 @@ class LobbyLeagueList extends StatelessWidget {
             boxShadow: [
               if (selected)
                 BoxShadow(
-                  color: const Color(0x665E735F).withOpacity(0.45),
-                  blurRadius: 18,
-                  spreadRadius: 0.5,
+                  color: const Color(0x665E735F).withOpacity(0.72),
+                  blurRadius: 24,
+                  spreadRadius: 1.0,
                 ),
               if (selected)
                 const BoxShadow(
                   color: Color(0x44000000),
                   blurRadius: 14,
                   offset: Offset(0, 3),
+                ),
+              if (selected)
+                const BoxShadow(
+                  color: Color(0x4DB27A43),
+                  blurRadius: 16,
+                  spreadRadius: 0.4,
                 ),
             ],
           ),
@@ -184,9 +190,9 @@ class LobbyLeagueList extends StatelessWidget {
               ),
               border: Border.all(
                 color: selected
-                    ? const Color(0xB38F623D)
+                    ? const Color(0xE08F623D)
                     : const Color(0x77523624),
-                width: selected ? 1.1 : 0.9,
+                width: selected ? 1.2 : 0.9,
               ),
 
               boxShadow: [

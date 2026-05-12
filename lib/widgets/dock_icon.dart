@@ -76,7 +76,7 @@ class _AaaDockIconState extends State<AaaDockIcon>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
+                        colors: [Color(0xFF2A2018), Color(0xFF17110D)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

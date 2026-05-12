@@ -1556,7 +1556,72 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                     ],
                   ),
                 ),
+              if (finishOverlayOpen) _buildFinishLeaveButton(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishLeaveButton() {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 26),
+          child: GestureDetector(
+            onTap: _isLeavingTable ? null : _leaveTable,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: _isLeavingTable ? 0.7 : 1,
+              child: Container(
+                width: 248,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFE56F57), Color(0xFFB73E36)],
+                  ),
+                  border: Border.all(color: const Color(0xFFFFD0C6), width: 1.1),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x662A0D0A),
+                      blurRadius: 18,
+                      offset: Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: Color(0x44FF8D78),
+                      blurRadius: 14,
+                      spreadRadius: -6,
+                      offset: Offset(0, -1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.logout_rounded,
+                      color: Color(0xFFFFF4EF),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isLeavingTable ? 'Ayrılıyor...' : 'Masadan Ayrıl',
+                      style: const TextStyle(
+                        color: Color(0xFFFFF8F5),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

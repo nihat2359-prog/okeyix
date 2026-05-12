@@ -179,21 +179,21 @@ class AuthButton extends StatelessWidget {
 
     switch (type) {
       case AuthButtonType.apple:
-        bg = [Color(0xFF0F2A1E), Color.fromARGB(255, 2, 17, 11)];
-        border = Colors.white.withOpacity(0.12);
+        bg = [const Color(0xFF2A2A2F), const Color(0xFF0F0F12)];
+        border = Colors.white.withOpacity(0.28);
         textColor = Colors.white;
         break;
 
       case AuthButtonType.google:
-        bg = [Color(0xFF0F2A1E), Color(0xFF071A12)];
-        border = const Color(0xFFE7C66A).withOpacity(0.5);
-        textColor = const Color(0xFFE7C66A);
+        bg = [const Color(0xFFFFFFFF), const Color(0xFFF1F4FF)];
+        border = const Color(0xFF4285F4).withOpacity(0.75);
+        textColor = const Color(0xFF1A2A4A);
         break;
 
       case AuthButtonType.guest:
-        bg = [Color(0xFF0F2A1E), Color(0xFF071A12)];
-        border = const Color(0xFFE7C66A).withOpacity(0.35);
-        textColor = const Color(0xFFE7C66A);
+        bg = [const Color(0xFF2F333A), const Color(0xFF171A20)];
+        border = const Color(0xFFB8C0CC).withOpacity(0.45);
+        textColor = const Color(0xFFE7ECF3);
         break;
     }
 
@@ -274,20 +274,25 @@ class AuthButton extends StatelessWidget {
                           color: Color(0xFFE7C66A),
                         ),
                       )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          icon,
-                          const SizedBox(width: 10),
-                          Text(
-                            text,
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            icon,
+                            const SizedBox(width: 8),
+                            Text(
+                              text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
               ),
             ],

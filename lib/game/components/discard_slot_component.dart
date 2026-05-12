@@ -1,3 +1,5 @@
+import 'dart:async' as async;
+
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,8 @@ class DiscardSlotComponent extends PositionComponent
   TileComponent? currentTile;
   SpriteComponent? tileSprite;
   bool hidden = false;
+  DateTime? _lastTapDownAt;
+  async.Timer? _doubleTapResetTimer;
 
   DiscardSlotComponent({required this.playerIndex, required Vector2 position}) {
     this.position = position;
@@ -59,11 +63,26 @@ class DiscardSlotComponent extends PositionComponent
   }
 
   @override
-  void onTapUp(TapUpEvent event) {
+  void onTapDown(TapDownEvent event) {
     if (hidden) return;
-    super.onTapUp(event);
+    super.onTapDown(event);
     if (!isMounted) return;
-    game.takeFromDiscardTap(this);
+    final now = DateTime.now();
+    final isDouble =
+        _lastTapDownAt != null &&
+        now.difference(_lastTapDownAt!).inMilliseconds <= 480;
+    _lastTapDownAt = now;
+
+    _doubleTapResetTimer?.cancel();
+    _doubleTapResetTimer = async.Timer(const Duration(milliseconds: 520), () {
+      _lastTapDownAt = null;
+    });
+
+    if (isDouble) {
+      _lastTapDownAt = null;
+      _doubleTapResetTimer?.cancel();
+      game.takeFromDiscardTap(this);
+    }
   }
 
   @override
@@ -71,6 +90,8 @@ class DiscardSlotComponent extends PositionComponent
     if (hidden) return;
     super.onDragStart(event);
     if (!isMounted) return;
+    _lastTapDownAt = null;
+    _doubleTapResetTimer?.cancel();
     game.takeFromDiscardDrag(this, absolutePosition);
   }
 

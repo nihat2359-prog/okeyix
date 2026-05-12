@@ -28,7 +28,7 @@ Widget lobbyGlassIcon({
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: const Color(0x22111111),
-            border: Border.all(color: const Color(0x3355B98E)),
+            border: Border.all(color: const Color(0x55D9B97A)),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x33000000),
@@ -165,7 +165,7 @@ Widget lobbyStoreIcon({String? badgeValue, required VoidCallback onTap}) {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: const Color(0x22111111),
-            border: Border.all(color: const Color(0x3355B98E)),
+            border: Border.all(color: const Color(0x55D9B97A)),
           ),
 
           /// EMOJI ICON
@@ -411,6 +411,22 @@ Widget lobbyDockIcon({
           width: 52,
           height: 52,
           alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2A2018), Color(0xFF17110D)],
+            ),
+            border: Border.all(color: const Color(0x66D9B97A), width: 1.1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
 
           child: Image.asset(
             asset,

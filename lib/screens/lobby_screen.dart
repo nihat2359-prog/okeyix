@@ -5717,7 +5717,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Widget _dockCenter() {
     return Transform.translate(
-      offset: const Offset(0, -20),
+      offset: const Offset(0, -2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [CreateButton(onTap: _showCreateModal)],
@@ -5816,7 +5816,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF0F2A1E), Color(0xFF071A12)],
+                  colors: [Color(0xFF2A2018), Color(0xFF17110D)],
                 ),
                 border: Border.all(
                   color: const Color.fromARGB(169, 231, 198, 106),

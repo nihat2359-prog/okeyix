@@ -273,11 +273,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final keyboard = mq.viewInsets.bottom;
-    final isKeyboardOpen = keyboard > 0;
-
     return Scaffold(
+      backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
@@ -303,192 +300,96 @@ class _LoginScreenState extends State<LoginScreen>
           ),
 
           SafeArea(
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                bottom: isKeyboardOpen ? keyboard + 20 : 20,
-              ),
-              child: Row(
-                children: [
-                  /// 🔥 SOL (LOGO)
-                  Expanded(
-                    flex: 4,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 250),
-                      opacity: isKeyboardOpen ? 0.3 : 1,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          /// 🔥 LOGO (daha dramatik)
-                          Transform.translate(
-                            offset: const Offset(0, -10),
-                            child: AnimatedScale(
-                              scale: isKeyboardOpen ? 0.75 : 1,
-                              duration: const Duration(milliseconds: 250),
-                              child: Column(
-                                children: [
-                                  const OkeyixLogo(),
-                                  const SizedBox(height: 18),
-                                  const OkeyixLegalBlock(),
-                                ],
-                              ),
-                            ),
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 12.0;
+                final maxW = constraints.maxWidth;
+                final contentW = (maxW - 36).clamp(220.0, 2000.0);
+                final compactScale = ((contentW / 3) / 250).clamp(0.62, 1.0);
+                final logoScale = (1.15 + (1 - compactScale) * 0.25).clamp(
+                  1.08,
+                  1.32,
+                );
+                final isCompactLabels = compactScale < 0.84;
 
-                          const SizedBox(height: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 24),
-
-                  /// 🔥 SAĞ PANEL (LOGIN CARD)
-                  Expanded(
-                    flex: 5,
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
                     child: Center(
-                      child: SingleChildScrollView(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          width: 420,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 22,
-                            vertical: 22,
-                          ),
-
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(26),
-
-                            /// 🔥 GLASS DEPTH
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withOpacity(0.35),
-                                Colors.black.withOpacity(0.75),
-                              ],
-                            ),
-
-                            border: Border.all(
-                              color: const Color(0xFFE7C66A).withOpacity(0.4),
-                              width: 1.3,
-                            ),
-
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.9),
-                                blurRadius: 60,
-                                offset: const Offset(0, 25),
-                              ),
-                              BoxShadow(
-                                color: const Color(
-                                  0xFFE7C66A,
-                                ).withOpacity(0.15),
-                                blurRadius: 30,
-                              ),
-                            ],
-                          ),
-
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1100),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              /// 🔥 HEADER BLOCK
-                              Column(
+                              Transform.scale(
+                                scale: logoScale,
+                                child: const OkeyixLogo(),
+                              ),
+                              const SizedBox(height: 26),
+                              Row(
                                 children: [
-                                  Text(
-                                    "MASAYA KATIL",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.4,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.amber.withOpacity(0.6),
-                                          blurRadius: 12,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 6),
-
-                                  const Text(
-                                    "Gerçek oyuncularla rekabet et",
-                                    style: TextStyle(
-                                      color: Colors.white60,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 14),
-
-                                  /// 🔥 ALTIN SEPARATOR
-                                  Container(
-                                    width: 60,
-                                    height: 2,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFFD4AF37),
-                                          Color(0xFFFFD700),
-                                        ],
+                                  Expanded(
+                                    child: AuthButton(
+                                      icon: const Icon(
+                                        Icons.apple,
+                                        color: Colors.white,
+                                        size: 22,
                                       ),
+                                      text: isCompactLabels
+                                          ? "Apple"
+                                          : "Apple ile devam et",
+                                      type: AuthButtonType.apple,
+                                      onTap: _loginWithApple,
+                                    ),
+                                  ),
+                                  const SizedBox(width: spacing),
+                                  Expanded(
+                                    child: AuthButton(
+                                      icon: Image.asset(
+                                        "assets/images/google.png",
+                                        height: 20,
+                                      ),
+                                      text: isCompactLabels
+                                          ? "Google"
+                                          : "Google ile devam et",
+                                      type: AuthButtonType.google,
+                                      onTap: _loginWithGoogle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: spacing),
+                                  Expanded(
+                                    child: AuthButton(
+                                      icon: const Icon(
+                                        Icons.person_outline,
+                                        color: Color(0xFFE7C66A),
+                                      ),
+                                      text: "Misafir Girişi",
+                                      type: AuthButtonType.guest,
+                                      onTap: _loadingGuest ? null : _playAsGuest,
+                                      loading: _loadingGuest,
                                     ),
                                   ),
                                 ],
                               ),
-
-                              const SizedBox(height: 20),
-
-                              /// 🔥 BUTON ALANI (senin butonlar aynen kalacak)
-                              AuthButton(
-                                icon: const Icon(
-                                  Icons.apple,
-                                  color: Colors.white,
-                                  size: 22,
-                                ),
-                                text: "Apple ile devam et",
-                                type: AuthButtonType.apple,
-                                onTap: _loginWithApple,
-                              ),
                               const SizedBox(height: 12),
-
-                              AuthButton(
-                                icon: Image.asset(
-                                  "assets/images/google.png",
-                                  height: 20,
-                                ),
-                                text: "Google ile devam et",
-                                type: AuthButtonType.google,
-                                onTap: _loginWithGoogle,
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 900),
+                                child: _errorBox(),
                               ),
-                              const SizedBox(height: 12),
-
-                              AuthButton(
-                                icon: const Icon(
-                                  Icons.person_outline,
-                                  color: Color(0xFFE7C66A),
-                                ),
-                                text: "Misafir olarak oyna",
-                                type: AuthButtonType.guest,
-                                onTap: _loadingGuest ? null : _playAsGuest,
-                                loading: _loadingGuest,
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              _errorBox(),
+                              const OkeyixLegalBlock(),
                             ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -711,7 +612,7 @@ class OkeyixLogo extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
 
         Stack(
           alignment: Alignment.center,

@@ -223,7 +223,7 @@ class TileComponent extends PositionComponent
     final now = DateTime.now();
 
     if (_lastTap != null &&
-        now.difference(_lastTap!) < const Duration(milliseconds: 250)) {
+        now.difference(_lastTap!) < const Duration(milliseconds: 320)) {
       _onDoubleTap();
     }
 
@@ -403,6 +403,18 @@ class TileComponent extends PositionComponent
       }
 
       final worldPos = absolutePosition;
+      if (gameRef.isPointNearIndicator(worldPos)) {
+        final claimed = await gameRef.tryClaimIndicatorBonus(this);
+        // Bonus denemesinde tas her durumda rack slotuna geri donmeli.
+        _restoreToOriginalSlot();
+        if (!claimed) {
+          // no-op: claim basarisizsa sadece restore yeterli
+        }
+        priority = 20;
+        gameRef.clearPreview();
+        gameRef.clearTemporaryShift();
+        return;
+      }
       // 0) Kapali desteye birakildiysa bitirme denemesi
       if (gameRef.isPointNearClosedPile(worldPos)) {
         final accepted = await gameRef.finishWithTile(this);
@@ -498,8 +510,13 @@ class TileComponent extends PositionComponent
   void _tryActivateGroupByLiftHold(OkeyGame gameRef) {
     if (gameRef.isGroupDragAnchor(this)) return;
 
-    final liftedEnough = (originalPosition.y - position.y) >= 20;
-    if (!liftedEnough) {
+    final lift = originalPosition.y - position.y;
+    // Grup secimi sadece hafif kaldirma + bekleme ile aktif olsun.
+    // Cok yukariya cekilen normal drag senaryosunda tetiklenmesin.
+    const minLift = 14.0;
+    const maxLift = 34.0;
+    final inLiftWindow = lift >= minLift && lift <= maxLift;
+    if (!inLiftWindow) {
       _liftHoldTimer?.cancel();
       _liftHoldTimer = null;
       _liftHoldAnchor = null;
@@ -508,12 +525,13 @@ class TileComponent extends PositionComponent
 
     if (_liftHoldTimer == null) {
       _liftHoldAnchor = position.clone();
-      _liftHoldTimer = async.Timer(const Duration(milliseconds: 320), () {
+      _liftHoldTimer = async.Timer(const Duration(milliseconds: 380), () {
         final gameRef2 = _tryGame();
         if (gameRef2 == null) return;
         final anchor = _liftHoldAnchor;
         if (anchor == null) return;
-        final liftedNow = (originalPosition.y - position.y) >= 20;
+        final liftNow = originalPosition.y - position.y;
+        final liftedNow = liftNow >= minLift && liftNow <= maxLift;
         final stable = position.distanceTo(anchor) <= 10;
         if (!liftedNow || !stable) return;
         if (gameRef2.tryActivateGroupDrag(this)) {
