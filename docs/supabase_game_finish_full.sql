@@ -36,70 +36,16 @@ begin
     raise exception 'INVALID_SLOT_PAYLOAD';
   end if;
 
-  -------------------------------------------------
-  -- p_last_tile'i slotlardan güvenli şekilde çıkar:
-  -- i=0..25 normalize edilir, 26 slot kesin korunur.
-  -- Son eşleşen slotta tile=null yapılır.
-  -------------------------------------------------
-  with exploded as (
-    select
-      e.ordinality::int - 1 as idx,
-      e.value as slot
-    from jsonb_array_elements(p_slots) with ordinality as e(value, ordinality)
-  ),
-  normalized as (
-    select
-      gs as idx,
-      coalesce(
-        (select ex.slot from exploded ex where ex.idx = gs limit 1),
-        jsonb_build_object('i', gs)
-      ) as slot
-    from generate_series(0, 25) gs
-  ),
-  tile_counts as (
-    select count(*)::int as tile_count
-    from normalized
-    where slot->'tile' is not null
-  ),
-  to_clear as (
-    (
-      select idx
-      from normalized
-      where slot->'tile' is not null
-        and slot->'tile'->>'id' = p_last_tile->>'id'
-      order by idx desc
-      limit 1
-    )
-    union all
-    (
-      select n.idx
-      from normalized n
-      where n.slot->'tile' is not null
-        and not exists (
-          select 1
-          from normalized m
-          where m.slot->'tile' is not null
-            and m.slot->'tile'->>'id' = p_last_tile->>'id'
-        )
-        and (select tile_count from tile_counts) > 14
-      order by n.idx desc
-      limit 1
-    )
-    limit 1
-  ),
-  rebuilt as (
-    select
-      case
-        when n.idx = (select idx from to_clear)
-          then jsonb_set(n.slot, '{tile}', 'null'::jsonb, true)
-        else n.slot
-      end as slot,
-      n.idx
-    from normalized n
-  )
-  select coalesce(jsonb_agg(slot order by idx), '[]'::jsonb)
-  into v_slots
-  from rebuilt;
+  if jsonb_array_length(p_slots) <> 26 then
+    raise exception 'INVALID_SLOT_COUNT';
+  end if;
+
+  v_last_tile_id := p_last_tile->>'id';
+  if v_last_tile_id is null or btrim(v_last_tile_id) = '' then
+    raise exception 'INVALID_LAST_TILE';
+  end if;
+
+  v_slots := p_slots;
 
   -------------------------------------------------
   -- TABLE LOCK
@@ -134,18 +80,8 @@ begin
 
   v_hand := coalesce(v_player.hand, '[]'::jsonb);
 
-  -------------------------------------------------
-  -- HAND COUNT
-  -------------------------------------------------
   if jsonb_array_length(v_hand) <> 15 then
     raise exception 'INVALID_HAND_COUNT';
-  end if;
-
-  -------------------------------------------------
-  -- SLOT COUNT
-  -------------------------------------------------
-  if jsonb_array_length(v_slots) <> 26 then
-    raise exception 'INVALID_SLOT_COUNT';
   end if;
 
   -------------------------------------------------
@@ -165,14 +101,6 @@ begin
   end if;
 
   -------------------------------------------------
-  -- LAST TILE CHECK
-  -------------------------------------------------
-  v_last_tile_id := p_last_tile->>'id';
-  if v_last_tile_id is null or btrim(v_last_tile_id) = '' then
-    raise exception 'INVALID_LAST_TILE';
-  end if;
-
-  -------------------------------------------------
   -- DOUBLE MODE (server state)
   -------------------------------------------------
   select coalesce(tp.is_double_mode, false)
@@ -187,24 +115,12 @@ begin
   from jsonb_array_elements(v_slots) with ordinality as e(value, ord)
   where e.value->'tile' is not null;
 
-  raise notice 'GF mode double=% tiles_for_pairs_count=%',
-    v_is_double,
-    jsonb_array_length(coalesce(v_tiles_for_pairs, '[]'::jsonb));
-
-  raise notice 'GF tiles_for_pairs_ids=%',
-    (
-      select coalesce(string_agg(x->>'id', ',' order by ord), '')
-      from jsonb_array_elements(v_tiles_for_pairs) with ordinality as t(x, ord)
-    );
-
   -------------------------------------------------
   -- SOLVER
   -------------------------------------------------
   if v_is_double then
-    raise notice 'GF pairs_ok=%', public._okey_is_pairs_finish(v_tiles_for_pairs);
     if not public._okey_is_pairs_finish(v_tiles_for_pairs) then
       v_invalid_tile_ids := public.okey_invalid_pairs_tiles(v_slots);
-
       return jsonb_build_object(
         'ok', false,
         'error_code', 'INVALID_DOUBLE_FINISH',
@@ -213,10 +129,8 @@ begin
     end if;
   else
     v_is_valid := public.okey_validate_finish(v_slots);
-
     if not v_is_valid then
       v_invalid_tile_ids := public.okey_invalid_finish_tiles(v_slots);
-
       return jsonb_build_object(
         'ok', false,
         'error_code', 'INVALID_FINISH',
@@ -253,9 +167,6 @@ begin
     (v_entry_coin * v_player_count)
     - (v_player_count * v_contribution);
 
-  -------------------------------------------------
-  -- ÇANAK
-  -------------------------------------------------
   if v_is_double or v_is_okey then
     v_winner_reward := v_winner_reward + v_current_pot;
   end if;
@@ -287,14 +198,14 @@ begin
     end if;
   exception
     when others then
-      raise notice 'GF stats update skipped: %', SQLERRM;
+      null;
   end;
 
   insert into public.wallet_transactions(user_id, amount, reason)
   values (p_user_id, v_winner_reward, 'game_win');
 
   -------------------------------------------------
-  -- NEW ROUND ÖNCESİ COIN YETERSİZLERİ ÇIKAR
+  -- NEW ROUND: remove players with low coins
   -------------------------------------------------
   with removed as (
     delete from public.table_players tp
@@ -338,7 +249,6 @@ begin
     end
   where id = p_table_id;
 
-  -------------------------------------------------
   return jsonb_build_object(
     'ok', true,
     'winner_user_id', p_user_id,

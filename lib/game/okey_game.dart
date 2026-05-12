@@ -62,6 +62,7 @@ class OkeyGame extends FlameGame with TapDetector {
   bool _hasDrawnFromSourceThisRound = false;
   bool _indicatorBonusClaimedThisRound = false;
   bool _indicatorBonusInFlight = false;
+  bool _indicatorBonusWindowOpen = true;
   bool _indicatorBonusAcceptAnyTileForTest = false;
   VoidCallback? onHudChanged;
   void Function(int amount)? onIndicatorBonusAwarded;
@@ -727,6 +728,7 @@ class OkeyGame extends FlameGame with TapDetector {
     if (roundChanged) {
       _hasDrawnFromSourceThisRound = false;
       _indicatorBonusClaimedThisRound = false;
+      _indicatorBonusWindowOpen = true;
     }
     _pot = (table['pot_amount'] as int?) ?? _pot;
 
@@ -822,15 +824,20 @@ class OkeyGame extends FlameGame with TapDetector {
     // STATUS
     //-------------------------------------------------
     final status = table['status'] as String?;
-    _dbg('LOAD_INITIAL_STATE', {
-      'status': status,
-      'round': _round,
-      'current_turn': currentTurn,
-      'player_count': playersWithProfiles.length,
-      'max_players': _maxPlayers,
-      'force_sync': forceHandSync,
-      'game_started': _gameStarted,
-    }, key: 'load_initial_state', minInterval: const Duration(seconds: 30));
+    _dbg(
+      'LOAD_INITIAL_STATE',
+      {
+        'status': status,
+        'round': _round,
+        'current_turn': currentTurn,
+        'player_count': playersWithProfiles.length,
+        'max_players': _maxPlayers,
+        'force_sync': forceHandSync,
+        'game_started': _gameStarted,
+      },
+      key: 'load_initial_state',
+      minInterval: const Duration(seconds: 30),
+    );
 
     if (status != 'playing') {
       _gameStarted = false;
@@ -983,9 +990,7 @@ class OkeyGame extends FlameGame with TapDetector {
       }
       return true;
     } catch (e, st) {
-      _dbg('TRY_START_RPC_ERROR', {
-        'error': '$e',
-      }, key: 'try_start_rpc_error');
+      _dbg('TRY_START_RPC_ERROR', {'error': '$e'}, key: 'try_start_rpc_error');
       // Keep the game loop alive in debug; do not bubble to main isolate.
       debugPrint('START GAME RPC ERROR: $e');
       debugPrintStack(stackTrace: st);
@@ -1050,7 +1055,8 @@ class OkeyGame extends FlameGame with TapDetector {
     if (!_gameStarted) return;
     if (_actionInFlight || _botTurnInFlight) return;
     if (currentTurn < 0) return;
-    if (_botSeats.contains(currentTurn)) return; // botlar için ayrı akış zaten var
+    if (_botSeats.contains(currentTurn))
+      return; // botlar için ayrı akış zaten var
     final startAt = _turnStartedAt;
     if (startAt == null) return;
 
@@ -1321,7 +1327,6 @@ class OkeyGame extends FlameGame with TapDetector {
                 },
               )
               .timeout(const Duration(seconds: 8));
-
         } catch (e) {
           debugPrint("BOT FINISH ERROR: $e");
           // Always fallback to discard if finish fails so bot turn cannot freeze.
@@ -2664,7 +2669,9 @@ class OkeyGame extends FlameGame with TapDetector {
       }
 
       // Only 12-13-1 is valid wrap in this ruleset.
-      if (valuesSet.contains(12) && valuesSet.contains(13) && valuesSet.contains(1)) {
+      if (valuesSet.contains(12) &&
+          valuesSet.contains(13) &&
+          valuesSet.contains(1)) {
         runCandidates.add([byValue[12]!, byValue[13]!, byValue[1]!]);
       }
     }
@@ -2719,7 +2726,8 @@ class OkeyGame extends FlameGame with TapDetector {
         if (isPlainRun) {
           return values.map((v) => byValue[v]!).toList(growable: false);
         }
-        final isWrapRun = values.length == 3 &&
+        final isWrapRun =
+            values.length == 3 &&
             values[0] == 1 &&
             values[1] == 12 &&
             values[2] == 13;
@@ -2805,13 +2813,29 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   Future<bool> tryClaimIndicatorBonus(TileComponent tile) async {
-    if (_indicatorBonusInFlight || _indicatorBonusClaimedThisRound) return false;
-    if (!_indicatorBonusAcceptAnyTileForTest && !_isMyTurn()) return false;
-    if (!_indicatorBonusAcceptAnyTileForTest &&
-        (_hasDrawnFromSourceThisRound || hasDrawnThisTurn)) {
+    if (_indicatorBonusInFlight) return false;
+    if (_indicatorBonusClaimedThisRound) {
+      AppMsg.show('Gösterge bonusu bu elde zaten alındı');
       return false;
     }
-    if (!_isMatchingIndicatorTile(tile)) return false;
+    if (!_indicatorBonusAcceptAnyTileForTest && !_indicatorBonusWindowOpen) {
+      AppMsg.show('Gösterge bonus süresi geçti');
+      return false;
+    }
+    if (!_indicatorBonusAcceptAnyTileForTest && !_isMyTurn()) {
+      AppMsg.show('Sıra sende değil');
+      return false;
+    }
+    if (!_isMatchingIndicatorTile(tile)) {
+      final indicator = indicatorTileComponent?.tile;
+      debugPrint(
+        'INDICATOR_MISMATCH drop=${tile.tile.id}/${tile.tile.color}/${tile.tile.value} '
+        'ind=${indicator?.id}/${indicator?.color}/${indicator?.value} '
+        'dropJ=${tile.isJoker}/${tile.isFakeJoker} indJ=${indicator?.isJoker}/${indicator?.isFakeJoker}',
+      );
+      AppMsg.show('Bırakılan taş gösterge ile eşleşmiyor');
+      return false;
+    }
     final indicator = indicatorTileComponent;
     if (indicator == null) return false;
 
@@ -2820,22 +2844,20 @@ class OkeyGame extends FlameGame with TapDetector {
     final target = indicator.position.clone();
     try {
       tile.add(
-        SequenceEffect(
-          [
-            MoveEffect.to(
-              target,
-              EffectController(duration: 0.18, curve: Curves.easeOut),
-            ),
-            RotateEffect.by(
-              6.28318,
-              EffectController(duration: 0.35, curve: Curves.easeInOut),
-            ),
-            MoveEffect.to(
-              start,
-              EffectController(duration: 0.2, curve: Curves.easeInOut),
-            ),
-          ],
-        ),
+        SequenceEffect([
+          MoveEffect.to(
+            target,
+            EffectController(duration: 0.18, curve: Curves.easeOut),
+          ),
+          RotateEffect.by(
+            6.28318,
+            EffectController(duration: 0.35, curve: Curves.easeInOut),
+          ),
+          MoveEffect.to(
+            start,
+            EffectController(duration: 0.2, curve: Curves.easeInOut),
+          ),
+        ]),
       );
       await Future<void>.delayed(const Duration(milliseconds: 760));
 
@@ -2950,7 +2972,11 @@ class OkeyGame extends FlameGame with TapDetector {
       if (byValue.containsKey(12) &&
           byValue.containsKey(13) &&
           byValue.containsKey(1)) {
-        final wrap = [byValue[12]!.first, byValue[13]!.first, byValue[1]!.first];
+        final wrap = [
+          byValue[12]!.first,
+          byValue[13]!.first,
+          byValue[1]!.first,
+        ];
         if (best == null || wrap.length > best.length) {
           best = wrap;
         }
@@ -3263,6 +3289,7 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     if (type == 'draw_discard') {
+      _indicatorBonusWindowOpen = false;
       final fromSeat = move['from_seat'];
       if (fromSeat == null) return;
       _holdDiscardSeatSync(fromSeat);
@@ -3276,6 +3303,7 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     if (type == 'discard') {
+      _indicatorBonusWindowOpen = false;
       _holdDiscardSeatSync(seat);
       _animatePlayerToDiscard(seat: seat, tileData: tile);
       return;
@@ -3315,7 +3343,8 @@ class OkeyGame extends FlameGame with TapDetector {
     final start = fromSlot.position.clone();
 
     // Hedefi dogrudan rackteki bos slota verelim; merkeze dusup sonra slota atlamasin.
-    final end = (preferredRackSlot != null &&
+    final end =
+        (preferredRackSlot != null &&
             preferredRackSlot >= 0 &&
             preferredRackSlot < slotPositions.length)
         ? slotPositions[preferredRackSlot].clone()
@@ -4055,6 +4084,7 @@ class OkeyGame extends FlameGame with TapDetector {
       await _loadInitialState(forceHandSync: true);
       await _syncDiscardTopsFromServer();
       _hasDrawnFromSourceThisRound = true;
+      _indicatorBonusWindowOpen = false;
       hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
       //_emitTileSfx();
     } catch (e) {
@@ -4073,6 +4103,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   List<Map<String, dynamic>> _buildSlotsJson(Map<int, TileComponent> slotMap) {
+    _rebuildOccupiedSlots();
     final result = <Map<String, dynamic>>[];
 
     for (int i = 0; i < 26; i++) {
@@ -4218,6 +4249,7 @@ class OkeyGame extends FlameGame with TapDetector {
       }
       _emitTileSfx();
       _myHandCount = (_myHandCount - 1).clamp(0, 30);
+      _indicatorBonusWindowOpen = false;
       hasDrawnThisTurn = false;
       _pendingPreferredDrawSlot = null;
       // Discard success: only removed tile should change in my hand.
@@ -4787,7 +4819,8 @@ class OkeyGame extends FlameGame with TapDetector {
   int? _lastPreviewIndex;
   TileComponent? _groupDragAnchor;
   final List<TileComponent> _groupDragTiles = <TileComponent>[];
-  final Map<TileComponent, int> _groupDragOriginalSlots = <TileComponent, int>{};
+  final Map<TileComponent, int> _groupDragOriginalSlots =
+      <TileComponent, int>{};
   int _groupDragAnchorOffset = 0;
 
   void _rebuildOccupiedSlots() {
@@ -4980,7 +5013,8 @@ class OkeyGame extends FlameGame with TapDetector {
     }
     if (tiles.length < 2) return false;
 
-    int slotOf(TileComponent t) => t.currentSlotIndex ?? t.originalSlotIndex ?? -1;
+    int slotOf(TileComponent t) =>
+        t.currentSlotIndex ?? t.originalSlotIndex ?? -1;
 
     tiles.sort((a, b) => slotOf(a).compareTo(slotOf(b)));
     _groupDragTiles
@@ -5205,15 +5239,6 @@ class OkeyGame extends FlameGame with TapDetector {
 
     final slots = _buildSlotsJson(occupiedSlots);
     final lastTilePayload = tile.tile.toJson();
-    _dbg('FINISH_ATTEMPT', {
-      'source': 'manual',
-      'user_id': userId,
-      'turn': currentTurn,
-      'turn_seconds': _turnSeconds,
-      'hand_count': _myHandCount,
-      'slots': slots,
-      'last_tile': lastTilePayload,
-    });
 
     try {
       final res = await Supabase.instance.client.rpc(
@@ -5238,7 +5263,7 @@ class OkeyGame extends FlameGame with TapDetector {
             ? res['winner_name'].toString()
             : getPlayerName(userId);
         final slotPayload = List<Map<String, dynamic>>.from(slots);
-        final finishTile = tile.tile.toJson();
+        final finishTile = Map<String, dynamic>.from(lastTilePayload);
         _lastHandledFinishCore = _buildFinishCoreId(
           winnerId: userId,
           slots: slotPayload,
@@ -5261,15 +5286,7 @@ class OkeyGame extends FlameGame with TapDetector {
       } else {
         final errCode = res is Map ? (res['error_code']?.toString() ?? '') : '';
         final invalidTileIds = _extractInvalidTileIds(res);
-        _dbg('FINISH_REJECTED', {
-          'source': 'manual',
-          'user_id': userId,
-          'error_code': errCode,
-          'invalid_tile_ids': invalidTileIds,
-          'slots': slots,
-          'last_tile': lastTilePayload,
-          'rpc_response': res,
-        });
+
         _highlightInvalidFinishTiles(invalidTileIds, fallback: tile);
         if (errCode == 'INVALID_FINISH') {
           AppMsg.show('Geçersiz bitiş');
@@ -5279,13 +5296,6 @@ class OkeyGame extends FlameGame with TapDetector {
         return false;
       }
     } catch (e) {
-      _dbg('FINISH_EXCEPTION', {
-        'source': 'manual',
-        'user_id': userId,
-        'error': '$e',
-        'slots': slots,
-        'last_tile': lastTilePayload,
-      });
       print(e);
       String msg = 'Bitirme başarısız';
 
@@ -5437,9 +5447,7 @@ class OkeyGame extends FlameGame with TapDetector {
     if (finishPlan == null) return false;
 
     final slots = List<Map<String, dynamic>>.from(finishPlan['slots'] as List);
-    final lastTile = Map<String, dynamic>.from(
-      finishPlan['last_tile'] as Map,
-    );
+    final lastTile = Map<String, dynamic>.from(finishPlan['last_tile'] as Map);
     if (!_isServerValidSlotsPayload(slots)) return false;
 
     _actionInFlight = true;
@@ -5660,7 +5668,8 @@ class OkeyGame extends FlameGame with TapDetector {
 
     final removed = _popDiscardStack(fromSeat);
     final revealed = _peekDiscardStack(fromSeat);
-    final previousTop = _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
+    final previousTop =
+        _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
 
     if (previousTop != null) {
       previousTop.removeFromParent();
