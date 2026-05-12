@@ -127,7 +127,7 @@ class LobbyLeagueList extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
 
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
 
           /// 🔥 GOLD BORDER (gradient)
           decoration: BoxDecoration(

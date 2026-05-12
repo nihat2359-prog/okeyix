@@ -24,7 +24,7 @@ class LobbyBottomDock extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: SizedBox(
-          height: 82,
+          height: 88,
           child: LayoutBuilder(
             builder: (context, constraints) {
               const double sidePadding = 12;
@@ -48,7 +48,7 @@ class LobbyBottomDock extends StatelessWidget {
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                         child: Container(
-                          height: 60,
+                          height: 66,
                           width: double.infinity,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(22),
