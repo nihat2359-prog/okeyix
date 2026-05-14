@@ -15,10 +15,12 @@ List<AvatarPreset> premiumAvatarPresetsByGender(String gender) {
 class AvatarSelectionScreen extends StatefulWidget {
   final Set<String> ownedPremiumAvatarRefs;
   final int userCoins;
+  final bool showPremium;
   const AvatarSelectionScreen({
     super.key,
     required this.ownedPremiumAvatarRefs,
     required this.userCoins,
+    this.showPremium = true,
   });
 
   @override
@@ -107,22 +109,24 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                           presets: freeMen,
                           crossAxisCount: crossAxisCount,
                         ),
-                        const SizedBox(height: 12),
-                        _avatarSection(
-                          title: 'Premium Kadın Avatarları',
-                          subtitle: 'Coin ile açılır',
-                          presets: premiumWomen,
-                          crossAxisCount: crossAxisCount,
-                          premiumHeader: true,
-                        ),
-                        const SizedBox(height: 12),
-                        _avatarSection(
-                          title: 'Premium Erkek Avatarları',
-                          subtitle: 'Coin ile açılır',
-                          presets: premiumMen,
-                          crossAxisCount: crossAxisCount,
-                          premiumHeader: true,
-                        ),
+                        if (widget.showPremium) ...[
+                          const SizedBox(height: 12),
+                          _avatarSection(
+                            title: 'Premium Kadın Avatarları',
+                            subtitle: 'Coin ile açılır',
+                            presets: premiumWomen,
+                            crossAxisCount: crossAxisCount,
+                            premiumHeader: true,
+                          ),
+                          const SizedBox(height: 12),
+                          _avatarSection(
+                            title: 'Premium Erkek Avatarları',
+                            subtitle: 'Coin ile açılır',
+                            presets: premiumMen,
+                            crossAxisCount: crossAxisCount,
+                            premiumHeader: true,
+                          ),
+                        ],
                       ],
                     ),
                   ),

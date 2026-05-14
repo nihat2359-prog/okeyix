@@ -26,12 +26,8 @@ class ProfileService {
         userinfo['id']?.toString() ?? userinfo['user_id']?.toString();
 
     if (otherId == null) return;
-    final context = navigatorKey.currentContext!;
-
-    if (context == null) {
-      print("❌ context yok");
-      return;
-    }
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
 
     final userId = otherId ?? '';
     if (userId.isEmpty) return;
@@ -42,21 +38,35 @@ class ProfileService {
     final incoming = UserState.incomingRequestIds?.contains(userId) ?? false;
     final outgoing = UserState.outgoingRequestIds?.contains(userId) ?? false;
 
-    final data = await supabase
+    final profileData = await supabase
         .from('profiles')
-        .select('coins, rating, users(username, wins, losses, avatar_url)')
+        .select('coins, rating, username')
         .eq('id', userId)
         .maybeSingle();
 
-    final coins = (data?['coins'] as int?) ?? 0;
-    final rating = (data?['rating'] as int?) ?? 1200;
+    int coins = (profileData?['coins'] as int?) ?? 0;
+    int rating = (profileData?['rating'] as int?) ?? 1200;
+    String username = (profileData?['username'] as String?) ?? "Oyuncu";
+    int wins = 0;
+    int losses = 0;
+    String? avatarUrl;
 
-    final user = data?['users'] as Map<String, dynamic>?;
-
-    final username = (user?['username'] as String?) ?? "Oyuncu";
-    final wins = (user?['wins'] as int?) ?? 0;
-    final losses = (user?['losses'] as int?) ?? 0;
-    final avatarUrl = user?['avatar_url'] as String?;
+    try {
+      final userData = await supabase
+          .from('users')
+          .select('username, wins, losses, avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+      if (userData != null) {
+        username = (userData['username'] as String?) ?? username;
+        wins = (userData['wins'] as int?) ?? wins;
+        losses = (userData['losses'] as int?) ?? losses;
+        avatarUrl = userData['avatar_url'] as String?;
+      }
+    } catch (_) {
+      // Some environments have incompatible id types between users/profiles.
+      // Keep showing profile card with available profile data.
+    }
 
     final statusText = isSelf
         ? 'Bu senin profilin'
@@ -325,6 +335,7 @@ class ProfileService {
                         if (isSelf) ...[
                           _iconBtn(
                             Icons.edit,
+                            label: 'Düzenle',
                             onPressed: () async {
                               navigatorKey.currentState?.pop();
                               await openProfileSetupDialog(
@@ -336,6 +347,7 @@ class ProfileService {
 
                           _iconBtn(
                             Icons.card_giftcard,
+                            label: 'Geçmiş',
                             onPressed: () {
                               navigatorKey.currentState?.pop();
                               Navigator.push(
@@ -357,6 +369,7 @@ class ProfileService {
                               !isBlocked) ...[
                             _iconBtn(
                               Icons.person_add,
+                              label: 'Ekle',
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
                                 await sendFriendRequest(otherId);
@@ -365,6 +378,7 @@ class ProfileService {
 
                             _iconBtn(
                               Icons.card_giftcard,
+                              label: 'Hediye',
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
                                 await showModalBottomSheet(
@@ -387,6 +401,7 @@ class ProfileService {
                           if (incoming) ...[
                             _iconBtn(
                               Icons.check,
+                              label: 'Kabul',
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
                                 await acceptFriendRequest(otherId);
@@ -395,6 +410,7 @@ class ProfileService {
 
                             _iconBtn(
                               Icons.close,
+                              label: 'Reddet',
                               color: Colors.red,
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
@@ -407,6 +423,7 @@ class ProfileService {
                           if (isFriend && !isBlocked) ...[
                             _iconBtn(
                               Icons.card_giftcard,
+                              label: 'Hediye',
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
                                 await showModalBottomSheet(
@@ -426,6 +443,7 @@ class ProfileService {
 
                             _iconBtn(
                               Icons.person_remove,
+                              label: 'Çıkar',
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
                                 await removeFriend(otherId);
@@ -435,13 +453,18 @@ class ProfileService {
 
                           // Gönderilmiş istek
                           if (outgoing && !isBlocked) ...[
-                            _iconBtn(Icons.hourglass_top, onPressed: null),
+                            _iconBtn(
+                              Icons.hourglass_top,
+                              label: 'Bekliyor',
+                              onPressed: null,
+                            ),
                           ],
 
                           // Engelle
                           if (!isBlocked) ...[
                             _iconBtn(
                               Icons.block,
+                              label: 'Engelle',
                               color: Colors.red,
                               onPressed: () async {
                                 navigatorKey.currentState?.pop();
@@ -452,6 +475,7 @@ class ProfileService {
                           if (!isSelf) ...[
                             _iconBtn(
                               Icons.flag,
+                              label: 'Şikayet',
                               color: Colors.orange,
                               onPressed: () {
                                 navigatorKey.currentState
@@ -626,21 +650,45 @@ class ProfileService {
 
   static Widget _iconBtn(
     IconData icon, {
+    required String label,
     VoidCallback? onPressed,
     Color? color,
   }) {
+    final enabled = onPressed != null;
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: InkWell(
-        onTap: onPressed,
+        onTap: enabled ? onPressed : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(10),
+          width: 66,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withOpacity(enabled ? 0.05 : 0.03),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, size: 20, color: color ?? Colors.white),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 19,
+                color: enabled ? (color ?? Colors.white) : Colors.white38,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: enabled ? Colors.white70 : Colors.white38,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1008,12 +1056,8 @@ class ProfileService {
     required bool forceComplete,
     Future<void> Function()? onSuccess,
   }) async {
-    final context = navigatorKey.currentContext!;
-
-    if (context == null) {
-      print("❌ context yok");
-      return;
-    }
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
     final user = supabase.auth.currentUser;
     if (user == null) return;
     await ensureUserRow();
@@ -1035,21 +1079,29 @@ class ProfileService {
     final freeRenameUsed = await isFreeRenameUsed(user.id);
     final ownedPremiumAvatars = await _getOwnedPremiumAvatars(user.id);
 
-    final result = await showDialog<ProfileSetupResult>(
-      context: context,
-      barrierDismissible: !forceComplete,
-      builder: (_) => ProfileSetupDialog(
-        forceComplete: forceComplete,
-        initialUsername: initialUsername,
-        initialAvatarRef: initialAvatar,
-        currentUserId: user.id,
-        currentCoins: UserState.userCoin,
-        renameCoinCost: _renameCoinCost,
-        freeRenameUsed: freeRenameUsed,
-        ownedPremiumAvatarRefs: ownedPremiumAvatars,
-      ),
+    final setupWidget = ProfileSetupDialog(
+      forceComplete: forceComplete,
+      asPage: forceComplete,
+      initialUsername: initialUsername,
+      initialAvatarRef: initialAvatar,
+      currentUserId: user.id,
+      currentCoins: UserState.userCoin,
+      renameCoinCost: _renameCoinCost,
+      freeRenameUsed: freeRenameUsed,
+      ownedPremiumAvatarRefs: ownedPremiumAvatars,
     );
-
+    final result = forceComplete
+        ? await Navigator.of(context, rootNavigator: true).push<ProfileSetupResult>(
+            MaterialPageRoute(
+              builder: (_) => setupWidget,
+              fullscreenDialog: true,
+            ),
+          )
+        : await showDialog<ProfileSetupResult>(
+            context: context,
+            barrierDismissible: true,
+            builder: (_) => setupWidget,
+          );
     if (result == null) return;
 
     try {

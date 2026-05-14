@@ -794,8 +794,11 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (row == null) return;
       final username = ((row['username'] as String?) ?? '').trim();
       final avatar = ((row['avatar_url'] as String?) ?? '').trim();
-      final isIncomplete = username.isEmpty || avatar.isEmpty;
-      if (isIncomplete && _isLikelyFirstLogin(user)) {
+      final isGuestLike =
+          username.isNotEmpty &&
+          username.toLowerCase().startsWith('guest_');
+      final isIncomplete = username.isEmpty || avatar.isEmpty || isGuestLike;
+      if (isIncomplete) {
         if (!mounted) return;
         await ProfileService.openProfileSetupDialog(
           forceComplete: true,
@@ -809,20 +812,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     } catch (e) {
       debugPrint('ONBOARDING ERROR: $e');
     }
-  }
-
-  bool _isLikelyFirstLogin(User user) {
-    DateTime? parseDate(dynamic raw) {
-      if (raw == null) return null;
-      if (raw is DateTime) return raw;
-      return DateTime.tryParse(raw.toString());
-    }
-
-    final createdAt = parseDate(user.createdAt);
-    final lastSignInAt = parseDate(user.lastSignInAt);
-    if (createdAt == null || lastSignInAt == null) return false;
-    final diff = lastSignInAt.difference(createdAt).abs();
-    return diff <= const Duration(minutes: 15);
   }
 
   Future<void> _loadLeagues() async {

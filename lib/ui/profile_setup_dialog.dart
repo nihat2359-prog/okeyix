@@ -42,6 +42,7 @@ Future<void> openProfileSetupDialog({
 
 class ProfileSetupDialog extends StatefulWidget {
   final bool forceComplete;
+  final bool asPage;
   final String initialUsername;
   final String? initialAvatarRef;
   final String currentUserId;
@@ -52,6 +53,7 @@ class ProfileSetupDialog extends StatefulWidget {
 
   const ProfileSetupDialog({
     required this.forceComplete,
+    this.asPage = false,
     required this.initialUsername,
     required this.initialAvatarRef,
     required this.currentUserId,
@@ -307,17 +309,20 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     final viewInsets = MediaQuery.of(context).viewInsets;
     final keyboardOpen = viewInsets.bottom > 0;
     final maxDialogHeight = (size.height - viewInsets.bottom - 16).clamp(
-      300.0,
-      size.height * 0.94,
+      widget.forceComplete ? 260.0 : 300.0,
+      widget.forceComplete ? size.height * 0.86 : size.height * 0.94,
     );
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      alignment: keyboardOpen ? Alignment.topCenter : Alignment.center,
-      insetPadding: EdgeInsets.fromLTRB(18, keyboardOpen ? 8 : 18, 18, 18),
-      child: Container(
-        width: isLandscape ? 600 : 520,
+    final content = Container(
+        width: isLandscape
+            ? (widget.forceComplete ? 560 : 600)
+            : (widget.forceComplete ? 460 : 520),
         constraints: BoxConstraints(maxHeight: maxDialogHeight),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        padding: EdgeInsets.fromLTRB(
+          widget.forceComplete ? 16 : 20,
+          widget.forceComplete ? 14 : 16,
+          widget.forceComplete ? 16 : 20,
+          widget.forceComplete ? 14 : 16,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           gradient: const LinearGradient(
@@ -366,8 +371,10 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const Text(
-                        'Kullanıcı bilgilerini ve avatarını güncelle',
+                      Text(
+                        widget.forceComplete
+                            ? 'Kullanıcı adını belirle, avatar seç ve devam et'
+                            : 'Kullanıcı bilgilerini ve avatarını güncelle',
                         style: TextStyle(
                           color: Color(0xFFBBD2C4),
                           fontSize: 12,
@@ -421,9 +428,9 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
             if (!keyboardOpen) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.forceComplete ? 10 : 12,
+                  vertical: widget.forceComplete ? 8 : 10,
                 ),
                 decoration: BoxDecoration(
                   color: const Color(0x2A111A17),
@@ -432,25 +439,38 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Color(0xFFE9C46A),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _computedCoinCost > 0
-                            ? 'Toplam maliyet: $_computedCoinCost coin'
-                            : (_didUsernameChange && !widget.freeRenameUsed)
-                            ? 'İlk isim değişikliği ücretsiz.'
-                            : 'Bu kayıt için coin harcanmayacak.',
-                        style: const TextStyle(
-                          color: Color(0xFFD9EBDD),
-                          fontWeight: FontWeight.w700,
+                    if (!widget.forceComplete) ...[
+                      const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Color(0xFFE9C46A),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _computedCoinCost > 0
+                              ? 'Toplam maliyet: $_computedCoinCost coin'
+                              : (_didUsernameChange && !widget.freeRenameUsed)
+                              ? 'İlk isim değişikliği ücretsiz.'
+                              : 'Bu kayıt için coin harcanmayacak.',
+                          style: const TextStyle(
+                            color: Color(0xFFD9EBDD),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
+                    ] else
+                      const Expanded(
+                        child: Text(
+                          'İsim ve avatarını seç, oyuna başlayalım.\nBunu sonra profilden değiştirebilirsin.',
+                          style: TextStyle(
+                            color: Color(0xFFD9EBDD),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
                     ElevatedButton.icon(
                       onPressed: _saving ? null : _save,
                       icon: _saving
@@ -479,6 +499,32 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
             ],
           ],
         ),
+        );
+
+    if (widget.asPage) {
+      return PopScope(
+        canPop: !widget.forceComplete,
+        child: Scaffold(
+          backgroundColor: const Color(0xFF0E0F12),
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                child: content,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return PopScope(
+      canPop: !widget.forceComplete,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        alignment: keyboardOpen ? Alignment.topCenter : Alignment.center,
+        insetPadding: EdgeInsets.fromLTRB(18, keyboardOpen ? 8 : 18, 18, 18),
+        child: content,
       ),
     );
   }
@@ -541,24 +587,25 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
               ),
             ),
 
-            const SizedBox(width: 10),
-
-            OutlinedButton.icon(
-              onPressed: _onUploadAvatar,
-              icon: const Icon(Icons.photo_camera, size: 18),
-              label: const Text("Fotoğraf"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFFE9C46A)),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            if (!widget.forceComplete) ...[
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: _onUploadAvatar,
+                icon: const Icon(Icons.photo_camera, size: 18),
+                label: const Text("Fotoğraf"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFFE9C46A)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ],
@@ -579,6 +626,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
         builder: (_) => AvatarSelectionScreen(
           ownedPremiumAvatarRefs: {...ownedPremiumAvatarRefs},
           userCoins: widget.currentCoins,
+          showPremium: !widget.forceComplete,
         ),
       ),
     );
@@ -629,15 +677,17 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
               ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            renameInfo,
-            style: const TextStyle(
-              color: Color(0xFFB9CFBF),
-              fontSize: 12,
-              height: 1.3,
+          if (!widget.forceComplete) ...[
+            const SizedBox(height: 6),
+            Text(
+              renameInfo,
+              style: const TextStyle(
+                color: Color(0xFFB9CFBF),
+                fontSize: 12,
+                height: 1.3,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/services/profile_service.dart';
+import 'package:okeyix/services/user_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../ui/lobby/lobby_shimmer_loaders.dart';
 
@@ -14,11 +15,12 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   final supabase = Supabase.instance.client;
-  int selectedTab = 0; // 0 = En İyiler, 1 = Günün İyileri
+  int selectedTab = 0; // 0=En Iyiler, 1=Zenginler, 2=Bugun, 3=Son Oynadiklarim
 
   List bestPlayers = [];
   List richPlayers = [];
   List dailyPlayers = [];
+  List recentPlayers = [];
 
   bool loading = true;
 
@@ -30,29 +32,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         return richPlayers;
       case 2:
         return dailyPlayers;
+      case 3:
+        return recentPlayers;
       default:
         return [];
     }
   }
 
-  int getScore(dynamic p) {
-    switch (selectedTab) {
-      case 0:
-        print(p);
-        return p['rating'] ?? 0;
-
-      case 1:
-        return p['coins'] ?? 0;
-
-      case 2:
-        return p['total_earned'] ?? 0;
-
-      default:
-        return 0;
-    }
-  }
-
-  List<dynamic> get top3 => players.take(3).toList();
   List<dynamic> get rest => players.skip(3).toList();
 
   @override
@@ -62,39 +48,58 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      loading = true;
-    });
+    setState(() => loading = true);
 
     final best = await supabase.rpc('get_best_players');
     final rich = await supabase.rpc('get_richest_players');
     final daily = await supabase.rpc('get_daily_leaderboard');
 
+    List recent = [];
+    final myUserId = supabase.auth.currentUser?.id ?? UserState.userId;
+    if (myUserId != null && myUserId.isNotEmpty) {
+      try {
+        final res = await supabase.rpc(
+          'get_recent_opponents',
+          params: {'p_user_id': myUserId, 'p_limit': 20},
+        );
+        if (res is List) recent = res;
+      } catch (_) {
+        recent = [];
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
-      dailyPlayers = daily;
       bestPlayers = best;
       richPlayers = rich;
+      dailyPlayers = daily;
+      recentPlayers = recent;
       loading = false;
     });
   }
 
-  @override
+  void _onPlayerTap(dynamic p) {
+    if (!mounted) return;
+    final userId = p['user_id'] ?? p['id'];
+    if (userId == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ProfileService.showUserCard({'id': userId});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0E0F12),
-
       body: Stack(
         children: [
-          /// BACKGROUND
           Positioned.fill(
             child: Image.asset(
               'assets/images/lobby/lobby.png',
               fit: BoxFit.cover,
             ),
           ),
-
-          /// CONTENT
           SafeArea(
             child: Column(
               children: [
@@ -105,7 +110,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
                   child: Row(
                     children: [
-                      /// 🔥 TAB BAR (ORTA)
                       Expanded(
                         child: Center(
                           child: Container(
@@ -123,19 +127,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 ),
                               ],
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _tabItem("En İyiler", 0),
-                                _tabItem("Zenginler", 1),
-                                _tabItem("Bugün", 2),
-                              ],
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _tabItem('En İyiler', 0),
+                                  _tabItem('Zenginler', 1),
+                                  _tabItem('Bugün', 2),
+                                  _tabItem('Son Oynadıklarım', 3),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-
-                      /// 🔥 CLOSE BUTTON (SAĞ)
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
@@ -164,15 +170,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
-                /// BODY
                 Expanded(
                   child: loading
                       ? const Center(child: LobbyLoading())
                       : players.isEmpty
                       ? _emptyState()
+                      : selectedTab == 3
+                      ? _buildRecentList()
                       : Row(
                           children: [
                             Expanded(flex: 4, child: _buildTop3()),
@@ -188,59 +193,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Future<List<dynamic>> getBestPlayers() async {
-    final res = await Supabase.instance.client.rpc('get_best_players');
-    return res as List;
-  }
-
-  void _onPlayerTap(dynamic p) {
-    final userId = p['user_id'];
-    if (userId == null) return;
-    ProfileService.showUserCard({'id': userId});
-  }
-
-  Widget _buildTabs() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            color: Colors.black.withOpacity(0.45),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 10),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _tabItem("En İyiler", 0),
-              _tabItem("Zenginler", 1),
-              _tabItem("Bugün", 2),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  IconData getTabIcon() {
-    switch (selectedTab) {
-      case 0:
-        return Icons.emoji_events;
-      case 1:
-        return Icons.monetization_on;
-      case 2:
-        return Icons.bolt;
-      default:
-        return Icons.star;
-    }
-  }
-
   Widget _buildTop3() {
-    final p1 = players.length > 0 ? players[0] : null;
+    final p1 = players.isNotEmpty ? players[0] : null;
     final p2 = players.length > 1 ? players[1] : null;
     final p3 = players.length > 2 ? players[2] : null;
 
@@ -249,20 +203,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          /// 🥈 SOL (2)
           Positioned(
             left: 20,
             bottom: 0,
             child: _podiumBlock(p2, 2, 60, Colors.grey.shade400, 80),
           ),
-
-          /// 🥇 ORTA (1)
           Positioned(
             bottom: 0,
             child: _podiumBlock(p1, 1, 80, Colors.amber, 110),
           ),
-
-          /// 🥉 SAĞ (3)
           Positioned(
             right: 20,
             bottom: 0,
@@ -285,7 +234,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            "Henüz veri yok",
+            'Henuz veri yok',
             style: TextStyle(
               color: Colors.white.withOpacity(0.6),
               fontSize: 14,
@@ -307,13 +256,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     return GestureDetector(
       onTap: () => _onPlayerTap(player),
-
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          /// 👑 CROWN (sadece 1.)
-
-          /// 🔥 AVATAR
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -327,14 +272,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
             child: CircleAvatar(
               radius: avatarSize / 2,
-              backgroundImage: _getAvatar(player),
+              backgroundImage: _avatarProvider(
+                player['avatar_url']?.toString(),
+              ),
               backgroundColor: Colors.grey[800],
             ),
           ),
-
           const SizedBox(height: 6),
-
-          /// 🔥 NAME
           SizedBox(
             width: 90,
             child: Text(
@@ -348,26 +292,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 4),
-
-          /// 🔥 SCORE
           Text(
             _formatScore(player),
             style: TextStyle(color: color, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 6),
-
-          /// 🧱 PODIUM BLOCK
           Container(
             width: 60,
             height: height,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-
-              /// 🔥 METAL EFFECT
               gradient: LinearGradient(
                 colors: [
                   color.withOpacity(0.9),
@@ -377,14 +313,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-
               boxShadow: [
                 BoxShadow(color: color.withOpacity(0.4), blurRadius: 10),
               ],
             ),
-
             child: Text(
-              "$rank",
+              '$rank',
               style: const TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
@@ -392,52 +326,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 6),
         ],
       ),
-    );
-  }
-
-  ImageProvider? _getAvatar(dynamic p) {
-    final url = p['avatar_url'];
-
-    if (url != null && url.toString().startsWith('http')) {
-      return NetworkImage(url);
-    } else if (url != null && url.toString().startsWith('assets/')) {
-      return AssetImage(url);
-    }
-    return null;
-  }
-
-  Widget _podiumItem(dynamic player, int rank, double size) {
-    if (player == null) return const SizedBox();
-
-    return Column(
-      children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [Colors.amber, Colors.orange],
-            ),
-            boxShadow: [
-              BoxShadow(color: Colors.amber.withOpacity(0.5), blurRadius: 12),
-            ],
-          ),
-          child: CircleAvatar(
-            backgroundImage: NetworkImage(player['avatar_url'] ?? ''),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          player['username'] ?? '',
-          style: const TextStyle(color: Colors.white),
-        ),
-        Text(_formatScore(player), style: const TextStyle(color: Colors.amber)),
-      ],
     );
   }
 
@@ -448,17 +339,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       itemBuilder: (_, i) {
         final p = rest[i];
         final rank = i + 4;
-
-        /// 🔥 avatar çöz
-        final avatarUrl = p['avatar_url'];
-        ImageProvider? avatar;
-
-        if (avatarUrl != null && avatarUrl.toString().startsWith('http')) {
-          avatar = NetworkImage(avatarUrl);
-        } else if (avatarUrl != null &&
-            avatarUrl.toString().startsWith('assets/')) {
-          avatar = AssetImage(avatarUrl);
-        }
+        final avatar = _avatarProvider(p['avatar_url']?.toString());
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -467,7 +348,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
               onTap: () => _onPlayerTap(p),
-
               child: Ink(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -478,32 +358,27 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   color: Colors.black.withOpacity(0.35),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
-
                 child: Row(
                   children: [
-                    /// 🔥 RANK
                     Container(
                       width: 30,
                       height: 30,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [Color(0xFFE7C66A), Color(0xFFB9932F)],
                         ),
                       ),
                       child: Text(
-                        "$rank",
+                        '$rank',
                         style: const TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 10),
-
-                    /// 🔥 AVATAR + GLOW
                     Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -520,10 +395,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         backgroundColor: Colors.grey[800],
                       ),
                     ),
-
                     const SizedBox(width: 12),
-
-                    /// 🔥 USER INFO
                     Expanded(
                       child: Text(
                         p['username'] ?? '',
@@ -535,8 +407,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ),
                       ),
                     ),
-
-                    /// 🔥 SCORE
                     Text(
                       _formatScore(p),
                       style: const TextStyle(
@@ -554,46 +424,121 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  String _formatScore(dynamic p) {
-    if (selectedTab == 0) {
-      return Format.rating(p['rating'] ?? 0);
-    } else if (selectedTab == 1) {
-      return Format.coin(p['coins'] ?? 0);
-    } else {
-      return Format.coin(p['total_earned'] ?? 0);
-    }
+  Widget _buildRecentList() {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      itemCount: players.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final p = players[i];
+        final username = p['username']?.toString() ?? 'Oyuncu';
+        final avatar = _avatarProvider(p['avatar_url']?.toString());
+        final rating = (p['rating'] as num?)?.toInt() ?? 1200;
+        final coins = (p['coins'] as num?)?.toInt() ?? 0;
+        final parsed = DateTime.tryParse(p['last_played_at']?.toString() ?? '');
+
+        return InkWell(
+          onTap: () => _onPlayerTap(p),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: const Color(0x6624362E),
+              border: Border.all(color: const Color(0x444F8F75)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundImage: avatar,
+                  backgroundColor: Colors.grey[800],
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        parsed == null
+                            ? 'Son oynama bilinmiyor'
+                            : 'Son oynama: ${DateFormat('dd.MM.yyyy HH:mm').format(parsed.toLocal())}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      Format.rating(rating),
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      Format.coin(coins),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  String _formatNumber(num? n) {
-    if (n == null) return "0";
-    return NumberFormat.decimalPattern('tr').format(n);
+  String _formatScore(dynamic p) {
+    if (selectedTab == 0) return Format.rating(p['rating'] ?? 0);
+    if (selectedTab == 1) return Format.coin(p['coins'] ?? 0);
+    if (selectedTab == 2) return Format.coin(p['total_earned'] ?? 0);
+    return Format.rating(p['rating'] ?? 0);
   }
 
   Widget _tabItem(String text, int index) {
     final selected = selectedTab == index;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedTab = index;
-        });
-      },
+      onTap: () => setState(() => selectedTab = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         margin: const EdgeInsets.symmetric(horizontal: 4),
-
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(25),
-
-          /// 🔥 SELECTED EFFECT
           gradient: selected
               ? const LinearGradient(
                   colors: [Color(0xFFFFD54F), Color(0xFFFFA000)],
                 )
               : null,
-
           boxShadow: selected
               ? [
                   BoxShadow(
@@ -604,19 +549,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ]
               : [],
         ),
-
         child: Row(
           children: [
-            /// 🔥 ICON
             Icon(
               _getTabIcon(index),
               size: 16,
               color: selected ? Colors.black : Colors.white70,
             ),
-
             const SizedBox(width: 6),
-
-            /// 🔥 TEXT
             Text(
               text,
               style: TextStyle(
@@ -639,8 +579,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         return Icons.monetization_on;
       case 2:
         return Icons.bolt;
+      case 3:
+        return Icons.history;
       default:
         return Icons.star;
     }
+  }
+
+  ImageProvider? _avatarProvider(String? raw) {
+    final url = (raw ?? '').trim();
+    if (url.isEmpty) return null;
+    if (url.startsWith('http')) return NetworkImage(url);
+    if (url.startsWith('assets/')) return AssetImage(url);
+    return null;
   }
 }

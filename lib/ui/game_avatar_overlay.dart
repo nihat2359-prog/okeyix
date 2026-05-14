@@ -1329,6 +1329,54 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           p['is_online'] = (p['is_bot'] == true) || (status?['is_online'] == true);
           p['last_seen_at'] = status?['last_seen_at'];
         }
+
+        // If a user is already playing/starting at another table, do not show as invitable.
+        final busyRows = await _supabase
+            .from('table_players')
+            .select('user_id,table_id')
+            .inFilter('user_id', ids)
+            .neq('table_id', widget.tableId);
+        final busyTableIds = (busyRows as List)
+            .map((e) => (e as Map)['table_id']?.toString())
+            .whereType<String>()
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList();
+        final busyUserIds = <String>{};
+        if (busyTableIds.isNotEmpty) {
+          final tableRows = await _supabase
+              .from('tables')
+              .select('id,status')
+              .inFilter('id', busyTableIds);
+          final activeTableIds = (tableRows as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .where((row) {
+                final status = row['status']?.toString() ?? '';
+                return status == 'playing' || status == 'start';
+              })
+              .map((row) => row['id']?.toString())
+              .whereType<String>()
+              .toSet();
+          if (activeTableIds.isNotEmpty) {
+            for (final raw in busyRows) {
+              final row = Map<String, dynamic>.from(raw as Map);
+              final tableId = row['table_id']?.toString();
+              final userId = row['user_id']?.toString();
+              if (userId != null &&
+                  tableId != null &&
+                  activeTableIds.contains(tableId)) {
+                busyUserIds.add(userId);
+              }
+            }
+          }
+        }
+        for (final p in list) {
+          final id = p['id']?.toString();
+          if (id != null && busyUserIds.contains(id)) {
+            p['allow_game_invites'] = false;
+            p['busy_reason'] = 'already_playing';
+          }
+        }
       }
       return list
           .where((p) => p['allow_game_invites'] != false || p['is_bot'] == true)
@@ -1410,6 +1458,39 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           return;
         }
       }
+
+      // Hard guard: do not invite users that are already in another active table.
+      final otherTableRows = await _supabase
+          .from('table_players')
+          .select('table_id')
+          .eq('user_id', userId)
+          .neq('table_id', widget.tableId);
+      final otherTableIds = (otherTableRows as List)
+          .map((e) => (e as Map)['table_id']?.toString())
+          .whereType<String>()
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList();
+      bool isBusyElsewhere = false;
+      if (otherTableIds.isNotEmpty) {
+        final statusRows = await _supabase
+            .from('tables')
+            .select('id,status')
+            .inFilter('id', otherTableIds);
+        isBusyElsewhere = (statusRows as List).any((raw) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final status = row['status']?.toString() ?? '';
+          return status == 'playing' || status == 'start';
+        });
+      }
+      if (isBusyElsewhere) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Oyuncu şu an başka masada oyunda.')),
+        );
+        return;
+      }
+
       await _supabase.from('table_invites').insert({
         'table_id': widget.tableId,
         'from_user': myUserId,

@@ -205,6 +205,52 @@ begin
   values (p_user_id, v_winner_reward, 'game_win');
 
   -------------------------------------------------
+  -- RECENT OPPONENTS (kullanici basi son 20)
+  -------------------------------------------------
+  begin
+    if to_regclass('public.recent_opponents') is not null then
+      insert into public.recent_opponents(
+        user_id,
+        opponent_user_id,
+        last_table_id,
+        last_played_at
+      )
+      select
+        a.user_id,
+        b.user_id,
+        p_table_id,
+        now()
+      from public.table_players a
+      join public.table_players b
+        on a.table_id = b.table_id
+       and a.user_id <> b.user_id
+      where a.table_id = p_table_id
+      on conflict (user_id, opponent_user_id)
+      do update set
+        last_table_id = excluded.last_table_id,
+        last_played_at = excluded.last_played_at;
+
+      delete from public.recent_opponents ro
+      where ro.id in (
+        select id
+        from (
+          select
+            id,
+            row_number() over (
+              partition by user_id
+              order by last_played_at desc, id desc
+            ) as rn
+          from public.recent_opponents
+        ) ranked
+        where ranked.rn > 20
+      );
+    end if;
+  exception
+    when others then
+      null;
+  end;
+
+  -------------------------------------------------
   -- NEW ROUND: remove players with low coins
   -------------------------------------------------
   with removed as (
