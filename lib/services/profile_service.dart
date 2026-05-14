@@ -255,7 +255,7 @@ class ProfileService {
 
                     // RATING & COIN
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         gradient: LinearGradient(
@@ -281,7 +281,7 @@ class ProfileService {
                                 icon: Icons.star_rounded,
                                 value: Format.coin(rating),
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 8),
                               _infoTile(
                                 icon: Icons.monetization_on_rounded,
                                 value: Format.coin(coins),
@@ -289,7 +289,7 @@ class ProfileService {
                             ],
                           ),
 
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
 
                           /// 🔥 SAĞ PANEL (DİKEY BARLAR)
                           Expanded(
@@ -501,22 +501,22 @@ class ProfileService {
 
   static Widget _infoTile({required IconData icon, required String value}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         color: Colors.black.withOpacity(0.4),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Color(0xFFD4A24C)),
-          const SizedBox(width: 6),
+          Icon(icon, size: 15, color: Color(0xFFD4A24C)),
+          const SizedBox(width: 5),
           Text(
             value,
             style: const TextStyle(
               fontFamily: "Orbitron",
               color: Color(0xFFF2C14E),
               fontWeight: FontWeight.w700,
-              fontSize: 13,
+              fontSize: 12.5,
             ),
           ),
         ],
@@ -546,8 +546,8 @@ class ProfileService {
           curve: Curves.easeOutCubic,
           builder: (context, val, _) {
             return Container(
-              width: 40, // 🔥 daha ince
-              height: 110,
+              width: 36,
+              height: 98,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6), // 🔥 radius düşürdük
                 color: Colors.black.withOpacity(0.15), // 🔥 daha derin track
@@ -609,7 +609,7 @@ class ProfileService {
                       isPercent ? "${value.toInt()}%" : value.toString(),
                       style: const TextStyle(
                         fontFamily: "Orbitron",
-                        fontSize: 9,
+                        fontSize: 8.5,
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),
@@ -621,13 +621,13 @@ class ProfileService {
           },
         ),
 
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
 
         /// LABEL
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 9.5,
             color: Colors.white.withOpacity(0.6),
             fontWeight: FontWeight.w500,
           ),
@@ -664,7 +664,7 @@ class ProfileService {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           width: 66,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(enabled ? 0.05 : 0.03),
             borderRadius: BorderRadius.circular(12),
@@ -674,10 +674,10 @@ class ProfileService {
             children: [
               Icon(
                 icon,
-                size: 19,
+                size: 18,
                 color: enabled ? (color ?? Colors.white) : Colors.white38,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 label,
                 maxLines: 1,
@@ -685,7 +685,7 @@ class ProfileService {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: enabled ? Colors.white70 : Colors.white38,
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
               ),
