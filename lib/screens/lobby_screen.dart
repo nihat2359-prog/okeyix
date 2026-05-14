@@ -377,18 +377,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (user == null || !mounted) return;
     _rewardFlowRunning = true;
     try {
-      final gotWelcome = await _shouldShowWelcomeOnly(user.id);
-      if (gotWelcome && mounted) {
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const WelcomeRewardDialog(amount: _welcomeCoinAmount),
-        );
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('welcome_seen_${user.id}', true);
-        await _loadUser();
-      }
-
       final dailyAvailable = await _isDailyBonusAvailable(user.id);
       if (!dailyAvailable || !mounted) return;
 
@@ -421,14 +409,18 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  Future<bool> _shouldShowWelcomeOnly(String userId) async {
-    final existing = await supabase
-        .from('wallet_transactions')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('reason', 'welcome_bonus')
-        .limit(1);
-    return (existing as List).isEmpty;
+  Future<void> _showWelcomeAfterOnboardingIfNeeded(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'onboarding_welcome_shown_$userId';
+    if (prefs.getBool(key) == true) return;
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const WelcomeRewardDialog(amount: _welcomeCoinAmount),
+    );
+    await prefs.setBool(key, true);
+    await _loadUser();
   }
 
   Future<bool> _isDailyBonusAvailable(String userId) async {
@@ -1053,6 +1045,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             await _loadTables();
           },
         );
+        await _showWelcomeAfterOnboardingIfNeeded(user.id);
       }
     } catch (e) {
       debugPrint('ONBOARDING ERROR: $e');
