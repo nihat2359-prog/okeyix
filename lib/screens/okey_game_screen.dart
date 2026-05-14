@@ -888,16 +888,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           _selfMissingStreak = 0;
           return;
         }
-        // waiting/start anında geçici tutarsızlıklarda asla otomatik çıkma.
-        if (_tableStatus == 'waiting' || _tableStatus == 'start') {
-          return;
-        }
         if (_selfMissingStreak < 4) {
           return;
         }
         _selfMissingStreak = 0;
         if (mounted && !_isLeavingTable) {
-          _showSnack('Bağlantı durumu nedeniyle lobiye dönülüyor.');
+          _showSnack('Süre aşımı nedeniyle masadan çıkarıldınız.');
           _leaveTable();
         }
         return;

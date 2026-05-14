@@ -11,6 +11,7 @@ import 'package:okeyix/services/celebration_service.dart';
 import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
+import 'package:okeyix/ui/reward_dialogs.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
@@ -64,7 +65,16 @@ class _LobbyScreenState extends State<LobbyScreen>
   Timer? _spectatorPassTimer;
   Timer? _tableInvitePollTimer;
   bool _banScreenOpened = false;
+  bool _rewardFlowRunning = false;
+  static const int _welcomeCoinAmount = 10000;
+  static const int _dailyBonusCoinAmount = 2500;
   late final AnimationController _bgController;
+  late final AnimationController _coinFxController;
+  late final AnimationController _coinCountController;
+  Animation<int>? _coinCountAnimation;
+  Timer? _coinFxTimer;
+  bool _coinFxActive = false;
+  int _coinDisplayValue = 0;
   final TextEditingController _chatController = TextEditingController();
   final _recorder = AudioRecorder();
   final ScrollController _chatScrollController = ScrollController();
@@ -171,6 +181,18 @@ class _LobbyScreenState extends State<LobbyScreen>
       vsync: this,
       duration: const Duration(seconds: 16),
     )..repeat();
+    _coinFxController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 460),
+    );
+    _coinCountController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..addListener(() {
+      final anim = _coinCountAnimation;
+      if (anim == null || !mounted) return;
+      setState(() => _coinDisplayValue = anim.value);
+    });
 
     _storePulse = AnimationController(
       vsync: this,
@@ -300,8 +322,11 @@ class _LobbyScreenState extends State<LobbyScreen>
     _systemMessageTimer?.cancel();
     _spectatorPassTimer?.cancel();
     _tableInvitePollTimer?.cancel();
+    _coinFxTimer?.cancel();
     _chatController.dispose();
     _bgController.dispose();
+    _coinFxController.dispose();
+    _coinCountController.dispose();
     _storePulse.dispose();
     _audioPlayer.dispose();
     _tableInviteChannel?.unsubscribe();
@@ -327,6 +352,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadLeagues();
     await _loadLeagueActivity();
     await _loadTables();
+    await _runRewardFlowIfNeeded();
     await _tryResumeActiveGame();
     await _checkCampaignPopup();
     final userId = UserState.userId ?? supabase.auth.currentUser?.id;
@@ -343,6 +369,135 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
     // Realtime gecikse bile pending davetler mutlaka yakalansın.
     await _loadPendingTableInvites(myUserId);
+  }
+
+  Future<void> _runRewardFlowIfNeeded() async {
+    if (_rewardFlowRunning) return;
+    final user = supabase.auth.currentUser;
+    if (user == null || !mounted) return;
+    _rewardFlowRunning = true;
+    try {
+      final gotWelcome = await _shouldShowWelcomeOnly(user.id);
+      if (gotWelcome && mounted) {
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const WelcomeRewardDialog(amount: _welcomeCoinAmount),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('welcome_seen_${user.id}', true);
+        await _loadUser();
+      }
+
+      final dailyAvailable = await _isDailyBonusAvailable(user.id);
+      if (!dailyAvailable || !mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => DailyBonusDialog(
+          amount: _dailyBonusCoinAmount,
+          onClaim: () async {
+            final utcNow = DateTime.now().toUtc();
+            final dayKey =
+                'daily_bonus:${utcNow.year.toString().padLeft(4, '0')}-${utcNow.month.toString().padLeft(2, '0')}-${utcNow.day.toString().padLeft(2, '0')}';
+            await _grantCoins(
+              userId: user.id,
+              amount: _dailyBonusCoinAmount,
+              reason: 'daily_bonus',
+              note: dayKey,
+            );
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('daily_bonus_claimed_${user.id}', dayKey);
+            if (mounted) Navigator.of(context).pop();
+          },
+        ),
+      );
+      await _loadUser();
+    } catch (e) {
+      debugPrint('REWARD FLOW ERROR: $e');
+    } finally {
+      _rewardFlowRunning = false;
+    }
+  }
+
+  Future<bool> _shouldShowWelcomeOnly(String userId) async {
+    final existing = await supabase
+        .from('wallet_transactions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('reason', 'welcome_bonus')
+        .limit(1);
+    return (existing as List).isEmpty;
+  }
+
+  Future<bool> _isDailyBonusAvailable(String userId) async {
+    final utcNow = DateTime.now().toUtc();
+    final dayKey =
+        'daily_bonus:${utcNow.year.toString().padLeft(4, '0')}-${utcNow.month.toString().padLeft(2, '0')}-${utcNow.day.toString().padLeft(2, '0')}';
+    final prefs = await SharedPreferences.getInstance();
+    final localKey = 'daily_bonus_claimed_$userId';
+    if (prefs.getString(localKey) == dayKey) return false;
+
+    final rows = await supabase
+        .from('wallet_transactions')
+        .select('created_at')
+        .eq('user_id', userId)
+        .eq('reason', 'daily_bonus')
+        .order('created_at', ascending: false)
+        .limit(1);
+    if ((rows as List).isEmpty) return true;
+
+    final raw = rows.first['created_at']?.toString();
+    final last = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    if (last == null) return true;
+    final now = DateTime.now();
+    return !(last.year == now.year && last.month == now.month && last.day == now.day);
+  }
+
+  Future<void> _grantCoins({
+    required String userId,
+    required int amount,
+    required String reason,
+    String? note,
+  }) async {
+    final profileRows = await supabase
+        .from('profiles')
+        .select('coins')
+        .eq('id', userId)
+        .limit(1);
+    final current = (profileRows as List).isNotEmpty
+        ? (profileRows.first['coins'] as int?) ?? 0
+        : 0;
+    final next = current + amount;
+
+    try {
+      final payload = <String, dynamic>{
+        'user_id': userId,
+        'amount': amount,
+        'reason': reason,
+        'type': 'credit',
+        'store': 'system',
+      };
+      if (note != null && note.trim().isNotEmpty) {
+        payload['note'] = note;
+      }
+      await supabase.from('wallet_transactions').insert(payload);
+    } catch (e) {
+      // note kolonu olmayan eski şemalarda fallback
+      final payload = <String, dynamic>{
+        'user_id': userId,
+        'amount': amount,
+        'reason': reason,
+        'type': 'credit',
+        'store': 'system',
+      };
+      await supabase.from('wallet_transactions').insert(payload);
+    }
+
+    if ((profileRows).isNotEmpty) {
+      await supabase.from('profiles').update({'coins': next}).eq('id', userId);
+    }
   }
 
   Future<void> _ensureMessagesListener() async {
@@ -789,6 +944,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final profileRating = (profile?['rating'] as int?) ?? 1200;
       final allowGameInvites =
           (profile?['allow_game_invites'] as bool?) ?? true;
+      final previousCoin = UserState.userCoin;
 
       if (!mounted) return false;
       if (row != null) {
@@ -804,6 +960,9 @@ class _LobbyScreenState extends State<LobbyScreen>
           UserState.userRating = profileRating; // ? profiles'den
           UserState.userAvatarUrl = (row['avatar_url'] as String?)?.trim();
           UserState.userCoin = profileCoin; // ? profiles'den
+          if (_coinDisplayValue == 0 || previousCoin == 0) {
+            _coinDisplayValue = profileCoin;
+          }
           _allowGameInvites = allowGameInvites;
         });
       } else {
@@ -816,14 +975,56 @@ class _LobbyScreenState extends State<LobbyScreen>
           UserState.userRating = profileRating;
           UserState.userAvatarUrl = null;
           UserState.userCoin = profileCoin;
+          if (_coinDisplayValue == 0 || previousCoin == 0) {
+            _coinDisplayValue = profileCoin;
+          }
           _allowGameInvites = allowGameInvites;
         });
+      }
+      if (profileCoin != previousCoin) {
+        _animateCoinCount(previousCoin, profileCoin);
+      }
+      if (profileCoin > previousCoin) {
+        _triggerCoinFx();
       }
       return true;
     } catch (e) {
       debugPrint('USER LOAD ERROR: $e');
       return false;
     }
+  }
+
+  void _triggerCoinFx() {
+    if (!mounted) return;
+    _coinFxTimer?.cancel();
+    setState(() => _coinFxActive = true);
+    _coinFxController
+      ..stop()
+      ..reset()
+      ..repeat();
+    _coinFxTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (!mounted) return;
+      _coinFxController.stop();
+      setState(() => _coinFxActive = false);
+    });
+  }
+
+  void _animateCoinCount(int from, int to) {
+    if (!mounted) return;
+    _coinCountController.stop();
+    _coinCountAnimation = IntTween(
+      begin: from,
+      end: to,
+    ).animate(
+      CurvedAnimation(
+        parent: _coinCountController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    _coinDisplayValue = from;
+    _coinCountController
+      ..reset()
+      ..forward();
   }
 
   Future<void> _checkOnboarding() async {
@@ -1365,9 +1566,26 @@ class _LobbyScreenState extends State<LobbyScreen>
     final user = supabase.auth.currentUser;
     final tableId = table['id'] as String?;
     if (user == null || tableId == null) return;
-    final status = table['status']?.toString() ?? 'waiting';
+    // Use fresh server status to avoid stale lobby card state
+    // (can look empty but still carry old local "playing" flag).
+    var status = table['status']?.toString() ?? 'waiting';
+    try {
+      final latest = await supabase
+          .from('tables')
+          .select('status')
+          .eq('id', tableId)
+          .maybeSingle();
+      if (latest != null) {
+        status = (latest['status']?.toString() ?? status).trim();
+      }
+    } catch (_) {
+      // If fetch fails, keep current fallback status.
+    }
+
     if (status == 'playing') {
-      return _handleSpectateTap(table);
+      _msg('Bu masa şu anda oyunda. İzlemek için İZLE butonunu kullan.');
+      await _loadTables();
+      return;
     }
     final entry = (table['entry_coin'] as int?) ?? 100;
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
@@ -5657,30 +5875,142 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget statChip(IconData icon, int value, bool coin) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A2328), Color(0xFF11181C)],
+    final t = _coinFxActive ? _coinFxController.value : 0.0;
+    final spin = t * 6.28318;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            gradient: LinearGradient(
+              colors: coin && _coinFxActive
+                  ? const [Color(0xFF22352A), Color(0xFF122015)]
+                  : const [Color(0xFF1A2328), Color(0xFF11181C)],
+            ),
+            border: Border.all(
+              color: coin && _coinFxActive
+                  ? const Color(0x99E7C06A)
+                  : const Color(0x33E7C06A),
+            ),
+            boxShadow: coin && _coinFxActive
+                ? const [
+                    BoxShadow(
+                      color: Color(0x66E7C06A),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              coin
+                  ? AnimatedBuilder(
+                      animation: _coinFxController,
+                      builder: (_, child) {
+                        final tv = _coinFxActive ? _coinFxController.value : 0.0;
+                        return Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: _coinFxActive
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFE7C06A)
+                                          .withOpacity(0.52 + (0.28 * tv)),
+                                      blurRadius: 12 + (10 * tv),
+                                      spreadRadius: 0.9 + (1.4 * tv),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              if (_coinFxActive)
+                                Container(
+                                  width: 14 + (10 * tv),
+                                  height: 14 + (10 * tv),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xAAFFE9AF,
+                                      ).withOpacity((0.9 - tv).clamp(0.0, 0.9)),
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              Transform.rotate(
+                                angle: tv * 6.28318,
+                                child: child,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.monetization_on,
+                        size: 14,
+                        color: Color(0xFFE7C06A),
+                      ),
+                    )
+                  : Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
+              const SizedBox(width: 4),
+              Text(
+                coin ? Format.coin(_coinDisplayValue) : Format.rating(value),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
         ),
-        border: Border.all(color: const Color(0x33E7C06A)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
-          const SizedBox(width: 4),
-          Text(
-            coin ? Format.coin(value) : Format.rating(value),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+        if (coin && _coinFxActive) ...[
+          Positioned(
+            top: -6 + (2.0 * sin(spin)),
+            left: 8 + (4.0 * cos(spin)),
+            child: Opacity(
+              opacity: (0.65 + (0.25 * sin(spin))).clamp(0.2, 0.95),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                size: 9,
+                color: Color(0xFFFFE8AB),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -5 + (2.3 * cos(spin + 2.2)),
+            right: 8 + (4.2 * sin(spin + 2.2)),
+            child: Opacity(
+              opacity: (0.62 + (0.24 * cos(spin + 1.8))).clamp(0.2, 0.94),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                size: 8,
+                color: Color(0xFFFFD66B),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -5 + (2.0 * sin(spin + 4.0)),
+            right: 3 + (3.7 * cos(spin + 4.0)),
+            child: Opacity(
+              opacity: (0.5 + (0.22 * sin(spin + 0.8))).clamp(0.15, 0.86),
+              child: const Icon(
+                Icons.circle,
+                size: 4,
+                color: Color(0xFFFFE8AB),
+              ),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 

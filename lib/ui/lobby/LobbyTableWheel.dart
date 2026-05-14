@@ -121,30 +121,33 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     scale: isSelected ? 0.92 : 0.75,
                     child: Opacity(
                       opacity: isSelected ? 1 : 0.5,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !isSelected,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
 
-                        decoration: BoxDecoration(
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: const Color(0x66F2C14E),
-                                    blurRadius: 35,
-                                    spreadRadius: 3,
-                                  ),
-                                ]
-                              : [],
-                        ),
+                          decoration: BoxDecoration(
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0x66F2C14E),
+                                      blurRadius: 35,
+                                      spreadRadius: 3,
+                                    ),
+                                  ]
+                                : [],
+                          ),
 
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: LobbyTableCard(
-                            table: table,
-                            blockedUserIds: widget.blockedUserIds,
-                            onJoin: widget.onJoin,
-                            onSpectate: widget.onSpectate,
-                            canSpectateAll: widget.canSpectateAll,
-                            onUserTap: widget.onUserTap,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 40),
+                            child: LobbyTableCard(
+                              table: table,
+                              blockedUserIds: widget.blockedUserIds,
+                              onJoin: widget.onJoin,
+                              onSpectate: widget.onSpectate,
+                              canSpectateAll: widget.canSpectateAll,
+                              onUserTap: widget.onUserTap,
+                            ),
                           ),
                         ),
                       ),
