@@ -26,6 +26,7 @@ import 'okey_game_screen.dart';
 import 'login_screen.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
+import 'banned_screen.dart';
 import '../ui/lobby/lobby_avatar.dart';
 import '../ui/lobby/lobby_league_list.dart';
 import '../ui/lobby/lobby_bottom_dock.dart';
@@ -62,6 +63,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Timer? _systemMessageTimer;
   Timer? _spectatorPassTimer;
   Timer? _tableInvitePollTimer;
+  bool _banScreenOpened = false;
   late final AnimationController _bgController;
   final TextEditingController _chatController = TextEditingController();
   final _recorder = AudioRecorder();
@@ -312,7 +314,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     _soundEnabled = FeedbackSettingsService.soundEnabled;
     _vibrationEnabled = FeedbackSettingsService.vibrationEnabled;
 
-    await _loadUser();
+    final canContinue = await _loadUser();
+    if (!canContinue) return;
     await _ensureTableInviteListener();
     await _ensureMessagesListener();
     await _refreshGlobalSpectatorPassStatus();
@@ -723,15 +726,54 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  Future<void> _loadUser() async {
+  Future<bool> _loadUser() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
     await ProfileService.ensureUserRow();
     try {
       final row = await ProfileService.findUserRow(
         user,
-        columns: 'id,username,avatar_url,wins,losses',
+        columns:
+            'id,username,avatar_url,wins,losses,is_banned,ban_reason,ban_until',
       );
+
+      if (row != null) {
+        final isBanned = (row['is_banned'] as bool?) ?? false;
+        final banReason = (row['ban_reason'] as String?) ?? '';
+        final banUntilRaw = row['ban_until'];
+        final banUntil = banUntilRaw == null
+            ? null
+            : DateTime.tryParse(banUntilRaw.toString());
+
+        if (isBanned) {
+          final now = DateTime.now();
+          final expired = banUntil != null && !banUntil.isAfter(now);
+          if (expired) {
+            await supabase
+                .from('users')
+                .update({
+                  'is_banned': false,
+                  'ban_reason': null,
+                  'ban_until': null,
+                })
+                .eq('id', user.id);
+          } else {
+            if (!_banScreenOpened && mounted) {
+              _banScreenOpened = true;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => BannedScreen(
+                    reason: banReason,
+                    banUntil: banUntil,
+                  ),
+                ),
+                (_) => false,
+              );
+            }
+            return false;
+          }
+        }
+      }
 
       // ? profiles'den coins ve rating al
       final profileRows = await supabase
@@ -748,7 +790,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final allowGameInvites =
           (profile?['allow_game_invites'] as bool?) ?? true;
 
-      if (!mounted) return;
+      if (!mounted) return false;
       if (row != null) {
         setState(() {
           UserState.userId = user.id;
@@ -777,8 +819,10 @@ class _LobbyScreenState extends State<LobbyScreen>
           _allowGameInvites = allowGameInvites;
         });
       }
+      return true;
     } catch (e) {
       debugPrint('USER LOAD ERROR: $e');
+      return false;
     }
   }
 
