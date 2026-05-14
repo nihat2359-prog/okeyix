@@ -176,41 +176,49 @@ class AuthButton extends StatelessWidget {
     List<Color> bg;
     Color border;
     Color textColor;
+    Color accent;
+    Color iconBg;
 
     switch (type) {
       case AuthButtonType.apple:
-        bg = [const Color(0xFF2A2D34), const Color(0xFF171A20)];
-        border = Colors.white.withOpacity(0.18);
+        bg = [const Color(0xFF2B3038), const Color(0xFF161B22)];
+        border = const Color(0xFFDCC07A).withOpacity(0.28);
         textColor = Colors.white;
+        accent = const Color(0xFFE0C57F);
+        iconBg = const Color(0x1FE0C57F);
         break;
 
       case AuthButtonType.google:
-        bg = [const Color(0xFFFFFFFF), const Color(0xFFF8FAFF)];
-        border = const Color(0xFF4285F4).withOpacity(0.45);
-        textColor = const Color(0xFF22304A);
+        bg = [const Color(0xFFFFFFFF), const Color(0xFFF0F5FF)];
+        border = const Color(0xFF4285F4).withOpacity(0.55);
+        textColor = const Color(0xFF1E2A42);
+        accent = const Color(0xFF4285F4);
+        iconBg = const Color(0x1A4285F4);
         break;
 
       case AuthButtonType.guest:
-        bg = [const Color(0xFF2B313A), const Color(0xFF1C212A)];
-        border = const Color(0xFFE7C66A).withOpacity(0.35);
+        bg = [const Color(0xFF233A34), const Color(0xFF12231F)];
+        border = const Color(0xFFE7C66A).withOpacity(0.42);
         textColor = const Color(0xFFE7ECF3);
+        accent = const Color(0xFFE7C66A);
+        iconBg = const Color(0x26E7C66A);
         break;
     }
 
     return SizedBox(
-      height: 58,
+      height: 60,
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onTap,
         style: ButtonStyle(
           elevation: MaterialStateProperty.resolveWith((states) {
             if (states.contains(MaterialState.pressed)) return 2.0;
-            return 4.0;
+            return 6.0;
           }),
           backgroundColor: MaterialStateProperty.all(Colors.transparent),
-          shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.35)),
+          shadowColor: MaterialStateProperty.all(Colors.black.withOpacity(0.45)),
           shape: MaterialStateProperty.all(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           overlayColor: MaterialStateProperty.all(
             Colors.white.withOpacity(0.12),
@@ -220,17 +228,15 @@ class AuthButton extends StatelessWidget {
 
         child: Ink(
           decoration: BoxDecoration(
-            // color: bg, // 🔥 ANA YÜZEY
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
 
             border: Border.all(color: border, width: 1),
 
-            /// 🔥 DERİNLİK (çok önemli)
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.24),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.26),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
             ],
             gradient: LinearGradient(
@@ -242,14 +248,13 @@ class AuthButton extends StatelessWidget {
 
           child: Stack(
             children: [
-              /// 🔥 ÜST IŞIK (çizgi değil, yüzey)
               Positioned.fill(
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: Container(
-                    height: 16,
+                    height: 18,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       gradient: LinearGradient(
                         colors: [
                           Colors.white.withOpacity(0.12),
@@ -262,8 +267,6 @@ class AuthButton extends StatelessWidget {
                   ),
                 ),
               ),
-
-              /// 🔥 CONTENT
               Center(
                 child: loading
                     ? const SizedBox(
@@ -279,16 +282,28 @@ class AuthButton extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            icon,
-                            const SizedBox(width: 10),
+                            Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: iconBg,
+                                border: Border.all(
+                                  color: accent.withOpacity(0.35),
+                                ),
+                              ),
+                              child: Center(child: icon),
+                            ),
+                            const SizedBox(width: 9),
                             Text(
                               text,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: textColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                letterSpacing: 0.1,
                               ),
                             ),
                           ],
