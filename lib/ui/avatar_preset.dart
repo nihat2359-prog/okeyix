@@ -56,6 +56,42 @@ const List<AvatarPreset> avatarPresets = <AvatarPreset>[
     gender: 'female',
   ),
   AvatarPreset(
+    id: 'kadin_07',
+    label: 'Kadin Ortulu',
+    imageUrl: 'assets/images/avatars/avatar17.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_08',
+    label: 'Kadin Ortulu',
+    imageUrl: 'assets/images/avatars/avatar18.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_09',
+    label: 'Kadin Olgun Modern',
+    imageUrl: 'assets/images/avatars/avatar19.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_10',
+    label: 'Kadin Olgun Modern',
+    imageUrl: 'assets/images/avatars/avatar20.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_11',
+    label: 'Kadin Sarışın',
+    imageUrl: 'assets/images/avatars/avatar21.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_12',
+    label: 'Kadin Anadolu',
+    imageUrl: 'assets/images/avatars/avatar22.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
     id: 'erkek_01',
     label: 'Erkek Genc',
     imageUrl: 'assets/images/avatars/avatar8.png',
@@ -111,8 +147,20 @@ const List<AvatarPreset> avatarPresets = <AvatarPreset>[
   ),
   AvatarPreset(
     id: 'erkek_10',
-    label: 'Erkek Dinamik',
+    label: 'Erkek Karizmatik',
     imageUrl: 'assets/images/avatars/avatar16.png',
+    gender: 'male',
+  ),
+  AvatarPreset(
+    id: 'erkek_11',
+    label: 'Erkek Anadolu',
+    imageUrl: 'assets/images/avatars/avatar23.png',
+    gender: 'male',
+  ),
+  AvatarPreset(
+    id: 'erkek_12',
+    label: 'Erkek Anadolu',
+    imageUrl: 'assets/images/avatars/avatar24.png',
     gender: 'male',
   ),
   AvatarPreset(

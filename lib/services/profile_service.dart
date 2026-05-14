@@ -5,6 +5,7 @@ import 'package:okeyix/core/format.dart';
 import 'package:okeyix/main.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/avatar_preset.dart';
+import 'package:okeyix/ui/avatar_selection_screen.dart';
 import 'package:okeyix/ui/gift_selector_sheet.dart';
 import 'package:okeyix/ui/lobby/lobby_avatar.dart';
 import 'package:okeyix/ui/profile_setup_dialog.dart';
@@ -13,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileService {
+  static final Random _profileRandom = Random();
   static bool _friendRequestPromptOpen = false;
   static const String _freeRenameUsedPrefix = 'profile.free_rename_used.';
   static const String _ownedPremiumAvatarPrefix = 'profile.premium_avatars.';
@@ -1079,29 +1081,51 @@ class ProfileService {
     final freeRenameUsed = await isFreeRenameUsed(user.id);
     final ownedPremiumAvatars = await _getOwnedPremiumAvatars(user.id);
 
-    final setupWidget = ProfileSetupDialog(
-      forceComplete: forceComplete,
-      asPage: forceComplete,
-      initialUsername: initialUsername,
-      initialAvatarRef: initialAvatar,
-      currentUserId: user.id,
-      currentCoins: UserState.userCoin,
-      renameCoinCost: _renameCoinCost,
-      freeRenameUsed: freeRenameUsed,
-      ownedPremiumAvatarRefs: ownedPremiumAvatars,
-    );
-    final result = forceComplete
-        ? await Navigator.of(context, rootNavigator: true).push<ProfileSetupResult>(
-            MaterialPageRoute(
-              builder: (_) => setupWidget,
-              fullscreenDialog: true,
-            ),
-          )
-        : await showDialog<ProfileSetupResult>(
-            context: context,
-            barrierDismissible: true,
-            builder: (_) => setupWidget,
-          );
+    ProfileSetupResult? result;
+    if (forceComplete) {
+      final selectedAvatar = await Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push<String>(
+        MaterialPageRoute(
+          builder: (_) => AvatarSelectionScreen(
+            ownedPremiumAvatarRefs: {...ownedPremiumAvatars},
+            userCoins: 0,
+            showPremium: false,
+            title: 'Avatarını Seç, Oyuna Başla',
+            canClose: false,
+          ),
+          fullscreenDialog: true,
+        ),
+      );
+      if (selectedAvatar == null || selectedAvatar.trim().isEmpty) return;
+      final autoUsername = await _generateAutoUsernameByAvatar(selectedAvatar);
+      result = ProfileSetupResult(
+        username: autoUsername,
+        avatarRef: selectedAvatar,
+        renameCoinSpent: 0,
+        avatarCoinSpent: 0,
+        consumeFreeRename: false,
+        newUnlockedPremiumAvatarRefs: const <String>{},
+      );
+    } else {
+      final setupWidget = ProfileSetupDialog(
+        forceComplete: false,
+        asPage: false,
+        initialUsername: initialUsername,
+        initialAvatarRef: initialAvatar,
+        currentUserId: user.id,
+        currentCoins: UserState.userCoin,
+        renameCoinCost: _renameCoinCost,
+        freeRenameUsed: freeRenameUsed,
+        ownedPremiumAvatarRefs: ownedPremiumAvatars,
+      );
+      result = await showDialog<ProfileSetupResult>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => setupWidget,
+      );
+    }
     if (result == null) return;
 
     try {
@@ -1221,6 +1245,65 @@ class ProfileService {
         msg('Profil guncellenemedi.');
       }
       return;
+    }
+  }
+
+  static Future<bool> _isUsernameTakenForSetup(
+    String username,
+    String currentUserId,
+  ) async {
+    final rowsUsers = await supabase
+        .from('users')
+        .select('id')
+        .ilike('username', username)
+        .limit(5);
+    for (final row in (rowsUsers as List)) {
+      final id = row['id']?.toString();
+      if (id != null && id != currentUserId) return true;
+    }
+
+    final rowsProfiles = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', username)
+        .limit(5);
+    for (final row in (rowsProfiles as List)) {
+      final id = row['id']?.toString();
+      if (id != null && id != currentUserId) return true;
+    }
+    return false;
+  }
+
+  static Future<String> _generateAutoUsernameByAvatar(String avatarRef) async {
+    final currentUserId = UserState.userId ?? supabase.auth.currentUser?.id ?? '';
+
+    String buildSuffix(int length) {
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      final buffer = StringBuffer();
+      for (var i = 0; i < length; i++) {
+        buffer.write(alphabet[_profileRandom.nextInt(alphabet.length)]);
+      }
+      return buffer.toString();
+    }
+
+    // Oyuncu_ + 5/6 karakter: kisa, okunur, cakismaz olana kadar dener.
+    for (var i = 0; i < 2000; i++) {
+      final len = _profileRandom.nextBool() ? 5 : 6;
+      final candidate = 'Oyuncu_${buildSuffix(len)}';
+      final taken = await _isUsernameTakenForSetup(candidate, currentUserId);
+      if (!taken) return candidate;
+    }
+
+    // Teorik fallback (pratikte buraya dusmez), yine uniqueness kontrolu var.
+    while (true) {
+      final raw =
+          (DateTime.now().microsecondsSinceEpoch ^ _profileRandom.nextInt(1 << 20))
+              .toRadixString(36)
+              .toUpperCase();
+      final suffix = raw.length > 6 ? raw.substring(raw.length - 6) : raw;
+      final candidate = 'Oyuncu_$suffix';
+      final taken = await _isUsernameTakenForSetup(candidate, currentUserId);
+      if (!taken) return candidate;
     }
   }
 

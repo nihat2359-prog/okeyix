@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,7 @@ class ProfileSetupDialog extends StatefulWidget {
 }
 
 class ProfileSetupDialogState extends State<ProfileSetupDialog> {
+  static final Random _random = Random();
   late final TextEditingController usernameController;
   late String selectedAvatarRef;
   late Set<String> ownedPremiumAvatarRefs;
@@ -190,7 +192,9 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
   Future<void> _save() async {
     if (_saving) return;
 
-    final username = usernameController.text.trim();
+    final username = widget.forceComplete
+        ? await _generateAutoUsername()
+        : usernameController.text.trim();
 
     if (username.isEmpty) {
       setState(() => errorText = 'Kullanıcı adı zorunlu.');
@@ -213,7 +217,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     }
 
     // 🔥 kullanıcı adı kontrol
-    if (_didUsernameChange) {
+    if (!widget.forceComplete && _didUsernameChange) {
       setState(() {
         _saving = true;
         errorText = null;
@@ -373,7 +377,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                       ),
                       Text(
                         widget.forceComplete
-                            ? 'Kullanıcı adını belirle, avatar seç ve devam et'
+                            ? 'Avatarini sec, otomatik profilin olusturulsun'
                             : 'Kullanıcı bilgilerini ve avatarını güncelle',
                         style: TextStyle(
                           color: Color(0xFFBBD2C4),
@@ -529,6 +533,35 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     );
   }
 
+  Future<String> _generateAutoUsername() async {
+    String buildSuffix(int length) {
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      final buffer = StringBuffer();
+      for (var i = 0; i < length; i++) {
+        buffer.write(alphabet[_random.nextInt(alphabet.length)]);
+      }
+      return buffer.toString();
+    }
+
+    for (var i = 0; i < 2000; i++) {
+      final len = _random.nextBool() ? 5 : 6;
+      final candidate = 'Oyuncu_${buildSuffix(len)}';
+      final taken = await _isUsernameTaken(candidate);
+      if (!taken) return candidate;
+    }
+
+    while (true) {
+      final raw =
+          (DateTime.now().microsecondsSinceEpoch ^ _random.nextInt(1 << 20))
+              .toRadixString(36)
+              .toUpperCase();
+      final suffix = raw.length > 6 ? raw.substring(raw.length - 6) : raw;
+      final candidate = 'Oyuncu_$suffix';
+      final taken = await _isUsernameTaken(candidate);
+      if (!taken) return candidate;
+    }
+  }
+
   Widget _avatarPanel() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -641,6 +674,29 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
   }
 
   Widget _usernameSection() {
+    if (widget.forceComplete) {
+      return SizedBox(
+        width: 240,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0x1FFFFFFF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0x3DE9C46A)),
+          ),
+          child: const Text(
+            'Avatarina gore sana benzersiz bir isim otomatik verilecek.',
+            style: TextStyle(
+              color: Color(0xFFD9EBDD),
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+              height: 1.25,
+            ),
+          ),
+        ),
+      );
+    }
+
     final renameInfo = !widget.freeRenameUsed
         ? 'İlk isim değişikliği ücretsiz. Sonrası ${widget.renameCoinCost} coin.'
         : 'Her isim değişikliği ${widget.renameCoinCost} coin.';
@@ -807,3 +863,4 @@ class ProfileSetupResult {
     required this.newUnlockedPremiumAvatarRefs,
   });
 }
+

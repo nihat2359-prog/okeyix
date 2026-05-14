@@ -48,6 +48,8 @@ class OkeyGame extends FlameGame with TapDetector {
   DateTime? _botNoHandRetryAfter;
   String? _lastStallRecoveryToken;
   DateTime? _lastStallRecoveryAt;
+  String? _lastBotStallRecoveryToken;
+  DateTime? _lastBotStallRecoveryAt;
   bool _stateSyncInFlight = false;
   bool _countdownInProgress = false;
   bool _countdownTriggeredForThisFullState = false;
@@ -1034,6 +1036,7 @@ class OkeyGame extends FlameGame with TapDetector {
         }
       }
       _maybePlayBotTurn();
+      _maybeRecoverStalledBotTurn();
       if (!_isMyTurn()) return;
       final startAt = _turnStartedAt;
       if (startAt == null) {
@@ -1048,6 +1051,37 @@ class OkeyGame extends FlameGame with TapDetector {
       _lastTimeoutTurnToken = token;
       _autoPlayTimeoutMove();
     });
+  }
+
+  void _maybeRecoverStalledBotTurn() {
+    if (!isCreator) return;
+    if (!_gameStarted) return;
+    if (currentTurn < 0) return;
+    if (!_botSeats.contains(currentTurn)) return;
+    if (_actionInFlight || _botTurnInFlight) return;
+
+    final startAt = _turnStartedAt;
+    if (startAt == null) return;
+
+    final now = DateTime.now();
+    final elapsed = now.difference(startAt).inSeconds;
+    if (elapsed < (_turnSeconds + 2)) return;
+
+    final token = '${currentTurn}_${startAt.millisecondsSinceEpoch}';
+    if (_lastBotStallRecoveryToken == token &&
+        _lastBotStallRecoveryAt != null &&
+        now.difference(_lastBotStallRecoveryAt!).inSeconds < 3) {
+      return;
+    }
+
+    final botUserId = _playerSeatMap[currentTurn]?['user_id']?.toString();
+    if (botUserId == null || botUserId.isEmpty) return;
+
+    _lastBotStallRecoveryToken = token;
+    _lastBotStallRecoveryAt = now;
+    unawaited(
+      _recoverBotStall(botUserId: botUserId, expectedTurnToken: token),
+    );
   }
 
   void _maybeRecoverStalledHumanTurn() {

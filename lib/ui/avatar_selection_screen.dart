@@ -16,11 +16,15 @@ class AvatarSelectionScreen extends StatefulWidget {
   final Set<String> ownedPremiumAvatarRefs;
   final int userCoins;
   final bool showPremium;
+  final String title;
+  final bool canClose;
   const AvatarSelectionScreen({
     super.key,
     required this.ownedPremiumAvatarRefs,
     required this.userCoins,
     this.showPremium = true,
+    this.title = 'Avatar Seç',
+    this.canClose = true,
   });
 
   @override
@@ -35,106 +39,284 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final crossAxisCount = isLandscape ? 6 : 4;
-
     final freeWomen = freeAvatarPresetsByGender('female');
     final freeMen = freeAvatarPresetsByGender('male');
     final premiumWomen = premiumAvatarPresetsByGender('female');
     final premiumMen = premiumAvatarPresetsByGender('male');
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // 🔥 BLUR ARKA PLAN
-          SafeArea(
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xEE13291F), Color(0xEE0C1712)],
+    return PopScope(
+      canPop: widget.canClose,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A1210),
+        body: Stack(
+          children: [
+            Positioned(
+              top: -120,
+              left: -50,
+              child: _ambientOrb(const Color(0xAA3AB88A), 240),
+            ),
+            Positioned(
+              bottom: -140,
+              right: -40,
+              child: _ambientOrb(const Color(0x66E9C46A), 280),
+            ),
+            SafeArea(
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xEE18372B), Color(0xEE101C17)],
+                  ),
+                  border: Border.all(
+                    color: const Color(0xE0D0A14A),
+                    width: 0.7,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0xC0000000),
+                      blurRadius: 34,
+                      offset: Offset(0, 14),
+                    ),
+                  ],
                 ),
-                color: const Color(0xFF0F2F2A).withOpacity(0.90),
-                border: Border.all(color: const Color(0xD7D0A14A), width: 0.5),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0xB3000000),
-                    blurRadius: 28,
-                    offset: Offset(0, 14),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // 🔥 HEADER
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          "Avatar Seç",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _genderColumn(
+                              title: 'Kadın Avatarları',
+                              freePresets: freeWomen,
+                              premiumPresets: premiumWomen,
+                              crossAxisCount: isLandscape ? 3 : 2,
+                            ),
                           ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // 🔥 LIST
-                  Expanded(
-                    child: ListView(
-                      children: [
-                        _avatarSection(
-                          title: 'Standart Kadın Avatarları',
-                          subtitle: 'Ücretsiz',
-                          presets: freeWomen,
-                          crossAxisCount: crossAxisCount,
-                        ),
-                        const SizedBox(height: 12),
-                        _avatarSection(
-                          title: 'Standart Erkek Avatarları',
-                          subtitle: 'Ücretsiz',
-                          presets: freeMen,
-                          crossAxisCount: crossAxisCount,
-                        ),
-                        if (widget.showPremium) ...[
-                          const SizedBox(height: 12),
-                          _avatarSection(
-                            title: 'Premium Kadın Avatarları',
-                            subtitle: 'Coin ile açılır',
-                            presets: premiumWomen,
-                            crossAxisCount: crossAxisCount,
-                            premiumHeader: true,
-                          ),
-                          const SizedBox(height: 12),
-                          _avatarSection(
-                            title: 'Premium Erkek Avatarları',
-                            subtitle: 'Coin ile açılır',
-                            presets: premiumMen,
-                            crossAxisCount: crossAxisCount,
-                            premiumHeader: true,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _genderColumn(
+                              title: 'Erkek Avatarları',
+                              freePresets: freeMen,
+                              premiumPresets: premiumMen,
+                              crossAxisCount: isLandscape ? 3 : 2,
+                            ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ambientOrb(Color color, double size) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, Colors.transparent],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        isLandscape ? 7 : 10,
+        isLandscape ? 6 : 10,
+        isLandscape ? 4 : 8,
+        isLandscape ? 6 : 10,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0x2BE9C46A), Color(0x1839A979)],
+        ),
+        border: Border.all(color: const Color(0x55E9C46A)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: isLandscape ? 32 : 44,
+            height: isLandscape ? 32 : 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: const Color(0x332A3C2F),
+              border: Border.all(color: const Color(0x66E9C46A)),
+            ),
+            child: Icon(
+              Icons.face_retouching_natural_rounded,
+              color: Color(0xFFFFE0A8),
+              size: isLandscape ? 18 : 24,
+            ),
+          ),
+          SizedBox(width: isLandscape ? 6 : 10),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isLandscape ? 13 : 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+                if (isLandscape && widget.showPremium)
+                  const Text(
+                    '(Premium seçilebilir)',
+                    style: TextStyle(
+                      color: Color(0xFFD5EADB),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (widget.canClose)
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.close, color: Colors.white70),
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _genderColumn({
+    required String title,
+    required List<AvatarPreset> freePresets,
+    required List<AvatarPreset> premiumPresets,
+    required int crossAxisCount,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFFFFFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x33E9C46A)),
+      ),
+      child: ListView(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Color(0xFFF6F9F8),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14.5,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    _tagChip(
+                      text: 'Standart',
+                      bg: const Color(0x2A62C38C),
+                      border: const Color(0x7A62C38C),
+                      fg: const Color(0xFFE8FFF2),
+                    ),
+                    _tagChip(
+                      text: 'Ücretsiz',
+                      bg: const Color(0x3354D394),
+                      border: const Color(0x8D54D394),
+                      fg: const Color(0xFFEFFFF8),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _avatarGrid(presets: freePresets, crossAxisCount: crossAxisCount),
+          if (widget.showPremium) ...[
+            const SizedBox(height: 12),
+            _avatarSection(
+              title: 'Premium',
+              subtitle: 'Coin ile açılır',
+              presets: premiumPresets,
+              crossAxisCount: crossAxisCount,
+              premiumHeader: true,
+            ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarGrid({
+    required List<AvatarPreset> presets,
+    required int crossAxisCount,
+  }) {
+    return GridView.builder(
+      itemCount: presets.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 0.92,
+      ),
+      itemBuilder: (_, index) => _avatarTile(presets[index]),
+    );
+  }
+
+  Widget _tagChip({
+    required String text,
+    required Color bg,
+    required Color border,
+    required Color fg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: fg,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.15,
+        ),
       ),
     );
   }
@@ -196,8 +378,9 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 0.84,
           ),
           itemBuilder: (_, index) => _avatarTile(presets[index]),
         ),
@@ -244,34 +427,61 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           gradient: preset.isPremium
               ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0x6640200D), Color(0x44401008)],
+                  colors: [Color(0x9A4F2E10), Color(0x7635160B)],
                 )
               : null,
-          color: preset.isPremium ? null : const Color(0x44213129),
+          color: preset.isPremium ? null : const Color(0x4F243B33),
           border: Border.all(
             color: selected
                 ? const Color(0xFFE8C36A)
                 : (preset.isPremium
                       ? const Color(0x66FFD27D)
                       : const Color(0x334F8F75)),
-            width: selected ? 2 : 1,
+            width: selected ? 2.2 : 1.0,
           ),
+          boxShadow: selected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x66E9C46A),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Stack(
           children: [
             Center(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  preset.imageUrl,
+                child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  fit: BoxFit.cover, // 🔥 EN KRİTİK
+                  color: const Color(0xFF1A2B25),
+                  padding: const EdgeInsets.all(4),
+                  child: Image.asset(
+                    preset.imageUrl,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0x33000000)],
+                  ),
                 ),
               ),
             ),
