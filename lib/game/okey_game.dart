@@ -773,9 +773,14 @@ class OkeyGame extends FlameGame with TapDetector {
     int? mySeat;
 
     final playersList = <Map<String, dynamic>>[];
+    final playerUserIds = <String>{};
 
     for (final p in rawPlayers) {
       final map = p as Map<String, dynamic>;
+      final userId = map['user_id']?.toString();
+      if (userId != null && userId.isNotEmpty) {
+        playerUserIds.add(userId);
+      }
 
       if (map['user_id']?.toString() == uid) {
         stillInTable = true;
@@ -783,6 +788,35 @@ class OkeyGame extends FlameGame with TapDetector {
       }
 
       playersList.add(map);
+    }
+
+    // Some RPC shapes may not include nested user.is_bot.
+    // Backfill bot flags from public.users so bot turns always activate.
+    if (playerUserIds.isNotEmpty) {
+      try {
+        final userRows = await supabase
+            .from('users')
+            .select('id,is_bot')
+            .inFilter('id', playerUserIds.toList());
+        final isBotById = <String, bool>{};
+        for (final raw in (userRows as List)) {
+          final row = Map<String, dynamic>.from(raw);
+          final id = row['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          isBotById[id] = row['is_bot'] == true;
+        }
+        for (final p in playersList) {
+          final id = p['user_id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          final bot = isBotById[id] == true;
+          final userObj = p['user'] is Map
+              ? Map<String, dynamic>.from(p['user'] as Map)
+              : <String, dynamic>{};
+          userObj['is_bot'] = bot;
+          p['user'] = userObj;
+          p['is_bot'] = bot;
+        }
+      } catch (_) {}
     }
 
     playersWithProfiles = playersList;
@@ -813,7 +847,10 @@ class OkeyGame extends FlameGame with TapDetector {
       ..clear()
       ..addAll(
         playersWithProfiles
-            .where((p) => p['user']?['is_bot'] == true)
+            .where(
+              (p) =>
+                  p['user']?['is_bot'] == true || p['is_bot'] == true,
+            )
             .map((p) => p['seat_index'] as int),
       );
 
@@ -1134,7 +1171,9 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   void _maybePlayBotTurn() {
-    if (!isCreator) return;
+    // Bot turns should be orchestrated by any seated human player.
+    // In auto-created bot tables, created_by may belong to a system owner user.
+    if (_mySeatIndexAbs == null) return;
     if (_actionInFlight || _botTurnInFlight) return;
     if (_botNoHandRetryAfter != null &&
         DateTime.now().isBefore(_botNoHandRetryAfter!)) {

@@ -1352,26 +1352,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         }
       }
 
-      final inactiveTableIds = tableRows
-          .map((t) => t['id']?.toString())
-          .whereType<String>()
-          .where((id) {
-            final seats = playersByTable[id] ?? const <Map<String, dynamic>>[];
-            if (seats.isEmpty) return true;
-            final hasHuman = seats.any((p) {
-              final uid = p['user_id']?.toString();
-              if (uid == null || uid.isEmpty) return false;
-              return isBotById[uid] != true;
-            });
-            return !hasHuman;
-          })
-          .toList();
-      if (inactiveTableIds.isNotEmpty) {
-        await _cleanupOrphanTables(inactiveTableIds);
-        tableRows.removeWhere(
-          (t) => inactiveTableIds.contains(t['id']?.toString()),
-        );
-      }
+      // Keep bot-only waiting tables visible in lobby.
+      // Only truly orphan tables (no players) are cleaned above.
 
       final merged = tableRows.map((table) {
         final tableId = table['id']?.toString();

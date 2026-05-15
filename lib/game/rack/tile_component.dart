@@ -405,10 +405,17 @@ class TileComponent extends PositionComponent
       final worldPos = absolutePosition;
       if (gameRef.isPointNearIndicator(worldPos)) {
         final claimed = await gameRef.tryClaimIndicatorBonus(this);
-        // Bonus denemesinde tas her durumda rack slotuna geri donmeli.
-        _restoreToOriginalSlot();
-        if (!claimed) {
-          // no-op: claim basarisizsa sadece restore yeterli
+        if (claimed) {
+          // Gosterge bonusu alindiysa tas rack'e geri doner.
+          _restoreToOriginalSlot();
+        } else {
+          // Gosterge islemi degilse ayni birakmada bitis dene.
+          final finished = await gameRef.finishWithTile(this);
+          if (!finished) {
+            _restoreToOriginalSlot();
+          } else {
+            gameRef.scheduleTileRemoval(this);
+          }
         }
         priority = 20;
         gameRef.clearPreview();

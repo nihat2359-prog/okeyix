@@ -1307,7 +1307,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
       // ğŸ”¥ 1. HiÃ§ oyuncu yok
       if (players.isEmpty) {
-        await _deleteTable();
         return;
       }
 
@@ -1332,7 +1331,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
       // ğŸ”¥ 3. Sadece bot varsa sil
       if (!hasHuman) {
-        await _deleteTable();
+        return;
       }
     } catch (e) {
       debugPrint("cleanup error: $e");
