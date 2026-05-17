@@ -51,6 +51,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   Timer? _ticker;
   Timer? _tablePoll;
   Timer? _playersPoll;
+  bool _loopsRunning = false;
 
   bool _menuOpen = false;
   bool _chatOpen = false;
@@ -65,6 +66,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   DateTime? _readySince;
   DateTime? _lastFinishAt;
+  bool _finishFxBaselineSeeded = false;
 
   int? _mySeatIndex;
   String? _myUserId;
@@ -189,18 +191,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _bootstrap();
     _loadChatMessages();
     _subscribeRealtime();
-    _ticker = Timer.periodic(const Duration(milliseconds: 150), (_) {
-      if (mounted) {
-        _syncTurnTickSfx();
-        setState(() {});
-      }
-    });
-    _tablePoll = Timer.periodic(const Duration(seconds: 1), (_) {
-      _loadTable();
-    });
-    _playersPoll = Timer.periodic(const Duration(seconds: 1), (_) {
-      _loadPlayers();
-    });
+    _startUiLoops();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _prepareVisuals();
     });
@@ -348,7 +339,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _stopUiLoops();
     _tableChannel?.unsubscribe();
     _playersChannel?.unsubscribe();
     _chatChannel?.unsubscribe();
@@ -371,6 +362,54 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _voiceCommands.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startUiLoops();
+      if (!_hourglassCtrl.isAnimating) {
+        _hourglassCtrl.repeat(reverse: true);
+      }
+      unawaited(_loadTable());
+      unawaited(_loadPlayers());
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _stopUiLoops();
+      if (_hourglassCtrl.isAnimating) {
+        _hourglassCtrl.stop();
+      }
+    }
+  }
+
+  void _startUiLoops() {
+    if (_loopsRunning) return;
+    _loopsRunning = true;
+    _ticker = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (!mounted) return;
+      _syncTurnTickSfx();
+      setState(() {});
+    });
+    _tablePoll = Timer.periodic(const Duration(seconds: 2), (_) {
+      _loadTable();
+    });
+    _playersPoll = Timer.periodic(const Duration(seconds: 2), (_) {
+      _loadPlayers();
+    });
+  }
+
+  void _stopUiLoops() {
+    _loopsRunning = false;
+    _ticker?.cancel();
+    _ticker = null;
+    _tablePoll?.cancel();
+    _tablePoll = null;
+    _playersPoll?.cancel();
+    _playersPoll = null;
   }
 
   Future<void> _bootstrap() async {
@@ -843,6 +882,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       }
 
       final shouldShowFinishFx =
+          _finishFxBaselineSeeded &&
           finishAt != null &&
           (prevFinishAt == null || finishAt.isAfter(prevFinishAt));
       if (shouldShowFinishFx) {
@@ -851,6 +891,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             : (_userNames[winner] ?? 'Bir oyuncu');
         _showFinishMessage("$winnerName kazandı");
       }
+      _finishFxBaselineSeeded = true;
 
       if (mounted) setState(() {});
     } catch (e) {

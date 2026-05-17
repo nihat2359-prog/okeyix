@@ -74,6 +74,7 @@ class OkeyGame extends FlameGame with TapDetector {
   String? _lastRenderedHandFingerprint;
   String? _lastDeckVisualSignature;
   int _myHandCount = 0;
+  String? _drawCommittedTurnKey;
   bool _sourceDrawDragActive = false;
   Vector2? _sourceDrawDragPosition;
   DiscardSlotComponent? _sourceDrawFromDiscardSlot;
@@ -86,6 +87,7 @@ class OkeyGame extends FlameGame with TapDetector {
   bool _uiLocked = false;
   bool _networkInFlight = false;
   DateTime? _lastDrawAttemptAt;
+  DateTime? _lastInvariantResyncAt;
   final bool _stabilityMode = false;
   final List<Map<String, dynamic>> _moveQueue = [];
   bool _processingQueue = false;
@@ -179,6 +181,7 @@ class OkeyGame extends FlameGame with TapDetector {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
+    _sessionStartedAt = DateTime.now();
     _initStage();
     await _loadInitialState();
     _subscribeRealtime();
@@ -926,6 +929,7 @@ class OkeyGame extends FlameGame with TapDetector {
         hardReset: shouldHardResync,
       );
     }
+    await _validateCriticalInvariants('load_initial_state');
   }
 
   Map<String, dynamic>? getLeague() {
@@ -945,7 +949,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   int getMyHandCount() {
-    return _myHandCount;
+    return _effectiveHandCount();
   }
 
   void resetGameState() {
@@ -1792,7 +1796,7 @@ class OkeyGame extends FlameGame with TapDetector {
         currentTurn = turn;
         _turnStartedAt =
             _parseServerTime(table['turn_started_at']) ?? DateTime.now();
-        hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+        _recomputeDrawState();
         _actionInFlight = false;
         _lastTimeoutTurnToken = null;
       }
@@ -1805,6 +1809,7 @@ class OkeyGame extends FlameGame with TapDetector {
           _stateSyncInFlight = false;
         });
       }
+      await _validateCriticalInvariants('poll_live_table_state');
     } catch (_) {}
   }
 
@@ -1815,6 +1820,121 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   bool get isMyTurnForLocalUser => _isMyTurn();
+
+  String _currentTurnKey() => '$_round:$currentTurn';
+
+  bool _localDrawCommittedThisTurn() =>
+      _drawCommittedTurnKey != null && _drawCommittedTurnKey == _currentTurnKey();
+
+  int _effectiveHandCount() {
+    final visible = occupiedSlots.length;
+    return _myHandCount > visible ? _myHandCount : visible;
+  }
+
+  void _recomputeDrawState() {
+    hasDrawnThisTurn =
+        _isMyTurn() && (_localDrawCommittedThisTurn() || _effectiveHandCount() >= 15);
+  }
+
+  bool _canDrawNow() {
+    if (!_isMyTurn()) return false;
+    if (_actionInFlight || _networkInFlight) return false;
+    if (_effectiveHandCount() >= 15) return false;
+    if (hasDrawnThisTurn || _localDrawCommittedThisTurn()) return false;
+    return true;
+  }
+
+  void _markDrawCommittedForCurrentTurn() {
+    _drawCommittedTurnKey = _currentTurnKey();
+    hasDrawnThisTurn = true;
+  }
+
+  void _clearDrawCommitForCurrentTurn() {
+    _drawCommittedTurnKey = null;
+    hasDrawnThisTurn = false;
+  }
+
+  int _mountedRackTileCount() {
+    var count = 0;
+    for (final tile in tileComponentMap.values) {
+      if (!tile.isMounted) continue;
+      final slot = tile.currentSlotIndex;
+      if (slot == null) continue;
+      if (slot < 0 || slot >= slotPositions.length) continue;
+      count++;
+    }
+    return count;
+  }
+
+  int _mountedLooseRackTileCountInWorld() {
+    return world.children
+        .whereType<TileComponent>()
+        .where((tile) => !tile.isLocked)
+        .length;
+  }
+
+  Future<void> _hardResyncFromInvariant(String reason) async {
+    if (_stateSyncInFlight) return;
+    final now = DateTime.now();
+    if (_lastInvariantResyncAt != null &&
+        now.difference(_lastInvariantResyncAt!).inMilliseconds < 1500) {
+      return;
+    }
+    _lastInvariantResyncAt = now;
+    _dbg('INVARIANT_RESYNC', {
+      'reason': reason,
+      'my_turn': _isMyTurn(),
+      'hand_count': _myHandCount,
+      'visible_count': occupiedSlots.length,
+      'mounted_count': _mountedRackTileCount(),
+      'has_drawn': hasDrawnThisTurn,
+      'draw_committed': _localDrawCommittedThisTurn(),
+      'round': _round,
+      'turn': currentTurn,
+    }, key: 'invariant_resync', minInterval: const Duration(seconds: 1));
+    _stateSyncInFlight = true;
+    try {
+      await _loadInitialState(forceHandSync: true);
+    } finally {
+      _stateSyncInFlight = false;
+    }
+  }
+
+  Future<void> _validateCriticalInvariants(String source) async {
+    if (!_gameStarted) return;
+
+    final effective = _effectiveHandCount();
+    final mounted = _mountedRackTileCount();
+    final worldMounted = _mountedLooseRackTileCountInWorld();
+    final visible = occupiedSlots.length;
+    final myTurn = _isMyTurn();
+    final drawCommitted = _localDrawCommittedThisTurn();
+
+    if (effective > 15 || mounted > 15 || visible > 15) {
+      await _hardResyncFromInvariant('$source:hand_overflow');
+      return;
+    }
+
+    if (worldMounted > mounted) {
+      await _hardResyncFromInvariant('$source:orphan_world_tiles');
+      return;
+    }
+
+    if (mounted != visible) {
+      await _hardResyncFromInvariant('$source:rack_map_mismatch');
+      return;
+    }
+
+    if (myTurn && (hasDrawnThisTurn || drawCommitted) && effective < 15) {
+      await _hardResyncFromInvariant('$source:draw_state_without_15');
+      return;
+    }
+
+    if (!myTurn && effective > 14) {
+      await _hardResyncFromInvariant('$source:not_my_turn_with_15');
+      return;
+    }
+  }
 
   int? _resolveMySeatIndex() {
     if (_mySeatIndexAbs != null) return _mySeatIndexAbs;
@@ -2055,12 +2175,12 @@ class OkeyGame extends FlameGame with TapDetector {
       // Ignore invalid counts to avoid wiping rack visuals.
       if (hand.length < 14) {
         _myHandCount = occupiedSlots.length;
-        hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+        _recomputeDrawState();
         return;
       }
       if (!applyServerDiff) {
         _myHandCount = occupiedSlots.length;
-        hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+        _recomputeDrawState();
         return;
       }
       if (hardReset) {
@@ -2071,7 +2191,7 @@ class OkeyGame extends FlameGame with TapDetector {
       final incomingCount = hand.whereType<Map>().length;
       if (fingerprint == _lastRenderedHandFingerprint &&
           tileComponentMap.length == incomingCount) {
-        hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+        _recomputeDrawState();
         return;
       }
       if (hardReset || tileComponentMap.isEmpty) {
@@ -2080,11 +2200,13 @@ class OkeyGame extends FlameGame with TapDetector {
         _syncHandIncremental(hand);
       }
       _lastRenderedHandFingerprint = fingerprint;
-      hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+      _recomputeDrawState();
+      unawaited(_validateCriticalInvariants('render_my_hand'));
     }
   }
 
   void _syncHandIncremental(List<dynamic> hand) {
+    _cleanupOrphanRackTiles();
     final parsedById = <String, TileModel>{};
     final rawIds = <String>{};
     if (hand.length < 14) {
@@ -2123,7 +2245,7 @@ class OkeyGame extends FlameGame with TapDetector {
       tile.removeFromParent();
     }
 
-    occupiedSlots.removeWhere((_, tile) => !tile.isMounted);
+    _rebuildOccupiedSlots();
 
     for (final model in parsedById.values) {
       if (tileComponentMap.containsKey(model.id)) continue;
@@ -2191,7 +2313,21 @@ class OkeyGame extends FlameGame with TapDetector {
     tileComponentMap.clear();
   }
 
+  void _cleanupOrphanRackTiles() {
+    final tracked = tileComponentMap.values.toSet();
+    final rackTiles = world.children
+        .whereType<TileComponent>()
+        .where((tile) => !tile.isLocked)
+        .toList(growable: false);
+    for (final tile in rackTiles) {
+      if (tracked.contains(tile)) continue;
+      tile.removeFromParent();
+    }
+    _rebuildOccupiedSlots();
+  }
+
   void _renderHand(List<dynamic> hand) {
+    _cleanupOrphanRackTiles();
     final parsed = <TileModel>[];
     final incomingRawIds = <String>{};
     final wasHandEmptyBeforeRender = tileComponentMap.isEmpty;
@@ -2251,7 +2387,7 @@ class OkeyGame extends FlameGame with TapDetector {
       staleTile.removeFromParent();
     }
 
-    occupiedSlots.removeWhere((_, tile) => !tile.isMounted);
+    _rebuildOccupiedSlots();
     List<int>? slotPlan;
     if (wasHandEmptyBeforeRender) {
       slotPlan = _buildSmartRackPlan(parsed.length, parsed);
@@ -2266,7 +2402,15 @@ class OkeyGame extends FlameGame with TapDetector {
       // Already rendered and mounted: keep it.
       final existing = tileComponentMap[model.id];
       if (existing != null) {
-        if (existing.isMounted) continue;
+        if (existing.isMounted) {
+          final existingSlot = existing.currentSlotIndex;
+          if (existingSlot != null &&
+              existingSlot >= 0 &&
+              existingSlot < slotPositions.length) {
+            occupiedSlots[existingSlot] = existing;
+          }
+          continue;
+        }
         tileComponentMap.remove(model.id);
       }
 
@@ -2348,7 +2492,7 @@ class OkeyGame extends FlameGame with TapDetector {
     occupiedSlots.clear();
     _lastRenderedHandFingerprint = null;
     _myHandCount = 0;
-    hasDrawnThisTurn = false;
+    _clearDrawCommitForCurrentTurn();
     _pendingPreferredDrawSlot = null;
     clearPreview();
     clearTemporaryShift();
@@ -3639,6 +3783,8 @@ class OkeyGame extends FlameGame with TapDetector {
 
   bool _finishShown = false;
   bool _initialized = false;
+  bool _finishBaselineSeeded = false;
+  DateTime _sessionStartedAt = DateTime.now();
   String? _lastHandledFinishId;
   String? _lastHandledFinishCore;
   DateTime? _lastLocalFinishAt;
@@ -3667,7 +3813,43 @@ class OkeyGame extends FlameGame with TapDetector {
     return '${winnerId ?? ''}|$finishTileId|${slotTileIds.join(',')}';
   }
 
+  String? _finishIdFromTable(Map<String, dynamic> table) {
+    final hasFinishData =
+        table['last_winner_user_id'] != null &&
+        table['last_final_slots'] != null &&
+        table['last_finish_tile'] != null;
+    if (!hasFinishData) return null;
+    final finishAt = table['last_finish_at']?.toString() ?? '';
+    if (finishAt.isEmpty) return null;
+    final winnerId = table['last_winner_user_id'];
+    final slots = List<Map<String, dynamic>>.from(table['last_final_slots'] ?? []);
+    final finishTile = Map<String, dynamic>.from(table['last_finish_tile'] ?? {});
+    final finishCore = _buildFinishCoreId(
+      winnerId: winnerId,
+      slots: slots,
+      finishTile: finishTile,
+    );
+    return '$finishAt|$finishCore';
+  }
+
+  void _seedFinishBaselineIfNeeded(Map<String, dynamic> table) {
+    if (_finishBaselineSeeded) return;
+    final finishId = _finishIdFromTable(table);
+    if (finishId != null && finishId.isNotEmpty) {
+      _lastHandledFinishId = finishId;
+      final sep = finishId.indexOf('|');
+      if (sep != -1 && sep + 1 < finishId.length) {
+        _lastHandledFinishCore = finishId.substring(sep + 1);
+      }
+    }
+    _finishBaselineSeeded = true;
+  }
+
   bool _maybeShowFinishFromTable(Map<String, dynamic> table) {
+    if (!_finishBaselineSeeded) {
+      _seedFinishBaselineIfNeeded(table);
+      return false;
+    }
     final status = table['status']?.toString();
     if (status == 'playing') return false;
     final hasFinishData =
@@ -3678,6 +3860,7 @@ class OkeyGame extends FlameGame with TapDetector {
 
     final finishAt = table['last_finish_at']?.toString() ?? '';
     if (finishAt.isEmpty) return false;
+    final finishAtTime = _parseServerTime(table['last_finish_at']);
     final winnerId = table['last_winner_user_id'];
     final slots = List<Map<String, dynamic>>.from(
       table['last_final_slots'] ?? [],
@@ -3691,6 +3874,14 @@ class OkeyGame extends FlameGame with TapDetector {
       finishTile: finishTile,
     );
     final finishId = '$finishAt|$finishCore';
+    if (finishAtTime != null &&
+        finishAtTime.isBefore(
+          _sessionStartedAt.subtract(const Duration(seconds: 1)),
+        )) {
+      _lastHandledFinishId = finishId;
+      _lastHandledFinishCore = finishCore;
+      return false;
+    }
     if (_lastHandledFinishId == finishId) {
       return false;
     }
@@ -3838,13 +4029,14 @@ class OkeyGame extends FlameGame with TapDetector {
           _lastTimeoutTurnToken = null;
         }
         currentTurn = turn;
-        hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+        _recomputeDrawState();
       }
 
       if (table['deck'] != null && !_initialized) {
         _syncDeckFromTable(table['deck']);
         _initialized = true;
       }
+      await _validateCriticalInvariants('table_update');
     } catch (e, s) {
       debugPrint("🔥 TABLE UPDATE CRASH: $e");
       debugPrint("$s");
@@ -4128,6 +4320,8 @@ class OkeyGame extends FlameGame with TapDetector {
 
   bool _canTakeFromDiscardSlot(DiscardSlotComponent slot) {
     if (!_isMyTurn()) return false;
+    if (hasDrawnThisTurn || _localDrawCommittedThisTurn()) return false;
+    if (_effectiveHandCount() >= 15) return false;
     if (slot.currentTile == null) return false;
     final seat = _absoluteSeatForSlot(slot);
     final expected = _expectedDiscardSeatForCurrentTurn();
@@ -4158,7 +4352,8 @@ class OkeyGame extends FlameGame with TapDetector {
       await _syncDiscardTopsFromServer();
       _hasDrawnFromSourceThisRound = true;
       _indicatorBonusWindowOpen = false;
-      hasDrawnThisTurn = _isMyTurn() && _myHandCount >= 15;
+      _markDrawCommittedForCurrentTurn();
+      await _validateCriticalInvariants('server_draw_ok');
       //_emitTileSfx();
     } catch (e) {
       debugPrint('GAME_DRAW RPC ERROR: $e');
@@ -4167,7 +4362,7 @@ class OkeyGame extends FlameGame with TapDetector {
         await _pollLiveTableState();
       }
       if ('$e'.contains('HAND_ALREADY_15')) {
-        hasDrawnThisTurn = true;
+        _markDrawCommittedForCurrentTurn();
       }
       await _loadInitialState(forceHandSync: true);
     } finally {
@@ -4323,11 +4518,12 @@ class OkeyGame extends FlameGame with TapDetector {
       _emitTileSfx();
       _myHandCount = (_myHandCount - 1).clamp(0, 30);
       _indicatorBonusWindowOpen = false;
-      hasDrawnThisTurn = false;
+      _clearDrawCommitForCurrentTurn();
       _pendingPreferredDrawSlot = null;
       // Discard success: only removed tile should change in my hand.
       // Keep hand untouched to prevent unintended slot moves.
       await _loadInitialState(forceHandSync: false);
+      await _validateCriticalInvariants('server_discard_ok');
       return true;
     } catch (e) {
       await _loadInitialState(forceHandSync: true);
@@ -4811,20 +5007,17 @@ class OkeyGame extends FlameGame with TapDetector {
       return;
     }
     _lastDrawAttemptAt = now;
-    if (hasDrawnThisTurn) return;
-    if (_myHandCount >= 15) return;
-    if (closedPile.length <= 1) return;
     if (!_isMyTurn()) {
       _pollLiveTableState();
       return;
     }
+    if (!_canDrawNow()) return;
+    if (closedPile.length <= 1) return;
     _serverDraw(source: 'closed');
   }
 
   bool drawFromClosedPileByVoice() {
-    if (!_isMyTurn()) return false;
-    if (hasDrawnThisTurn) return false;
-    if (_myHandCount >= 15) return false;
+    if (!_canDrawNow()) return false;
     if (closedPile.length <= 1) return false;
     drawFromClosedPile();
     return true;
@@ -5283,7 +5476,7 @@ class OkeyGame extends FlameGame with TapDetector {
       return false;
     }
     if (_actionInFlight) return false;
-    if (_myHandCount != 15) return false;
+    if (_effectiveHandCount() != 15) return false;
     final success = await _serverDiscard(tile);
     return success;
   }
@@ -5296,7 +5489,7 @@ class OkeyGame extends FlameGame with TapDetector {
 
     if (_actionInFlight) return false;
 
-    if (_myHandCount != 15) return false;
+    if (_effectiveHandCount() != 15) return false;
 
     return _tryFinish(tile); // 🔥 BURASI DEĞİŞTİ
   }
@@ -5447,7 +5640,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   bool takeFromDiscardByVoice() {
-    if (_myHandCount >= 15) return false;
+    if (!_canDrawNow()) return false;
     final expectedSeat = _expectedDiscardSeatForCurrentTurn();
     if (expectedSeat == null) return false;
     final slotIndex = _slotIndexForAbsoluteSeat(expectedSeat);
@@ -5478,7 +5671,7 @@ class OkeyGame extends FlameGame with TapDetector {
   bool canDiscardByVoice() {
     if (!_isMyTurn()) return false;
     if (_actionInFlight || _uiLocked) return false;
-    return hasDrawnThisTurn || _myHandCount == 15;
+    return hasDrawnThisTurn || _effectiveHandCount() == 15;
   }
 
   Future<bool> discardTileByVoice({
@@ -5498,7 +5691,7 @@ class OkeyGame extends FlameGame with TapDetector {
       return false;
     }
     if (_actionInFlight) return false;
-    if (_myHandCount != 15) return false;
+    if (_effectiveHandCount() != 15) return false;
 
     final handEntries = occupiedSlots.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
@@ -5615,7 +5808,7 @@ class OkeyGame extends FlameGame with TapDetector {
       return;
     }
     _lastDrawAttemptAt = now;
-    if (_myHandCount >= 15) return;
+    if (!_canDrawNow()) return;
     if (!_canTakeFromDiscardSlot(slot)) {
       _pollLiveTableState();
       return;
@@ -5640,13 +5833,14 @@ class OkeyGame extends FlameGame with TapDetector {
     required Vector2 startPosition,
     DiscardSlotComponent? fromDiscardSlot,
   }) {
-    if (_myHandCount >= 15) return;
+    if (_effectiveHandCount() >= 15) return;
     if (_actionInFlight) return;
     if (fromDiscardSlot == null && !_isMyTurn()) {
       _pollLiveTableState();
       return;
     }
-    if (fromDiscardSlot == null && hasDrawnThisTurn) {
+    if (fromDiscardSlot == null &&
+        (hasDrawnThisTurn || _localDrawCommittedThisTurn())) {
       return;
     }
     if (fromDiscardSlot != null && !_canTakeFromDiscardSlot(fromDiscardSlot)) {

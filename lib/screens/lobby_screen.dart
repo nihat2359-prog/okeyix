@@ -48,7 +48,7 @@ class LobbyScreen extends StatefulWidget {
 }
 
 class _LobbyScreenState extends State<LobbyScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   static const Color _goldBorderColor = Color(0xCCB07A1A);
   static const Color _goldBorderDark = Color(0xFF8F6215);
   static const double _goldBorderWidth = 0.3;
@@ -64,6 +64,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Timer? _systemMessageTimer;
   Timer? _spectatorPassTimer;
   Timer? _tableInvitePollTimer;
+  bool _lobbyLoopsRunning = false;
   bool _banScreenOpened = false;
   bool _rewardFlowRunning = false;
   static const int _welcomeCoinAmount = 10000;
@@ -171,6 +172,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkGuestWelcome();
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
@@ -180,7 +182,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     _bgController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 16),
-    )..repeat();
+    );
     _coinFxController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 460),
@@ -197,31 +199,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     _storePulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
 
     _init();
-    _leagueActivityTimer = Timer.periodic(const Duration(seconds: 12), (_) {
-      _loadLeagueActivity();
-    });
-    _socialRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _loadSocialData();
-    });
-    _tablesRefreshTimer = Timer.periodic(
-      const Duration(seconds: 12),
-      (_) => _loadTables(),
-    );
-    _systemMessageTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _checkUnreadSystemMessages(showToast: true),
-    );
-    _spectatorPassTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _refreshGlobalSpectatorPassStatus(),
-    );
-    _tableInvitePollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      _ensureTableInviteListener();
-      _ensureMessagesListener();
-    });
+    _startLobbyLoops();
 
     _initDevice();
   }
@@ -316,12 +297,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   @override
   void dispose() {
-    _leagueActivityTimer?.cancel();
-    _socialRefreshTimer?.cancel();
-    _tablesRefreshTimer?.cancel();
-    _systemMessageTimer?.cancel();
-    _spectatorPassTimer?.cancel();
-    _tableInvitePollTimer?.cancel();
+    _stopLobbyLoops();
     _coinFxTimer?.cancel();
     _chatController.dispose();
     _bgController.dispose();
@@ -331,7 +307,75 @@ class _LobbyScreenState extends State<LobbyScreen>
     _audioPlayer.dispose();
     _tableInviteChannel?.unsubscribe();
     _messagesChannel?.unsubscribe();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startLobbyLoops();
+      unawaited(_loadTables());
+      unawaited(_loadSocialData());
+      return;
+    }
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _stopLobbyLoops();
+    }
+  }
+
+  void _startLobbyLoops() {
+    if (_lobbyLoopsRunning) return;
+    _lobbyLoopsRunning = true;
+    _leagueActivityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadLeagueActivity();
+    });
+    _socialRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadSocialData();
+    });
+    _tablesRefreshTimer = Timer.periodic(
+      const Duration(seconds: 25),
+      (_) => _loadTables(),
+    );
+    _systemMessageTimer = Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => _checkUnreadSystemMessages(showToast: true),
+    );
+    _spectatorPassTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => _refreshGlobalSpectatorPassStatus(),
+    );
+    _tableInvitePollTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      _ensureTableInviteListener();
+      _ensureMessagesListener();
+    });
+    if (!_storePulse.isAnimating) {
+      _storePulse.repeat(reverse: true);
+    }
+  }
+
+  void _stopLobbyLoops() {
+    _lobbyLoopsRunning = false;
+    _leagueActivityTimer?.cancel();
+    _leagueActivityTimer = null;
+    _socialRefreshTimer?.cancel();
+    _socialRefreshTimer = null;
+    _tablesRefreshTimer?.cancel();
+    _tablesRefreshTimer = null;
+    _systemMessageTimer?.cancel();
+    _systemMessageTimer = null;
+    _spectatorPassTimer?.cancel();
+    _spectatorPassTimer = null;
+    _tableInvitePollTimer?.cancel();
+    _tableInvitePollTimer = null;
+    if (_storePulse.isAnimating) {
+      _storePulse.stop();
+    }
+    if (_bgController.isAnimating) {
+      _bgController.stop();
+    }
   }
 
   Future<void> _init() async {
