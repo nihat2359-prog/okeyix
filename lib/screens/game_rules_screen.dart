@@ -213,7 +213,7 @@ class GameRulesScreen extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _chip('Min Rating', minRating == 0 ? 'Yok' : '$minRating+',
+              _chip('Min Seviye', minRating == 0 ? 'Yok' : '$minRating+',
                   highlight: highlight),
               _chip(
                 'Coin Aralığı',
@@ -322,9 +322,9 @@ class GameRulesScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         _infoCard(
                           Icons.star,
-                          'Rating Sistemi',
-                          'Kazandıkça rating artar, kaybettikçe azalır. '
-                              'Yüksek rating daha üst liglere erişim sağlar.',
+                          'Seviye Sistemi',
+                          'Kazandıkça seviye artar, kaybettikçe azalır. '
+                              'Yüksek seviye daha üst liglere erişim sağlar.',
                         ),
                         const SizedBox(height: 28),
                       ],

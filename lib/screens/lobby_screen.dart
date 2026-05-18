@@ -1546,7 +1546,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final entry = coinOptions[selectedIndex];
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
-      return _msg('Bu lig için rating yetersiz.');
+      return _msg('Bu lig için seviye yetersiz.');
     }
 
     final table = await supabase
@@ -1616,7 +1616,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if ((tableRating as List).isNotEmpty) {
       final minRating = (tableRating.first['min_rating'] as int?) ?? 0;
       if (UserState.userRating < minRating) {
-        return _msg('Bu lig için rating yetersiz.');
+        return _msg('Bu lig için seviye yetersiz.');
       }
     }
 
@@ -5896,12 +5896,86 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget statChip(IconData icon, int value, bool coin) {
     final t = _coinFxActive ? _coinFxController.value : 0.0;
     final spin = t * 6.28318;
+    if (!coin) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: value.toDouble()),
+        duration: const Duration(milliseconds: 1100),
+        curve: Curves.easeOutCubic,
+        builder: (context, animatedValue, _) {
+          final ratingProgress = Format.ratingProgress(
+            animatedValue.round(),
+          ).clamp(0.0, 1.0);
+          final ratingDisplayProgress = ratingProgress > 0
+              ? ratingProgress.clamp(0.08, 1.0).toDouble()
+              : 0.0;
+          return SizedBox(
+            width: 92,
+            height: 24,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1A2328), Color(0xFF11181C)],
+                ),
+                border: Border.all(color: const Color(0x33E7C06A)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(color: const Color(0x664A5C53)),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: ratingDisplayProgress,
+                        heightFactor: 1,
+                        child: const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFFFF4C2),
+                                Color(0xFFF1C76F),
+                                Color(0xFFD39A32),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      Format.rating(animatedValue.round()),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+    final chipPadding = coin
+        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+        : const EdgeInsets.symmetric(horizontal: 8, vertical: 3);
+    final iconSize = coin ? 15.0 : 14.0;
+    final textSize = coin ? 14.5 : 14.0;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 260),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: coin
+              ? chipPadding
+              : const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             gradient: LinearGradient(
@@ -5924,11 +5998,16 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ]
                 : null,
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              coin
-                  ? AnimatedBuilder(
+              if (coin) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    AnimatedBuilder(
                       animation: _coinFxController,
                       builder: (_, child) {
                         final tv = _coinFxActive ? _coinFxController.value : 0.0;
@@ -5973,21 +6052,24 @@ class _LobbyScreenState extends State<LobbyScreen>
                       },
                       child: const Icon(
                         Icons.monetization_on,
-                        size: 14,
+                        size: 17,
                         color: Color(0xFFE7C06A),
                       ),
-                    )
-                  : Icon(icon, size: 14, color: const Color(0xFFE7C06A)),
-              const SizedBox(width: 4),
-              Text(
-                coin ? Format.coin(_coinDisplayValue) : Format.rating(value),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      Format.coin(_coinDisplayValue),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: textSize,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ],
           ),
         ),

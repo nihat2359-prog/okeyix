@@ -180,28 +180,23 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-
-            // 🔥 DARK GLASS + DEPTH
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF18120F), Color(0xFF0F0B09)],
+              colors: [Color(0xEE173328), Color(0xEE0D1915)],
             ),
-            border: Border.all(color: const Color(0xAA9A6A3C), width: 1.05),
+            border: Border.all(color: const Color(0xBFE7C66A), width: 1.2),
 
             boxShadow: [
-              // glow
               BoxShadow(
                 color: const Color(0xAA000000).withOpacity(0.9),
                 blurRadius: 26,
                 offset: const Offset(0, 12),
               ),
-
-              // depth
               BoxShadow(
-                color: const Color(0x668E5C31).withOpacity(0.5),
-                blurRadius: 20,
-                spreadRadius: -3,
+                color: const Color(0x44E7C66A),
+                blurRadius: 18,
+                spreadRadius: -2,
               ),
             ],
           ),
@@ -215,13 +210,13 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Colors.amber.shade300, Colors.orange.shade700],
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD77A), Color(0xFFC98A2D)],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.amber.withOpacity(0.4),
-                          blurRadius: 10,
+                          color: const Color(0x66F0C878),
+                          blurRadius: 8,
                         ),
                       ],
                     ),
@@ -238,10 +233,9 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     child: Text(
                       "${league['name']}",
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFFF3EFE3),
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
@@ -250,13 +244,13 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      color: const Color(0x332E2017),
-                      border: Border.all(color: const Color(0xAA9A6A3C), width: 0.8),
+                      color: const Color(0x223B2A1A),
+                      border: Border.all(color: const Color(0x99E3B766), width: 0.8),
                     ),
                     child: const Text(
                       "Kilitli",
                       style: TextStyle(
-                        color: Color(0xFFE3A27F),
+                        color: Color(0xFFECC983),
                         fontWeight: FontWeight.w800,
                         fontSize: 11.5,
                       ),
@@ -282,7 +276,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                   Expanded(
                     child: _premiumReqItem(
                       icon: Icons.star,
-                      title: "Rating",
+                      title: "Seviye",
                       value: Format.rating(minRating),
                       ok: ratingOk,
                     ),
@@ -291,6 +285,18 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               ),
 
               const SizedBox(height: 18),
+
+              const Text(
+                "Oynadıkça kazan, kazandıkça üst liglere katıl.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xB7DCE6DF),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 12),
 
               /// 🔥 CTA
               SizedBox(width: double.infinity, child: _buildCoinButton()),
@@ -314,14 +320,14 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
         gradient: LinearGradient(
           colors: ok
-              ? [const Color(0xFF1A2620), const Color(0xFF101712)]
-              : [const Color(0xFF2C1A14), const Color(0xFF1A100C)],
+              ? [const Color(0xFF1A3127), const Color(0xFF0B1812)]
+              : [const Color(0xFF3A2318), const Color(0xFF130D09)],
         ),
 
         border: Border.all(
           color: ok
-              ? const Color(0x667C9A85)
-              : const Color(0xAA9F5A42),
+              ? const Color(0xAA7FB08F)
+              : const Color(0xCCB17254),
         ),
       ),
 
@@ -363,7 +369,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                 Text(
                   value,
                   style: const TextStyle(
-                    color: Color(0xFFEFF3F1),
+                    color: Color(0xFFF6F2E8),
                     fontWeight: FontWeight.w900,
                     fontSize: 13,
                   ),

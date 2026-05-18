@@ -82,10 +82,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     if (!mounted) return;
     final userId = p['user_id'] ?? p['id'];
     if (userId == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ProfileService.showUserCard({'id': userId});
-    });
+    final payload = Map<String, dynamic>.from(p as Map)
+      ..putIfAbsent('id', () => userId);
+    ProfileService.showUserCard(payload);
   }
 
   @override
@@ -253,6 +252,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     double height,
   ) {
     if (player == null) return const SizedBox();
+    final isChampion = rank == 1;
+    final medal = switch (rank) {
+      1 => const [Color(0xFFFFE38A), Color(0xFFE0B325), Color(0xFFB78411)],
+      2 => const [Color(0xFFE5EAEE), Color(0xFFB8C2CC), Color(0xFF8A96A1)],
+      _ => const [Color(0xFFE3B57A), Color(0xFFB87933), Color(0xFF8C5520)],
+    };
 
     return GestureDetector(
       onTap: () => _onPlayerTap(player),
@@ -264,23 +269,51 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.6),
-                  blurRadius: 15,
-                  spreadRadius: 2,
+                  color: color.withOpacity(0.62),
+                  blurRadius: isChampion ? 22 : 15,
+                  spreadRadius: isChampion ? 4 : 2,
                 ),
               ],
             ),
-            child: CircleAvatar(
-              radius: avatarSize / 2,
-              backgroundImage: _avatarProvider(
-                player['avatar_url']?.toString(),
-              ),
-              backgroundColor: Colors.grey[800],
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: avatarSize,
+                  height: avatarSize,
+                  padding: const EdgeInsets.all(2.2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: medal,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: avatarSize / 2,
+                    backgroundImage: _avatarProvider(
+                      player['avatar_url']?.toString(),
+                    ),
+                    backgroundColor: Colors.grey[800],
+                  ),
+                ),
+                Positioned(
+                  top: isChampion ? -28 : -24,
+                  left: 0,
+                  right: 0,
+                  child: Icon(
+                    Icons.emoji_events_rounded,
+                    size: isChampion ? 28 : 24,
+                    color: medal[0],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           SizedBox(
-            width: 90,
+            width: 96,
             child: Text(
               player['username'] ?? '',
               textAlign: TextAlign.center,
@@ -288,14 +321,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                shadows: [
+                  Shadow(
+                    color: Color(0x99000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             _formatScore(player),
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: medal[0],
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              shadows: const [
+                Shadow(
+                  color: Color(0x99000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 6),
           Container(
@@ -305,17 +357,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: LinearGradient(
-                colors: [
-                  color.withOpacity(0.9),
-                  color.withOpacity(0.6),
-                  color.withOpacity(0.9),
-                ],
+                colors: medal,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
-                BoxShadow(color: color.withOpacity(0.4), blurRadius: 10),
+                BoxShadow(color: medal[1].withOpacity(0.5), blurRadius: 12),
               ],
+              border: Border.all(color: const Color(0x66FFF1C8), width: 0.8),
             ),
             child: Text(
               '$rank',
@@ -516,11 +565,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   String _formatScore(dynamic p) {
-    if (selectedTab == 0) return Format.rating(p['rating'] ?? 0);
-    if (selectedTab == 1) return Format.coin(p['coins'] ?? 0);
-    if (selectedTab == 2) return Format.coin(p['total_earned'] ?? 0);
-    return Format.rating(p['rating'] ?? 0);
+    if (selectedTab == 0) return Format.rating(_asInt(p['rating']));
+    if (selectedTab == 1) return Format.coin(_asInt(p['coins']));
+    if (selectedTab == 2) return Format.coin(_asInt(p['total_earned']));
+    return Format.rating(_asInt(p['rating']));
   }
+
+  int _asInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    final raw = value.toString().trim();
+    if (raw.isEmpty) return 0;
+    final normalized = raw.replaceAll(RegExp(r'[^0-9\-]'), '');
+    return int.tryParse(normalized) ?? 0;
+  }
+
 
   Widget _tabItem(String text, int index) {
     final selected = selectedTab == index;

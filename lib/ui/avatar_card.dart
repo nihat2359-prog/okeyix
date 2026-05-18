@@ -10,12 +10,16 @@ class AvatarCard extends StatelessWidget {
   final PlayerModel player;
   final AvatarPosition position;
   final double progress;
+  final bool showRating;
+  final bool showRatingProgress;
   final VoidCallback? onTap;
   const AvatarCard({
     super.key,
     required this.player,
     required this.position,
     required this.progress,
+    this.showRating = true,
+    this.showRatingProgress = true,
     this.onTap,
   });
 
@@ -97,13 +101,27 @@ class AvatarCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          alignment: alignStart ? WrapAlignment.start : WrapAlignment.center,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildCoinBubble(),
-            _buildRatingBubble(),
+            if (showRating) ...[
+              const SizedBox(width: 4),
+              Column(
+                crossAxisAlignment: alignStart
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildRatingBubble(),
+                  if (showRatingProgress) ...[
+                    const SizedBox(height: 4),
+                    _buildRatingProgress(),
+                  ],
+                ],
+              ),
+            ],
           ],
         ),
       ],
@@ -137,7 +155,7 @@ class AvatarCard extends StatelessWidget {
 
   Widget _buildRatingBubble() {
     return _buildStatBubble(
-      icon: Icons.workspace_premium_rounded,
+      icon: Icons.star_rounded,
       labelWidget: Text(
         Format.rating(player.rating),
         style: const TextStyle(
@@ -185,6 +203,7 @@ class AvatarCard extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(
             icon,
@@ -192,7 +211,49 @@ class AvatarCard extends StatelessWidget {
             color: textColor,
           ),
           const SizedBox(width: 3),
-          labelWidget,
+          DefaultTextStyle.merge(
+            style: const TextStyle(height: 1.0),
+            child: labelWidget,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingProgress() {
+    final progress = Format.ratingProgress(player.rating).clamp(0.0, 1.0);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 92),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 5,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: const Color(0x664A5C53),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: progress,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF2D48B), Color(0xFFE0B54F)],
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x66E7C77B),
+                      blurRadius: 6,
+                      spreadRadius: 0.4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

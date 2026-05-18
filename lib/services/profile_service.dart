@@ -40,34 +40,48 @@ class ProfileService {
     final incoming = UserState.incomingRequestIds?.contains(userId) ?? false;
     final outgoing = UserState.outgoingRequestIds?.contains(userId) ?? false;
 
-    final profileData = await supabase
+    int coins = (userinfo['coins'] as num?)?.toInt() ?? 0;
+    int rating = (userinfo['rating'] as num?)?.toInt() ?? 1200;
+    String username = (userinfo['username'] as String?) ?? "Oyuncu";
+    int wins = (userinfo['wins'] as num?)?.toInt() ?? 0;
+    int losses = (userinfo['losses'] as num?)?.toInt() ?? 0;
+    String? avatarUrl = userinfo['avatar_url'] as String?;
+
+    final profileFuture = supabase
         .from('profiles')
         .select('coins, rating, username')
         .eq('id', userId)
         .maybeSingle();
 
-    int coins = (profileData?['coins'] as int?) ?? 0;
-    int rating = (profileData?['rating'] as int?) ?? 1200;
-    String username = (profileData?['username'] as String?) ?? "Oyuncu";
-    int wins = 0;
-    int losses = 0;
-    String? avatarUrl;
+    final userFuture = supabase
+        .from('users')
+        .select('username, wins, losses, avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
 
     try {
-      final userData = await supabase
-          .from('users')
-          .select('username, wins, losses, avatar_url')
-          .eq('id', userId)
-          .maybeSingle();
+      final results = await Future.wait<dynamic>([
+        profileFuture.catchError((_) => null),
+        userFuture.catchError((_) => null),
+      ]).timeout(const Duration(milliseconds: 900), onTimeout: () => [null, null]);
+
+      final profileData = results[0] as Map<String, dynamic>?;
+      final userData = results[1] as Map<String, dynamic>?;
+
+      if (profileData != null) {
+        coins = (profileData['coins'] as int?) ?? coins;
+        rating = (profileData['rating'] as int?) ?? rating;
+        username = (profileData['username'] as String?) ?? username;
+      }
       if (userData != null) {
         username = (userData['username'] as String?) ?? username;
         wins = (userData['wins'] as int?) ?? wins;
         losses = (userData['losses'] as int?) ?? losses;
-        avatarUrl = userData['avatar_url'] as String?;
+        avatarUrl = userData['avatar_url'] as String? ?? avatarUrl;
       }
     } catch (_) {
       // Some environments have incompatible id types between users/profiles.
-      // Keep showing profile card with available profile data.
+      // Keep showing profile card with available fallback data.
     }
 
     final statusText = isSelf
@@ -117,7 +131,7 @@ class ProfileService {
             ),
             child: SingleChildScrollView(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F2F2A).withOpacity(0.90),
                   borderRadius: BorderRadius.circular(24),
@@ -135,55 +149,11 @@ class ProfileService {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // BAŞLIK
-                    Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: const Color(0x2CECCB79),
-                            border: Border.all(color: const Color(0x66E9C46A)),
-                          ),
-                          child: const Icon(
-                            Icons.person_rounded,
-                            color: Color(0xFFFFE0A8),
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Oyuncu Profili',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0x221A2520),
-                            border: Border.all(color: const Color(0x55FFFFFF)),
-                          ),
-                          child: IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            padding: const EdgeInsets.all(6),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white70,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
+                    
 
                     // AVATAR & İSİM
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
                           width: 52,
@@ -249,13 +219,34 @@ class ProfileService {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0x1A1A2520),
+                            border: Border.all(color: const Color(0x44FFFFFF)),
+                          ),
+                          child: IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white60,
+                              size: 18,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
 
                     // RATING & COIN
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         gradient: LinearGradient(
@@ -277,24 +268,23 @@ class ProfileService {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _infoTile(
-                                icon: Icons.star_rounded,
-                                value: Format.coin(rating),
+                              _infoTileWithProgress(
+                                ratingValue: rating,
                               ),
                               const SizedBox(height: 8),
-                              _infoTile(
+                              _infoTileLarge(
                                 icon: Icons.monetization_on_rounded,
-                                value: Format.coin(coins),
+                                coinValue: coins,
                               ),
                             ],
                           ),
 
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
 
                           /// 🔥 SAĞ PANEL (DİKEY BARLAR)
                           Expanded(
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 _statBarVertical(
                                   label: "Win",
@@ -489,6 +479,40 @@ class ProfileService {
                         ],
                       ],
                     ),
+                    const SizedBox(height: 2),
+                    SizedBox(
+                      height: 18,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SelectableText.rich(
+                            TextSpan(
+                              children: [
+                                const TextSpan(
+                                  text: 'ID: ',
+                                  style: TextStyle(
+                                    color: Color(0x66FFFFFF),
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: userId,
+                                  style: const TextStyle(
+                                    color: Color(0x99FFFFFF),
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -546,8 +570,8 @@ class ProfileService {
           curve: Curves.easeOutCubic,
           builder: (context, val, _) {
             return Container(
-              width: 36,
-              height: 98,
+              width: 31,
+              height: 88,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6), // 🔥 radius düşürdük
                 color: Colors.black.withOpacity(0.15), // 🔥 daha derin track
@@ -588,8 +612,8 @@ class ProfileService {
                     Positioned(
                       top: 0,
                       child: Container(
-                        width: 20,
-                        height: 6,
+                        width: 16,
+                        height: 5,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
                           gradient: LinearGradient(
@@ -604,14 +628,21 @@ class ProfileService {
 
                   /// 🔥 ORTADA VALUE
                   Positioned(
-                    bottom: 4,
+                    bottom: 3,
                     child: Text(
                       isPercent ? "${value.toInt()}%" : value.toString(),
                       style: const TextStyle(
                         fontFamily: "Orbitron",
-                        fontSize: 8.5,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 8.8,
+                        color: Color(0xFF142018),
+                        fontWeight: FontWeight.w700,
+                        shadows: [
+                          Shadow(
+                            color: Color(0x55FFFFFF),
+                            blurRadius: 2,
+                            offset: Offset(0, 0.5),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -621,13 +652,13 @@ class ProfileService {
           },
         ),
 
-        const SizedBox(height: 5),
+        const SizedBox(height: 4),
 
         /// LABEL
         Text(
           label,
           style: TextStyle(
-            fontSize: 9.5,
+            fontSize: 8.8,
             color: Colors.white.withOpacity(0.6),
             fontWeight: FontWeight.w500,
           ),
@@ -1246,6 +1277,219 @@ class ProfileService {
       }
       return;
     }
+  }
+
+  static Widget _infoTileWithProgress({
+    required int ratingValue,
+  }) {
+    return SizedBox(
+      width: 118,
+      height: 40,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF243338), Color(0xFF161F23)],
+          ),
+          border: Border.all(color: const Color(0x40E7C06A), width: 1.0),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: ratingValue.toDouble()),
+              duration: const Duration(milliseconds: 1100),
+              curve: Curves.easeOutCubic,
+              builder: (context, animatedRating, _) {
+                final safeProgress = Format.ratingProgress(
+                  animatedRating.round(),
+                ).clamp(0.0, 1.0);
+                final displayProgress = safeProgress > 0
+                    ? safeProgress.clamp(0.08, 1.0).toDouble()
+                    : 0.0;
+                Color mix(Color a, Color b, double t) =>
+                    Color.lerp(a, b, t) ?? a;
+
+                Color startColor;
+                Color endColor;
+                if (safeProgress < 0.5) {
+                  final t = safeProgress / 0.5;
+                  startColor = mix(
+                    const Color(0xFFFF8A65),
+                    const Color(0xFFFFC75F),
+                    t,
+                  );
+                  endColor = mix(
+                    const Color(0xFFFFB74D),
+                    const Color(0xFFF4D27A),
+                    t,
+                  );
+                } else {
+                  final t = (safeProgress - 0.5) / 0.5;
+                  startColor = mix(
+                    const Color(0xFFFFC75F),
+                    const Color(0xFF8BE28B),
+                    t,
+                  );
+                  endColor = mix(
+                    const Color(0xFFF4D27A),
+                    const Color(0xFF4FCB78),
+                    t,
+                  );
+                }
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final fillWidth = constraints.maxWidth * displayProgress;
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xFF2A3A3E), Color(0xFF202D31)],
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: displayProgress,
+                            heightFactor: 1,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    mix(Colors.white, startColor, 0.35),
+                                    startColor,
+                                    endColor,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (displayProgress > 0.12)
+                          Positioned(
+                            left: (fillWidth - 10).clamp(
+                              0.0,
+                              constraints.maxWidth - 10,
+                            ),
+                            child: Container(
+                              width: 10,
+                              height: constraints.maxHeight,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0x66FFFFFF),
+                                    Color(0x00FFFFFF),
+                                  ],
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x66FFD36A),
+                                    blurRadius: 6,
+                                    spreadRadius: 0.5,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        IgnorePointer(
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x22FFFFFF), Color(0x00FFFFFF)],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          Format.rating(animatedRating.round()),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 21,
+                            height: 1.0,
+                            shadows: [
+                              Shadow(
+                                color: Color(0xAA000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _infoTileLarge({
+    required IconData icon,
+    required int coinValue,
+  }) {
+    return Container(
+      width: 118,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A2328), Color(0xFF11181C)],
+        ),
+        border: Border.all(color: const Color(0x33E7C06A)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFFE9C46A)),
+          const SizedBox(width: 6),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: coinValue.toDouble()),
+            duration: const Duration(milliseconds: 1100),
+            curve: Curves.easeOutCubic,
+            builder: (context, animatedCoins, _) {
+              return Text(
+                Format.coin(animatedCoins.round()),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  height: 1.0,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   static Future<bool> _isUsernameTakenForSetup(

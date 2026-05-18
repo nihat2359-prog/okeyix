@@ -1,10 +1,11 @@
-import 'package:intl/intl.dart';
-
 class Format {
+  static const int ratingStep = 100;
+  static const int ratingMaxValue = 15000; // 15.0
+
   static String coin(num value) {
     if (value >= 1000000) {
       final v = value / 1000000;
-      return "${_formatShort(v)}M";
+      return "${_formatShort(v)} M";
     }
 
     if (value >= 1000) {
@@ -12,10 +13,10 @@ class Format {
 
       /// 🔥 CRITICAL FIX
       if (v >= 999.5) {
-        return "1M";
+        return "1 M";
       }
 
-      return "${_formatShort(v)}K";
+      return "${_formatShort(v)} K";
     }
 
     return value.toString();
@@ -38,8 +39,19 @@ class Format {
     return value.toString();
   }
 
-  static final _trNumber = NumberFormat("#,###", "tr_TR");
   static String rating(int value) {
-    return _trNumber.format(value);
+    final scaledFloor = (value ~/ ratingStep) / 10.0;
+    return scaledFloor.toStringAsFixed(1);
+  }
+
+  static double ratingProgress(int value) {
+    if (value <= 0) return 0;
+    return (value / ratingMaxValue).clamp(0.0, 1.0).toDouble();
+  }
+
+  static int ratingNextTarget(int value) {
+    if (value <= 0) return ratingStep;
+    final next = ((value ~/ ratingStep) + 1) * ratingStep;
+    return next > ratingMaxValue ? ratingMaxValue : next;
   }
 }

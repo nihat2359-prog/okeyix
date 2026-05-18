@@ -663,6 +663,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             player: player,
             position: position,
             progress: progress,
+            showRating: false,
+            showRatingProgress: true,
             onTap: onTap,
           ),
         ),

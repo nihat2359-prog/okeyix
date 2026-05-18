@@ -123,7 +123,7 @@ class LobbyLeagueList extends StatelessWidget {
       onTap: () => onSelect(l),
 
       child: AnimatedScale(
-        scale: selected ? 1.04 : 1.0,
+        scale: selected ? 1.015 : 1.0,
         duration: const Duration(milliseconds: 180),
 
         child: Container(
@@ -135,9 +135,9 @@ class LobbyLeagueList extends StatelessWidget {
             gradient: LinearGradient(
               colors: selected
                   ? [
-                      Color(0xAA2E5A52),
-                      Color(0xCCB27A43),
-                      Color(0xAA2E5A52),
+                      Color(0xFF3F806F),
+                      Color(0xFFF0C776),
+                      Color(0xFF3F806F),
                     ]
                   : [Color(0x55304640), Color(0x77405E57)],
               begin: Alignment.topLeft,
@@ -147,9 +147,9 @@ class LobbyLeagueList extends StatelessWidget {
             boxShadow: [
               if (selected)
                 BoxShadow(
-                  color: const Color(0x665E735F).withOpacity(0.72),
-                  blurRadius: 24,
-                  spreadRadius: 1.0,
+                  color: const Color(0x77F0C776),
+                  blurRadius: 26,
+                  spreadRadius: 1.4,
                 ),
               if (selected)
                 const BoxShadow(
@@ -159,15 +159,15 @@ class LobbyLeagueList extends StatelessWidget {
                 ),
               if (selected)
                 const BoxShadow(
-                  color: Color(0x4DB27A43),
-                  blurRadius: 16,
-                  spreadRadius: 0.4,
+                  color: Color(0x6646B78C),
+                  blurRadius: 18,
+                  spreadRadius: 0.9,
                 ),
             ],
           ),
 
           /// 🔥 BORDER KALINLIĞI
-          padding: EdgeInsets.all(selected ? 2.2 : 1.2),
+          padding: EdgeInsets.all(selected ? 2.0 : 1.2),
 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -190,9 +190,9 @@ class LobbyLeagueList extends StatelessWidget {
               ),
               border: Border.all(
                 color: selected
-                    ? const Color(0xE08F623D)
+                    ? const Color(0xFFF2C56C)
                     : const Color(0x77523624),
-                width: selected ? 1.2 : 0.9,
+                width: selected ? 1.25 : 0.9,
               ),
 
               boxShadow: [
