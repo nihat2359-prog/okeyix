@@ -3,6 +3,16 @@ class Format {
   static const int ratingMaxValue = 15000; // 15.0
 
   static String coin(num value) {
+    if (value >= 1000000000000) {
+      final v = value / 1000000000000;
+      return "${_formatShort(v)} T";
+    }
+
+    if (value >= 1000000000) {
+      final v = value / 1000000000;
+      return "${_formatShort(v)} B";
+    }
+
     if (value >= 1000000) {
       final v = value / 1000000;
       return "${_formatShort(v)} M";
