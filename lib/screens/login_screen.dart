@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/services/device_identity_service.dart';
+import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -126,6 +127,7 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (res.user != null && mounted) {
+        await AnalyticsService.instance.logLogin(method: 'password');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const LobbyScreen()),
@@ -137,6 +139,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (e.code == "invalid_credentials") {
         try {
           await supabase.auth.signUp(email: email, password: password);
+          await AnalyticsService.instance.logSignUp(method: 'password');
 
           /// Sonra otomatik giriş yap
           final res = await supabase.auth.signInWithPassword(
@@ -145,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen>
           );
 
           if (res.user != null && mounted) {
+            await AnalyticsService.instance.logLogin(method: 'password');
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const LobbyScreen()),
@@ -203,6 +207,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _loginWithGoogle() async {
     try {
+      await AnalyticsService.instance.logEvent(
+        name: 'oauth_google_start',
+        parameters: const {'source': 'login_screen'},
+      );
       await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'okeyix://login-callback',
@@ -214,6 +222,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _loginWithApple() async {
     try {
+      await AnalyticsService.instance.logEvent(
+        name: 'oauth_apple_start',
+        parameters: const {'source': 'login_screen'},
+      );
       final rawNonce = generateNonce();
       final hashedNonce = sha256ofString(rawNonce);
 
@@ -238,6 +250,7 @@ class _LoginScreenState extends State<LoginScreen>
         accessToken: authCode,
         nonce: rawNonce, // 🔥 BU ÇOK ÖNEMLİ
       );
+      await AnalyticsService.instance.logLogin(method: 'apple');
     } catch (e) {
       // ScaffoldMessenger.of(context).showSnackBar(
       //   SnackBar(content: Text("LOGIN ERROR: $e"), backgroundColor: Colors.red),

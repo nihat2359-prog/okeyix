@@ -8,6 +8,7 @@ import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:okeyix/screens/okey_game_screen.dart';
 import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/gift_listener.dart';
+import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/push_notification_service.dart';
 import 'package:okeyix/services/update_service.dart';
@@ -26,6 +27,8 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await AnalyticsService.instance.init();
+    unawaited(AnalyticsService.instance.requestTrackingPermissionIfNeeded());
   } catch (e) {
     debugPrint('STARTUP FIREBASE INIT ERROR: $e');
   }

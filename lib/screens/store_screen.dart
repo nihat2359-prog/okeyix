@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/screens/login_screen.dart';
+import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/services/auth_service.dart';
 import 'package:okeyix/services/celebration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -111,6 +112,11 @@ class _StoreScreenState extends State<StoreScreen> {
 
       if (data["success"] == true) {
         final coins = data["coins"];
+        await AnalyticsService.instance.logCoinPurchase(
+          productId: purchase.productID,
+          coins: coins is int ? coins : 0,
+          platform: Platform.isIOS ? 'ios' : 'android',
+        );
         CelebrationService.showConfetti();
         showPurchaseSuccess(context, coins);
       } else {

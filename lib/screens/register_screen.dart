@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:okeyix/services/analytics_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -93,6 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
 
       if (!mounted) return;
+      await AnalyticsService.instance.logSignUp(method: 'password');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -504,6 +506,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _loginWithGoogle() async {
+    await AnalyticsService.instance.logEvent(
+      name: 'oauth_google_start',
+      parameters: const {'source': 'register_screen'},
+    );
     await Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: 'okeyix://login-callback',
@@ -511,6 +517,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _loginWithApple() async {
+    await AnalyticsService.instance.logEvent(
+      name: 'oauth_apple_start',
+      parameters: const {'source': 'register_screen'},
+    );
     await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.apple);
   }
 
