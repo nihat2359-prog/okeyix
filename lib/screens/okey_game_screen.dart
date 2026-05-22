@@ -376,6 +376,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       return;
     }
 
+    if (state == AppLifecycleState.detached) {
+      // App kapatılırken, özellikle bekleme masasındaki yalnız creator için
+      // masayı sunucu tarafında temizlemeyi best-effort olarak deneriz.
+      unawaited(_leaveTableOnAppTerminate());
+    }
+
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
@@ -383,6 +389,27 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       if (_hourglassCtrl.isAnimating) {
         _hourglassCtrl.stop();
       }
+    }
+  }
+
+  Future<void> _leaveTableOnAppTerminate() async {
+    if (_isLeavingTable) return;
+    final userId = _myUserId;
+    if (userId == null) return;
+
+    // Oyun başladıktan sonra masanın yaşam döngüsünü sunucu akışına bırakıyoruz.
+    if (_tableStatus != 'waiting' && _tableStatus != 'start') return;
+
+    _isLeavingTable = true;
+    try {
+      await _supabase.rpc(
+        'leave_table',
+        params: {'p_table_id': widget.tableId, 'p_user_id': userId},
+      );
+      await _waitUntilPlayerRemoved();
+      await _cleanupTableIfInactive();
+    } catch (_) {
+      // App kapanışında best-effort çalışır; hata yutulur.
     }
   }
 
@@ -1346,8 +1373,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
 
-      // ğŸ”¥ 1. HiÃ§ oyuncu yok
+      // Hiç oyuncu kalmadıysa masa da temizlenir.
       if (players.isEmpty) {
+        await _deleteTable();
         return;
       }
 
@@ -1357,7 +1385,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           .where((id) => id.isNotEmpty)
           .toList();
 
-      // ğŸ”¥ 2. Bot kontrolÃ¼
+      // Kalanların insan mı bot mu olduğunu kontrol et.
       final users = await _supabase
           .from('users')
           .select('id,is_bot')
@@ -1370,8 +1398,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
       final hasHuman = ids.any((id) => isBotById[id] != true);
 
-      // ğŸ”¥ 3. Sadece bot varsa sil
+      // Sadece bot kaldıysa masa temizlenir.
       if (!hasHuman) {
+        await _deleteTable();
         return;
       }
     } catch (e) {

@@ -1298,13 +1298,6 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
       final list = List<Map<String, dynamic>>.from(res ?? []);
 
-      // ekstra güvenlik: rating'e göre sırala
-      list.sort((a, b) {
-        final ar = (a['rating'] as int?) ?? 0;
-        final br = (b['rating'] as int?) ?? 0;
-        return br.compareTo(ar);
-      });
-
       final ids = list
           .map((e) => e['id']?.toString())
           .whereType<String>()
@@ -1326,11 +1319,34 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         for (final p in list) {
           final id = p['id']?.toString();
           final status = id == null ? null : byId[id];
+          final lastSeenRaw = status?['last_seen_at'];
+          final serverOnline = status?['is_online'] == true;
           p['allow_game_invites'] =
               (p['is_bot'] == true) || (status?['allow_game_invites'] != false);
-          p['is_online'] = (p['is_bot'] == true) || (status?['is_online'] == true);
-          p['last_seen_at'] = status?['last_seen_at'];
+          // Davet sekmelerinde server'ın presence kararını birebir kullan.
+          // Ek stale kontrolü burada false-negative üretebiliyor.
+          p['is_online'] = (p['is_bot'] == true) || serverOnline;
+          p['last_seen_at'] = lastSeenRaw;
         }
+
+        // Davet listesi: önce çevrimiçi gerçek oyuncular, sonra botlar.
+        // Aynı grup içinde rating'e göre azalan sıralama korunur.
+        int invitePriority(Map<String, dynamic> row) {
+          final isBot = row['is_bot'] == true;
+          final isOnline = row['is_online'] == true;
+          if (!isBot && isOnline) return 0;
+          if (isBot) return 1;
+          return 2;
+        }
+
+        list.sort((a, b) {
+          final pa = invitePriority(a);
+          final pb = invitePriority(b);
+          if (pa != pb) return pa.compareTo(pb);
+          final ar = (a['rating'] as int?) ?? 0;
+          final br = (b['rating'] as int?) ?? 0;
+          return br.compareTo(ar);
+        });
 
         // If a user is already playing/starting at another table, do not show as invitable.
         final busyRows = await _supabase

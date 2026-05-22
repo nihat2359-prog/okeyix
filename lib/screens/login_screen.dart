@@ -1,5 +1,6 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/services/device_identity_service.dart';
@@ -7,7 +8,6 @@ import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
 import 'lobby_screen.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -17,6 +17,12 @@ import 'package:url_launcher/url_launcher.dart';
 class LoginScreen extends StatefulWidget {
   final String? error;
   const LoginScreen({super.key, this.error});
+
+  String _oauthRedirectTo() {
+    if (!kIsWeb) return 'okeyix://login-callback';
+    final base = Uri.base;
+    return '${base.origin}${base.path}';
+  }
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -213,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen>
       );
       await supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'okeyix://login-callback',
+        redirectTo: _oauthRedirectTo(),
       );
     } catch (e) {
       setState(() => _error = "Google ile giriş başarısız.");
@@ -226,30 +232,37 @@ class _LoginScreenState extends State<LoginScreen>
         name: 'oauth_apple_start',
         parameters: const {'source': 'login_screen'},
       );
-      final rawNonce = generateNonce();
-      final hashedNonce = sha256ofString(rawNonce);
+      if (kIsWeb) {
+        await supabase.auth.signInWithOAuth(
+          OAuthProvider.apple,
+          redirectTo: _oauthRedirectTo(),
+        );
+      } else {
+        final rawNonce = generateNonce();
+        final hashedNonce = sha256ofString(rawNonce);
 
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      );
+        final credential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: hashedNonce,
+        );
 
-      final idToken = credential.identityToken;
-      final authCode = credential.authorizationCode;
+        final idToken = credential.identityToken;
+        final authCode = credential.authorizationCode;
 
-      if (idToken == null) {
-        throw Exception("Apple login failed - idToken null");
+        if (idToken == null) {
+          throw Exception("Apple login failed - idToken null");
+        }
+
+        await supabase.auth.signInWithIdToken(
+          provider: OAuthProvider.apple,
+          idToken: idToken,
+          accessToken: authCode,
+          nonce: rawNonce,
+        );
       }
-
-      await supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-        accessToken: authCode,
-        nonce: rawNonce, // 🔥 BU ÇOK ÖNEMLİ
-      );
       await AnalyticsService.instance.logLogin(method: 'apple');
     } catch (e) {
       // ScaffoldMessenger.of(context).showSnackBar(
@@ -284,6 +297,12 @@ class _LoginScreenState extends State<LoginScreen>
     return deviceId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
   }
 
+  String _oauthRedirectTo() {
+    if (!kIsWeb) return 'okeyix://login-callback';
+    final base = Uri.base;
+    return '${base.origin}${base.path}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -291,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen>
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          /// 🔥 BACKGROUND
+          /// ?? BACKGROUND
           Positioned.fill(
             child: Image.asset(
               "assets/images/lobby/lobby.png",
@@ -299,7 +318,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          /// 🔥 DARK OVERLAY (focus verir)
+          /// ?? DARK OVERLAY (focus verir)
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -327,7 +346,9 @@ class _LoginScreenState extends State<LoginScreen>
 
                 return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -381,9 +402,11 @@ class _LoginScreenState extends State<LoginScreen>
                                         Icons.person_outline,
                                         color: Color(0xFFE7C66A),
                                       ),
-                                      text: "Misafir Girişi",
+                                      text: "Hızlı Başla",
                                       type: AuthButtonType.guest,
-                                      onTap: _loadingGuest ? null : _playAsGuest,
+                                      onTap: _loadingGuest
+                                          ? null
+                                          : _playAsGuest,
                                       loading: _loadingGuest,
                                     ),
                                   ),
@@ -391,7 +414,9 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               const SizedBox(height: 12),
                               ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 900),
+                                constraints: const BoxConstraints(
+                                  maxWidth: 900,
+                                ),
                                 child: _errorBox(),
                               ),
                               const OkeyixLegalBlock(),
@@ -464,7 +489,7 @@ class _LoginScreenState extends State<LoginScreen>
 
         return Center(
           child: Container(
-            width: screenWidth * 0.6, // 🔥 yatayda geniş
+            width: screenWidth * 0.6, // ?? yatayda geniş
             constraints: const BoxConstraints(maxWidth: 600),
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
             decoration: BoxDecoration(
@@ -480,13 +505,13 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
 
-            // 🔥 underline fix (hepsine uygular)
+            // ?? underline fix (hepsine uygular)
             child: DefaultTextStyle(
               style: const TextStyle(decoration: TextDecoration.none),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 🔥 Title
+                  // ?? Title
                   Text(
                     "OkeyIX",
                     style: TextStyle(
@@ -500,7 +525,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                   const SizedBox(height: 10),
 
-                  // 🔥 Welcome
+                  // ?? Welcome
                   Text(
                     "Hoş geldiniz",
                     style: TextStyle(
@@ -513,7 +538,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                   const SizedBox(height: 16),
 
-                  // 🔥 Message (daha düzgün metin)
+                  // ?? Message (daha düzgün metin)
                   Text(
                     "Bu oyun 13 yaş ve üzeri kullanıcılar içindir.\nDevam ederek bu şartı kabul etmiş olursunuz.",
                     textAlign: TextAlign.center,
@@ -527,7 +552,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                   const SizedBox(height: 22),
 
-                  // 🔥 Button
+                  // ?? Button
                   SizedBox(
                     width: 220,
                     child: ElevatedButton(
@@ -680,7 +705,7 @@ class OkeyixLegalBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        /// 🔹 GİZLİLİK METNİ
+        /// ?? GİZLİLİK METNİ
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: RichText(
@@ -710,7 +735,7 @@ class OkeyixLegalBlock extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        /// 🔹 WEBSITE (DAHA SAKİN)
+        /// ?? WEBSITE (DAHA SAKİN)
         GestureDetector(
           onTap: _openWebsite,
           child: Text(
@@ -726,3 +751,4 @@ class OkeyixLegalBlock extends StatelessWidget {
     );
   }
 }
+

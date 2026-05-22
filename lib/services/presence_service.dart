@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PresenceService {
@@ -12,6 +13,7 @@ class PresenceService {
   String? _activeUserId;
   bool _started = false;
   bool _isOnline = false;
+  static const Duration staleAfter = Duration(minutes: 2);
 
   Future<void> startForCurrentUser() async {
     final uid = _supabase.auth.currentUser?.id;
@@ -76,15 +78,34 @@ class PresenceService {
 
     try {
       await _supabase.from('profiles').update(payload).eq('id', userId);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('PRESENCE SET ERROR: $e');
+    }
   }
 
   Future<void> _touchLastSeen({required String userId}) async {
     final now = DateTime.now().toUtc().toIso8601String();
     try {
-      await _supabase
-          .from('profiles')
-          .update({'last_seen_at': now}).eq('id', userId);
-    } catch (_) {}
+      await _supabase.from('profiles').update({'last_seen_at': now}).eq('id', userId);
+    } catch (e) {
+      debugPrint('PRESENCE TOUCH ERROR: $e');
+    }
+  }
+
+  static bool isFreshLastSeen(dynamic lastSeenRaw, {Duration? maxAge}) {
+    final age = maxAge ?? staleAfter;
+    if (lastSeenRaw == null) return false;
+    final parsed = DateTime.tryParse(lastSeenRaw.toString());
+    if (parsed == null) return false;
+    return DateTime.now().toUtc().difference(parsed.toUtc()) <= age;
+  }
+
+  static bool effectiveOnline({
+    required bool isOnlineFlag,
+    required dynamic lastSeenRaw,
+    Duration? maxAge,
+  }) {
+    if (!isOnlineFlag) return false;
+    return isFreshLastSeen(lastSeenRaw, maxAge: maxAge);
   }
 }

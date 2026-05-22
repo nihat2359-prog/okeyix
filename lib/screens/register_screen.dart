@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/services/analytics_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -512,7 +513,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
     await Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: 'okeyix://login-callback',
+      redirectTo: _oauthRedirectTo(),
     );
   }
 
@@ -521,7 +522,16 @@ class _RegisterScreenState extends State<RegisterScreen>
       name: 'oauth_apple_start',
       parameters: const {'source': 'register_screen'},
     );
-    await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.apple);
+    await Supabase.instance.client.auth.signInWithOAuth(
+      OAuthProvider.apple,
+      redirectTo: _oauthRedirectTo(),
+    );
+  }
+
+  String _oauthRedirectTo() {
+    if (!kIsWeb) return 'okeyix://login-callback';
+    final base = Uri.base;
+    return '${base.origin}${base.path}';
   }
 
   Widget _legalLink({required String label, required String url}) {

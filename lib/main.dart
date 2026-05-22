@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/firebase_options.dart';
 import 'package:okeyix/screens/login_screen.dart';
@@ -32,11 +33,13 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('STARTUP FIREBASE INIT ERROR: $e');
   }
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
   await Supabase.initialize(
     url: _supabaseUrl.isEmpty ? _defaultSupabaseUrl : _supabaseUrl,
     anonKey: _supabaseAnonKey.isEmpty
@@ -136,8 +139,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       PresenceService.instance.onAppResumed();
       return;
     }
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused ||
+    // `inactive` can fire during short focus/interruption transitions
+    // (especially on desktop/web) and caused false offline flips.
+    if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       PresenceService.instance.onAppBackgrounded();
     }
@@ -364,6 +368,7 @@ class AgeGateScreen extends StatelessWidget {
 }
 
 void _hideSystemUI() {
+  if (kIsWeb) return;
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 }
 

@@ -9,6 +9,7 @@ import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
 import 'package:okeyix/services/device_registration_service.dart';
+import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
@@ -2718,8 +2719,12 @@ class _LobbyScreenState extends State<LobbyScreen>
           final id = row['id']?.toString();
           if (id == null || id.isEmpty) continue;
           profileRatingById[id] = (row['rating'] as int?) ?? 1200;
-          profileOnlineById[id] = (row['is_online'] as bool?) ?? false;
           final lastSeenRaw = row['last_seen_at']?.toString();
+          final serverOnline = (row['is_online'] as bool?) ?? false;
+          profileOnlineById[id] = PresenceService.effectiveOnline(
+            isOnlineFlag: serverOnline,
+            lastSeenRaw: lastSeenRaw,
+          );
           profileLastSeenById[id] = lastSeenRaw == null
               ? null
               : DateTime.tryParse(lastSeenRaw)?.toLocal();
