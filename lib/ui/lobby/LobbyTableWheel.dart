@@ -385,11 +385,9 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
   Widget _buildCoinButton() {
     return GestureDetector(
       onTap: () async {
-        final result = await Navigator.push(
+        final result = await openStoreScreen(
           context,
-          MaterialPageRoute(
-            builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
-          ),
+          initialCoin: UserState.userCoin,
         );
 
         if (result == true && widget.onNeedRefreshUser != null) {

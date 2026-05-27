@@ -9,6 +9,118 @@ import 'package:okeyix/services/auth_service.dart';
 import 'package:okeyix/services/celebration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+
+Future<bool?> openStoreScreen(
+  BuildContext context, {
+  required int initialCoin,
+}) async {
+  if (kIsWeb) {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF17312A), Color(0xFF0F221D)],
+              ),
+              border: Border.all(color: const Color(0x88E4C57C), width: 1.4),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x88000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: Color(0xFFF2D38D),
+                      size: 24,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Web Mağazası Yakında',
+                        style: TextStyle(
+                          color: Color(0xFFF6E2B0),
+                          fontSize: 21,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                        'Coin satın alma işlemleri şu anda sadece mobil uygulamada aktiftir.',
+                  style: TextStyle(
+                    color: Color(0xFFE4ECE7),
+                    fontSize: 14.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Aynı hesabınızla mobil uygulamaya giriş yaparak satın alma yapabilirsiniz. Aldığınız coinler webde de anında hesabınıza yansır.',
+                  style: TextStyle(
+                    color: Color(0xBFE4ECE7),
+                    fontSize: 13.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: const Color(0xFFE4B54E),
+                      foregroundColor: const Color(0xFF1A1A1A),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Anladım',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    return false;
+  }
+
+  final result = await Navigator.push<bool>(
+    context,
+    MaterialPageRoute(builder: (_) => StoreScreen(initialCoin: initialCoin)),
+  );
+  return result;
+}
 
 class StoreScreen extends StatefulWidget {
   final int initialCoin;

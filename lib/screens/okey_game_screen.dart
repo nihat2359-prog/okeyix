@@ -2138,12 +2138,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   const SizedBox(width: 6),
                   InkWell(
                     onTap: () {
-                      Navigator.push(
+                      openStoreScreen(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              StoreScreen(initialCoin: UserState.userCoin),
-                        ),
+                        initialCoin: UserState.userCoin,
                       );
                     },
                     borderRadius: BorderRadius.circular(999),

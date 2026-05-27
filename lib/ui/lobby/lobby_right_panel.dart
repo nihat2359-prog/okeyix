@@ -24,9 +24,15 @@ class LobbyRightPanel extends StatelessWidget {
     if (!open) {
       return const SizedBox();
     }
-    final media = MediaQuery.of(context).size;
+    final mq = MediaQuery.of(context);
+    final media = mq.size;
+    final keyboardInset = mq.viewInsets.bottom;
     final panelWidth = media.width * widthFactor;
     final effectiveWidth = panelWidth.clamp(minWidth, maxWidth).toDouble();
+    final effectiveHeight = (media.height - 16 - keyboardInset).clamp(
+      260.0,
+      media.height - 16,
+    );
     return Positioned.fill(
       child: Stack(
         children: [
@@ -44,41 +50,42 @@ class LobbyRightPanel extends StatelessWidget {
           ),
 
           /// PANEL
-          Align(
-            alignment: Alignment.centerRight,
-            child: IgnorePointer(
-              ignoring: !open,
-              child: AnimatedSlide(
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                offset: open ? Offset.zero : const Offset(1.2, 0),
-
-                child: SafeArea(
-                  child: Container(
-                    width: effectiveWidth,
-                    height: media.height - 16,
-                    margin: const EdgeInsets.fromLTRB(0, 8, 10, 8),
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      color: const Color(0xFF0F2F2A).withOpacity(0.90),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xEE13291F), Color(0xEE0C1712)],
-                      ),
-
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x8A000000),
-                          blurRadius: 24,
-                          offset: Offset(-3, 8),
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.only(bottom: keyboardInset),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: IgnorePointer(
+                ignoring: !open,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  offset: open ? Offset.zero : const Offset(1.2, 0),
+                  child: SafeArea(
+                    child: Container(
+                      width: effectiveWidth,
+                      height: effectiveHeight.toDouble(),
+                      margin: const EdgeInsets.fromLTRB(0, 8, 10, 8),
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        color: const Color(0xFF0F2F2A).withOpacity(0.90),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xEE13291F), Color(0xEE0C1712)],
                         ),
-                      ],
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x8A000000),
+                            blurRadius: 24,
+                            offset: Offset(-3, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(children: [Expanded(child: panelContent)]),
                     ),
-
-                    child: Column(children: [Expanded(child: panelContent)]),
                   ),
                 ),
               ),

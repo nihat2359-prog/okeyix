@@ -78,7 +78,7 @@ class LobbyAvatar extends StatelessWidget {
     if (enablePreview && image != null) {
       final safeImage = image;
       return GestureDetector(
-        behavior: HitTestBehavior.opaque, // 🔥 çok önemli
+        behavior: HitTestBehavior.opaque,
         onTap: () => _showAvatarPreview(context, safeImage),
         child: avatarContent,
       );
@@ -90,17 +90,16 @@ class LobbyAvatar extends StatelessWidget {
   void _showAvatarPreview(BuildContext context, ImageProvider image) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.55), // 🔥 transparan arka plan
+      barrierColor: Colors.black.withOpacity(0.55),
       builder: (_) {
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(
-            horizontal: 60, // 🔥 sağ-sol boşluk
-            vertical: 40, // 🔥 üst-alt boşluk
+            horizontal: 60,
+            vertical: 40,
           ),
           child: Stack(
             children: [
-              // 🔥 MODAL PANEL
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF1B2E28).withOpacity(0.95),
@@ -120,8 +119,6 @@ class LobbyAvatar extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-
-                  // 🔥 ZOOM
                   child: InteractiveViewer(
                     minScale: 1,
                     maxScale: 3,
@@ -129,8 +126,6 @@ class LobbyAvatar extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // 🔥 CLOSE BUTTON
               Positioned(
                 right: 6,
                 top: 6,

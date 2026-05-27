@@ -1,7 +1,8 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/core/format.dart';
@@ -35,6 +36,7 @@ import '../ui/lobby/lobby_bottom_dock.dart';
 import '../ui/lobby/lobby_side_menu.dart';
 import '../ui/lobby/lobby_right_panel.dart';
 import '../ui/lobby/_ui_helpers.dart';
+import '../ui/lobby/lobby_table_card.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
@@ -139,18 +141,18 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _campaignChecked = false;
   bool _autoResumeAttempted = false;
   static const List<String> _chatEmojis = <String>[
-    '😀',
-    '😂',
-    '😍',
-    '😎',
-    '👏',
-    '🔥',
-    '👍',
-    '🙏',
-    '🎉',
-    '❤️',
-    '😡',
-    '😅',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
+    '??',
   ];
 
   int selectedIndex = 0;
@@ -213,12 +215,12 @@ class _LobbyScreenState extends State<LobbyScreen>
     _initCalled = true;
 
     try {
-      /// 🔥 UI HEMEN A�ILSIN
+      /// ?? UI HEMEN A?ILSIN
       setState(() {
         _deviceReady = true;
       });
 
-      /// 🔥 REGISTER ARKADA �ALIŞSIN
+      /// ?? REGISTER ARKADA ?ALIŞSIN
       unawaited(_safeRegister());
     } catch (e) {
       print(e);
@@ -238,13 +240,13 @@ class _LobbyScreenState extends State<LobbyScreen>
     try {
       await DeviceRegistrationService.registerCurrentDevice();
 
-      /// 🔥 HATA KONTROL� BURADA
+      /// ?? HATA KONTROL? BURADA
     } catch (e) {
       print(e);
 
-      /// 🔥 SADECE SIGNOUT + FORWARD
+      /// ?? SADECE SIGNOUT + FORWARD
 
-      rethrow; // 🔥 EN DOĞRU
+      rethrow; // ?? EN DOĞRU
     }
   }
 
@@ -1153,7 +1155,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (tableRows.isNotEmpty) {
         final tableIds = tableRows.map((e) => e['id'] as String).toList();
 
-        /// ? ger�ek masa say�s�
+        /// ? ger?ek masa say?s?
         for (final row in tableRows) {
           final leagueId = row['league_id']?.toString();
           if (leagueId == null) continue;
@@ -1206,8 +1208,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         final realPlayers = usersByLeague[id]?.length ?? 0;
         final basePlayers = minPlayersByName[name] ?? 50;
 
-        /// ?? ak�ll� fake
-        final fluctuation = rnd.nextInt(20); // k���k oynama
+        /// ?? ak?ll? fake
+        final fluctuation = rnd.nextInt(20); // k???k oynama
 
         final boostedPlayers =
             (realPlayers > basePlayers ? realPlayers : basePlayers) +
@@ -1262,7 +1264,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           .delete()
           .inFilter('table_id', orphanTableIds);
 
-      /// ?? BURASI S�L�ND� (view oldu�u i�in)
+      /// ?? BURASI S?L?ND? (view oldu?u i?in)
 
       await supabase
           .from('table_discards')
@@ -1589,17 +1591,52 @@ class _LobbyScreenState extends State<LobbyScreen>
     // Use fresh server status to avoid stale lobby card state
     // (can look empty but still carry old local "playing" flag).
     var status = table['status']?.toString() ?? 'waiting';
+    String? createdBy = table['created_by']?.toString();
     try {
       final latest = await supabase
           .from('tables')
-          .select('status')
+          .select('status,created_by')
           .eq('id', tableId)
           .maybeSingle();
       if (latest != null) {
         status = (latest['status']?.toString() ?? status).trim();
+        createdBy = latest['created_by']?.toString() ?? createdBy;
       }
     } catch (_) {
       // If fetch fails, keep current fallback status.
+    }
+
+    // Fast stale-owner guard:
+    // If table owner is stale/offline, close waiting table immediately
+    // so users do not get stuck trying to join a dead table.
+    if (status == 'waiting' &&
+        createdBy != null &&
+        createdBy!.isNotEmpty &&
+        createdBy != user.id) {
+      try {
+        final owner = await supabase
+            .from('profiles')
+            .select('is_online,last_seen_at')
+            .eq('id', createdBy!)
+            .maybeSingle();
+        final ownerOnline = owner?['is_online'] == true;
+        final lastSeenRaw = owner?['last_seen_at']?.toString();
+        final lastSeen = lastSeenRaw == null
+            ? null
+            : DateTime.tryParse(lastSeenRaw)?.toUtc();
+        final stale = !ownerOnline ||
+            (lastSeen != null &&
+                DateTime.now().toUtc().difference(lastSeen) >
+                    const Duration(seconds: 75));
+        if (stale) {
+          await _cleanupOrphanTables([tableId]);
+          await _loadTables();
+          _msg('Masa sahibi bağlantıda değil. Masa otomatik kapatıldı.');
+          return;
+        }
+      } catch (_) {
+        // If guard check fails, continue normal join flow.
+      }
     }
 
     if (status == 'playing') {
@@ -1910,7 +1947,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 14),
 
-                  /// ?? PRICE CARD (�OK �NEML�)
+                  /// ?? PRICE CARD (?OK ?NEML?)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -1996,8 +2033,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           ),
                         ),
                       ),
-
-                      const SizedBox(width: 12),
+              if (!collapseFriendsList) const SizedBox(width: 12),
 
                       /// ?? BUY BUTTON
                       Expanded(
@@ -2152,6 +2188,12 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setLocalState) {
+            final media = MediaQuery.of(context).size;
+            final isSmallLandscape =
+                media.width > media.height && media.height < 620;
+            final messageMinLines = isSmallLandscape ? 3 : 5;
+            final messageMaxLines = isSmallLandscape ? 4 : 7;
+
             Future<void> submit() async {
               final message = messageController.text.trim();
               if (message.length < 8) {
@@ -2190,6 +2232,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               insetPadding: const EdgeInsets.all(18),
               child: Container(
                 width: 560,
+                constraints: BoxConstraints(maxHeight: media.height * 0.86),
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
@@ -2210,10 +2253,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     Row(
                       children: [
                         const Icon(
@@ -2275,8 +2319,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                     const SizedBox(height: 7),
                     TextField(
                       controller: messageController,
-                      minLines: 5,
-                      maxLines: 7,
+                      minLines: messageMinLines,
+                      maxLines: messageMaxLines,
                       enabled: !sending,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
@@ -2332,7 +2376,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                         ),
                       ],
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -2987,7 +3032,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     final maxCoin = league['max_coin'];
     bool isDragging = false;
 
-    /// ?? PRESET COIN L�STES�
+    /// ?? PRESET COIN L?STES?
 
     int current = minCoin;
     coinOptions = [];
@@ -3014,13 +3059,11 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
 
     // normal default
-    /// ?? K�L�TL�YSE � D�REKT SATIN ALMA
+    /// ?? K?L?TL?YSE ? D?REKT SATIN ALMA
     if (!eligible) {
-      final result = await Navigator.push(
+      final result = await openStoreScreen(
         context,
-        MaterialPageRoute(
-          builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
-        ),
+        initialCoin: UserState.userCoin,
       );
 
       /// ?? widget hala aktif mi?
@@ -3046,8 +3089,12 @@ class _LobbyScreenState extends State<LobbyScreen>
               child: Center(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final width = constraints.maxWidth * 0.62;
-                    final height = constraints.maxHeight * 0.94;
+                    final width = kIsWeb
+                        ? (constraints.maxWidth * 0.72).clamp(820.0, 1020.0)
+                        : constraints.maxWidth * 0.62;
+                    final double? height = kIsWeb
+                        ? null
+                        : constraints.maxHeight * 0.94;
 
                     return Container(
                       width: width,
@@ -3079,6 +3126,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
 
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           /// HEADER
                           Row(
@@ -3132,11 +3180,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                           /// LEAGUE INFO
 
                           /// PICKERS YAN YANA
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                /// ?? SE��LEN COIN (HERO)
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                                /// ?? SE??LEN COIN (HERO)
 
                                 /// ?? SLIDER (AAA)
                                 SizedBox(
@@ -3468,7 +3516,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     },
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
                                 /// ? OYUN HIZI (AAA SEGMENTED)
                                 Container(
@@ -3594,8 +3642,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     ],
                                   ),
                                 ),
-
-                                const SizedBox(height: 12),
+                          const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     Expanded(
@@ -3744,7 +3791,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   ],
                                 ),
                               ],
-                            ),
                           ),
                           const SizedBox(height: 12),
 
@@ -4223,6 +4269,14 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _messagesPanel() {
+    final mq = MediaQuery.of(context);
+    final size = mq.size;
+    final isLandscape = size.width > size.height;
+    final keyboardOpen = mq.viewInsets.bottom > 0;
+    final compactKeyboardMode = isLandscape && keyboardOpen;
+    final collapseFriendsList =
+        compactKeyboardMode && _activeChatUserId != null;
+
     final body = _friends.isEmpty
         ? Center(
             child: Column(
@@ -4243,9 +4297,10 @@ class _LobbyScreenState extends State<LobbyScreen>
           )
         : Row(
             children: [
-              /// SOL ARKADAŞ L�STES�
-              Container(
-                width: 230,
+              /// SOL ARKADAŞ L?STES?
+              if (!collapseFriendsList)
+                Container(
+                width: compactKeyboardMode ? 180 : 230,
                 decoration: BoxDecoration(
                   color: const Color(0x4424362E),
                   borderRadius: BorderRadius.circular(16),
@@ -4300,7 +4355,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                             const SizedBox(width: 8),
 
-                            /// �S�M + SON G�R�LME
+                            /// ?S?M + SON G?R?LME
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4337,10 +4392,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                   },
                 ),
               ),
+              if (!collapseFriendsList) const SizedBox(width: 12),
 
-              const SizedBox(width: 12),
-
-              /// MESAJ PANEL�
+              /// MESAJ PANEL?
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -4350,11 +4404,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ),
                   child: Column(
                     children: [
-                      /// MESAJ L�STES�
+                      /// MESAJ L?STES?
                       Expanded(
                         child: Stack(
                           children: [
-                            /// 💬 MESAJ L�STES�
+                            /// ?? MESAJ L?STES?
                             _rightPanelLoading
                                 ? Center(child: _premiumLoader(size: 32))
                                 : ListView.builder(
@@ -4501,7 +4555,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     },
                                   ),
 
-                            /// 🔥 FLOATING MENU (Ş�MD� �ALIŞIR)
+                            /// ?? FLOATING MENU (Ş?MD? ?ALIŞIR)
                             Positioned(
                               top: 8,
                               right: 8,
@@ -4527,7 +4581,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           ),
                           child: Row(
                             children: [
-                              /// ▶️ PLAY
+                              /// ?? PLAY
                               GestureDetector(
                                 onTap: () async {
                                   if (_previewPlaying) {
@@ -4577,12 +4631,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                               const SizedBox(width: 10),
 
-                              /// 🔊 WAVE
+                              /// ?? WAVE
                               Expanded(child: _waveform(_previewPlaying)),
 
                               const SizedBox(width: 8),
 
-                              /// ❌ DELETE
+                              /// ? DELETE
                               IconButton(
                                 icon: const Icon(
                                   Icons.close,
@@ -4604,7 +4658,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 },
                               ),
 
-                              /// ✅ SEND
+                              /// ? SEND
                               IconButton(
                                 icon: const Icon(
                                   Icons.send,
@@ -4646,7 +4700,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           ),
                           child: Row(
                             children: [
-                              /// 🎤 ICON
+                              /// ?? ICON
                               const Icon(
                                 Icons.mic,
                                 color: Colors.redAccent,
@@ -4666,12 +4720,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                               const Spacer(),
 
-                              /// 🔴 BLINK DOT
+                              /// ?? BLINK DOT
                               _recordDot(),
 
                               const SizedBox(width: 6),
 
-                              /// ⏱️ TIMER
+                              /// ?? TIMER
                               Text(
                                 _recordDuration,
                                 style: const TextStyle(
@@ -4683,7 +4737,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           ),
                         ),
 
-                      /// MESAJ G�NDERME ALANI
+                      /// MESAJ G?NDERME ALANI
                       Container(
                         padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                         decoration: const BoxDecoration(
@@ -4694,7 +4748,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (_showEmojiPicker) ...[
+                            if (!compactKeyboardMode && _showEmojiPicker) ...[
                               Container(
                                 width: double.infinity,
                                 margin: const EdgeInsets.only(bottom: 8),
@@ -4730,7 +4784,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                             ],
                             Row(
                               children: [
-                            Listener(
+                            if (!compactKeyboardMode)
+                              Listener(
                               onPointerDown: (_) async {
                                 print("DOWN");
 
@@ -4740,7 +4795,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   const Duration(milliseconds: 250),
                                 );
 
-                                // hala bas�l�ysa ba�lat
+                                // hala bas?l?ysa ba?lat
                                 if (_isPressing) {
                                   print("START RECORD");
                                   await _startRecording();
@@ -4774,29 +4829,32 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ),
                             ),
 
-                            /// 🎤 VOICE BUTTON
-                            const SizedBox(width: 8),
+                            /// ?? VOICE BUTTON
+                            if (!compactKeyboardMode) const SizedBox(width: 8),
 
                             /// EMOJI BUTTON
-                            IconButton(
-                              tooltip: 'Emoji',
-                              onPressed: () {
-                                setState(() {
-                                  _showEmojiPicker = !_showEmojiPicker;
-                                });
-                              },
-                              icon: Icon(
-                                _showEmojiPicker
-                                    ? Icons.emoji_emotions
-                                    : Icons.emoji_emotions_outlined,
-                                color: const Color(0xFFE7C06A),
+                            if (!compactKeyboardMode)
+                              IconButton(
+                                tooltip: 'Emoji',
+                                onPressed: () {
+                                  setState(() {
+                                    _showEmojiPicker = !_showEmojiPicker;
+                                  });
+                                },
+                                icon: Icon(
+                                  _showEmojiPicker
+                                      ? Icons.emoji_emotions
+                                      : Icons.emoji_emotions_outlined,
+                                  color: const Color(0xFFE7C06A),
+                                ),
                               ),
-                            ),
 
                             /// TEXTFIELD
                             Expanded(
                               child: TextField(
                                 controller: _chatController,
+                                minLines: 1,
+                                maxLines: compactKeyboardMode ? 2 : 3,
                                 style: const TextStyle(
                                   color: Color(0xFFF3FFF9),
                                   fontWeight: FontWeight.w600,
@@ -4811,7 +4869,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   fillColor: const Color(0x5524362E),
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 14,
-                                    vertical: 10,
+                                    vertical: 9,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
@@ -4837,11 +4895,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ),
                             ),
 
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
 
-                            /// G�NDER BUTONU
+                            /// G?NDER BUTONU
                             Container(
-                              height: 44,
+                              height: compactKeyboardMode ? 40 : 44,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
                                 gradient: const LinearGradient(
@@ -5033,7 +5091,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  /// 🧠 TITLE
+                  /// ?? TITLE
                   const Text(
                     "Sohbeti sil",
                     style: TextStyle(
@@ -5045,7 +5103,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 7),
 
-                  /// ⚠️ DESCRIPTION
+                  /// ?? DESCRIPTION
                   const Text(
                     "Bu kullanıcıyla tüm mesajlar ve ses kayıtları silinecek.",
                     textAlign: TextAlign.center,
@@ -5054,7 +5112,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 18),
 
-                  /// 🔘 BUTTONS
+                  /// ?? BUTTONS
                   Row(
                     children: [
                       /// CANCEL
@@ -5131,7 +5189,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (uid == null || other == null) return;
 
     try {
-      /// 3. mesajlar� sil
+      /// 3. mesajlar? sil
       await supabase
           .from('messages')
           .delete()
@@ -5162,28 +5220,28 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       if (!await file.exists()) return;
 
-      /// 🆔 message id
+      /// ?? message id
       final messageId = const Uuid().v4();
 
       final storagePath = 'friend/$ftableid/$messageId.m4a';
 
-      /// 📦 1. STORAGE UPLOAD
+      /// ?? 1. STORAGE UPLOAD
       await supabase.storage.from('voice').upload(storagePath, file);
 
-      /// 🧾 2. DB INSERT (senin yap�ya uyumlu)
+      /// ?? 2. DB INSERT (senin yap?ya uyumlu)
       await supabase.from('messages').insert({
         'sender_id': uid,
         'receiver_id': otherId,
-        'content': null, // ❗ text yok
+        'content': null, // ? text yok
         'type': 'voice',
         'voice_url': storagePath,
-        'duration': 5, // �imdilik sabit
+        'duration': 5, // ?imdilik sabit
       });
 
-      /// 🧹 3. LOCAL TEM�ZLE
+      /// ?? 3. LOCAL TEM?ZLE
       await file.delete();
 
-      /// 🔄 4. CHAT REFRESH (senin sistem)
+      /// ?? 4. CHAT REFRESH (senin sistem)
       await _loadMessagesWith(otherId, ftableid, markRead: false);
     } catch (e) {
       _msg('Sesli mesaj gönderilemedi.');
@@ -5199,9 +5257,9 @@ class _LobbyScreenState extends State<LobbyScreen>
     final isPlaying = _playingMessageId == msg['id'];
 
     return Row(
-      mainAxisSize: MainAxisSize.min, // ❗ �nemli
+      mainAxisSize: MainAxisSize.min, // ? ?nemli
       children: [
-        /// ▶️ PLAY
+        /// ?? PLAY
         GestureDetector(
           onTap: () => _playVoice(msg),
           child: Container(
@@ -5225,9 +5283,9 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 8),
 
-        /// 🔊 WAVE
+        /// ?? WAVE
         SizedBox(
-          width: 80, // ❗ sabit width
+          width: 80, // ? sabit width
           child: Row(
             children: List.generate(12, (i) {
               final height = (i % 5 + 3).toDouble();
@@ -5247,7 +5305,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         const SizedBox(width: 6),
 
-        /// ⏱️ s�re
+        /// ?? s?re
         Text(
           "${msg['duration'] ?? 0}s",
           style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -5265,19 +5323,19 @@ class _LobbyScreenState extends State<LobbyScreen>
         return;
       }
 
-      /// ayn� mesaj → stop
+      /// ayn? mesaj › stop
       if (_playingMessageId == msg['id']) {
         await _audioPlayer.stop();
         setState(() => _playingMessageId = null);
         return;
       }
 
-      /// yeni mesaj ba�lat
+      /// yeni mesaj ba?lat
       final url = await supabase.storage
           .from('voice')
           .createSignedUrl(path, 60);
 
-      await _audioPlayer.stop(); // 💥 �nemli (�nceki sesi kes)
+      await _audioPlayer.stop(); // ?? ?nemli (?nceki sesi kes)
 
       await _audioPlayer.setUrl(url);
 
@@ -5334,7 +5392,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     _startTimer();
 
-    /// 💥 EN KR�T�K (recorder warmup)
+    /// ?? EN KR?T?K (recorder warmup)
     _canStop = false;
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -5362,7 +5420,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       return;
     }
 
-    /// ❗ ARTIK G�NDERMEY�Z
+    /// ? ARTIK G?NDERMEY?Z
     setState(() {
       _previewPath = path;
       _showPreview = true;
@@ -5380,16 +5438,16 @@ class _LobbyScreenState extends State<LobbyScreen>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
 
-        /// 🎨 BACKGROUND
+        /// ?? BACKGROUND
         color: _isRecording ? Colors.redAccent : const Color(0xFF1E2A25),
 
-        /// 💎 BORDER
+        /// ?? BORDER
         border: Border.all(
           color: _isRecording ? Colors.redAccent : const Color(0x3359A588),
           width: _isRecording ? 1.6 : 1,
         ),
 
-        /// ✨ GLOW
+        /// ? GLOW
         boxShadow: _isRecording
             ? [
                 BoxShadow(
@@ -5522,7 +5580,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
         const SizedBox(height: 7),
 
-        // 🔥 YEN� EKLED�Ğ�M�Z
+        // ?? YEN? EKLED?Ğ?M?Z
         lobbySideMenuButton(
           icon: Icons.delete_forever_rounded,
           label: 'Hesabı Sil',
@@ -5722,13 +5780,13 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _connectedLeagueAndTables({required double leagueWidth}) {
     return Row(
       children: [
-        /// 🔥 SOL PANEL (GLASS EFFECT)
+        /// ?? SOL PANEL (GLASS EFFECT)
         ClipRRect(
           borderRadius: BorderRadius.circular(22),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
             child: Container(
-              /// 🔥 biraz daha geni�
+              /// ?? biraz daha geni?
               width: leagueWidth + 80,
 
               margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
@@ -5739,13 +5797,13 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                 /// ?? ANA BORDER (daha koyu + classy)
                 border: Border.all(
-                  color: const Color(0x33FFEBC6), // ?? opacity d���r�ld�
+                  color: const Color(0x33FFEBC6), // ?? opacity d???r?ld?
                   width: 1.0,
                 ),
 
                 /// ?? SOFT SHADOW SYSTEM
                 boxShadow: [
-                  /// �ok hafif d�� glow
+                  /// ?ok hafif d?? glow
                   BoxShadow(
                     color: const Color(0xFFFFD76A).withOpacity(0.10),
                     blurRadius: 10,
@@ -5758,7 +5816,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     blurRadius: 12,
                   ),
 
-                  /// i� derinlik
+                  /// i? derinlik
                 ],
               ),
               child: Column(
@@ -5781,7 +5839,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
                   const SizedBox(height: 8),
 
-                  /// 🔥 GOLD DIVIDER
+                  /// ?? GOLD DIVIDER
                   Container(
                     height: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -5797,7 +5855,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ),
                   const SizedBox(height: 7),
 
-                  /// 🔥 L�G L�STES�
+                  /// ?? L?G L?STES?
                   Expanded(
                     child: Stack(
                       children: [
@@ -5856,40 +5914,102 @@ class _LobbyScreenState extends State<LobbyScreen>
           ),
         ),
 
-        /// 🔥 MASALAR
+        /// ?? MASALAR
         Expanded(
-          child: LobbyTableWheel(
-            tables: tables,
-            loading: loadingTables,
-            blockedUserIds: UserState.blockedUserIds,
-            isLocked: isLeagueLocked,
-            lockedLeague: lockedLeague,
-            playerCoin: UserState.userCoin,
-            playerRating: UserState.userRating,
-            onJoin: (table) => _joinTable(table),
-            onSpectate: (table) => _handleSpectateTap(table),
-            canSpectateAll: true,
-            onNeedRefreshUser: () async {
-              await _loadUser();
-              await _loadTables(); // ?? coin de�i�ti � listeler de�i�ebilir
-            },
-
-            onUserTap: (user) async {
-              await ProfileService.showUserCard(
-                user,
-                onRefresh: () async {
-                  await _loadSocialData();
-                  await _loadTables();
-                },
-              );
-            },
-            onRefresh: () => _loadTables(),
-          ),
+          child: _buildTablesPanel(),
         ),
       ],
     );
   }
 
+  Widget _buildTablesPanel() {
+    final useWebGrid = kIsWeb && MediaQuery.of(context).size.width >= 1200;
+
+    if (!useWebGrid || isLeagueLocked) {
+      return LobbyTableWheel(
+        tables: tables,
+        loading: loadingTables,
+        blockedUserIds: UserState.blockedUserIds,
+        isLocked: isLeagueLocked,
+        lockedLeague: lockedLeague,
+        playerCoin: UserState.userCoin,
+        playerRating: UserState.userRating,
+        onJoin: (table) => _joinTable(table),
+        onSpectate: (table) => _handleSpectateTap(table),
+        canSpectateAll: true,
+        onNeedRefreshUser: () async {
+          await _loadUser();
+          await _loadTables();
+        },
+        onUserTap: (user) async {
+          await ProfileService.showUserCard(
+            user,
+            onRefresh: () async {
+              await _loadSocialData();
+              await _loadTables();
+            },
+          );
+        },
+        onRefresh: () => _loadTables(),
+      );
+    }
+
+    if (loadingTables) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFE7C66A)),
+      );
+    }
+
+    if (tables.isEmpty) {
+      return const Center(
+        child: Text(
+          "Masa bulunmamaktadır.",
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadTables,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final crossAxisCount = width >= 1500 ? 3 : 2;
+          final sidePadding = width >= 1500 ? 18.0 : 12.0;
+          return GridView.builder(
+            padding: EdgeInsets.fromLTRB(sidePadding, 8, sidePadding, 16),
+            physics: const AlwaysScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: 2.35,
+            ),
+            itemCount: tables.length,
+            itemBuilder: (context, i) {
+              final table = tables[i];
+              return LobbyTableCard(
+                table: table,
+                blockedUserIds: UserState.blockedUserIds,
+                onJoin: _joinTable,
+                onSpectate: _handleSpectateTap,
+                canSpectateAll: true,
+                onUserTap: (user) async {
+                  await ProfileService.showUserCard(
+                    user,
+                    onRefresh: () async {
+                      await _loadSocialData();
+                      await _loadTables();
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
   Widget _bottomDock() {
     return LobbyBottomDock(
       left: _dockLeft(),
@@ -6175,7 +6295,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ),
             ),
 
-            const SizedBox(height: 5), // 🔥 BURASI
+            const SizedBox(height: 5), // ?? BURASI
 
             Row(
               children: [
@@ -6275,11 +6395,9 @@ class _LobbyScreenState extends State<LobbyScreen>
           child: InkWell(
             borderRadius: BorderRadius.circular(999),
             onTap: () async {
-              final result = await Navigator.push(
+              final result = await openStoreScreen(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => StoreScreen(initialCoin: UserState.userCoin),
-                ),
+                initialCoin: UserState.userCoin,
               );
               if (result == true) {
                 await _loadUser();
@@ -6381,7 +6499,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     if (res.isEmpty) return;
 
-    // ?? 1. G�NDERENE G�RE GRUPLA
+    // ?? 1. G?NDERENE G?RE GRUPLA
     final Map<String, List<dynamic>> grouped = {};
 
     for (final g in res) {
@@ -6389,7 +6507,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       grouped.putIfAbsent(sender, () => []).add(g);
     }
 
-    // ?? 2. HER GRUP ���N G�STER
+    // ?? 2. HER GRUP ???N G?STER
     for (final entry in grouped.entries) {
       final senderId = entry.key;
       final gifts = entry.value;
@@ -6412,7 +6530,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         }
       } catch (_) {}
 
-      // ?? gift info (ilk gift �zerinden)
+      // ?? gift info (ilk gift ?zerinden)
       String emoji = "??";
       String giftName = "Hediye";
 
@@ -6440,7 +6558,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           senderId: senderId,
         );
       } else {
-        // ?? �OKLU GIFT
+        // ?? ?OKLU GIFT
         GiftOverlay.show(
           senderName: senderName,
           emoji: "??",
@@ -6450,7 +6568,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         );
       }
 
-      // ?? CONFETTI (her sender i�in 1 kere)
+      // ?? CONFETTI (her sender i?in 1 kere)
       CelebrationService.showConfetti();
     }
 
@@ -6543,4 +6661,9 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
 

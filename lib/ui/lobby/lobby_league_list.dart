@@ -48,23 +48,30 @@ class LobbyLeagueList extends StatelessWidget {
       builder: (context, constraints) {
         final size = MediaQuery.of(context).size;
         final isTablet = size.shortestSide >= 600;
+        final isWideWeb = size.width >= 1100;
 
-        if (isTablet) {
-          /// 🔥 TABLET → ALT ALTA (büyük kartlar)
+        if (isTablet || isWideWeb) {
           return Column(
             children: List.generate(leagues.length, (i) {
-              return AnimatedLeagueItem(
-                index: i,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: _leagueItem(leagues[i], isBig: true),
+              return Expanded(
+                child: AnimatedLeagueItem(
+                  index: i,
+                  child: LayoutBuilder(
+                    builder: (context, cardConstraints) => SizedBox(
+                      width: double.infinity,
+                      child: _leagueItem(
+                        leagues[i],
+                        isBig: true,
+                        heightOverride: cardConstraints.maxHeight,
+                      ),
+                    ),
+                  ),
                 ),
               );
             }),
           );
         }
 
-        /// 🔥 MOBILE → 2x2 + 1
         return Column(
           children: [
             Row(
@@ -111,8 +118,11 @@ class LobbyLeagueList extends StatelessWidget {
       },
     );
   }
-
-  Widget _leagueItem(Map league, {bool isBig = false}) {
+  Widget _leagueItem(
+    Map league, {
+    bool isBig = false,
+    double? heightOverride,
+  }) {
     final l = Map<String, dynamic>.from(league);
 
     final selected = l['id'] == selectedLeagueId;
@@ -171,7 +181,7 @@ class LobbyLeagueList extends StatelessWidget {
 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            height: isBig ? 67 : 55,
+            height: heightOverride ?? (isBig ? 67 : 55),
 
             padding: EdgeInsets.symmetric(
               horizontal: l['id'] == 'elite' ? 2 : 8,
@@ -528,11 +538,15 @@ class LobbyLeagueList extends StatelessWidget {
     return Row(
       children: [
         /// 🔥 SOL KUPA
-        _leagueTrophy(l['id'], selected),
+        SizedBox(
+          width: 58,
+          child: Center(child: _leagueTrophy(l['id'], selected)),
+        ),
 
         /// 🔥 CONTENT
         Expanded(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _leagueTitle(l['name'] ?? '', color, isBig: isBig),
@@ -870,6 +884,9 @@ class TrophyStyle {
 
   TrophyStyle({required this.size, required this.colors, required this.glow});
 }
+
+
+
 
 
 
