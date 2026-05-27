@@ -2033,7 +2033,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                           ),
                         ),
                       ),
-              if (!collapseFriendsList) const SizedBox(width: 12),
+                      const SizedBox(width: 12),
 
                       /// ?? BUY BUTTON
                       Expanded(
