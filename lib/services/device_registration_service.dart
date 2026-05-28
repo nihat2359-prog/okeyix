@@ -55,17 +55,21 @@ class DeviceRegistrationService {
       }
     }
 
+    final body = <String, dynamic>{
+      "user_id": user.id,
+      "device_id": deviceId,
+      "platform": platform,
+      "device_model": deviceModel,
+      "os_version": osVersion,
+      "app_version": packageInfo.version,
+    };
+    if (pushToken != null && pushToken.isNotEmpty) {
+      body["push_token"] = pushToken;
+    }
+
     final res = await supabase.functions.invoke(
       'register_device',
-      body: {
-        "user_id": user.id,
-        "device_id": deviceId,
-        "platform": platform,
-        "device_model": deviceModel,
-        "os_version": osVersion,
-        "app_version": packageInfo.version,
-        "push_token": pushToken,
-      },
+      body: body,
     );
     debugPrint('REGISTER_DEVICE DONE: ${res.data}');
   }
