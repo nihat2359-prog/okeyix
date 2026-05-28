@@ -23,6 +23,7 @@ class PushNotificationService {
   StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
   StreamSubscription<RemoteMessage>? _onMessageSub;
   PushDataCallback? _onNotificationTapData;
+  PushDataCallback? _onForegroundData;
   Future<void>? _firebaseInitFuture;
   Timer? _iosTokenRetryTimer;
   bool _tokenDelivered = false;
@@ -40,6 +41,7 @@ class PushNotificationService {
   Future<void> init({
     PushTokenCallback? onToken,
     PushDataCallback? onNotificationTapData,
+    PushDataCallback? onForegroundData,
   }) async {
     if (_initialized) return;
     if (kIsWeb) return;
@@ -47,6 +49,7 @@ class PushNotificationService {
 
     try {
       _onNotificationTapData = onNotificationTapData;
+      _onForegroundData = onForegroundData;
 
       if (Firebase.apps.isEmpty) {
         await _ensureFirebaseReady();
@@ -113,6 +116,10 @@ class PushNotificationService {
 
       _onMessageSub = FirebaseMessaging.onMessage.listen((msg) {
         debugPrint('PUSH FOREGROUND MESSAGE: ${msg.data}');
+        final data = msg.data;
+        if (data.isNotEmpty) {
+          _onForegroundData?.call(data);
+        }
       });
 
       final initialMessage = await messaging.getInitialMessage();

@@ -65,6 +65,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSub;
   Timer? _registerRetryTimer;
+  OverlayEntry? _foregroundPushEntry;
+  Timer? _foregroundPushTimer;
 
   @override
   void initState() {
@@ -83,6 +85,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }
         },
         onNotificationTapData: _handlePushTapData,
+        onForegroundData: _handleForegroundPushData,
       ),
     );
 
@@ -147,6 +150,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     _authSub?.cancel();
     _registerRetryTimer?.cancel();
+    _foregroundPushTimer?.cancel();
+    _foregroundPushEntry?.remove();
     PushNotificationService.instance.dispose();
     PresenceService.instance.onAppBackgrounded();
     WidgetsBinding.instance.removeObserver(this);
@@ -161,6 +166,137 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       } catch (e) {
         debugPrint('REGISTER_DEVICE RETRY ERROR: $e');
       }
+    });
+  }
+
+  Future<void> _handleForegroundPushData(Map<String, dynamic> data) async {
+    final overlay = overlayKey.currentState;
+    if (overlay == null) return;
+
+    _foregroundPushTimer?.cancel();
+    _foregroundPushEntry?.remove();
+    _foregroundPushEntry = null;
+
+    final title = (data['title']?.toString().trim().isNotEmpty ?? false)
+        ? data['title'].toString().trim()
+        : 'Yeni bildirim';
+    final body = (data['body']?.toString().trim().isNotEmpty ?? false)
+        ? data['body'].toString().trim()
+        : (data['message']?.toString().trim().isNotEmpty ?? false)
+        ? data['message'].toString().trim()
+        : 'Yeni bir davet veya mesaj aldiniz.';
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) {
+        return Positioned(
+          top: 18,
+          left: 16,
+          right: 16,
+          child: SafeArea(
+            bottom: false,
+            child: Material(
+              color: Colors.transparent,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xEE173228), Color(0xEE0D1D17)],
+                      ),
+                      border: Border.all(
+                        color: const Color(0x88E7C06A),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.45),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () async {
+                        entry.remove();
+                        _foregroundPushEntry = null;
+                        await _handlePushTapData(data);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.notifications_active_rounded,
+                              color: Color(0xFFE7C06A),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    body,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFFE1ECE6),
+                                      fontSize: 13,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Kapat',
+                              onPressed: () {
+                                entry.remove();
+                                _foregroundPushEntry = null;
+                              },
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white70,
+                                size: 20,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    _foregroundPushEntry = entry;
+    overlay.insert(entry);
+    _foregroundPushTimer = Timer(const Duration(seconds: 8), () {
+      _foregroundPushEntry?.remove();
+      _foregroundPushEntry = null;
     });
   }
 

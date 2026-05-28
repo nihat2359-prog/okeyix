@@ -87,6 +87,22 @@ async function sendViaFcmLegacy(
       notification: {
         title,
         body,
+        sound: "default",
+        default_sound: true,
+      },
+      content_available: true,
+      mutable_content: true,
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            contentAvailable: 1,
+            mutableContent: 1,
+          },
+        },
+        headers: {
+          "apns-priority": "10",
+        },
       },
       data,
     }),
