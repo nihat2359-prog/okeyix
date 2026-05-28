@@ -92,9 +92,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (session != null) {
         await PresenceService.instance.startForCurrentUser();
         try {
-          await DeviceRegistrationService.registerCurrentDevice(
-            lookupPushToken: false,
-          );
+          await DeviceRegistrationService.registerCurrentDevice();
         } catch (e) {
           final msg = e.toString();
           if (msg.contains('apns-token-not-set')) {
@@ -110,9 +108,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (supabase.auth.currentSession != null) {
       PresenceService.instance.startForCurrentUser();
       unawaited(
-        DeviceRegistrationService.registerCurrentDevice(
-          lookupPushToken: false,
-        ).then((_) {
+        DeviceRegistrationService.registerCurrentDevice().then((_) {
         }).catchError((e) {
           final msg = e.toString();
           if (msg.contains('apns-token-not-set')) {
@@ -161,9 +157,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _registerRetryTimer?.cancel();
     _registerRetryTimer = Timer(const Duration(seconds: 4), () async {
       try {
-        await DeviceRegistrationService.registerCurrentDevice(
-          lookupPushToken: false,
-        );
+        await DeviceRegistrationService.registerCurrentDevice();
       } catch (e) {
         debugPrint('REGISTER_DEVICE RETRY ERROR: $e');
       }
