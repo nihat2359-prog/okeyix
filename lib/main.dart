@@ -66,7 +66,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSub;
   Timer? _registerRetryTimer;
   OverlayEntry? _foregroundPushEntry;
-  Timer? _foregroundPushTimer;
 
   @override
   void initState() {
@@ -150,7 +149,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     _authSub?.cancel();
     _registerRetryTimer?.cancel();
-    _foregroundPushTimer?.cancel();
     _foregroundPushEntry?.remove();
     PushNotificationService.instance.dispose();
     PresenceService.instance.onAppBackgrounded();
@@ -173,7 +171,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final overlay = overlayKey.currentState;
     if (overlay == null) return;
 
-    _foregroundPushTimer?.cancel();
     _foregroundPushEntry?.remove();
     _foregroundPushEntry = null;
 
@@ -184,7 +181,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ? data['body'].toString().trim()
         : (data['message']?.toString().trim().isNotEmpty ?? false)
         ? data['message'].toString().trim()
-        : 'Yeni bir davet veya mesaj aldiniz.';
+        : 'Yeni bir bildirim aldiniz.';
 
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -294,10 +291,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     _foregroundPushEntry = entry;
     overlay.insert(entry);
-    _foregroundPushTimer = Timer(const Duration(seconds: 8), () {
-      _foregroundPushEntry?.remove();
-      _foregroundPushEntry = null;
-    });
   }
 
   Future<void> _handlePushTapData(Map<String, dynamic> data) async {

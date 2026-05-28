@@ -116,9 +116,20 @@ class PushNotificationService {
 
       _onMessageSub = FirebaseMessaging.onMessage.listen((msg) {
         debugPrint('PUSH FOREGROUND MESSAGE: ${msg.data}');
-        final data = msg.data;
-        if (data.isNotEmpty) {
-          _onForegroundData?.call(data);
+        final merged = <String, dynamic>{...msg.data};
+        final n = msg.notification;
+        if (n != null) {
+          if ((merged['title']?.toString().trim().isEmpty ?? true) &&
+              (n.title?.trim().isNotEmpty ?? false)) {
+            merged['title'] = n.title;
+          }
+          if ((merged['body']?.toString().trim().isEmpty ?? true) &&
+              (n.body?.trim().isNotEmpty ?? false)) {
+            merged['body'] = n.body;
+          }
+        }
+        if (merged.isNotEmpty) {
+          _onForegroundData?.call(merged);
         }
       });
 
