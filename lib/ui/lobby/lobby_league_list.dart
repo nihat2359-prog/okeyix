@@ -49,6 +49,7 @@ class LobbyLeagueList extends StatelessWidget {
         final size = MediaQuery.of(context).size;
         final isTablet = size.shortestSide >= 600;
         final isWideWeb = size.width >= 1100;
+        final compactMobile = size.width < 700;
 
         if (isTablet || isWideWeb) {
           return Column(
@@ -63,6 +64,7 @@ class LobbyLeagueList extends StatelessWidget {
                         leagues[i],
                         isBig: true,
                         heightOverride: cardConstraints.maxHeight,
+                        compactMobile: compactMobile,
                       ),
                     ),
                   ),
@@ -79,13 +81,19 @@ class LobbyLeagueList extends StatelessWidget {
                 Expanded(
                   child: AnimatedLeagueItem(
                     index: 0,
-                    child: _leagueItem(leagues[0]),
+                    child: _leagueItem(
+                      leagues[0],
+                      compactMobile: compactMobile,
+                    ),
                   ),
                 ),
                 Expanded(
                   child: AnimatedLeagueItem(
                     index: 1,
-                    child: _leagueItem(leagues[1]),
+                    child: _leagueItem(
+                      leagues[1],
+                      compactMobile: compactMobile,
+                    ),
                   ),
                 ),
               ],
@@ -95,13 +103,19 @@ class LobbyLeagueList extends StatelessWidget {
                 Expanded(
                   child: AnimatedLeagueItem(
                     index: 2,
-                    child: _leagueItem(leagues[2]),
+                    child: _leagueItem(
+                      leagues[2],
+                      compactMobile: compactMobile,
+                    ),
                   ),
                 ),
                 Expanded(
                   child: AnimatedLeagueItem(
                     index: 3,
-                    child: _leagueItem(leagues[3]),
+                    child: _leagueItem(
+                      leagues[3],
+                      compactMobile: compactMobile,
+                    ),
                   ),
                 ),
               ],
@@ -110,7 +124,11 @@ class LobbyLeagueList extends StatelessWidget {
               index: 4,
               child: SizedBox(
                 width: double.infinity,
-                child: _leagueItem(leagues[4], isBig: true),
+                child: _leagueItem(
+                  leagues[4],
+                  isBig: true,
+                  compactMobile: compactMobile,
+                ),
               ),
             ),
           ],
@@ -122,6 +140,7 @@ class LobbyLeagueList extends StatelessWidget {
     Map league, {
     bool isBig = false,
     double? heightOverride,
+    bool compactMobile = false,
   }) {
     final l = Map<String, dynamic>.from(league);
 
@@ -129,8 +148,13 @@ class LobbyLeagueList extends StatelessWidget {
 
     final color = _leagueColorById(l['id']);
 
-    return GestureDetector(
-      onTap: () => onSelect(l),
+    return LayoutBuilder(
+      builder: (context, itemConstraints) {
+        final compactCard =
+            compactMobile || (!isBig && itemConstraints.maxWidth < 220);
+
+        return GestureDetector(
+          onTap: () => onSelect(l),
 
       child: AnimatedScale(
         scale: selected ? 1.015 : 1.0,
@@ -264,21 +288,31 @@ class LobbyLeagueList extends StatelessWidget {
                   ),
                 ),
                 if (l['id'] == 'elite')
-                  _eliteCard(l, color, isBig)
+                  _eliteCard(l, color, isBig, compactCard)
                 else
-                  _normalCard(l, color, isBig),
+                  _normalCard(l, color, isBig, compactCard),
               ],
             ),
           ),
         ),
       ),
+        );
+      },
     );
   }
 
-  Widget _leagueTitle(String text, Color color, {bool isBig = false}) {
-    final fontSize = isBig ? 21.0 : 15.5;
+  Widget _leagueTitle(
+    String text,
+    Color color, {
+    bool isBig = false,
+    bool compact = false,
+    Alignment alignment = Alignment.center,
+    TextAlign textAlign = TextAlign.center,
+  }) {
+    final fontSize = compact ? 12.8 : (isBig ? 21.0 : 15.5);
 
-    return Center(
+    return Align(
+      alignment: alignment,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -289,7 +323,7 @@ class LobbyLeagueList extends StatelessWidget {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
+              textAlign: textAlign,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: fontSize,
@@ -318,7 +352,7 @@ class LobbyLeagueList extends StatelessWidget {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
+              textAlign: textAlign,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: fontSize,
@@ -333,7 +367,7 @@ class LobbyLeagueList extends StatelessWidget {
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
+            textAlign: textAlign,
             style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: fontSize,
@@ -374,7 +408,7 @@ class LobbyLeagueList extends StatelessWidget {
     }
   }
 
-  Widget _eliteCard(Map l, Color color, bool isBig) {
+  Widget _eliteCard(Map l, Color color, bool isBig, bool compactMobile) {
     final activePlayers = leagueActivePlayers[l['id']] ?? 0;
     final activeTables = leagueActiveTables[l['id']] ?? 0;
 
@@ -530,7 +564,7 @@ class LobbyLeagueList extends StatelessWidget {
     );
   }
 
-  Widget _normalCard(Map l, Color color, bool isBig) {
+  Widget _normalCard(Map l, Color color, bool isBig, bool compactMobile) {
     final selected = l['id'] == selectedLeagueId;
     final activePlayers = leagueActivePlayers[l['id']] ?? 0;
     final activeTables = leagueActiveTables[l['id']] ?? 0;
@@ -539,22 +573,36 @@ class LobbyLeagueList extends StatelessWidget {
       children: [
         /// 🔥 SOL KUPA
         SizedBox(
-          width: 58,
-          child: Center(child: _leagueTrophy(l['id'], selected)),
+          width: compactMobile ? 34 : 58,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _leagueTrophy(l['id'], selected),
+          ),
         ),
+        SizedBox(width: compactMobile ? 1 : 0),
 
         /// 🔥 CONTENT
         Expanded(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: compactMobile
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
-              _leagueTitle(l['name'] ?? '', color, isBig: isBig),
+              _leagueTitle(
+                l['name'] ?? '',
+                color,
+                isBig: isBig,
+                compact: compactMobile && !isBig,
+                alignment: Alignment.center,
+                textAlign: TextAlign.center,
+              ),
 
               Row(
                 children: [
                   Expanded(
-                    child: Center(
+                    child: Align(
+                      alignment: Alignment.center,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

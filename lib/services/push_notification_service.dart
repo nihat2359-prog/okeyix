@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_app_badger/flutter_app_badger.dart';
 import 'package:okeyix/firebase_options.dart';
 
 typedef PushTokenCallback = FutureOr<void> Function(String token);
@@ -108,6 +109,7 @@ class PushNotificationService {
       });
 
       _onMessageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen((msg) {
+        clearAppBadge();
         final data = msg.data;
         if (data.isNotEmpty) {
           _onNotificationTapData?.call(data);
@@ -135,13 +137,25 @@ class PushNotificationService {
 
       final initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null && initialMessage.data.isNotEmpty) {
+        clearAppBadge();
         _onNotificationTapData?.call(initialMessage.data);
       }
 
       _initialized = true;
+      clearAppBadge();
     } catch (e) {
       debugPrint('PUSH INIT ERROR: $e');
     }
+  }
+
+  Future<void> clearAppBadge() async {
+    if (kIsWeb) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      final supported = await FlutterAppBadger.isAppBadgeSupported();
+      if (!supported) return;
+      FlutterAppBadger.removeBadge();
+    } catch (_) {}
   }
 
   Future<String?> getToken() async {

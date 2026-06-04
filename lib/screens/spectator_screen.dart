@@ -101,6 +101,34 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       selection: TextSelection.collapsed(offset: start + emoji.length),
     );
   }
+
+  DateTime _messageCreatedAt(Map msg) {
+    final raw = msg['created_at']?.toString();
+    final parsed = raw == null ? null : DateTime.tryParse(raw);
+    return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  List _sortMessages(List input) {
+    final sorted = List<Map<String, dynamic>>.from(
+      input.map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    sorted.sort((a, b) => _messageCreatedAt(a).compareTo(_messageCreatedAt(b)));
+    return sorted;
+  }
+
+  void _appendIncomingMessage(Map<String, dynamic> msg) {
+    final incomingId = msg['id']?.toString();
+    final next = List<Map<String, dynamic>>.from(
+      messages.map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final alreadyExists = incomingId != null &&
+        next.any((m) => m['id']?.toString() == incomingId);
+    if (!alreadyExists) {
+      next.add(msg);
+    }
+    messages = _sortMessages(next);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -207,7 +235,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               }
             }
             setState(() {
-              messages = [...messages, msg];
+              _appendIncomingMessage(msg);
             });
             _handleIncomingMessageEffects(msg);
             _scrollToBottom();
@@ -267,12 +295,16 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       table = t;
       players = p;
       spectators = s.length;
-      messages = m;
+      messages = _sortMessages(m as List);
       _tableChatEnabled = tableChatEnabled;
       _turnStartedAt = turnStartedAt;
       _turnSeconds = turnSeconds;
       _currentTurnSeat = currentTurnSeat;
       if (!_tableChatEnabled) chatOpen = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToBottom();
     });
     _turnTicker?.cancel();
     _turnTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
@@ -330,7 +362,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     });
 
     chatController.clear();
-    await _load();
     _scrollToBottom();
   }
 

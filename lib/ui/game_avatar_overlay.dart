@@ -222,13 +222,10 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
       final profiles = await _loadProfilesByUserId(userIds);
       final users = await _loadUsersByUserId(userIds);
-      final walletByUserId = await _loadWalletBalancesByUserId(userIds);
       await _hydrateCurrentUserFallback(users);
 
       final mapped = playerRows
-          .map(
-            (row) => _seatPlayerFromRow(row, profiles, users, walletByUserId),
-          )
+          .map((row) => _seatPlayerFromRow(row, profiles, users))
           .whereType<_SeatPlayer>()
           .toList();
 
@@ -377,7 +374,6 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     Map<String, dynamic> row,
     Map<String, Map<String, dynamic>> profileByUserId,
     Map<String, Map<String, dynamic>> usersByUserId,
-    Map<String, int> walletByUserId,
   ) {
     final seatIndex = row['seat_index'] as int?;
     final userId = row['user_id']?.toString();
@@ -398,8 +394,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     final profileCoins = profileCoinsRaw is int
         ? profileCoinsRaw
         : int.tryParse('$profileCoinsRaw') ?? 0;
-    final walletCoins = walletByUserId[userId] ?? 0;
-    int coins = profileCoins > walletCoins ? profileCoins : walletCoins;
+    int coins = profileCoins;
     if (coins <= 0) {
       final opponentFloor = _entryCoin > 0 ? _entryCoin : 100;
       coins = userId == _myUserId ? _localCoinFloor : opponentFloor;
@@ -429,33 +424,6 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         remainingTime: isSeatActive ? _normalizedRemainingForRing() : 15.0,
       ),
     );
-  }
-
-  Future<Map<String, int>> _loadWalletBalancesByUserId(
-    List<String> userIds,
-  ) async {
-    if (userIds.isEmpty) return {};
-    try {
-      final rows = await _supabase
-          .from('wallet_transactions')
-          .select('user_id, amount')
-          .inFilter('user_id', userIds);
-
-      final balances = <String, int>{};
-      for (final raw in (rows as List)) {
-        final row = Map<String, dynamic>.from(raw as Map);
-        final userId = row['user_id']?.toString();
-        if (userId == null || userId.isEmpty) continue;
-        final amountRaw = row['amount'];
-        final amount = amountRaw is int
-            ? amountRaw
-            : int.tryParse('$amountRaw') ?? 0;
-        balances[userId] = (balances[userId] ?? 0) + amount;
-      }
-      return balances;
-    } catch (_) {
-      return {};
-    }
   }
 
   double _remainingTurnSeconds() {

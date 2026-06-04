@@ -79,6 +79,7 @@ class OkeyGame extends FlameGame with TapDetector {
   Vector2? _sourceDrawDragPosition;
   DiscardSlotComponent? _sourceDrawFromDiscardSlot;
   int? _pendingPreferredDrawSlot;
+  TileComponent? _pendingDrawVisualTile;
   String? _lastTimeoutTurnToken;
   String? _lastBotTurnToken;
   Function()? onFinish;
@@ -208,6 +209,8 @@ class OkeyGame extends FlameGame with TapDetector {
     bool isOkeyFinish,
     bool isDoubleFinish,
   ) {
+    // Guarantee clean rack before showing finish overlay.
+    _clearRenderedHand();
     finishView?.removeFromParent();
 
     finishView = FinishRackView(
@@ -1821,7 +1824,10 @@ class OkeyGame extends FlameGame with TapDetector {
 
   bool get isMyTurnForLocalUser => _isMyTurn();
 
-  String _currentTurnKey() => '$_round:$currentTurn';
+  String _currentTurnKey() {
+    final turnStartMs = _turnStartedAt?.toUtc().millisecondsSinceEpoch ?? 0;
+    return '$_round:$currentTurn:$turnStartMs';
+  }
 
   bool _localDrawCommittedThisTurn() =>
       _drawCommittedTurnKey != null && _drawCommittedTurnKey == _currentTurnKey();
@@ -2251,12 +2257,28 @@ class OkeyGame extends FlameGame with TapDetector {
       if (tileComponentMap.containsKey(model.id)) continue;
       int slotIndex;
       int? preferredSlot;
+      bool forceInsertWithShift = false;
       if (_pendingPreferredDrawSlot != null) {
         preferredSlot = _pendingPreferredDrawSlot!;
         slotIndex = preferredSlot;
         _pendingPreferredDrawSlot = null;
       } else {
         slotIndex = _pickStableSlotForTileId(model.id);
+      }
+      if (preferredSlot != null) {
+        final preferredBusy =
+            _mountedTileAtSlot(preferredSlot, ignore: null) != null ||
+            occupiedSlots.containsKey(preferredSlot);
+        if (preferredBusy) {
+          // Keep spawn at preferred slot so insert animation does not "jump"
+          // through a temporary empty slot.
+          slotIndex = preferredSlot;
+          forceInsertWithShift = true;
+        } else {
+          slotIndex = _resolveSafeRackSlot(slotIndex);
+        }
+      } else {
+        slotIndex = _resolveSafeRackSlot(slotIndex);
       }
       if (slotIndex == -1) continue;
 
@@ -2268,13 +2290,14 @@ class OkeyGame extends FlameGame with TapDetector {
       world.add(tile);
 
       final shouldInsertWithShift =
-          preferredSlot != null &&
-          (_mountedTileAtSlot(preferredSlot, ignore: tile) != null ||
-              occupiedSlots.containsKey(preferredSlot));
+          forceInsertWithShift ||
+          (preferredSlot != null &&
+              (_mountedTileAtSlot(preferredSlot, ignore: tile) != null ||
+                  occupiedSlots.containsKey(preferredSlot)));
 
       if (shouldInsertWithShift) {
         tile.currentSlotIndex = null;
-        insertIntoRow(preferredSlot, tile);
+        insertIntoRow(preferredSlot ?? slotIndex, tile);
         if (tile.currentSlotIndex != null) {
           _lastKnownSlotByTileId[model.id] = tile.currentSlotIndex!;
         }
@@ -2425,6 +2448,7 @@ class OkeyGame extends FlameGame with TapDetector {
         slotIndex = _pickStableSlotForTileId(model.id);
       }
 
+      slotIndex = _resolveSafeRackSlot(slotIndex);
       if (slotIndex == -1) continue;
 
       //-------------------------------------------------
@@ -2467,6 +2491,29 @@ class OkeyGame extends FlameGame with TapDetector {
     return -1; // hiç boş yok
   }
 
+  int _findFirstActuallyEmptySlot({TileComponent? ignore}) {
+    for (int i = 0; i < slotPositions.length; i++) {
+      final hasMapped = occupiedSlots.containsKey(i);
+      final hasMounted = _slotHasMountedTile(i, ignore: ignore);
+      if (!hasMapped && !hasMounted) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  int _resolveSafeRackSlot(int preferred, {TileComponent? ignore}) {
+    final preferredValid = preferred >= 0 && preferred < slotPositions.length;
+    if (preferredValid) {
+      final mappedConflict = occupiedSlots.containsKey(preferred);
+      final mountedConflict = _slotHasMountedTile(preferred, ignore: ignore);
+      if (!mappedConflict && !mountedConflict) {
+        return preferred;
+      }
+    }
+    return _findFirstActuallyEmptySlot(ignore: ignore);
+  }
+
   void _clearRenderedHand() {
     if (_deferredTileRemovals.isNotEmpty) {
       final pending = List<TileComponent>.from(_deferredTileRemovals);
@@ -2479,6 +2526,7 @@ class OkeyGame extends FlameGame with TapDetector {
     }
     activeDraggedTile?.removeFromParent();
     activeDraggedTile = null;
+    _clearPendingDrawVisualTile();
     final looseTiles = world.children
         .whereType<TileComponent>()
         .where((tile) => !tile.isLocked)
@@ -3036,7 +3084,6 @@ class OkeyGame extends FlameGame with TapDetector {
       return false;
     }
     if (!_indicatorBonusAcceptAnyTileForTest && !_indicatorBonusWindowOpen) {
-      AppMsg.show('Gösterge bonus süresi geçti');
       return false;
     }
     if (!_indicatorBonusAcceptAnyTileForTest && !_isMyTurn()) {
@@ -3506,7 +3553,6 @@ class OkeyGame extends FlameGame with TapDetector {
     }
 
     if (type == 'draw_discard') {
-      _indicatorBonusWindowOpen = false;
       final fromSeat = move['from_seat'];
       if (fromSeat == null) return;
       _holdDiscardSeatSync(fromSeat);
@@ -4351,9 +4397,9 @@ class OkeyGame extends FlameGame with TapDetector {
       await _loadInitialState(forceHandSync: true);
       await _syncDiscardTopsFromServer();
       _hasDrawnFromSourceThisRound = true;
-      _indicatorBonusWindowOpen = false;
       _markDrawCommittedForCurrentTurn();
       await _validateCriticalInvariants('server_draw_ok');
+      _clearPendingDrawVisualTile();
       //_emitTileSfx();
     } catch (e) {
       debugPrint('GAME_DRAW RPC ERROR: $e');
@@ -4364,6 +4410,7 @@ class OkeyGame extends FlameGame with TapDetector {
       if ('$e'.contains('HAND_ALREADY_15')) {
         _markDrawCommittedForCurrentTurn();
       }
+      _clearPendingDrawVisualTile();
       await _loadInitialState(forceHandSync: true);
     } finally {
       _actionInFlight = false;
@@ -4542,6 +4589,10 @@ class OkeyGame extends FlameGame with TapDetector {
     _actionInFlight = true;
 
     try {
+      // Timeout discard/skip sonrası bu tur draw state'ini yerelde tutma.
+      _clearDrawCommitForCurrentTurn();
+      _pendingPreferredDrawSlot = null;
+
       // 🔥 server'a timeout işlemini yaptır
       await Supabase.instance.client.rpc(
         'game_timeout_move',
@@ -5891,20 +5942,66 @@ class OkeyGame extends FlameGame with TapDetector {
     _sourceDrawDragActive = false;
     _sourceDrawFromDiscardSlot = null;
     _sourceDrawDragPosition = null;
-    activeDraggedTile?.removeFromParent();
+    final dragged = activeDraggedTile;
     activeDraggedTile = null;
     clearPreview();
     clearTemporaryShift();
 
     if (fromDiscardSlot != null) {
       if (!_canTakeFromDiscardSlot(fromDiscardSlot)) {
+        dragged?.removeFromParent();
         _pendingPreferredDrawSlot = null;
         return;
       }
+      if (dragged != null) {
+        _showPendingDrawVisualTile(dragged, preferredSlot: targetSlot);
+      }
       takeFromDiscardTap(fromDiscardSlot);
     } else {
+      if (!_canDrawNow() || closedPile.length <= 1) {
+        dragged?.removeFromParent();
+        _pendingPreferredDrawSlot = null;
+        return;
+      }
+      if (dragged != null) {
+        _showPendingDrawVisualTile(dragged, preferredSlot: targetSlot);
+      }
       drawFromClosedPile();
     }
+  }
+
+  void _showPendingDrawVisualTile(
+    TileComponent tile, {
+    int? preferredSlot,
+  }) {
+    _clearPendingDrawVisualTile();
+    var targetSlot = preferredSlot;
+    if (targetSlot == null ||
+        targetSlot < 0 ||
+        targetSlot >= slotPositions.length) {
+      targetSlot = _findFirstEmptySlot();
+    }
+    if (targetSlot == -1) {
+      tile.removeFromParent();
+      return;
+    }
+    tile.isLocked = true;
+    tile.priority = 125;
+    tile.children.whereType<MoveEffect>().toList().forEach((e) => e.removeFromParent());
+    tile.add(
+      MoveEffect.to(
+        slotPositions[targetSlot].clone(),
+        EffectController(duration: 0.09, curve: Curves.easeOutCubic),
+      ),
+    );
+    _pendingDrawVisualTile = tile;
+  }
+
+  void _clearPendingDrawVisualTile() {
+    if (_pendingDrawVisualTile != null && _pendingDrawVisualTile!.isMounted) {
+      _pendingDrawVisualTile!.removeFromParent();
+    }
+    _pendingDrawVisualTile = null;
   }
 
   TileComponent? _buildSourceDragTile({

@@ -20,6 +20,7 @@ class LobbyTableWheel extends StatefulWidget {
   final int playerCoin;
   final int playerRating;
   final Future<void> Function()? onNeedRefreshUser;
+  final Future<void> Function()? onCreateTable;
 
   const LobbyTableWheel({
     super.key,
@@ -31,11 +32,12 @@ class LobbyTableWheel extends StatefulWidget {
     required this.onUserTap,
     required this.onRefresh,
     required this.loading,
-    this.isLocked = false, // 🔥 BURASI KRİTİK
+    this.isLocked = false, // ğŸ”¥ BURASI KRÄ°TÄ°K
     this.lockedLeague,
     required this.playerCoin,
     required this.playerRating,
     this.onNeedRefreshUser,
+    this.onCreateTable,
   });
 
   @override
@@ -60,7 +62,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
   @override
   Widget build(BuildContext context) {
-    /// 🔥 LOADING
+    /// ğŸ”¥ LOADING
     if (widget.loading) {
       return const Center(child: LobbyLoading());
     }
@@ -73,20 +75,22 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
       );
     }
 
-    /// 🔥 EMPTY
+    /// ğŸ”¥ EMPTY
     if (widget.tables.isEmpty) {
-      return const Center(
-        child: Text(
-          "Masa bulunmamaktadır.",
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
+      if (widget.onCreateTable == null) {
+        return const Center(
+          child: Text(
+            "Masa bulunmamaktadï¿½r.",
+            style: TextStyle(color: Colors.white70),
+          ),
+        );
+      }
+      return _buildEmptyCta();
     }
-
     return RefreshIndicator(
       onRefresh: widget.onRefresh,
 
-      /// 🔥 KRİTİK: refresh için scrollable wrapper
+      /// ğŸ”¥ KRÄ°TÄ°K: refresh iÃ§in scrollable wrapper
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: SizedBox(
@@ -97,7 +101,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
             itemExtent: 200,
 
-            /// 🔥 daha iyi his
+            /// ğŸ”¥ daha iyi his
             perspective: 0.003,
             diameterRatio: 2.2,
             squeeze: 1.1,
@@ -162,6 +166,75 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     );
   }
 
+  Widget _buildEmptyCta() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xEE173328), Color(0xEE0D1915)],
+            ),
+            border: Border.all(color: const Color(0x88E7C66A), width: 1.1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.table_restaurant_rounded,
+                size: 34,
+                color: Color(0xFFE7C66A),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Bu ligde şu an açık masa yok',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFFF2F6F3),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'İlk masayı sen aç, oyuncular katıldıkça oyun hemen başlasın.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xC7E0ECE5), fontSize: 13.2),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: 210,
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await widget.onCreateTable?.call();
+                  },
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                  label: const Text(
+                    'Masa Aç',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE7C66A),
+                    foregroundColor: const Color(0xFF1A241F),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLockedLeagueCard({
     required dynamic league,
     required int playerCoin,
@@ -203,7 +276,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              /// 🔥 HEADER
+              /// ğŸ”¥ HEADER
               Row(
                 children: [
                   Container(
@@ -241,11 +314,17 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                   ),
 
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
                       color: const Color(0x223B2A1A),
-                      border: Border.all(color: const Color(0x99E3B766), width: 0.8),
+                      border: Border.all(
+                        color: const Color(0x99E3B766),
+                        width: 0.8,
+                      ),
                     ),
                     child: const Text(
                       "Kilitli",
@@ -261,7 +340,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
               const SizedBox(height: 18),
 
-              /// 🔥 REQUIREMENTS (CARD STYLE)
+              /// ğŸ”¥ REQUIREMENTS (CARD STYLE)
               Row(
                 children: [
                   Expanded(
@@ -287,7 +366,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               const SizedBox(height: 18),
 
               const Text(
-                "Oynadıkça kazan, kazandıkça üst liglere katıl.",
+                "OynadÄ±kÃ§a kazan, kazandÄ±kÃ§a Ã¼st liglere katÄ±l.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xB7DCE6DF),
@@ -298,7 +377,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
               const SizedBox(height: 12),
 
-              /// 🔥 CTA
+              /// ğŸ”¥ CTA
               SizedBox(width: double.infinity, child: _buildCoinButton()),
             ],
           ),
@@ -325,27 +404,25 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
         ),
 
         border: Border.all(
-          color: ok
-              ? const Color(0xAA7FB08F)
-              : const Color(0xCCB17254),
+          color: ok ? const Color(0xAA7FB08F) : const Color(0xCCB17254),
         ),
       ),
 
       child: Center(
-        // 🔥 TÜM İÇERİĞİ ORTALAR
+        // ğŸ”¥ TÃœM Ä°Ã‡ERÄ°ÄÄ° ORTALAR
         child: Row(
-          mainAxisSize: MainAxisSize.min, // 🔥 içerik kadar yer kaplar
+          mainAxisSize: MainAxisSize.min, // ğŸ”¥ iÃ§erik kadar yer kaplar
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            /// 🔥 ICON
+            /// ğŸ”¥ ICON
             Container(
               width: 30,
               height: 30,
               alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: ok ? const Color(0x333B5D4B) : const Color(0x334A2820),
-                ),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: ok ? const Color(0x333B5D4B) : const Color(0x334A2820),
+              ),
               child: Icon(
                 icon,
                 size: 16,
@@ -355,15 +432,18 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
             const SizedBox(width: 10),
 
-            /// 🔥 TEXTLER
+            /// ğŸ”¥ TEXTLER
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment:
-                  CrossAxisAlignment.start, // soldan hizalı metin
+                  CrossAxisAlignment.start, // soldan hizalÄ± metin
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Color(0xFFC9D1CD), fontSize: 11),
+                  style: const TextStyle(
+                    color: Color(0xFFC9D1CD),
+                    fontSize: 11,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -391,7 +471,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
         );
 
         if (result == true && widget.onNeedRefreshUser != null) {
-          await widget.onNeedRefreshUser!(); // 🔥 parent tetiklenir
+          await widget.onNeedRefreshUser!(); // ğŸ”¥ parent tetiklenir
         }
       },
       child: Container(
@@ -399,14 +479,14 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
 
-          /// 🔥 GOLD GRADIENT
+          /// ğŸ”¥ GOLD GRADIENT
           gradient: const LinearGradient(
             colors: [Color(0xFFE8C77A), Color(0xFFB17833)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
 
-          /// 🔥 GLOW
+          /// ğŸ”¥ GLOW
           boxShadow: [
             BoxShadow(
               color: const Color(0xAA5A391A).withOpacity(0.75),
@@ -416,7 +496,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           ],
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center, // 🔥 ORTALA
+          mainAxisAlignment: MainAxisAlignment.center, // ğŸ”¥ ORTALA
           children: const [
             Icon(Icons.monetization_on, color: Colors.black, size: 18),
             SizedBox(width: 6),

@@ -190,14 +190,15 @@ class _LobbyScreenState extends State<LobbyScreen>
       vsync: this,
       duration: const Duration(milliseconds: 460),
     );
-    _coinCountController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..addListener(() {
-      final anim = _coinCountAnimation;
-      if (anim == null || !mounted) return;
-      setState(() => _coinDisplayValue = anim.value);
-    });
+    _coinCountController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 900),
+        )..addListener(() {
+          final anim = _coinCountAnimation;
+          if (anim == null || !mounted) return;
+          setState(() => _coinDisplayValue = anim.value);
+        });
 
     _storePulse = AnimationController(
       vsync: this,
@@ -433,15 +434,24 @@ class _LobbyScreenState extends State<LobbyScreen>
         builder: (_) => DailyBonusDialog(
           amount: _dailyBonusCoinAmount,
           onClaim: () async {
-            final utcNow = DateTime.now().toUtc();
+            final now = DateTime.now();
             final dayKey =
-                'daily_bonus:${utcNow.year.toString().padLeft(4, '0')}-${utcNow.month.toString().padLeft(2, '0')}-${utcNow.day.toString().padLeft(2, '0')}';
-            await _grantCoins(
-              userId: user.id,
-              amount: _dailyBonusCoinAmount,
-              reason: 'daily_bonus',
-              note: dayKey,
+                'daily_bonus:${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+            final claimed = await supabase.rpc(
+              'claim_daily_bonus',
+              params: {
+                'p_user_id': user.id,
+                'p_amount': _dailyBonusCoinAmount,
+                'p_day_key': dayKey,
+              },
             );
+            if (claimed != true) {
+              if (mounted) {
+                _msg('Bugünkü günlük bonus daha önce alınmış.');
+                Navigator.of(context).pop();
+              }
+              return;
+            }
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('daily_bonus_claimed_${user.id}', dayKey);
             if (mounted) Navigator.of(context).pop();
@@ -471,27 +481,21 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<bool> _isDailyBonusAvailable(String userId) async {
-    final utcNow = DateTime.now().toUtc();
+    final now = DateTime.now();
     final dayKey =
-        'daily_bonus:${utcNow.year.toString().padLeft(4, '0')}-${utcNow.month.toString().padLeft(2, '0')}-${utcNow.day.toString().padLeft(2, '0')}';
+        'daily_bonus:${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final prefs = await SharedPreferences.getInstance();
     final localKey = 'daily_bonus_claimed_$userId';
     if (prefs.getString(localKey) == dayKey) return false;
 
     final rows = await supabase
         .from('wallet_transactions')
-        .select('created_at')
+        .select('id')
         .eq('user_id', userId)
         .eq('reason', 'daily_bonus')
-        .order('created_at', ascending: false)
+        .eq('note', dayKey)
         .limit(1);
-    if ((rows as List).isEmpty) return true;
-
-    final raw = rows.first['created_at']?.toString();
-    final last = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
-    if (last == null) return true;
-    final now = DateTime.now();
-    return !(last.year == now.year && last.month == now.month && last.day == now.day);
+    return (rows as List).isEmpty;
   }
 
   Future<void> _grantCoins({
@@ -956,10 +960,8 @@ class _LobbyScreenState extends State<LobbyScreen>
               _banScreenOpened = true;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (_) => BannedScreen(
-                    reason: banReason,
-                    banUntil: banUntil,
-                  ),
+                  builder: (_) =>
+                      BannedScreen(reason: banReason, banUntil: banUntil),
                 ),
                 (_) => false,
               );
@@ -1051,14 +1053,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   void _animateCoinCount(int from, int to) {
     if (!mounted) return;
     _coinCountController.stop();
-    _coinCountAnimation = IntTween(
-      begin: from,
-      end: to,
-    ).animate(
-      CurvedAnimation(
-        parent: _coinCountController,
-        curve: Curves.easeOutCubic,
-      ),
+    _coinCountAnimation = IntTween(begin: from, end: to).animate(
+      CurvedAnimation(parent: _coinCountController, curve: Curves.easeOutCubic),
     );
     _coinDisplayValue = from;
     _coinCountController
@@ -1079,8 +1075,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final username = ((row['username'] as String?) ?? '').trim();
       final avatar = ((row['avatar_url'] as String?) ?? '').trim();
       final isGuestLike =
-          username.isNotEmpty &&
-          username.toLowerCase().startsWith('guest_');
+          username.isNotEmpty && username.toLowerCase().startsWith('guest_');
       final isIncomplete = username.isEmpty || avatar.isEmpty || isGuestLike;
       if (isIncomplete) {
         if (!mounted) return;
@@ -1130,13 +1125,6 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _loadLeagueActivity() async {
-    final minPlayersByName = {
-      'Standart': 180,
-      'Bronz': 120,
-      'Gümüş': 80,
-      'Altın': 40,
-    };
-
     if (leagues.isEmpty) return;
 
     try {
@@ -1155,11 +1143,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (tableRows.isNotEmpty) {
         final tableIds = tableRows.map((e) => e['id'] as String).toList();
 
-        /// ? ger?ek masa say?s?
         for (final row in tableRows) {
           final leagueId = row['league_id']?.toString();
           if (leagueId == null) continue;
-
           tableCountByLeague[leagueId] =
               (tableCountByLeague[leagueId] ?? 0) + 1;
         }
@@ -1170,21 +1156,17 @@ class _LobbyScreenState extends State<LobbyScreen>
             .inFilter('table_id', tableIds);
 
         final leagueByTable = <String, String>{};
-
         for (final row in tableRows) {
           final tableId = row['id']?.toString();
           final leagueId = row['league_id']?.toString();
           if (tableId == null || leagueId == null) continue;
-
           leagueByTable[tableId] = leagueId;
         }
 
         for (final row in (players as List)) {
           final map = Map<String, dynamic>.from(row);
-
           final tableId = map['table_id']?.toString();
           final userId = map['user_id']?.toString();
-
           if (tableId == null || userId == null) continue;
 
           final leagueId = leagueByTable[tableId];
@@ -1194,34 +1176,70 @@ class _LobbyScreenState extends State<LobbyScreen>
         }
       }
 
-      final rnd = Random();
-
+      // Online users by league (based on rating ranges).
       final playersResult = <String, int>{};
       final tablesResult = <String, int>{};
 
       for (final league in leagues) {
         final id = league['id']?.toString();
-        final name = league['name']?.toString();
-
         if (id == null) continue;
 
-        final realPlayers = usersByLeague[id]?.length ?? 0;
-        final basePlayers = minPlayersByName[name] ?? 50;
+        tablesResult[id] = tableCountByLeague[id] ?? 0;
+      }
 
-        /// ?? ak?ll? fake
-        final fluctuation = rnd.nextInt(20); // k???k oynama
+      final onlineProfiles = await supabase
+          .from('profiles')
+          .select('id,rating')
+          .eq('is_online', true);
 
-        final boostedPlayers =
-            (realPlayers > basePlayers ? realPlayers : basePlayers) +
-            fluctuation;
+      final onlineRows = (onlineProfiles as List)
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(growable: false);
 
-        playersResult[id] = boostedPlayers;
-        final realTables = tableCountByLeague[id] ?? 0;
+      // Build deterministic league rating ranges.
+      final sortedLeagues = leagues
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList()
+        ..sort((a, b) {
+          final aMin = (a['min_rating'] as int?) ?? 0;
+          final bMin = (b['min_rating'] as int?) ?? 0;
+          return aMin.compareTo(bMin);
+        });
 
-        if (realTables == 0) {
-          tablesResult[id] = 1 + rnd.nextInt(2); // 1-2 masa
-        } else {
-          tablesResult[id] = realTables;
+      final ranges = <Map<String, dynamic>>[];
+      for (int i = 0; i < sortedLeagues.length; i++) {
+        final league = sortedLeagues[i];
+        final leagueId = league['id']?.toString();
+        if (leagueId == null || leagueId.isEmpty) continue;
+
+        final minRating = (league['min_rating'] as int?) ?? 0;
+        final explicitMax = league['max_rating'] as int?;
+        final nextMin = (i + 1 < sortedLeagues.length)
+            ? ((sortedLeagues[i + 1]['min_rating'] as int?) ?? 9999999)
+            : 9999999;
+        final inferredMax = nextMin - 1;
+        final maxRating = explicitMax == null || explicitMax <= 0
+            ? inferredMax
+            : explicitMax;
+
+        ranges.add({
+          'id': leagueId,
+          'min': minRating,
+          'max': maxRating,
+        });
+        playersResult[leagueId] = 0;
+      }
+
+      for (final row in onlineRows) {
+        final rating = (row['rating'] as int?) ?? 1200;
+        for (final range in ranges) {
+          final min = range['min'] as int;
+          final max = range['max'] as int;
+          if (rating >= min && rating <= max) {
+            final id = range['id'] as String;
+            playersResult[id] = (playersResult[id] ?? 0) + 1;
+            break;
+          }
         }
       }
 
@@ -1435,86 +1453,6 @@ class _LobbyScreenState extends State<LobbyScreen>
         return table;
       }).toList();
 
-      const minVisibleTableCount = 5;
-      if (merged.length < minVisibleTableCount) {
-        final botRows = await supabase
-            .from('users')
-            .select('id,username,avatar_url')
-            .eq('is_bot', true)
-            .limit(40);
-        final bots = (botRows as List)
-            .map((e) => Map<String, dynamic>.from(e))
-            .where((b) => (b['id']?.toString() ?? '').isNotEmpty)
-            .toList();
-        final botIds = bots
-            .map((b) => b['id']?.toString())
-            .whereType<String>()
-            .where((id) => id.isNotEmpty)
-            .toList();
-        final botRatings = <String, int>{};
-        if (botIds.isNotEmpty) {
-          final botProfiles = await supabase
-              .from('profiles')
-              .select('id,rating')
-              .inFilter('id', botIds);
-          for (final raw in (botProfiles as List)) {
-            final row = Map<String, dynamic>.from(raw);
-            final id = row['id']?.toString();
-            if (id == null || id.isEmpty) continue;
-            botRatings[id] = (row['rating'] as int?) ?? 1200;
-          }
-        }
-        if (bots.length >= 2) {
-          final rnd = Random();
-          final needFake = minVisibleTableCount - merged.length;
-          for (int i = 0; i < needFake; i++) {
-            final shuffled = List<Map<String, dynamic>>.from(bots)
-              ..shuffle(rnd);
-            final b1 = shuffled[0];
-            final b2 = shuffled[1];
-            final fakeEntryCoin = (league['min_coin'] as int?) ?? 100;
-            final fakePotAmount = (fakeEntryCoin * (1 + rnd.nextInt(2)));
-            merged.add({
-              'id': 'fake_${league['id']}_$i',
-              'league_id': league['id'],
-              'status': 'playing',
-              'entry_coin': fakeEntryCoin,
-              'pot_amount': fakePotAmount,
-              'round_count': 1 + rnd.nextInt(3),
-              'max_players': 2,
-              'turn_seconds': 15,
-              'spectators_enabled': false,
-              'chat_enabled': false,
-              'is_fake': true,
-              '_players': [
-                {
-                  'seat_index': 0,
-                  'user_id': b1['id']?.toString(),
-                  'username':
-                      (b1['username']?.toString().trim().isNotEmpty ?? false)
-                      ? b1['username']
-                      : 'Bot Oyuncu',
-                  'avatar_url': b1['avatar_url']?.toString(),
-                  'rating': botRatings[b1['id']?.toString()] ?? 1200,
-                  'blocked': false,
-                },
-                {
-                  'seat_index': 1,
-                  'user_id': b2['id']?.toString(),
-                  'username':
-                      (b2['username']?.toString().trim().isNotEmpty ?? false)
-                      ? b2['username']
-                      : 'Bot Oyuncu',
-                  'avatar_url': b2['avatar_url']?.toString(),
-                  'rating': botRatings[b2['id']?.toString()] ?? 1200,
-                  'blocked': false,
-                },
-              ],
-            });
-          }
-        }
-      }
-
       if (!mounted) return;
 
       setState(() {
@@ -1538,46 +1476,83 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _createTable() async {
     final user = supabase.auth.currentUser;
-    if (user == null || leagues.isEmpty) return;
+    if (user == null) {
+      _msg('Oturum bulunamadı.');
+      return;
+    }
+    if (leagues.isEmpty) {
+      _msg('Lig bilgisi yüklenemedi.');
+      return;
+    }
 
     final league = leagues.firstWhere(
       (l) => l['id'] == selectedLeague,
       orElse: () => leagues.first,
     );
 
+    if (coinOptions.isEmpty) {
+      final minCoin = (league['min_coin'] as int?) ?? 100;
+      final maxCoin = (league['max_coin'] as int?) ?? minCoin;
+      int current = minCoin;
+      while (current < maxCoin) {
+        coinOptions.add(current);
+        if (current < 100000) {
+          current *= 2;
+        } else if (current < 1000000) {
+          current = (current * 2.5).toInt();
+        } else {
+          current = (current * 2).toInt();
+        }
+        if (coinOptions.length > 8) break;
+      }
+      if (!coinOptions.contains(maxCoin)) {
+        coinOptions.add(maxCoin);
+      }
+      if (coinOptions.isEmpty) {
+        coinOptions.add(minCoin);
+      }
+      selectedIndex = 0;
+    }
+
     final effectiveTurnSeconds = draftTurnSeconds;
-    final entry = coinOptions[selectedIndex];
+    final safeIndex = selectedIndex.clamp(0, coinOptions.length - 1);
+    final entry = coinOptions[safeIndex];
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
       return _msg('Bu lig için seviye yetersiz.');
     }
 
-    final table = await supabase
-        .from('tables')
-        .insert({
-          'league_id': league['id'],
-          'max_players': createMaxPlayer,
-          'entry_coin': entry,
-          'min_rounds': league['min_rounds'] ?? 2,
-          'status': 'waiting',
-          'created_by': user.id,
-          'turn_seconds': effectiveTurnSeconds,
-          'spectators_enabled': createSpectatorEnabled,
-          'chat_enabled': createChatEnabled,
-        })
-        .select()
-        .single();
+    try {
+      final table = await supabase
+          .from('tables')
+          .insert({
+            'league_id': league['id'],
+            'max_players': createMaxPlayer,
+            'entry_coin': entry,
+            'min_rounds': league['min_rounds'] ?? 2,
+            'status': 'waiting',
+            'created_by': user.id,
+            'turn_seconds': effectiveTurnSeconds,
+            'spectators_enabled': createSpectatorEnabled,
+            'chat_enabled': createChatEnabled,
+          })
+          .select()
+          .single();
 
-    final tableId = table['id'] as String;
-    await supabase.from('table_players').insert({
-      'table_id': tableId,
-      'user_id': user.id,
-      'seat_index': 0,
-    });
+      final tableId = table['id'] as String;
+      await supabase.from('table_players').insert({
+        'table_id': tableId,
+        'user_id': user.id,
+        'seat_index': 0,
+      });
 
-    if (!mounted) return;
-    Navigator.pop(context);
-    await _openGame(tableId, true);
+      if (!mounted) return;
+      await _openGame(tableId, true);
+    } catch (e) {
+      debugPrint('CREATE TABLE ERROR: $e');
+      if (!mounted) return;
+      _msg('Masa açılırken bir hata oluştu.');
+    }
   }
 
   Future<void> _joinTable(Map<String, dynamic> table) async {
@@ -1624,7 +1599,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         final lastSeen = lastSeenRaw == null
             ? null
             : DateTime.tryParse(lastSeenRaw)?.toUtc();
-        final stale = !ownerOnline ||
+        final stale =
+            !ownerOnline ||
             (lastSeen != null &&
                 DateTime.now().toUtc().difference(lastSeen) >
                     const Duration(seconds: 75));
@@ -2258,124 +2234,127 @@ class _LobbyScreenState extends State<LobbyScreen>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.support_agent_rounded,
-                          color: Color(0xFFFFE0A8),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Destek Şikayet Gönder',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.support_agent_rounded,
+                            color: Color(0xFFFFE0A8),
                           ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: sending
-                              ? null
-                              : () => Navigator.pop(context),
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: category,
-                      dropdownColor: const Color(0xFF1A2E27),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'talep', child: Text('Talep')),
-                        DropdownMenuItem(
-                          value: 'sikayet',
-                          child: Text('\u015Eikayet'),
-                        ),
-                        DropdownMenuItem(value: 'hata', child: Text('Hata')),
-                      ],
-                      onChanged: sending
-                          ? null
-                          : (v) => setLocalState(
-                              () => category = (v ?? 'talep').trim(),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Destek Şikayet Gönder',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
                             ),
-                      decoration: InputDecoration(
-                        labelText: 'Kategori',
-                        labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
-                        filled: true,
-                        fillColor: const Color(0x33273830),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: sending
+                                ? null
+                                : () => Navigator.pop(context),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 7),
-                    TextField(
-                      controller: messageController,
-                      minLines: messageMinLines,
-                      maxLines: messageMaxLines,
-                      enabled: !sending,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Mesaj',
-                        labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
-                        hintText:
-                            'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
-                        hintStyle: const TextStyle(color: Color(0x99D9EBDD)),
-                        filled: true,
-                        fillColor: const Color(0x33273830),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    if (errorText != null) ...[
                       const SizedBox(height: 8),
-                      Text(
-                        errorText!,
+                      DropdownButtonFormField<String>(
+                        value: category,
+                        dropdownColor: const Color(0xFF1A2E27),
                         style: const TextStyle(
-                          color: Color(0xFFFF8A8A),
+                          color: Colors.white,
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: sending
-                              ? null
-                              : () => Navigator.pop(context),
-                          child: const Text('Vazgeç'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'talep',
+                            child: Text('Talep'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'sikayet',
+                            child: Text('\u015Eikayet'),
+                          ),
+                          DropdownMenuItem(value: 'hata', child: Text('Hata')),
+                        ],
+                        onChanged: sending
+                            ? null
+                            : (v) => setLocalState(
+                                () => category = (v ?? 'talep').trim(),
+                              ),
+                        decoration: InputDecoration(
+                          labelText: 'Kategori',
+                          labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
+                          filled: true,
+                          fillColor: const Color(0x33273830),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: sending ? null : submit,
-                          icon: sending
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.send_rounded),
-                          label: Text(sending ? 'Gonderiliyor' : 'Gonder'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2B7B55),
-                            foregroundColor: Colors.white,
+                      ),
+                      const SizedBox(height: 7),
+                      TextField(
+                        controller: messageController,
+                        minLines: messageMinLines,
+                        maxLines: messageMaxLines,
+                        enabled: !sending,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Mesaj',
+                          labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
+                          hintText:
+                              'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
+                          hintStyle: const TextStyle(color: Color(0x99D9EBDD)),
+                          filled: true,
+                          fillColor: const Color(0x33273830),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      if (errorText != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          errorText!,
+                          style: const TextStyle(
+                            color: Color(0xFFFF8A8A),
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
-                    ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: sending
+                                ? null
+                                : () => Navigator.pop(context),
+                            child: const Text('Vazgeç'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: sending ? null : submit,
+                            icon: sending
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.send_rounded),
+                            label: Text(sending ? 'Gonderiliyor' : 'Gonder'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2B7B55),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -3184,613 +3163,607 @@ class _LobbyScreenState extends State<LobbyScreen>
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
-                                /// ?? SE??LEN COIN (HERO)
+                              /// ?? SE??LEN COIN (HERO)
 
-                                /// ?? SLIDER (AAA)
-                                SizedBox(
-                                  height: 72,
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final width = constraints.maxWidth;
+                              /// ?? SLIDER (AAA)
+                              SizedBox(
+                                height: 72,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final width = constraints.maxWidth;
 
-                                      const handleWidth = 94.0;
-                                      const sidePadding = 48.0;
+                                    const handleWidth = 94.0;
+                                    const sidePadding = 48.0;
 
-                                      final usableWidth =
-                                          width - (sidePadding * 2);
-                                      final percent =
-                                          selectedIndex /
-                                          (coinOptions.length - 1);
-                                      final left =
-                                          sidePadding +
-                                          (usableWidth - handleWidth) * percent;
+                                    final usableWidth =
+                                        width - (sidePadding * 2);
+                                    final percent =
+                                        selectedIndex /
+                                        (coinOptions.length - 1);
+                                    final left =
+                                        sidePadding +
+                                        (usableWidth - handleWidth) * percent;
 
-                                      return Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          /// ?? TRACK
-                                          Positioned.fill(
-                                            child: Container(
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 14,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(30),
-                                                gradient: const LinearGradient(
-                                                  begin: Alignment.topCenter,
-                                                  end: Alignment.bottomCenter,
-                                                  colors: [
-                                                    Color(0x3318221E),
-                                                    Color(0x22101814),
-                                                  ],
-                                                ),
-                                                border: Border.all(
-                                                  color: const Color(
-                                                    0x446E8F7F,
-                                                  ),
-                                                  width: 1.2,
-                                                ),
-                                                boxShadow: const [
-                                                  BoxShadow(
-                                                    color: Color(0x6A000000),
-                                                    blurRadius: 12,
-                                                    offset: Offset(0, 4),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Color(0x2AE7C66A),
-                                                    blurRadius: 16,
-                                                    spreadRadius: -6,
-                                                  ),
+                                    return Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        /// ?? TRACK
+                                        Positioned.fill(
+                                          child: Container(
+                                            margin: const EdgeInsets.symmetric(
+                                              vertical: 14,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(30),
+                                              gradient: const LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Color(0x3318221E),
+                                                  Color(0x22101814),
                                                 ],
                                               ),
-                                            ),
-                                          ),
-
-                                          /// ?? - BUTTON
-                                          Positioned(
-                                            left: 6,
-                                            top: 0,
-                                            bottom: 0,
-                                            child: Center(
-                                              child: GestureDetector(
-                                                onTap: () {
-                                                  setDialogState(() {
-                                                    selectedIndex =
-                                                        (selectedIndex - 1)
-                                                            .clamp(
-                                                              0,
-                                                              coinOptions
-                                                                      .length -
-                                                                  1,
-                                                            );
-                                                  });
-                                                },
-                                                child: _circleButton(
-                                                  Icons.remove,
+                                              border: Border.all(
+                                                color: const Color(0x446E8F7F),
+                                                width: 1.2,
+                                              ),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Color(0x6A000000),
+                                                  blurRadius: 12,
+                                                  offset: Offset(0, 4),
                                                 ),
-                                              ),
+                                                BoxShadow(
+                                                  color: Color(0x2AE7C66A),
+                                                  blurRadius: 16,
+                                                  spreadRadius: -6,
+                                                ),
+                                              ],
                                             ),
                                           ),
+                                        ),
 
-                                          Positioned(
-                                            right: 6,
-                                            top: 0,
-                                            bottom: 0,
-                                            child: Center(
-                                              child: GestureDetector(
-                                                onTap: () {
-                                                  setDialogState(() {
-                                                    selectedIndex =
-                                                        (selectedIndex + 1)
-                                                            .clamp(
-                                                              0,
-                                                              coinOptions
-                                                                      .length -
-                                                                  1,
-                                                            );
-                                                  });
-                                                },
-                                                child: _circleButton(Icons.add),
-                                              ),
-                                            ),
-                                          ),
-
-                                          /// ?? HANDLE + DRAG
-                                          Positioned(
-                                            left: left,
-                                            top: 20,
+                                        /// ?? - BUTTON
+                                        Positioned(
+                                          left: 6,
+                                          top: 0,
+                                          bottom: 0,
+                                          child: Center(
                                             child: GestureDetector(
-                                              onHorizontalDragStart: (_) {
-                                                setDialogState(
-                                                  () => isDragging = true,
-                                                );
-                                              },
-                                              onHorizontalDragUpdate: (details) {
-                                                final dx = details
-                                                    .localPosition
-                                                    .dx
-                                                    .clamp(0, usableWidth);
-                                                final newIndex =
-                                                    ((dx / usableWidth) *
-                                                            (coinOptions
-                                                                    .length -
-                                                                1))
-                                                        .round();
-
+                                              onTap: () {
                                                 setDialogState(() {
-                                                  selectedIndex = newIndex
-                                                      .clamp(
+                                                  selectedIndex =
+                                                      (selectedIndex - 1).clamp(
                                                         0,
                                                         coinOptions.length - 1,
                                                       );
                                                 });
                                               },
-                                              onHorizontalDragEnd: (_) {
-                                                setDialogState(
-                                                  () => isDragging = false,
-                                                );
+                                              child: _circleButton(
+                                                Icons.remove,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+
+                                        Positioned(
+                                          right: 6,
+                                          top: 0,
+                                          bottom: 0,
+                                          child: Center(
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                setDialogState(() {
+                                                  selectedIndex =
+                                                      (selectedIndex + 1).clamp(
+                                                        0,
+                                                        coinOptions.length - 1,
+                                                      );
+                                                });
                                               },
+                                              child: _circleButton(Icons.add),
+                                            ),
+                                          ),
+                                        ),
 
-                                              child: Stack(
-                                                clipBehavior: Clip.none,
-                                                children: [
-                                                  /// ?? BALON (SADECE DRAG SIRASINDA)
-                                                  if (isDragging)
-                                                    Positioned(
-                                                      top: -46,
-                                                      left: 0,
-                                                      right: 0,
-                                                      child: Center(
-                                                        child: Column(
-                                                          children: [
-                                                            /// ?? BALON
-                                                            Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    horizontal:
-                                                                        14,
-                                                                    vertical: 7,
-                                                                  ),
-                                                              decoration: BoxDecoration(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
+                                        /// ?? HANDLE + DRAG
+                                        Positioned(
+                                          left: left,
+                                          top: 20,
+                                          child: GestureDetector(
+                                            onHorizontalDragStart: (_) {
+                                              setDialogState(
+                                                () => isDragging = true,
+                                              );
+                                            },
+                                            onHorizontalDragUpdate: (details) {
+                                              final dx = details
+                                                  .localPosition
+                                                  .dx
+                                                  .clamp(0, usableWidth);
+                                              final newIndex =
+                                                  ((dx / usableWidth) *
+                                                          (coinOptions.length -
+                                                              1))
+                                                      .round();
 
-                                                                /// ?? MODERN DARK GLASS
-                                                                gradient: LinearGradient(
-                                                                  colors: [
-                                                                    Colors.black
-                                                                        .withOpacity(
-                                                                          0.85,
-                                                                        ),
-                                                                    Colors.black
-                                                                        .withOpacity(
-                                                                          0.65,
-                                                                        ),
-                                                                  ],
+                                              setDialogState(() {
+                                                selectedIndex = newIndex.clamp(
+                                                  0,
+                                                  coinOptions.length - 1,
+                                                );
+                                              });
+                                            },
+                                            onHorizontalDragEnd: (_) {
+                                              setDialogState(
+                                                () => isDragging = false,
+                                              );
+                                            },
+
+                                            child: Stack(
+                                              clipBehavior: Clip.none,
+                                              children: [
+                                                /// ?? BALON (SADECE DRAG SIRASINDA)
+                                                if (isDragging)
+                                                  Positioned(
+                                                    top: -46,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: Center(
+                                                      child: Column(
+                                                        children: [
+                                                          /// ?? BALON
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      14,
+                                                                  vertical: 7,
                                                                 ),
+                                                            decoration: BoxDecoration(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
 
-                                                                border: Border.all(
-                                                                  color: Colors
-                                                                      .white
+                                                              /// ?? MODERN DARK GLASS
+                                                              gradient: LinearGradient(
+                                                                colors: [
+                                                                  Colors.black
                                                                       .withOpacity(
-                                                                        0.15,
+                                                                        0.85,
                                                                       ),
-                                                                ),
-
-                                                                boxShadow: [
-                                                                  /// glow
-                                                                  BoxShadow(
-                                                                    color: Colors
-                                                                        .amber
-                                                                        .withOpacity(
-                                                                          0.4,
-                                                                        ),
-                                                                    blurRadius:
-                                                                        12,
-                                                                  ),
-
-                                                                  /// depth
-                                                                  BoxShadow(
-                                                                    color: Colors
-                                                                        .black
-                                                                        .withOpacity(
-                                                                          0.6,
-                                                                        ),
-                                                                    blurRadius:
-                                                                        8,
-                                                                    offset:
-                                                                        const Offset(
-                                                                          0,
-                                                                          4,
-                                                                        ),
-                                                                  ),
+                                                                  Colors.black
+                                                                      .withOpacity(
+                                                                        0.65,
+                                                                      ),
                                                                 ],
                                                               ),
-                                                              child: Text(
-                                                                Format.coin(
-                                                                  coinOptions[selectedIndex],
-                                                                ),
-                                                                style: const TextStyle(
-                                                                  color: Color(
-                                                                    0xFFF2C14E,
-                                                                  ),
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w900,
-                                                                  fontSize: 13,
-                                                                  letterSpacing:
-                                                                      0.5,
-                                                                ),
-                                                              ),
-                                                            ),
 
-                                                            /// ?? POINTER
-                                                            Container(
-                                                              width: 10,
-                                                              height: 6,
-                                                              decoration: BoxDecoration(
+                                                              border: Border.all(
                                                                 color: Colors
-                                                                    .black
+                                                                    .white
                                                                     .withOpacity(
-                                                                      0.8,
-                                                                    ),
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      2,
+                                                                      0.15,
                                                                     ),
                                                               ),
+
+                                                              boxShadow: [
+                                                                /// glow
+                                                                BoxShadow(
+                                                                  color: Colors
+                                                                      .amber
+                                                                      .withOpacity(
+                                                                        0.4,
+                                                                      ),
+                                                                  blurRadius:
+                                                                      12,
+                                                                ),
+
+                                                                /// depth
+                                                                BoxShadow(
+                                                                  color: Colors
+                                                                      .black
+                                                                      .withOpacity(
+                                                                        0.6,
+                                                                      ),
+                                                                  blurRadius: 8,
+                                                                  offset:
+                                                                      const Offset(
+                                                                        0,
+                                                                        4,
+                                                                      ),
+                                                                ),
+                                                              ],
                                                             ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-
-                                                  /// ?? HANDLE
-                                                  AnimatedContainer(
-                                                    duration: const Duration(
-                                                      milliseconds: 120,
-                                                    ),
-                                                    width: handleWidth,
-                                                    height: 34,
-                                                    alignment: Alignment.center,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(15),
-
-                                                      gradient:
-                                                          const LinearGradient(
-                                                            colors: [
-                                                              Color(0xFFFFE082),
-                                                              Color(0xFFF2C14E),
-                                                              Color(0xFFD4A24C),
-                                                            ],
-                                                            begin: Alignment
-                                                                .topCenter,
-                                                            end: Alignment
-                                                                .bottomCenter,
+                                                            child: Text(
+                                                              Format.coin(
+                                                                coinOptions[selectedIndex],
+                                                              ),
+                                                              style: const TextStyle(
+                                                                color: Color(
+                                                                  0xFFF2C14E,
+                                                                ),
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w900,
+                                                                fontSize: 13,
+                                                                letterSpacing:
+                                                                    0.5,
+                                                              ),
+                                                            ),
                                                           ),
 
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: Colors.black
-                                                              .withOpacity(0.6),
-                                                          blurRadius: 10,
-                                                          offset: const Offset(
-                                                            0,
-                                                            4,
+                                                          /// ?? POINTER
+                                                          Container(
+                                                            width: 10,
+                                                            height: 6,
+                                                            decoration: BoxDecoration(
+                                                              color: Colors
+                                                                  .black
+                                                                  .withOpacity(
+                                                                    0.8,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    2,
+                                                                  ),
+                                                            ),
                                                           ),
-                                                        ),
-                                                        BoxShadow(
-                                                          color: const Color(
-                                                            0xFFF2C14E,
-                                                          ).withOpacity(0.5),
-                                                          blurRadius: 12,
-                                                        ),
-                                                      ],
-                                                    ),
-
-                                                    child: Text(
-                                                      Format.coin(
-                                                        coinOptions[selectedIndex],
-                                                      ),
-                                                      style: const TextStyle(
-                                                        color: Color(
-                                                          0xFF1A1A1A,
-                                                        ),
-                                                        fontWeight:
-                                                            FontWeight.w900,
-                                                        fontSize: 13,
+                                                        ],
                                                       ),
                                                     ),
                                                   ),
-                                                ],
-                                              ),
+
+                                                /// ?? HANDLE
+                                                AnimatedContainer(
+                                                  duration: const Duration(
+                                                    milliseconds: 120,
+                                                  ),
+                                                  width: handleWidth,
+                                                  height: 34,
+                                                  alignment: Alignment.center,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          15,
+                                                        ),
+
+                                                    gradient:
+                                                        const LinearGradient(
+                                                          colors: [
+                                                            Color(0xFFFFE082),
+                                                            Color(0xFFF2C14E),
+                                                            Color(0xFFD4A24C),
+                                                          ],
+                                                          begin: Alignment
+                                                              .topCenter,
+                                                          end: Alignment
+                                                              .bottomCenter,
+                                                        ),
+
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.6),
+                                                        blurRadius: 10,
+                                                        offset: const Offset(
+                                                          0,
+                                                          4,
+                                                        ),
+                                                      ),
+                                                      BoxShadow(
+                                                        color: const Color(
+                                                          0xFFF2C14E,
+                                                        ).withOpacity(0.5),
+                                                        blurRadius: 12,
+                                                      ),
+                                                    ],
+                                                  ),
+
+                                                  child: Text(
+                                                    Format.coin(
+                                                      coinOptions[selectedIndex],
+                                                    ),
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF1A1A1A),
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ],
-                                      );
-                                    },
-                                  ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
-                          const SizedBox(height: 12),
+                              ),
+                              const SizedBox(height: 12),
 
-                                /// ? OYUN HIZI (AAA SEGMENTED)
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14),
-                                    color: const Color(0x1F101A16),
-                                    border: Border.all(
-                                      color: const Color(0x44779B8A),
-                                      width: 1,
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x66000000),
-                                        blurRadius: 10,
-                                        offset: Offset(0, 3),
-                                      ),
-                                    ],
+                              /// ? OYUN HIZI (AAA SEGMENTED)
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: const Color(0x1F101A16),
+                                  border: Border.all(
+                                    color: const Color(0x44779B8A),
+                                    width: 1,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      /// ? HIZLI
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            setDialogState(() {
-                                              draftTurnSeconds = 15;
-                                            });
-                                          },
-                                          child: AnimatedContainer(
-                                            duration: const Duration(
-                                              milliseconds: 200,
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x66000000),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    /// ? HIZLI
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setDialogState(() {
+                                            draftTurnSeconds = 15;
+                                          });
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
                                             ),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              color: draftTurnSeconds == 15
-                                                  ? const Color(0x33E7C66A)
-                                                  : Colors.transparent,
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.flash_on,
-                                                  size: 14,
+                                            color: draftTurnSeconds == 15
+                                                ? const Color(0x33E7C66A)
+                                                : Colors.transparent,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.flash_on,
+                                                size: 14,
+                                                color: draftTurnSeconds == 15
+                                                    ? const Color(0xFFF2D38D)
+                                                    : Colors.white54,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "Hızlı",
+                                                style: TextStyle(
                                                   color: draftTurnSeconds == 15
                                                       ? const Color(0xFFF2D38D)
-                                                      : Colors.white54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  "Hızlı",
-                                                  style: TextStyle(
-                                                    color:
-                                                        draftTurnSeconds == 15
-                                                        ? const Color(
-                                                            0xFFF2D38D,
-                                                          )
-                                                        : Colors.white70,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      /// ?? NORMAL
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            setDialogState(() {
-                                              draftTurnSeconds = 20;
-                                            });
-                                          },
-                                          child: AnimatedContainer(
-                                            duration: const Duration(
-                                              milliseconds: 200,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              color: draftTurnSeconds == 20
-                                                  ? const Color(0x33E7C66A)
-                                                  : Colors.transparent,
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.schedule,
-                                                  size: 14,
-                                                  color: draftTurnSeconds == 20
-                                                      ? const Color(0xFFF2D38D)
-                                                      : Colors.white54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  "Normal",
-                                                  style: TextStyle(
-                                                    color:
-                                                        draftTurnSeconds == 20
-                                                        ? const Color(0xFFF2D38D)
-                                                        : Colors.white70,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                          const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 180),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 7,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: draftSpectatorEnabled
-                                              ? const Color(0x2B3E5F4D)
-                                              : const Color(0x1F101A16),
-                                          border: Border.all(
-                                            color: const Color(0x44779B8A),
-                                            width: 1,
-                                          ),
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Color(0x55000000),
-                                              blurRadius: 8,
-                                              offset: Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.visibility_rounded,
-                                              size: 14,
-                                              color: draftSpectatorEnabled
-                                                  ? const Color(0xFFE6F3EC)
-                                                  : Colors.white70,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                'Seyirci',
-                                                style: TextStyle(
-                                                  color: draftSpectatorEnabled
-                                                      ? const Color(0xFFE6F3EC)
                                                       : Colors.white70,
-                                                  fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                            ),
-                                            Transform.scale(
-                                              scale: 0.82,
-                                              child: Switch(
-                                                value: draftSpectatorEnabled,
-                                                onChanged: (v) {
-                                                  setDialogState(() {
-                                                    draftSpectatorEnabled = v;
-                                                  });
-                                                },
-                                                activeColor: const Color(
-                                                  0xFFE6F3EC,
-                                                ),
-                                                activeTrackColor: const Color(
-                                                  0xAA5B8D74,
-                                                ),
-                                                inactiveThumbColor:
-                                                    const Color(0xFFD9D6CC),
-                                                inactiveTrackColor:
-                                                    const Color(0x554B5A53),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+
+                                    /// ?? NORMAL
                                     Expanded(
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 180),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 7,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: draftChatEnabled
-                                              ? const Color(0x2B3E5F4D)
-                                              : const Color(0x1F101A16),
-                                          border: Border.all(
-                                            color: const Color(0x44779B8A),
-                                            width: 1,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setDialogState(() {
+                                            draftTurnSeconds = 20;
+                                          });
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 200,
                                           ),
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Color(0x55000000),
-                                              blurRadius: 8,
-                                              offset: Offset(0, 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
                                             ),
-                                          ],
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.chat_bubble_rounded,
-                                              size: 14,
-                                              color: draftChatEnabled
-                                                  ? const Color(0xFFE6F3EC)
-                                                  : Colors.white70,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                'Sohbet',
+                                            color: draftTurnSeconds == 20
+                                                ? const Color(0x33E7C66A)
+                                                : Colors.transparent,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.schedule,
+                                                size: 14,
+                                                color: draftTurnSeconds == 20
+                                                    ? const Color(0xFFF2D38D)
+                                                    : Colors.white54,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "Normal",
                                                 style: TextStyle(
-                                                  color: draftChatEnabled
-                                                      ? const Color(0xFFE6F3EC)
+                                                  color: draftTurnSeconds == 20
+                                                      ? const Color(0xFFF2D38D)
                                                       : Colors.white70,
-                                                  fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                            ),
-                                            Transform.scale(
-                                              scale: 0.82,
-                                              child: Switch(
-                                                value: draftChatEnabled,
-                                                onChanged: (v) {
-                                                  setDialogState(() {
-                                                    draftChatEnabled = v;
-                                                  });
-                                                },
-                                                activeColor: const Color(
-                                                  0xFFE6F3EC,
-                                                ),
-                                                activeTrackColor: const Color(
-                                                  0xAA5B8D74,
-                                                ),
-                                                inactiveThumbColor:
-                                                    const Color(0xFFD9D6CC),
-                                                inactiveTrackColor:
-                                                    const Color(0x554B5A53),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        color: draftSpectatorEnabled
+                                            ? const Color(0x2B3E5F4D)
+                                            : const Color(0x1F101A16),
+                                        border: Border.all(
+                                          color: const Color(0x44779B8A),
+                                          width: 1,
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x55000000),
+                                            blurRadius: 8,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.visibility_rounded,
+                                            size: 14,
+                                            color: draftSpectatorEnabled
+                                                ? const Color(0xFFE6F3EC)
+                                                : Colors.white70,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Seyirci',
+                                              style: TextStyle(
+                                                color: draftSpectatorEnabled
+                                                    ? const Color(0xFFE6F3EC)
+                                                    : Colors.white70,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Transform.scale(
+                                            scale: 0.82,
+                                            child: Switch(
+                                              value: draftSpectatorEnabled,
+                                              onChanged: (v) {
+                                                setDialogState(() {
+                                                  draftSpectatorEnabled = v;
+                                                });
+                                              },
+                                              activeColor: const Color(
+                                                0xFFE6F3EC,
+                                              ),
+                                              activeTrackColor: const Color(
+                                                0xAA5B8D74,
+                                              ),
+                                              inactiveThumbColor: const Color(
+                                                0xFFD9D6CC,
+                                              ),
+                                              inactiveTrackColor: const Color(
+                                                0x554B5A53,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 180,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        color: draftChatEnabled
+                                            ? const Color(0x2B3E5F4D)
+                                            : const Color(0x1F101A16),
+                                        border: Border.all(
+                                          color: const Color(0x44779B8A),
+                                          width: 1,
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x55000000),
+                                            blurRadius: 8,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.chat_bubble_rounded,
+                                            size: 14,
+                                            color: draftChatEnabled
+                                                ? const Color(0xFFE6F3EC)
+                                                : Colors.white70,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Sohbet',
+                                              style: TextStyle(
+                                                color: draftChatEnabled
+                                                    ? const Color(0xFFE6F3EC)
+                                                    : Colors.white70,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          Transform.scale(
+                                            scale: 0.82,
+                                            child: Switch(
+                                              value: draftChatEnabled,
+                                              onChanged: (v) {
+                                                setDialogState(() {
+                                                  draftChatEnabled = v;
+                                                });
+                                              },
+                                              activeColor: const Color(
+                                                0xFFE6F3EC,
+                                              ),
+                                              activeTrackColor: const Color(
+                                                0xAA5B8D74,
+                                              ),
+                                              inactiveThumbColor: const Color(
+                                                0xFFD9D6CC,
+                                              ),
+                                              inactiveTrackColor: const Color(
+                                                0x554B5A53,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 12),
 
@@ -4300,98 +4273,101 @@ class _LobbyScreenState extends State<LobbyScreen>
               /// SOL ARKADAŞ L?STES?
               if (!collapseFriendsList)
                 Container(
-                width: compactKeyboardMode ? 180 : 230,
-                decoration: BoxDecoration(
-                  color: const Color(0x4424362E),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0x334F8F75)),
-                ),
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _friends.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (_, i) {
-                    final friend = _friends[i];
-                    final friendId = friend['id']?.toString();
-                    final selected = friendId == _activeChatUserId;
-                    final unread = _unreadByUser[friendId] ?? 0;
-                    final friendtableid = friend['friendid']?.toString() ?? "";
-                    return InkWell(
-                      onTap: friendId == null
-                          ? null
-                          : () => _loadMessagesWith(
-                              friendId,
-                              friendtableid,
-                              markRead: true,
-                            ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: selected
-                              ? const Color(0xAA2E7752)
-                              : const Color(0x6624362E),
-                          border: Border.all(
-                            color: selected
-                                ? const Color(0x88E7C06A)
-                                : const Color(0x334F8F75),
+                  width: compactKeyboardMode ? 180 : 230,
+                  decoration: BoxDecoration(
+                    color: const Color(0x4424362E),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0x334F8F75)),
+                  ),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _friends.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final friend = _friends[i];
+                      final friendId = friend['id']?.toString();
+                      final selected = friendId == _activeChatUserId;
+                      final unread = _unreadByUser[friendId] ?? 0;
+                      final friendtableid =
+                          friend['friendid']?.toString() ?? "";
+                      return InkWell(
+                        onTap: friendId == null
+                            ? null
+                            : () => _loadMessagesWith(
+                                friendId,
+                                friendtableid,
+                                markRead: true,
+                              ),
+                        borderRadius: BorderRadius.circular(12),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            /// AVATAR + ONLINE
-                            _statusAvatar(
-                              username:
-                                  friend['username']?.toString() ?? 'Oyuncu',
-                              avatarUrl: friend['avatar_url']?.toString(),
-                              isOnline: (friend['is_online'] as bool?) ?? false,
-                              size: 14,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: selected
+                                ? const Color(0xAA2E7752)
+                                : const Color(0x6624362E),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0x88E7C06A)
+                                  : const Color(0x334F8F75),
                             ),
-
-                            const SizedBox(width: 8),
-
-                            /// ?S?M + SON G?R?LME
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
+                          ),
+                          child: Row(
+                            children: [
+                              /// AVATAR + ONLINE
+                              _statusAvatar(
+                                username:
                                     friend['username']?.toString() ?? 'Oyuncu',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  if (!((friend['is_online'] as bool?) ??
-                                      false))
+                                avatarUrl: friend['avatar_url']?.toString(),
+                                isOnline:
+                                    (friend['is_online'] as bool?) ?? false,
+                                size: 14,
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              /// ?S?M + SON G?R?LME
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      _formatLastSeen(friend['last_seen_at']),
+                                      friend['username']?.toString() ??
+                                          'Oyuncu',
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                ],
+                                    if (!((friend['is_online'] as bool?) ??
+                                        false))
+                                      Text(
+                                        _formatLastSeen(friend['last_seen_at']),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
 
-                            if (unread > 0) _badge(unread.toString()),
-                          ],
+                              if (unread > 0) _badge(unread.toString()),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
               if (!collapseFriendsList) const SizedBox(width: 12),
 
               /// MESAJ PANEL?
@@ -4784,152 +4760,154 @@ class _LobbyScreenState extends State<LobbyScreen>
                             ],
                             Row(
                               children: [
-                            if (!compactKeyboardMode)
-                              Listener(
-                              onPointerDown: (_) async {
-                                print("DOWN");
+                                if (!compactKeyboardMode)
+                                  Listener(
+                                    onPointerDown: (_) async {
+                                      print("DOWN");
 
-                                _pressStartTime = DateTime.now();
+                                      _pressStartTime = DateTime.now();
 
-                                await Future.delayed(
-                                  const Duration(milliseconds: 250),
-                                );
+                                      await Future.delayed(
+                                        const Duration(milliseconds: 250),
+                                      );
 
-                                // hala bas?l?ysa ba?lat
-                                if (_isPressing) {
-                                  print("START RECORD");
-                                  await _startRecording();
-                                }
-                              },
+                                      // hala bas?l?ysa ba?lat
+                                      if (_isPressing) {
+                                        print("START RECORD");
+                                        await _startRecording();
+                                      }
+                                    },
 
-                              onPointerUp: (_) async {
-                                print("UP");
+                                    onPointerUp: (_) async {
+                                      print("UP");
 
-                                _isPressing = false;
+                                      _isPressing = false;
 
-                                await _stopRecording(send: true);
-                              },
+                                      await _stopRecording(send: true);
+                                    },
 
-                              onPointerCancel: (_) async {
-                                print("CANCEL");
+                                    onPointerCancel: (_) async {
+                                      print("CANCEL");
 
-                                _isPressing = false;
+                                      _isPressing = false;
 
-                                await _stopRecording(send: false);
-                              },
+                                      await _stopRecording(send: false);
+                                    },
 
-                              child: GestureDetector(
-                                onTapDown: (_) {
-                                  _isPressing = true;
-                                },
-                                onTapUp: (_) {
-                                  _isPressing = false;
-                                },
-                                child: _recordButton(),
-                              ),
-                            ),
-
-                            /// ?? VOICE BUTTON
-                            if (!compactKeyboardMode) const SizedBox(width: 8),
-
-                            /// EMOJI BUTTON
-                            if (!compactKeyboardMode)
-                              IconButton(
-                                tooltip: 'Emoji',
-                                onPressed: () {
-                                  setState(() {
-                                    _showEmojiPicker = !_showEmojiPicker;
-                                  });
-                                },
-                                icon: Icon(
-                                  _showEmojiPicker
-                                      ? Icons.emoji_emotions
-                                      : Icons.emoji_emotions_outlined,
-                                  color: const Color(0xFFE7C06A),
-                                ),
-                              ),
-
-                            /// TEXTFIELD
-                            Expanded(
-                              child: TextField(
-                                controller: _chatController,
-                                minLines: 1,
-                                maxLines: compactKeyboardMode ? 2 : 3,
-                                style: const TextStyle(
-                                  color: Color(0xFFF3FFF9),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                cursorColor: const Color(0xFFE7C06A),
-                                decoration: InputDecoration(
-                                  hintText: 'Mesaj yaz...',
-                                  hintStyle: const TextStyle(
-                                    color: Color(0x8FB8CEC3),
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0x5524362E),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 9,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Color(0x3359A588),
+                                    child: GestureDetector(
+                                      onTapDown: (_) {
+                                        _isPressing = true;
+                                      },
+                                      onTapUp: (_) {
+                                        _isPressing = false;
+                                      },
+                                      child: _recordButton(),
                                     ),
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Color(0x3359A588),
+
+                                /// ?? VOICE BUTTON
+                                if (!compactKeyboardMode)
+                                  const SizedBox(width: 8),
+
+                                /// EMOJI BUTTON
+                                if (!compactKeyboardMode)
+                                  IconButton(
+                                    tooltip: 'Emoji',
+                                    onPressed: () {
+                                      setState(() {
+                                        _showEmojiPicker = !_showEmojiPicker;
+                                      });
+                                    },
+                                    icon: Icon(
+                                      _showEmojiPicker
+                                          ? Icons.emoji_emotions
+                                          : Icons.emoji_emotions_outlined,
+                                      color: const Color(0xFFE7C06A),
                                     ),
                                   ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                      color: Color(0x88E7C06A),
-                                      width: 1.3,
+
+                                /// TEXTFIELD
+                                Expanded(
+                                  child: TextField(
+                                    controller: _chatController,
+                                    minLines: 1,
+                                    maxLines: compactKeyboardMode ? 2 : 3,
+                                    style: const TextStyle(
+                                      color: Color(0xFFF3FFF9),
+                                      fontWeight: FontWeight.w600,
                                     ),
+                                    cursorColor: const Color(0xFFE7C06A),
+                                    decoration: InputDecoration(
+                                      hintText: 'Mesaj yaz...',
+                                      hintStyle: const TextStyle(
+                                        color: Color(0x8FB8CEC3),
+                                      ),
+                                      filled: true,
+                                      fillColor: const Color(0x5524362E),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 9,
+                                          ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0x3359A588),
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0x3359A588),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0x88E7C06A),
+                                          width: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                    onSubmitted: (_) => _sendMessage(),
                                   ),
                                 ),
-                                onSubmitted: (_) => _sendMessage(),
-                              ),
-                            ),
 
-                            const SizedBox(width: 6),
+                                const SizedBox(width: 6),
 
-                            /// G?NDER BUTONU
-                            Container(
-                              height: compactKeyboardMode ? 40 : 44,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFE7C06A),
-                                    Color(0xFF9C7A2B),
-                                  ],
-                                ),
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: _sendMessage,
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 16,
+                                /// G?NDER BUTONU
+                                Container(
+                                  height: compactKeyboardMode ? 40 : 44,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFE7C06A),
+                                        Color(0xFF9C7A2B),
+                                      ],
                                     ),
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.send,
-                                        color: Colors.black,
-                                        size: 20,
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: _sendMessage,
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.send,
+                                            color: Colors.black,
+                                            size: 20,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
+                              ],
                             ),
                           ],
                         ),
@@ -5915,9 +5893,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
 
         /// ?? MASALAR
-        Expanded(
-          child: _buildTablesPanel(),
-        ),
+        Expanded(child: _buildTablesPanel()),
       ],
     );
   }
@@ -5941,6 +5917,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           await _loadUser();
           await _loadTables();
         },
+        onCreateTable: _showCreateModal,
         onUserTap: (user) async {
           await ProfileService.showUserCard(
             user,
@@ -5961,14 +5938,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
 
     if (tables.isEmpty) {
-      return const Center(
-        child: Text(
-          "Masa bulunmamaktadır.",
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
+      return _buildEmptyEligibleTablesCta();
     }
-
     return RefreshIndicator(
       onRefresh: _loadTables,
       child: LayoutBuilder(
@@ -6010,6 +5981,81 @@ class _LobbyScreenState extends State<LobbyScreen>
       ),
     );
   }
+
+  Widget _buildEmptyEligibleTablesCta() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xEE173328), Color(0xEE0D1915)],
+            ),
+            border: Border.all(color: const Color(0x88E7C66A), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.45),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.table_restaurant_rounded,
+                color: Color(0xFFE7C66A),
+                size: 34,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Bu ligde şu an açık masa yok',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFFF2F6F3),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'İlk masayı sen aç, oyuncular katıldıkça oyun hemen başlasın.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xC7E0ECE5), fontSize: 13.5),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: 220,
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: () async { await _showCreateModal(); },
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                  label: const Text(
+                    'Masa A?',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE7C66A),
+                    foregroundColor: const Color(0xFF1A241F),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _bottomDock() {
     return LobbyBottomDock(
       left: _dockLeft(),
@@ -6135,15 +6181,18 @@ class _LobbyScreenState extends State<LobbyScreen>
                     AnimatedBuilder(
                       animation: _coinFxController,
                       builder: (_, child) {
-                        final tv = _coinFxActive ? _coinFxController.value : 0.0;
+                        final tv = _coinFxActive
+                            ? _coinFxController.value
+                            : 0.0;
                         return Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             boxShadow: _coinFxActive
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFE7C06A)
-                                          .withOpacity(0.52 + (0.28 * tv)),
+                                      color: const Color(
+                                        0xFFE7C06A,
+                                      ).withOpacity(0.52 + (0.28 * tv)),
                                       blurRadius: 12 + (10 * tv),
                                       spreadRadius: 0.9 + (1.4 * tv),
                                     ),
@@ -6352,8 +6401,14 @@ class _LobbyScreenState extends State<LobbyScreen>
                   right: -10,
                   top: -10,
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE74C3C),
                       borderRadius: BorderRadius.circular(999),
@@ -6661,9 +6716,4 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
 

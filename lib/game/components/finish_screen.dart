@@ -116,13 +116,13 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       // Rack indexing is: 0-12 bottom row, 13-25 top row.
       final isTop = i >= 13;
 
-      // ğŸ”¥ X PARAM
-      double scaleX = 0.75;
-      double offsetX = 0.44;
+      // X yerleşimi: rack içinde 13 kolona dengeli dağıt.
+      const scaleX = 0.74;
+      const offsetX = 0.44;
 
-      // ğŸ”¥ Y PARAM
-      double centerY = 0.35;
-      double rowSpacing = 0.30;
+      // Y yerleşimi: iki sıra arası sabit.
+      const centerY = 0.35;
+      const rowSpacing = 0.30;
 
       // ---------- X ----------
       final step = 1 / 13;
@@ -141,8 +141,12 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       final model = _tileModelFromPayload(tile);
       if (model == null) return;
 
-      final t = TileComponent(tile: model, position: Vector2(x, y))
-        ..scale = Vector2(0.27, 0.32);
+      final t = TileComponent(tile: model, position: Vector2(x, y));
+      final slotWidthPx = (rackWidth * scaleX) / 13;
+      final baseTileWidth = t.size.x <= 0 ? 100.0 : t.size.x;
+      final fitScale = (slotWidthPx * 0.88) / baseTileWidth;
+      final clampedScale = fitScale.clamp(0.34, 0.43).toDouble();
+      t.scale = Vector2.all(clampedScale);
       rack.add(t);
     }
   }
@@ -154,8 +158,13 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     final model = _tileModelFromPayload(tile);
     if (model == null) return;
 
-    final t = TileComponent(tile: model, position: Vector2(0, 60))
-      ..scale = Vector2.all(0.44);
+    final t = TileComponent(tile: model, position: Vector2(0, 60));
+    final vp = gameRef.camera.viewport.size;
+    final rackWidth = vp.x * 0.65;
+    final slotWidthPx = (rackWidth * 0.74) / 13;
+    final baseTileWidth = t.size.x <= 0 ? 100.0 : t.size.x;
+    final fitScale = (slotWidthPx * 0.95) / baseTileWidth;
+    t.scale = Vector2.all(fitScale.clamp(0.36, 0.46).toDouble());
 
     // ğŸ”¥ glow efekti
     t.add(

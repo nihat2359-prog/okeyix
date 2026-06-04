@@ -135,6 +135,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _hideSystemUI();
       PresenceService.instance.onAppResumed();
+      unawaited(PushNotificationService.instance.clearAppBadge());
       return;
     }
     // `inactive` can fire during short focus/interruption transitions
