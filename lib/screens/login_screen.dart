@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -365,52 +366,71 @@ class _LoginScreenState extends State<LoginScreen>
                                 child: const OkeyixLogo(),
                               ),
                               const SizedBox(height: 26),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: AuthButton(
-                                      icon: const Icon(
-                                        Icons.apple,
-                                        color: Colors.white,
-                                        size: 22,
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: 16,
+                                    sigmaY: 16,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.06),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.25),
                                       ),
-                                      text: isCompactLabels
-                                          ? "Apple"
-                                          : "Apple ile devam et",
-                                      type: AuthButtonType.apple,
-                                      onTap: _loginWithApple,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: AuthButton(
+                                            icon: const Icon(
+                                              Icons.apple,
+                                              color: Colors.white,
+                                              size: 22,
+                                            ),
+                                            text: isCompactLabels
+                                                ? "Apple"
+                                                : "Apple ile devam et",
+                                            type: AuthButtonType.apple,
+                                            onTap: _loginWithApple,
+                                          ),
+                                        ),
+                                        const SizedBox(width: spacing),
+                                        Expanded(
+                                          child: AuthButton(
+                                            icon: Image.asset(
+                                              "assets/images/google.png",
+                                              height: 20,
+                                            ),
+                                            text: isCompactLabels
+                                                ? "Google"
+                                                : "Google ile devam et",
+                                            type: AuthButtonType.google,
+                                            onTap: _loginWithGoogle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: spacing),
+                                        Expanded(
+                                          child: AuthButton(
+                                            icon: const Icon(
+                                              Icons.person_outline,
+                                              color: Color(0xFFE7C66A),
+                                            ),
+                                            text: "Hızlı Başla",
+                                            type: AuthButtonType.guest,
+                                            onTap: _loadingGuest
+                                                ? null
+                                                : _playAsGuest,
+                                            loading: _loadingGuest,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: spacing),
-                                  Expanded(
-                                    child: AuthButton(
-                                      icon: Image.asset(
-                                        "assets/images/google.png",
-                                        height: 20,
-                                      ),
-                                      text: isCompactLabels
-                                          ? "Google"
-                                          : "Google ile devam et",
-                                      type: AuthButtonType.google,
-                                      onTap: _loginWithGoogle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: spacing),
-                                  Expanded(
-                                    child: AuthButton(
-                                      icon: const Icon(
-                                        Icons.person_outline,
-                                        color: Color(0xFFE7C66A),
-                                      ),
-                                      text: "Hızlı Başla",
-                                      type: AuthButtonType.guest,
-                                      onTap: _loadingGuest
-                                          ? null
-                                          : _playAsGuest,
-                                      loading: _loadingGuest,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                               const SizedBox(height: 12),
                               ConstrainedBox(
@@ -644,7 +664,7 @@ class OkeyixLogo extends StatelessWidget {
             ],
           ),
           child: Image.asset(
-            "assets/images/logo/okeyix_logo.png",
+            "assets/images/logo/okeyix_logo_new.png",
             width: 280,
             filterQuality: FilterQuality.high,
           ),
@@ -751,4 +771,3 @@ class OkeyixLegalBlock extends StatelessWidget {
     );
   }
 }
-

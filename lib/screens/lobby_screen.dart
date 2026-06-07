@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -1197,14 +1197,13 @@ class _LobbyScreenState extends State<LobbyScreen>
           .toList(growable: false);
 
       // Build deterministic league rating ranges.
-      final sortedLeagues = leagues
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList()
-        ..sort((a, b) {
-          final aMin = (a['min_rating'] as int?) ?? 0;
-          final bMin = (b['min_rating'] as int?) ?? 0;
-          return aMin.compareTo(bMin);
-        });
+      final sortedLeagues =
+          leagues.map((e) => Map<String, dynamic>.from(e)).toList()
+            ..sort((a, b) {
+              final aMin = (a['min_rating'] as int?) ?? 0;
+              final bMin = (b['min_rating'] as int?) ?? 0;
+              return aMin.compareTo(bMin);
+            });
 
       final ranges = <Map<String, dynamic>>[];
       for (int i = 0; i < sortedLeagues.length; i++) {
@@ -1222,11 +1221,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             ? inferredMax
             : explicitMax;
 
-        ranges.add({
-          'id': leagueId,
-          'min': minRating,
-          'max': maxRating,
-        });
+        ranges.add({'id': leagueId, 'min': minRating, 'max': maxRating});
         playersResult[leagueId] = 0;
       }
 
@@ -6049,7 +6044,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                 width: 220,
                 height: 44,
                 child: ElevatedButton.icon(
-                  onPressed: () async { await _showCreateModal(); },
+                  onPressed: () async {
+                    await _showCreateModal();
+                  },
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
                   label: const Text(
                     'Masa A?',
@@ -6731,4 +6728,3 @@ class LobbyLayout extends StatelessWidget {
     );
   }
 }
-

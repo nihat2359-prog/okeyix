@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 
 class DockActionButton extends StatefulWidget {
   final String text;
@@ -181,24 +182,24 @@ class AuthButton extends StatelessWidget {
 
     switch (type) {
       case AuthButtonType.apple:
-        bg = [const Color(0xFF2B3038), const Color(0xFF161B22)];
-        border = const Color(0xFFDCC07A).withOpacity(0.28);
+        bg = [const Color(0x26252E39), const Color(0x0D252E39)];
+        border = Colors.white.withOpacity(0.28);
         textColor = Colors.white;
         accent = const Color(0xFFE0C57F);
-        iconBg = const Color(0x1FE0C57F);
+        iconBg = const Color(0x26E0C57F);
         break;
 
       case AuthButtonType.google:
-        bg = [const Color(0xFFFFFFFF), const Color(0xFFF0F5FF)];
-        border = const Color(0xFF4285F4).withOpacity(0.55);
-        textColor = const Color(0xFF1E2A42);
+        bg = [const Color(0x26304763), const Color(0x0D304763)];
+        border = Colors.white.withOpacity(0.30);
+        textColor = const Color(0xFFF2F6FF);
         accent = const Color(0xFF4285F4);
         iconBg = const Color(0x1A4285F4);
         break;
 
       case AuthButtonType.guest:
-        bg = [const Color(0xFF233A34), const Color(0xFF12231F)];
-        border = const Color(0xFFE7C66A).withOpacity(0.42);
+        bg = [const Color(0x26304733), const Color(0x0D304733)];
+        border = Colors.white.withOpacity(0.28);
         textColor = const Color(0xFFE7ECF3);
         accent = const Color(0xFFE7C66A);
         iconBg = const Color(0x26E7C66A);
@@ -226,91 +227,95 @@ class AuthButton extends StatelessWidget {
           padding: MaterialStateProperty.all(EdgeInsets.zero),
         ),
 
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-
-            border: Border.all(color: border, width: 1),
-
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.26),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: border, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.22),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: bg,
+                ),
+                color: Colors.white.withOpacity(0.0),
               ),
-            ],
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: bg,
-            ),
-          ),
-
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    height: 18,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.12),
-                          Colors.transparent,
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        height: 18,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withOpacity(0.16),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Center(
-                child: loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFFE7C66A),
-                        ),
-                      )
-                    : FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 30,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: iconBg,
-                                border: Border.all(
-                                  color: accent.withOpacity(0.35),
+                  Center(
+                    child: loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFE7C66A),
+                            ),
+                          )
+                        : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: iconBg,
+                                    border: Border.all(
+                                      color: accent.withOpacity(0.35),
+                                    ),
+                                  ),
+                                  child: Center(child: icon),
                                 ),
-                              ),
-                              child: Center(child: icon),
+                                const SizedBox(width: 9),
+                                Text(
+                                  text,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 9),
-                            Text(
-                              text,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
