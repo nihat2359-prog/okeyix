@@ -182,7 +182,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ? data['body'].toString().trim()
         : (data['message']?.toString().trim().isNotEmpty ?? false)
         ? data['message'].toString().trim()
-        : 'Yeni bir bildirim aldiniz.';
+        : 'Yeni bir bildirim aldınız.';
 
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -204,11 +204,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xEE173228), Color(0xEE0D1D17)],
+                        colors: [Color(0xDD171B23), Color(0xCC0D1016)],
                       ),
                       border: Border.all(
-                        color: const Color(0x88E7C06A),
-                        width: 1.2,
+                        color: const Color(0x5CE7C06A),
+                        width: 1.0,
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -257,7 +257,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Color(0xFFE1ECE6),
+                                      color: Color(0xFFE6EAEE),
                                       fontSize: 13,
                                       height: 1.25,
                                     ),
@@ -326,8 +326,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
 
-          // 🔥 hafif transparan + derin ton
-          backgroundColor: const Color(0xE61B2E28), // %90 opacity
+          // black-glass theme
+          backgroundColor: const Color(0xD915191F),
 
           elevation: 18,
 

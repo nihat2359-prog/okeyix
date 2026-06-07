@@ -418,7 +418,7 @@ Widget lobbyDockIcon({
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF18352D), Color(0xFF0E231E)],
+              colors: [Color(0xD922252B), Color(0xD912151A)],
             ),
             border: Border.all(color: const Color(0xFFE7C66A), width: 1.6),
             boxShadow: const [

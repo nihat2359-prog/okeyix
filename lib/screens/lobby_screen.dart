@@ -733,20 +733,14 @@ class _LobbyScreenState extends State<LobbyScreen>
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xE6162621), Color(0xE60E1815)],
+                  colors: [Color(0xDD171B23), Color(0xCC0D1016)],
                 ),
-                border: Border.all(color: const Color(0x99D9B97A), width: 1.1),
+                border: Border.all(color: const Color(0x5CE7C06A), width: 1.0),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0x99100600).withOpacity(.48),
-                    blurRadius: 28,
-                    offset: const Offset(0, 14),
-                  ),
-                  const BoxShadow(
-                    color: Color(0x3328FFE0),
-                    blurRadius: 8,
-                    spreadRadius: -4,
-                    offset: Offset(0, -2),
+                    color: Colors.black38,
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),
@@ -780,11 +774,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0x3D274137), Color(0x2A17231E)],
+                        colors: [Color(0x38202834), Color(0x26131922)],
                       ),
                       borderRadius: BorderRadius.circular(13),
                       border: Border.all(
-                        color: const Color(0x66D9B97A),
+                        color: const Color(0x4DE7C06A),
                         width: 1,
                       ),
                     ),
@@ -832,11 +826,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                           onPressed: () => Navigator.of(context).pop(false),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(
-                              color: Color(0x66C8D2CC),
+                              color: Color(0x55D7DEE5),
                               width: 1,
                             ),
-                            foregroundColor: const Color(0xFFD8E0DB),
-                            backgroundColor: const Color(0x22101815),
+                            foregroundColor: const Color(0xFFE0E6EB),
+                            backgroundColor: const Color(0x2411161E),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(11),
@@ -2145,8 +2139,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Yeni sistem duyurusu var.'),
+        backgroundColor: const Color(0xD915191F),
         action: SnackBarAction(
           label: 'A\u00E7',
+          textColor: const Color(0xFFE7C06A),
           onPressed: () async {
             await _showSystemMessagesDialog();
           },
@@ -2220,7 +2216,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
+                    colors: [Color(0xFF222932), Color(0xFF131922)],
                   ),
                   border: Border.all(
                     color: const Color(0xCCB07A1A),
@@ -2269,7 +2265,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         value: category,
-                        dropdownColor: const Color(0xFF1A2E27),
+                        dropdownColor: const Color(0xFF232A34),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -2292,9 +2288,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                               ),
                         decoration: InputDecoration(
                           labelText: 'Kategori',
-                          labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
+                          labelStyle: const TextStyle(color: Color(0xFFD8DEE8)),
                           filled: true,
-                          fillColor: const Color(0x33273830),
+                          fillColor: const Color(0x33303844),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -2309,12 +2305,12 @@ class _LobbyScreenState extends State<LobbyScreen>
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Mesaj',
-                          labelStyle: const TextStyle(color: Color(0xFFD9EBDD)),
+                          labelStyle: const TextStyle(color: Color(0xFFD8DEE8)),
                           hintText:
                               'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
-                          hintStyle: const TextStyle(color: Color(0x99D9EBDD)),
+                          hintStyle: const TextStyle(color: Color(0x99D8DEE8)),
                           filled: true,
-                          fillColor: const Color(0x33273830),
+                          fillColor: const Color(0x33303844),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -2352,9 +2348,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                     ),
                                   )
                                 : const Icon(Icons.send_rounded),
-                            label: Text(sending ? 'Gonderiliyor' : 'Gonder'),
+                            label: Text(sending ? 'Gonderiliyor' : 'Gönder'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2B7B55),
+                              backgroundColor: const Color(0xFF2C3542),
                               foregroundColor: Colors.white,
                             ),
                           ),
@@ -2394,9 +2390,9 @@ class _LobbyScreenState extends State<LobbyScreen>
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF132A22), Color(0xFF0D1C17)],
+                colors: [Color(0xEE171B23), Color(0xDD0D1016)],
               ),
-              border: Border.all(color: const Color(0xCCB07A1A), width: 1.8),
+              border: Border.all(color: const Color(0x66E7C06A), width: 1.2),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x66000000),
@@ -2456,10 +2452,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0x33273830),
+                                color: const Color(0x33303844),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0x334F8F75),
+                                  color: const Color(0x335B6778),
                                 ),
                               ),
                               child: Column(
@@ -3098,7 +3094,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xF31A3529), Color(0xF20B1512)],
+                          colors: [Color(0xF321252C), Color(0xF212151B)],
                         ),
                         boxShadow: const [
                           BoxShadow(
@@ -3138,9 +3134,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(999),
-                                  color: const Color(0x223A5C4D),
+                                  color: const Color(0x22363D48),
                                   border: Border.all(
-                                    color: const Color(0x66779B8A),
+                                    color: const Color(0x667B8593),
                                     width: 0.8,
                                   ),
                                 ),
@@ -3632,7 +3628,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(10),
                                         color: draftSpectatorEnabled
-                                            ? const Color(0x2B3E5F4D)
+                                            ? const Color(0x2B3A4350)
                                             : const Color(0x1F101A16),
                                         border: Border.all(
                                           color: const Color(0x44779B8A),
@@ -3681,7 +3677,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                 0xFFE6F3EC,
                                               ),
                                               activeTrackColor: const Color(
-                                                0xAA5B8D74,
+                                                0xAA5B6475,
                                               ),
                                               inactiveThumbColor: const Color(
                                                 0xFFD9D6CC,
@@ -3708,7 +3704,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(10),
                                         color: draftChatEnabled
-                                            ? const Color(0x2B3E5F4D)
+                                            ? const Color(0x2B3A4350)
                                             : const Color(0x1F101A16),
                                         border: Border.all(
                                           color: const Color(0x44779B8A),
@@ -3757,7 +3753,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                                 0xFFE6F3EC,
                                               ),
                                               activeTrackColor: const Color(
-                                                0xAA5B8D74,
+                                                0xAA5B6475,
                                               ),
                                               inactiveThumbColor: const Color(
                                                 0xFFD9D6CC,
@@ -3968,7 +3964,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         children: [
           Positioned.fill(
             child: Container(
-              color: const Color(0xFF0b1d17),
+              color: const Color(0xFF050608),
               child: FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
@@ -4194,7 +4190,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E6F5C),
+                                color: const Color(0xFF2C3542),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Text(
@@ -4287,7 +4283,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   decoration: BoxDecoration(
                     color: const Color(0x4424362E),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0x334F8F75)),
+                    border: Border.all(color: const Color(0x335B6778)),
                   ),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(8),
@@ -4323,7 +4319,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                             border: Border.all(
                               color: selected
                                   ? const Color(0x88E7C06A)
-                                  : const Color(0x334F8F75),
+                                  : const Color(0x335B6778),
                             ),
                           ),
                           child: Row(
@@ -4386,7 +4382,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     color: const Color(0x5524362E),
-                    border: Border.all(color: const Color(0x334F8F75)),
+                    border: Border.all(color: const Color(0x335B6778)),
                   ),
                   child: Column(
                     children: [
@@ -4728,7 +4724,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                         padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                         decoration: const BoxDecoration(
                           border: Border(
-                            top: BorderSide(color: Color(0x334F8F75)),
+                            top: BorderSide(color: Color(0x335B6778)),
                           ),
                         ),
                         child: Column(
@@ -4746,7 +4742,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   color: const Color(0xAA1E2B24),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0x3359A588),
+                                    color: const Color(0x335C6878),
                                   ),
                                 ),
                                 child: Wrap(
@@ -4862,13 +4858,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(14),
                                         borderSide: const BorderSide(
-                                          color: Color(0x3359A588),
+                                          color: Color(0x335C6878),
                                         ),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(14),
                                         borderSide: const BorderSide(
-                                          color: Color(0x3359A588),
+                                          color: Color(0x335C6878),
                                         ),
                                       ),
                                       focusedBorder: OutlineInputBorder(
@@ -5018,7 +5014,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           color: const Color(0x6624362E),
-          border: Border.all(color: const Color(0x334F8F75)),
+          border: Border.all(color: const Color(0x335B6778)),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 10),
           ],
@@ -5066,7 +5062,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 color: const Color(0xFF1A1D1B),
-                border: Border.all(color: const Color(0x334F8F75)),
+                border: Border.all(color: const Color(0x335B6778)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(.6),
@@ -5115,7 +5111,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                               borderRadius: BorderRadius.circular(12),
                               color: const Color(0x3324362E),
                               border: Border.all(
-                                color: const Color(0x334F8F75),
+                                color: const Color(0x335B6778),
                               ),
                             ),
                             child: const Text(
@@ -5431,7 +5427,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
         /// ?? BORDER
         border: Border.all(
-          color: _isRecording ? Colors.redAccent : const Color(0x3359A588),
+          color: _isRecording ? Colors.redAccent : const Color(0x335C6878),
           width: _isRecording ? 1.6 : 1,
         ),
 
@@ -5469,16 +5465,16 @@ class _LobbyScreenState extends State<LobbyScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFF18231F),
+            color: const Color(0xFF1D242D),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0x3359A588)),
+            border: Border.all(color: const Color(0x335C6878)),
           ),
           child: Column(
             children: [
               SwitchListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF163328),
+                activeColor: const Color(0xFF2B3441),
                 activeTrackColor: const Color(0xFFE7C06A),
                 inactiveThumbColor: const Color(0xFF8EA79A),
                 inactiveTrackColor: const Color(0x334E6A5D),
@@ -5500,11 +5496,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                   setState(() => _soundEnabled = value);
                 },
               ),
-              const Divider(color: Color(0x3359A588), height: 1),
+              const Divider(color: Color(0x335C6878), height: 1),
               SwitchListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF163328),
+                activeColor: const Color(0xFF2B3441),
                 activeTrackColor: const Color(0xFFE7C06A),
                 inactiveThumbColor: const Color(0xFF8EA79A),
                 inactiveTrackColor: const Color(0x334E6A5D),
@@ -5526,11 +5522,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                   setState(() => _vibrationEnabled = value);
                 },
               ),
-              const Divider(color: Color(0x3359A588), height: 1),
+              const Divider(color: Color(0x335C6878), height: 1),
               SwitchListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF163328),
+                activeColor: const Color(0xFF2B3441),
                 activeTrackColor: const Color(0xFFE7C06A),
                 inactiveThumbColor: const Color(0xFF8EA79A),
                 inactiveTrackColor: const Color(0x334E6A5D),
@@ -6163,7 +6159,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             borderRadius: BorderRadius.circular(8),
             gradient: LinearGradient(
               colors: coin && _coinFxActive
-                  ? const [Color(0xFF22352A), Color(0xFF122015)]
+                  ? const [Color(0xFF242A31), Color(0xFF141920)]
                   : const [Color(0xFF1A2328), Color(0xFF11181C)],
             ),
             border: Border.all(
@@ -6478,7 +6474,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF18352D), Color(0xFF0E231E)],
+                  colors: [Color(0xFF21262D), Color(0xFF12171D)],
                 ),
                 border: Border.all(
                   color: const Color.fromARGB(169, 231, 198, 106),

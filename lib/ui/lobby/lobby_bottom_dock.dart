@@ -55,21 +55,18 @@ class LobbyBottomDock extends StatelessWidget {
                             gradient: const LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Color(0x2A1A2521), Color(0x30101513)],
+                              colors: [Color(0x06161B1F), Color(0x080A0D10)],
                             ),
+                            color: const Color(0x03000000),
                             border: Border.all(
-                              color: const Color(0x33FFEBC6),
+                              color: const Color(0x35FFEBC6),
                               width: 1.0,
                             ),
                             boxShadow: const [
                               BoxShadow(
-                                color: Color(0x1AFFD76A),
+                                color: Color(0x16FFD76A),
                                 blurRadius: 10,
-                                spreadRadius: 0,
-                              ),
-                              BoxShadow(
-                                color: Color(0x59000000),
-                                blurRadius: 12,
+                                spreadRadius: 0.2,
                               ),
                             ],
                           ),

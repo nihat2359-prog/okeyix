@@ -919,8 +919,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                         borderRadius: BorderRadius.circular(14),
                         gradient: LinearGradient(
                           colors: [
-                            const Color(0xFF16251F).withOpacity(0.9),
-                            const Color(0xFF0F1B17).withOpacity(0.9),
+                            const Color(0xFF212730).withOpacity(0.9),
+                            const Color(0xFF141922).withOpacity(0.9),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -1086,7 +1086,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          const Color(0xFF0F1B17).withOpacity(0.9),
+                          const Color(0xFF141922).withOpacity(0.9),
                         ],
                       ),
                     ),
@@ -1110,7 +1110,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                 width: 420,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F1B17).withOpacity(0.88),
+                  color: const Color(0xFF151B24).withOpacity(0.88),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: const Color(0xFFB9932F).withOpacity(0.7),
@@ -1173,11 +1173,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0x33243A33), Color(0x33111C18)],
+                            colors: [Color(0x3327303B), Color(0x33141922)],
                           ),
                           borderRadius: BorderRadius.circular(13),
                           border: Border.all(
-                            color: const Color(0x6689B19F),
+                            color: const Color(0x668991A5),
                             width: 1,
                           ),
                           boxShadow: const [
@@ -1601,7 +1601,7 @@ class _InviteSeatCardState extends State<_InviteSeatCard>
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF253129), Color(0xFF141B17)],
+              colors: [Color(0xFF232A33), Color(0xFF141A23)],
             ),
             border: Border.all(color: const Color(0x88D8B86D), width: 0.9),
             boxShadow: const [
@@ -1653,7 +1653,7 @@ class _InviteSeatCardState extends State<_InviteSeatCard>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xCC1A2722), Color(0xAA101713)],
+          colors: [Color(0xCC1F252F), Color(0xAA121821)],
         ),
         border: Border.all(color: const Color(0x88D8B86D), width: 1),
         boxShadow: const [

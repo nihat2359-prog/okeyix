@@ -72,7 +72,7 @@ class GameRulesScreen extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF193328), Color(0xFF0E1914)],
+          colors: [Color(0xFF232A33), Color(0xFF131820)],
         ),
         border: Border.all(color: const Color(0x66E7C06A)),
         boxShadow: const [
@@ -123,7 +123,7 @@ class GameRulesScreen extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A2C24), Color(0xFF101A16)],
+          colors: [Color(0xFF222932), Color(0xFF131922)],
         ),
         border: Border.all(color: const Color(0x33E7C06A)),
       ),
@@ -183,7 +183,7 @@ class GameRulesScreen extends StatelessWidget {
             : const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1A2B24), Color(0xFF111C17)],
+                colors: [Color(0xFF222932), Color(0xFF131922)],
               ),
         border: Border.all(
           color: highlight ? const Color(0xFF8F671F) : const Color(0x33E7C06A),

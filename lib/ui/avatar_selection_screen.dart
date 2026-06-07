@@ -47,13 +47,13 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
     return PopScope(
       canPop: widget.canClose,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A1210),
+        backgroundColor: const Color(0xFF0C0F14),
         body: Stack(
           children: [
             Positioned(
               top: -120,
               left: -50,
-              child: _ambientOrb(const Color(0xAA3AB88A), 240),
+              child: _ambientOrb(const Color(0x663A4A66), 240),
             ),
             Positioned(
               bottom: -140,
@@ -69,7 +69,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xEE18372B), Color(0xEE101C17)],
+                    colors: [Color(0xEE232A33), Color(0xEE131820)],
                   ),
                   border: Border.all(
                     color: const Color(0xE0D0A14A),
@@ -151,7 +151,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0x2BE9C46A), Color(0x1839A979)],
+          colors: [Color(0x20FFFFFF), Color(0x10000000)],
         ),
         border: Border.all(color: const Color(0x55E9C46A)),
       ),
@@ -162,7 +162,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
             height: isLandscape ? 32 : 44,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0x332A3C2F),
+              color: const Color(0x332A313C),
               border: Border.all(color: const Color(0x66E9C46A)),
             ),
             child: Icon(
@@ -222,7 +222,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
       decoration: BoxDecoration(
         color: const Color(0x1AFFFFFF),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x33E9C46A)),
+        border: Border.all(color: const Color(0x33BFC7D8)),
       ),
       child: ListView(
         children: [
@@ -245,14 +245,14 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                     ),
                     _tagChip(
                       text: 'Standart',
-                      bg: const Color(0x2A62C38C),
-                      border: const Color(0x7A62C38C),
+                      bg: const Color(0x2A55627A),
+                      border: const Color(0x7A7387A8),
                       fg: const Color(0xFFE8FFF2),
                     ),
                     _tagChip(
                       text: 'Ücretsiz',
-                      bg: const Color(0x3354D394),
-                      border: const Color(0x8D54D394),
+                      bg: const Color(0x334B647F),
+                      border: const Color(0x8D6F8DB3),
                       fg: const Color(0xFFEFFFF8),
                     ),
                   ],

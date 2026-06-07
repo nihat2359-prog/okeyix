@@ -169,11 +169,11 @@ class LobbyLeagueList extends StatelessWidget {
             gradient: LinearGradient(
               colors: selected
                   ? [
-                      Color(0xFF3F806F),
+                      Color(0xFF2D3138),
                       Color(0xFFF0C776),
-                      Color(0xFF3F806F),
+                      Color(0xFF2D3138),
                     ]
-                  : [Color(0x55304640), Color(0x77508A79)],
+                  : [Color(0x55303438), Color(0x77494B51)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -193,7 +193,7 @@ class LobbyLeagueList extends StatelessWidget {
                 ),
               if (selected)
                 const BoxShadow(
-                  color: Color(0x6646B78C),
+                  color: Color(0x66323A44),
                   blurRadius: 18,
                   spreadRadius: 0.9,
                 ),
@@ -217,22 +217,22 @@ class LobbyLeagueList extends StatelessWidget {
 
               gradient: LinearGradient(
                 colors: selected
-                    ? [const Color(0xFF18352F), const Color(0xFF102722)]
-                    : [const Color(0xFF152D29), const Color(0xFF0E201D)],
+                    ? [const Color(0xE622252C), const Color(0xE614171D)]
+                    : [const Color(0xD91D2026), const Color(0xD912151A)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
                 color: selected
                     ? const Color(0xFFF2C56C)
-                    : const Color(0x77508A79),
+                    : const Color(0x77606A73),
                 width: selected ? 1.25 : 0.9,
               ),
 
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8),
                 const BoxShadow(
-                  color: Color(0xFF10201D),
+                  color: Color(0xFF15181D),
                   blurRadius: 24,
                   spreadRadius: -10,
                 ),
@@ -493,7 +493,7 @@ class LobbyLeagueList extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF5BAF9F), Color(0xFF2A5B53)],
+              colors: [Color(0xFF2A2F36), Color(0xFF181D23)],
             ),
             boxShadow: [
               BoxShadow(
@@ -511,9 +511,9 @@ class LobbyLeagueList extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF1A3430), Color(0xFF101E1C)],
+                colors: [Color(0xFF1D2228), Color(0xFF101419)],
               ),
-            border: Border.all(color: const Color(0x66D5B981), width: 0.9),
+            border: Border.all(color: const Color(0x66747E88), width: 0.9),
             ),
           ),
         /// 🔥 ALT GÖLGE (derinlik)
@@ -741,7 +741,7 @@ class LobbyLeagueList extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF5BAF9F), Color(0xFF2A5B53)],
+                  colors: [Color(0xFF2A2F36), Color(0xFF181D23)],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -761,10 +761,10 @@ class LobbyLeagueList extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF1A3430), Color(0xFF101E1C)],
+                  colors: [Color(0xFF1D2228), Color(0xFF101419)],
                 ),
                 border: Border.all(
-                  color: const Color(0x66D5B981),
+                  color: const Color(0x66747E88),
                   width: ringWidth,
                 ),
               ),

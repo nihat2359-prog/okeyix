@@ -332,9 +332,9 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xEE13291F), Color(0xEE0C1712)],
+            colors: [Color(0xEE222831), Color(0xEE131820)],
           ),
-          color: const Color(0xFF0F2F2A).withOpacity(0.70),
+          color: const Color(0xFF151B22).withOpacity(0.70),
           border: Border.all(color: const Color(0xD7D0A14A), width: 0.5),
           boxShadow: const [
             BoxShadow(
@@ -353,7 +353,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                   height: 34,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    color: const Color(0x2CECCB79),
+                    color: const Color(0x2C5D6A80),
                     border: Border.all(color: const Color(0x66E9C46A)),
                   ),
                   child: const Icon(
@@ -380,7 +380,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                             ? 'Avatarini sec, otomatik profilin olusturulsun'
                             : 'Kullanıcı bilgilerini ve avatarını güncelle',
                         style: TextStyle(
-                          color: Color(0xFFBBD2C4),
+                          color: Color(0xFFC2CBD8),
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -392,7 +392,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0x221A2520),
+                      color: const Color(0x22222830),
                       border: Border.all(color: const Color(0x55FFFFFF)),
                     ),
                     child: IconButton(
@@ -439,7 +439,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                 decoration: BoxDecoration(
                   color: const Color(0x2A111A17),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0x4DE7C06A)),
+                  border: Border.all(color: const Color(0x4D9AA8BF)),
                 ),
                 child: Row(
                   children: [
@@ -458,7 +458,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                               ? 'İlk isim değişikliği ücretsiz.'
                               : 'Bu kayıt için coin harcanmayacak.',
                           style: const TextStyle(
-                            color: Color(0xFFD9EBDD),
+                            color: Color(0xFFD8DEE8),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -468,7 +468,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                         child: Text(
                           'İsim ve avatarını seç, oyuna başlayalım.\nBunu sonra profilden değiştirebilirsin.',
                           style: TextStyle(
-                            color: Color(0xFFD9EBDD),
+                            color: Color(0xFFD8DEE8),
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                             height: 1.25,
@@ -486,7 +486,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
                           : const Icon(Icons.check_rounded),
                       label: Text(_saving ? 'Kontrol ediliyor' : 'Kaydet'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2B7B55),
+                        backgroundColor: const Color(0xFF2C3542),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -608,7 +608,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
               icon: const Icon(Icons.grid_view_rounded, size: 18),
               label: const Text("Avatar Seç"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2B7B55),
+                backgroundColor: const Color(0xFF2C3542),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -687,7 +687,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
           child: const Text(
             'Avatarina gore sana benzersiz bir isim otomatik verilecek.',
             style: TextStyle(
-              color: Color(0xFFD9EBDD),
+              color: Color(0xFFD8DEE8),
               fontWeight: FontWeight.w700,
               fontSize: 12.5,
               height: 1.25,
@@ -709,7 +709,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
           const Text(
             'Kullanıcı adı',
             style: TextStyle(
-              color: Color(0xFFD9EBDD),
+              color: Color(0xFFD8DEE8),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -727,7 +727,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
               hintText: 'Örnek: OkeyUstasi',
               hintStyle: const TextStyle(color: Color(0x88D9EBDD)),
               filled: true,
-              fillColor: const Color(0x33273830),
+              fillColor: const Color(0x33303844),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -738,7 +738,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
             Text(
               renameInfo,
               style: const TextStyle(
-                color: Color(0xFFB9CFBF),
+                color: Color(0xFFBDC7D6),
                 fontSize: 12,
                 height: 1.3,
               ),

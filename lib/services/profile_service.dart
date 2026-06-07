@@ -133,7 +133,7 @@ class ProfileService {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F2F2A).withOpacity(0.90),
+                  color: const Color(0xFF151B22).withOpacity(0.90),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: const Color(0xD7D0A14A),
@@ -142,7 +142,7 @@ class ProfileService {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xEE13291F), Color(0xEE0C1712)],
+                    colors: [Color(0xEE222831), Color(0xEE131820)],
                   ),
                 ),
                 child: Column(
@@ -253,8 +253,8 @@ class ProfileService {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF1a2f2a).withOpacity(0.10),
-                            const Color(0xFF0d1f1a).withOpacity(0.10),
+                            const Color(0xFF2A313C).withOpacity(0.10),
+                            const Color(0xFF161B24).withOpacity(0.10),
                           ],
                         ),
                         border: Border.all(
@@ -1858,8 +1858,8 @@ class _GiftHistoryScreenState extends State<GiftHistoryScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF173A2C).withOpacity(0.18), // 🔥 arttırıldı
-              const Color(0xFF0A1511).withOpacity(0.22),
+              const Color(0xFF2A313C).withOpacity(0.18),
+              const Color(0xFF121820).withOpacity(0.22),
             ],
           ),
           border: Border.all(color: Colors.amber.withOpacity(0.2)),

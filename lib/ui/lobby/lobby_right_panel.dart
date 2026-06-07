@@ -70,11 +70,11 @@ class LobbyRightPanel extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(22),
-                        color: const Color(0xFF0F2F2A).withOpacity(0.90),
+                        color: const Color(0xFF12171D).withOpacity(0.84),
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xEE13291F), Color(0xEE0C1712)],
+                          colors: [Color(0xDD1F252D), Color(0xDD12161C)],
                         ),
                         boxShadow: const [
                           BoxShadow(

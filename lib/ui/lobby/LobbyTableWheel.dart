@@ -178,7 +178,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xEE173328), Color(0xEE0D1915)],
+              colors: [Color(0xDD1E232A), Color(0xDD12161C)],
             ),
             border: Border.all(color: const Color(0x88E7C66A), width: 1.1),
           ),
@@ -256,7 +256,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xEE173328), Color(0xEE0D1915)],
+              colors: [Color(0xDD1E232A), Color(0xDD12161C)],
             ),
             border: Border.all(color: const Color(0xBFE7C66A), width: 1.2),
 
@@ -366,7 +366,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               const SizedBox(height: 18),
 
               const Text(
-                "OynadÄ±kÃ§a kazan, kazandÄ±kÃ§a Ã¼st liglere katÄ±l.",
+                "Oynadıkça kazan, kazandıkça üst liglere katıl.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xB7DCE6DF),
@@ -399,12 +399,12 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
         gradient: LinearGradient(
           colors: ok
-              ? [const Color(0xFF1A3127), const Color(0xFF0B1812)]
+              ? [const Color(0xFF232932), const Color(0xFF121720)]
               : [const Color(0xFF3A2318), const Color(0xFF130D09)],
         ),
 
         border: Border.all(
-          color: ok ? const Color(0xAA7FB08F) : const Color(0xCCB17254),
+          color: ok ? const Color(0xAA8B96A8) : const Color(0xCCB17254),
         ),
       ),
 
@@ -421,12 +421,12 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: ok ? const Color(0x333B5D4B) : const Color(0x334A2820),
+                color: ok ? const Color(0x33343C4A) : const Color(0x334A2820),
               ),
               child: Icon(
                 icon,
                 size: 16,
-                color: ok ? const Color(0xFF9CC2A9) : const Color(0xFFE3A27F),
+                color: ok ? const Color(0xFFC5CEDD) : const Color(0xFFE3A27F),
               ),
             ),
 

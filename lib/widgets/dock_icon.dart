@@ -58,7 +58,7 @@ class _AaaDockIconState extends State<AaaDockIcon>
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFE7C66A).withOpacity(glow),
-                    blurRadius: 14,
+                    blurRadius: 10,
                   ),
                   BoxShadow(
                     color: Colors.black.withOpacity(0.8),
@@ -76,7 +76,7 @@ class _AaaDockIconState extends State<AaaDockIcon>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF18352D), Color(0xFF0E231E)],
+                        colors: [Color(0xFF21262D), Color(0xFF12171D)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

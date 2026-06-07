@@ -74,7 +74,7 @@ class _CreateButtonState extends State<CreateButton>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF163A33), Color(0xFF0B221F)],
+                        colors: [Color(0xFF22272E), Color(0xFF12171D)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

@@ -42,7 +42,7 @@ class LobbyTableCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0x66146744), Color(0x220F3B2B)],
+          colors: [Color(0x661B222B), Color(0x2210151B)],
         ),
         border: Border.all(color: goldBorderColor, width: 1),
         boxShadow: const [
