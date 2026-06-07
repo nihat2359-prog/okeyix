@@ -569,7 +569,8 @@ class TileComponent extends PositionComponent
         return const Color(0xFF1A1A1A);
 
       case TileColor.yellow:
-        return const Color(0xFFF4A622);
+        // Softer amber-brown for better contrast on warm tile body.
+        return const Color(0xFF9C6A12);
     }
   }
 
@@ -595,11 +596,6 @@ class TileSurfaceFx extends PositionComponent {
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
-    final borderRect = rect.deflate(0.6);
-    final borderRRect = RRect.fromRectAndRadius(
-      borderRect,
-      const Radius.circular(11.4),
-    );
 
     final topGloss = Paint()
       ..shader = const LinearGradient(
@@ -619,44 +615,6 @@ class TileSurfaceFx extends PositionComponent {
       ).createShader(rect);
     canvas.drawRRect(rrect, edgeShadow);
 
-    final innerStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = const Color(0x59FFFFFF);
-    canvas.drawRRect(rrect.deflate(1.2), innerStroke);
-
-    final outerShadow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..color = const Color(0x8F4A525C);
-    canvas.drawRRect(borderRRect, outerShadow);
-
-    final outerCore = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.6
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
-        stops: [0.0, 0.56, 1.0],
-      ).createShader(rect);
-    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
-
-    final edgeSpecular = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
-      ).createShader(rect);
-    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
-
-    final innerCore = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.9
-      ..color = const Color(0x8A7D8792);
-    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
   }
 }
 
@@ -669,46 +627,7 @@ class TileBackFrameFx extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
-    final borderRect = rect.deflate(0.6);
-    final borderRRect = RRect.fromRectAndRadius(
-      borderRect,
-      const Radius.circular(11.4),
-    );
-
-    final outerShadow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..color = const Color(0x8F4A525C);
-    canvas.drawRRect(borderRRect, outerShadow);
-
-    final outerCore = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.6
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
-        stops: [0.0, 0.56, 1.0],
-      ).createShader(rect);
-    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
-
-    final edgeSpecular = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
-      ).createShader(rect);
-    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
-
-    final innerCore = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.9
-      ..color = const Color(0x8A7D8792);
-    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
+    // Intentionally empty: removed tile border frame rendering.
   }
 }
 

@@ -281,56 +281,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           fit: StackFit.expand,
           children: [
             Image.asset('assets/images/table.png', fit: BoxFit.fill),
+
             // Ambient color pass for a more cinematic look.
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF0F2942).withOpacity(0.26),
-                      const Color(0xFF2F1D49).withOpacity(0.18),
-                      const Color(0xFF112D3C).withOpacity(0.24),
-                    ],
-                    stops: const [0.0, 0.48, 1.0],
-                  ),
-                ),
-              ),
-            ),
+
             // Soft center glow.
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.center,
-                    radius: 0.72,
-                    colors: [
-                      const Color(0xFF66D1FF).withOpacity(pulse),
-                      const Color(0xFFEA57FF).withOpacity(pulse * 0.55),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.48, 1.0],
-                  ),
-                ),
-              ),
-            ),
+
             // Vignette to add depth.
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.center,
-                    radius: 1.05,
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xCC05070B).withOpacity(0.45),
-                    ],
-                    stops: const [0.62, 1.0],
-                  ),
-                ),
-              ),
-            ),
           ],
         );
       },
@@ -1642,7 +1598,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               opacity: _isLeavingTable ? 0.7 : 1,
               child: Container(
                 width: 248,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
                   gradient: const LinearGradient(
@@ -1650,7 +1609,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                     end: Alignment.bottomRight,
                     colors: [Color(0xFFE56F57), Color(0xFFB73E36)],
                   ),
-                  border: Border.all(color: const Color(0xFFFFD0C6), width: 1.1),
+                  border: Border.all(
+                    color: const Color(0xFFFFD0C6),
+                    width: 1.1,
+                  ),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x662A0D0A),
@@ -1706,14 +1668,14 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xEE1A2622), Color(0xEE101714)],
+            colors: [Color(0x661A2622), Color(0x66101714)],
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0x88DAB971), width: 1.1),
+          border: Border.all(color: const Color(0x66DAB971), width: 1.0),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x4D000000),
-              blurRadius: 12,
+              color: Color(0x29000000),
+              blurRadius: 8,
               offset: Offset(0, 4),
             ),
           ],
@@ -1792,13 +1754,13 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         width: 340,
         padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
         decoration: BoxDecoration(
-          color: const Color(0xEE101814),
+          color: const Color(0x66101814),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0x88DAB971)),
+          border: Border.all(color: const Color(0x66DAB971)),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 12,
+              color: Color(0x33000000),
+              blurRadius: 8,
               offset: Offset(0, 4),
             ),
           ],
@@ -1852,9 +1814,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1D2A23),
+                    color: const Color(0x661D2A23),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0x88DAB971)),
+                    border: Border.all(color: const Color(0x66DAB971)),
                   ),
                   child: const Text(
                     'Anladım',
@@ -1947,16 +1909,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           constraints: const BoxConstraints(maxWidth: 320),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            color: const Color(0xDD0E1310),
+            color: const Color(0x660E1310),
             border: Border.all(
               color: isError
-                  ? const Color(0xCCFF6B6B)
-                  : const Color(0xCC7DD19B),
+                  ? const Color(0x99FF6B6B)
+                  : const Color(0x997DD19B),
             ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 14,
+                color: Color(0x33000000),
+                blurRadius: 8,
                 offset: Offset(0, 4),
               ),
             ],
@@ -2105,13 +2067,13 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xEE1A2622), Color(0xEE101714)],
+                colors: [Color(0x661A2622), Color(0x66101714)],
               ),
-              border: Border.all(color: const Color(0x88DAB971), width: 1.1),
+              border: Border.all(color: const Color(0x66DAB971), width: 1.0),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x4D000000),
-                  blurRadius: 10,
+                  color: Color(0x29000000),
+                  blurRadius: 8,
                   offset: Offset(0, 3),
                 ),
               ],
@@ -2138,10 +2100,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   const SizedBox(width: 6),
                   InkWell(
                     onTap: () {
-                      openStoreScreen(
-                        context,
-                        initialCoin: UserState.userCoin,
-                      );
+                      openStoreScreen(context, initialCoin: UserState.userCoin);
                     },
                     borderRadius: BorderRadius.circular(999),
                     child: Container(
@@ -2293,12 +2252,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        gradient: LinearGradient(colors: colors),
-        border: Border.all(color: const Color(0x88D8B86D), width: 1),
+        gradient: LinearGradient(
+          colors: colors
+              .map((c) => c.withOpacity(0.55))
+              .toList(growable: false),
+        ),
+        border: Border.all(color: const Color(0x66D8B86D), width: 0.9),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x30000000),
-            blurRadius: 4,
+            color: Color(0x22000000),
+            blurRadius: 3,
             offset: Offset(0, 2),
           ),
         ],

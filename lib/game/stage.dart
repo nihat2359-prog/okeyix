@@ -16,7 +16,7 @@ class Stage extends Component with HasGameReference<OkeyGame> {
     final image = await game.images.load('rack.png');
 
     _rack = PositionComponent(
-      size: Vector2(1380, 400),
+      size: Vector2(1440, 400),
       position: Vector2(810, 900 - 180),
       anchor: Anchor.center,
     );
@@ -30,9 +30,7 @@ class Stage extends Component with HasGameReference<OkeyGame> {
       ),
     );
     if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicRack) {
-      _rack.add(
-        RackCinematicFx(size: _rack.size, position: _rack.size / 2),
-      );
+      _rack.add(RackCinematicFx(size: _rack.size, position: _rack.size / 2));
     }
 
     _rack.priority = 0;
@@ -89,10 +87,7 @@ class Stage extends Component with HasGameReference<OkeyGame> {
     final git = RackActionButton(
       label: 'Çifte Git',
       targetPosition: rightBottomTarget,
-      startPosition: Vector2(
-        rackRight - rightSize.x - 24,
-        rightBottomTarget.y,
-      ),
+      startPosition: Vector2(rackRight - rightSize.x - 24, rightBottomTarget.y),
       size: rightSize,
       onTap: () => game.requestDoubleMode(),
     );
@@ -248,12 +243,7 @@ class RackActionButton extends PositionComponent with TapCallbacks {
       )..layout();
       final w = textPainter.width;
       final x = (size.x - w) / 2;
-      _textPaint.render(
-        canvas,
-        line,
-        Vector2(x, y),
-        anchor: Anchor.topLeft,
-      );
+      _textPaint.render(canvas, line, Vector2(x, y), anchor: Anchor.topLeft);
       y += _lineHeight;
     }
     if (_pressed) canvas.restore();

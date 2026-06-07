@@ -133,6 +133,8 @@ class PushNotificationService {
         if (merged.isNotEmpty) {
           _onForegroundData?.call(merged);
         }
+        // Some launchers keep stale badge unless we force-clear on foreground receive.
+        unawaited(clearAppBadge());
       });
 
       final initialMessage = await messaging.getInitialMessage();
@@ -155,6 +157,15 @@ class PushNotificationService {
       final supported = await FlutterAppBadger.isAppBadgeSupported();
       if (!supported) return;
       FlutterAppBadger.removeBadge();
+      // Fallback for launchers that ignore removeBadge().
+      FlutterAppBadger.updateBadgeCount(0);
+      // Retry once after a short delay for OEM launchers with delayed badge sync.
+      Future.delayed(const Duration(milliseconds: 450), () {
+        try {
+          FlutterAppBadger.removeBadge();
+          FlutterAppBadger.updateBadgeCount(0);
+        } catch (_) {}
+      });
     } catch (_) {}
   }
 

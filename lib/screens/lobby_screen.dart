@@ -2120,6 +2120,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
     if (changed) {
       await _persistSeenSystemMessages();
+      _lastSystemToastMessageId = null;
+      if (mounted) setState(() {});
     }
   }
 
@@ -2133,10 +2135,18 @@ class _LobbyScreenState extends State<LobbyScreen>
         unreadIds.add(id);
       }
     }
-    if (!showToast || unreadIds.isEmpty || !mounted) return;
+    if (unreadIds.isEmpty) {
+      _lastSystemToastMessageId = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+      return;
+    }
+    if (!showToast || !mounted) return;
     final newestId = unreadIds.first;
     if (_lastSystemToastMessageId == newestId) return;
     _lastSystemToastMessageId = newestId;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Yeni sistem duyurusu var.'),
@@ -2370,6 +2380,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<void> _showSystemMessagesDialog() async {
     await _loadSystemMessages();
     await _markVisibleSystemMessagesAsSeen();
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
     if (!mounted) return;
     await showDialog<void>(
       context: context,
@@ -2512,6 +2525,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         );
       },
     );
+    // Dialog kapandıktan sonra tekrar kontrol et, rozet/snackbar state'i temiz kalsın.
+    await _checkUnreadSystemMessages(showToast: false);
   }
 
   Future<void> _checkCampaignPopup() async {

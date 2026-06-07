@@ -173,7 +173,7 @@ class LobbyLeagueList extends StatelessWidget {
                       Color(0xFFF0C776),
                       Color(0xFF3F806F),
                     ]
-                  : [Color(0x55304640), Color(0x77405E57)],
+                  : [Color(0x55304640), Color(0x77508A79)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -225,7 +225,7 @@ class LobbyLeagueList extends StatelessWidget {
               border: Border.all(
                 color: selected
                     ? const Color(0xFFF2C56C)
-                    : const Color(0x77523624),
+                    : const Color(0x77508A79),
                 width: selected ? 1.25 : 0.9,
               ),
 
