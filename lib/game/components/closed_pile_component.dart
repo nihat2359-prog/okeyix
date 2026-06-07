@@ -30,16 +30,16 @@ class ClosedPileComponent extends PositionComponent
       textRenderer: TextPaint(
         style: const TextStyle(
           fontFamily: 'Montserrat',
-          fontSize: 44,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.4,
-          color: Color(0xFF1B2A49),
+          fontSize: 34,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
+          color: Color(0xFF253A63),
           shadows: [
-            Shadow(offset: Offset(0, 1.2), blurRadius: 1.2, color: Colors.black26),
+            Shadow(offset: Offset(0, 1.0), blurRadius: 1.2, color: Colors.black38),
             Shadow(
-              offset: Offset(0, -0.5),
-              blurRadius: 0.5,
-              color: Colors.white24,
+              offset: Offset(0, -0.35),
+              blurRadius: 0.4,
+              color: Colors.white30,
             ),
           ],
         ),
@@ -56,11 +56,30 @@ class ClosedPileComponent extends PositionComponent
     final gameRef = findGame() as OkeyGame;
     if (gameRef.isFinishOpen) return;
     // Stack efekti render içinde
-    for (int i = 0; i < 3; i++) {
-      final pos = Vector2(i * 3, -i * 3);
+    for (int i = 0; i < 4; i++) {
+      final pos = Vector2(i * 2.2, -i * 2.0);
       backSprite.render(canvas, size: size, position: pos);
       _renderBackFrame(canvas, pos);
     }
+
+    final plateRect = Rect.fromCenter(
+      center: Offset(size.x * 0.53, size.y * 0.52),
+      width: size.x * 0.38,
+      height: size.y * 0.26,
+    );
+    final plate = RRect.fromRectAndRadius(plateRect, const Radius.circular(12));
+    final plateFill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xC8FFF3D8), Color(0x99E5D7BA)],
+      ).createShader(plateRect);
+    final plateBorder = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0xA5FFFFFF);
+    canvas.drawRRect(plate, plateFill);
+    canvas.drawRRect(plate, plateBorder);
 
     super.render(canvas);
   }

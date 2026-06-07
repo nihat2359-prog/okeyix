@@ -37,6 +37,7 @@ import '../ui/lobby/lobby_side_menu.dart';
 import '../ui/lobby/lobby_right_panel.dart';
 import '../ui/lobby/_ui_helpers.dart';
 import '../ui/lobby/lobby_table_card.dart';
+import '../ui/ambient/sky_planes_overlay.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
@@ -3976,6 +3977,12 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ),
                 ),
               ),
+            ),
+          ),
+          const Positioned.fill(
+            child: SkyPlanesOverlay(
+              skyHeightFactor: 0.34,
+              planeCount: 2,
             ),
           ),
 

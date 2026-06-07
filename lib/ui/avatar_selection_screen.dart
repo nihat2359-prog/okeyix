@@ -350,12 +350,12 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
               decoration: BoxDecoration(
                 color: premiumHeader
                     ? const Color(0x33FFD27D)
-                    : const Color(0x3345B47A),
+                    : const Color(0x33384A60),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
                   color: premiumHeader
                       ? const Color(0x66FFD27D)
-                      : const Color(0x6645B47A),
+                      : const Color(0x667A8EA8),
                 ),
               ),
               child: Text(
@@ -363,7 +363,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 style: TextStyle(
                   color: premiumHeader
                       ? const Color(0xFFFFD27D)
-                      : const Color(0xFFBFE5CC),
+                      : const Color(0xFFDCE5F2),
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
@@ -441,7 +441,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 ? const Color(0xFFE8C36A)
                 : (preset.isPremium
                       ? const Color(0x66FFD27D)
-                      : const Color(0x334F8F75)),
+                      : const Color(0x447A8EA8)),
             width: selected ? 2.2 : 1.0,
           ),
           boxShadow: selected
@@ -462,7 +462,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  color: const Color(0xFF1A2B25),
+                  color: const Color(0xFF1A212B),
                   padding: const EdgeInsets.all(4),
                   child: Image.asset(
                     preset.imageUrl,

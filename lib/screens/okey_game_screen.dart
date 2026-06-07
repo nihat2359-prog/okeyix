@@ -14,6 +14,7 @@ import 'package:okeyix/services/voice_command_service.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/game_avatar_overlay.dart' as overlay;
+import 'package:okeyix/ui/ambient/sky_planes_overlay.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1510,6 +1511,13 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                       /// ğŸ”¥ MASA (FULL STRETCH)
                       Positioned.fill(child: _buildTableBackdrop()),
+                      const Positioned.fill(
+                        child: SkyPlanesOverlay(
+                          skyHeightFactor: 0.28,
+                          planeCount: 2,
+                          horizontalInset: 60,
+                        ),
+                      ),
 
                       /// ğŸ® GAME (FULL)
                       Positioned.fill(

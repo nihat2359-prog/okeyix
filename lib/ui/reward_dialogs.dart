@@ -51,9 +51,9 @@ class _WelcomeRewardDialogState extends State<WelcomeRewardDialog>
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF203A30), Color(0xFF101A16)],
+              colors: [Color(0xEE171B23), Color(0xDD0D1016)],
             ),
-            border: Border.all(color: const Color(0xFFE7C66A), width: 1.2),
+            border: Border.all(color: const Color(0x66E7C06A), width: 1.1),
             boxShadow: const [
               BoxShadow(
                 color: Color(0xAA000000),
@@ -149,8 +149,8 @@ class _WelcomeRewardDialogState extends State<WelcomeRewardDialog>
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          color: const Color(0x27284534),
-                          border: Border.all(color: const Color(0x88E7C66A)),
+                          color: const Color(0x2211161E),
+                          border: Border.all(color: const Color(0x66E7C66A)),
                         ),
                         child: Column(
                           children: [
@@ -261,9 +261,9 @@ class _DailyBonusDialogState extends State<DailyBonusDialog>
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF21372F), Color(0xFF101B17)],
+              colors: [Color(0xEE171B23), Color(0xDD0D1016)],
             ),
-            border: Border.all(color: const Color(0xFFE7C66A), width: 1),
+            border: Border.all(color: const Color(0x66E7C66A), width: 1),
             boxShadow: const [
               BoxShadow(
                 color: Color(0xAA000000),
@@ -334,7 +334,7 @@ class _DailyBonusDialogState extends State<DailyBonusDialog>
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          color: const Color(0x1EF2C14E),
+                          color: const Color(0x2211161E),
                           border: Border.all(color: const Color(0x66E7C66A)),
                         ),
                         child: Text(
@@ -355,8 +355,8 @@ class _DailyBonusDialogState extends State<DailyBonusDialog>
                           icon: const Icon(Icons.redeem_rounded),
                           label: const Text('Al'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2B7B55),
-                            foregroundColor: Colors.white,
+                            backgroundColor: const Color(0xFFE7C66A),
+                            foregroundColor: const Color(0xFF2A1A04),
                             padding: const EdgeInsets.symmetric(vertical: 11),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(11),
