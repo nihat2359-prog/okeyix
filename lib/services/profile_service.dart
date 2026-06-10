@@ -997,7 +997,7 @@ class ProfileService {
       context: context,
       barrierDismissible: true,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF13231C),
+        backgroundColor: const Color(0xCC121826),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: Color(0xCCB07A1A), width: 0.3),
@@ -1013,7 +1013,7 @@ class ProfileService {
             Expanded(
               child: Text(
                 '$username sana arkadaşlık isteği gönderdi.',
-                style: const TextStyle(color: Color(0xFFD5E9DF)),
+                style: const TextStyle(color: Color(0xFFE6EDF7)),
               ),
             ),
           ],

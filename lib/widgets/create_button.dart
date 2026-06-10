@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
+// Create button outer-arc fine tuning (single place to tweak).
+class _CreateButtonOuterArcStyle {
+  static const Color color = Color(0xB3D9B97A);
+  static const double strokeWidth = 1.4;
+  static const double inset = -0.1;
+  static const double startAngle = -0.40; // radians
+  static const double sweepAngle = -2.35; // radians (shorter than half circle)
+}
+
 class CreateButton extends StatefulWidget {
   final VoidCallback onTap;
 
@@ -69,18 +78,29 @@ class _CreateButtonState extends State<CreateButton>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  /// CHIP BASE
+                  /// CHIP BASE (no full border)
                   Container(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [Color(0xFF22272E), Color(0xFF12171D)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      border: Border.all(
-                        color: const Color(0xB3D9B97A),
-                        width: 1.6,
+                    ),
+                  ),
+
+                  /// Top-only border arc (no border on lower half).
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _TopArcBorderPainter(
+                          color: _CreateButtonOuterArcStyle.color,
+                          strokeWidth: _CreateButtonOuterArcStyle.strokeWidth,
+                          inset: _CreateButtonOuterArcStyle.inset,
+                          startAngle: _CreateButtonOuterArcStyle.startAngle,
+                          sweepAngle: _CreateButtonOuterArcStyle.sweepAngle,
+                        ),
                       ),
                     ),
                   ),
@@ -99,7 +119,7 @@ class _CreateButtonState extends State<CreateButton>
                     ),
                   ),
 
-                  /// LIGHT RING
+                  /// LIGHT RING (keep full ring around plus area)
                   Container(
                     width: 54,
                     height: 54,
@@ -214,5 +234,49 @@ class AaaPlus extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _TopArcBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double inset;
+  final double startAngle;
+  final double sweepAngle;
+
+  const _TopArcBorderPainter({
+    required this.color,
+    required this.strokeWidth,
+    this.inset = 0.0,
+    this.startAngle = 0.0,
+    this.sweepAngle = -math.pi,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..color = color
+      ..isAntiAlias = true
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromLTWH(
+      inset + strokeWidth / 2,
+      inset + strokeWidth / 2,
+      size.width - ((inset + strokeWidth / 2) * 2),
+      size.height - ((inset + strokeWidth / 2) * 2),
+    );
+
+    canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TopArcBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.inset != inset ||
+        oldDelegate.startAngle != startAngle ||
+        oldDelegate.sweepAngle != sweepAngle;
   }
 }

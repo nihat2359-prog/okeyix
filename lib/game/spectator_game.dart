@@ -82,14 +82,26 @@ class SpectatorGame extends FlameGame {
   Future<void> _loadDeckCount() async {
     final table = await supabase
         .from('tables')
-        .select('deck_count')
+        .select('deck,deck_count,indicator_tile')
         .eq('id', tableId)
         .single();
 
-    final count = table['deck_count'] ?? 0;
-
-    deckCountText.text = count.toString();
+    _applyDeckFromRaw(table['deck'], fallbackDeckCount: table['deck_count']);
+    _applyIndicatorFromRaw(table['indicator_tile']);
   }
+
+  void _applyDeckFromRaw(dynamic deckRaw, {dynamic fallbackDeckCount}) {
+    if (deckRaw is List) {
+      final drawableCount = deckRaw.isNotEmpty ? deckRaw.length - 1 : 0;
+      deckCountText.text = drawableCount.clamp(0, 999).toString();
+      return;
+    }
+    final fallback = fallbackDeckCount is int
+        ? fallbackDeckCount
+        : int.tryParse(fallbackDeckCount?.toString() ?? '');
+    deckCountText.text = (fallback ?? 0).clamp(0, 999).toString();
+  }
+
 
   int _getSeatFromPlayer(String userId) {
     return playerSeatMap[userId] ?? 0;
@@ -160,8 +172,13 @@ class SpectatorGame extends FlameGame {
         .single();
 
     final raw = table['indicator_tile'];
+    _applyIndicatorFromRaw(raw);
+  }
 
+  void _applyIndicatorFromRaw(dynamic raw) {
     if (raw == null) {
+      indicatorTile?.removeFromParent();
+      indicatorTile = null;
       return;
     }
 
@@ -287,6 +304,8 @@ class SpectatorGame extends FlameGame {
       ),
       callback: (payload) async {
         final row = payload.newRecord;
+        _applyDeckFromRaw(row['deck'], fallbackDeckCount: row['deck_count']);
+        _applyIndicatorFromRaw(row['indicator_tile']);
 
         // Finish overlay is driven by SpectatorScreen to keep one consistent UI flow.
       },
@@ -596,4 +615,5 @@ class SpectatorGame extends FlameGame {
     topAvatarPos.setFrom(top);
     bottomAvatarPos.setFrom(bottom);
   }
+
 }

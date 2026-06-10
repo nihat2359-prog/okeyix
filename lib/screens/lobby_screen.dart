@@ -133,6 +133,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _initCalled = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
+  bool _colorBlindMode = false;
   bool _allowGameInvites = true;
   bool _showGuestBanner = false;
   List<Map<String, dynamic>> _systemMessages = [];
@@ -387,6 +388,9 @@ class _LobbyScreenState extends State<LobbyScreen>
     await FeedbackSettingsService.load();
     _soundEnabled = FeedbackSettingsService.soundEnabled;
     _vibrationEnabled = FeedbackSettingsService.vibrationEnabled;
+    final prefs = await SharedPreferences.getInstance();
+    _colorBlindMode = prefs.getBool('color_blind_mode') ?? false;
+    UserState.colorBlindMode = _colorBlindMode;
 
     final canContinue = await _loadUser();
     if (!canContinue) return;
@@ -3980,10 +3984,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
           ),
           const Positioned.fill(
-            child: SkyPlanesOverlay(
-              skyHeightFactor: 0.34,
-              planeCount: 2,
-            ),
+            child: SkyPlanesOverlay(skyHeightFactor: 0.34, planeCount: 2),
           ),
 
           SafeArea(
@@ -5504,6 +5505,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                 },
               ),
               const Divider(color: Color(0x335C6878), height: 1),
+
               SwitchListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -5527,6 +5529,34 @@ class _LobbyScreenState extends State<LobbyScreen>
                   await FeedbackSettingsService.setVibrationEnabled(value);
                   if (!mounted) return;
                   setState(() => _vibrationEnabled = value);
+                },
+              ),
+              const Divider(color: Color(0x335C6878), height: 1),
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeColor: const Color(0xFF2B3441),
+                activeTrackColor: const Color(0xFFE7C06A),
+                inactiveThumbColor: const Color(0xFF8EA79A),
+                inactiveTrackColor: const Color(0x334E6A5D),
+                title: const Text(
+                  'Renk Körü Modu',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Açıksa sarı taşlar yeşil görünür',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                value: _colorBlindMode,
+                onChanged: (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('color_blind_mode', value);
+                  UserState.colorBlindMode = value;
+                  if (!mounted) return;
+                  setState(() => _colorBlindMode = value);
                 },
               ),
               const Divider(color: Color(0x335C6878), height: 1),
@@ -5589,21 +5619,106 @@ class _LobbyScreenState extends State<LobbyScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text("Hesabı Sil"),
-          content: Text(
-            "Bu işlem geri alınamaz. Hesabınız ve tüm verileriniz silinecek. Emin misiniz?",
+        final width = MediaQuery.of(context).size.width;
+        final dialogWidth = width > 700 ? 430.0 : (width * 0.86).clamp(300.0, 430.0);
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Center(
+            child: SizedBox(
+              width: dialogWidth,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xCC121826),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0x66E7C06A), width: 1.2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x66000000),
+                      blurRadius: 24,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Row(
+                  children: const [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFFFB4B4),
+                      size: 22,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Hesabı Sil',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Bu işlem geri alınamaz.\nHesabınız ve tüm verileriniz kalıcı olarak silinecek.',
+                  style: TextStyle(
+                    color: Color(0xFFD8DEE8),
+                    fontSize: 14,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0x557B8593)),
+                              foregroundColor: const Color(0xFFE7EDF5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            child: const Text(
+                              'İptal',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE34A4A),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            child: const Text(
+                              'Sil',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          actions: [
-            TextButton(
-              child: Text("İptal"),
-              onPressed: () => Navigator.pop(context, false),
-            ),
-            TextButton(
-              child: Text("Sil"),
-              onPressed: () => Navigator.pop(context, true),
-            ),
-          ],
         );
       },
     );
@@ -6088,7 +6203,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         duration: const Duration(milliseconds: 1100),
         curve: Curves.easeOutCubic,
         builder: (context, animatedValue, _) {
-          final ratingProgress = Format.ratingProgress(
+          final levelValue = Format.ratingLevel(animatedValue.round());
+          final ratingProgress = Format.ratingLevelProgress(
             animatedValue.round(),
           ).clamp(0.0, 1.0);
           final ratingDisplayProgress = ratingProgress > 0
@@ -6122,9 +6238,9 @@ class _LobbyScreenState extends State<LobbyScreen>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Color(0xFFFFF4C2),
-                                Color(0xFFF1C76F),
-                                Color(0xFFD39A32),
+                                Color(0xFFA5D6A7),
+                                Color(0xFF66BB6A),
+                                Color(0xFF43A047),
                               ],
                             ),
                           ),
@@ -6132,10 +6248,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                       ),
                     ),
                     Text(
-                      Format.rating(animatedValue.round()),
+                      'Seviye $levelValue',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12.5,
+                        fontSize: 12.0,
                         fontWeight: FontWeight.w800,
                         height: 1.0,
                         fontFeatures: [FontFeature.tabularFigures()],

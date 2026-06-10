@@ -11,4 +11,5 @@ class UserState {
   static Set<String> blockedUserIds = {};
   static Set<String> incomingRequestIds = {};
   static Set<String> outgoingRequestIds = {};
+  static bool colorBlindMode = false;
 }

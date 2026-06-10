@@ -116,6 +116,24 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     return sorted;
   }
 
+  String _leagueDisplayName(dynamic rawLeagueId) {
+    final id = (rawLeagueId ?? '').toString().trim().toLowerCase();
+    switch (id) {
+      case 'standard':
+        return 'Acemiler';
+      case 'bronze':
+        return 'Çıraklar';
+      case 'silver':
+        return 'Kalfalar';
+      case 'gold':
+        return 'Ustalar';
+      case 'elite':
+        return 'Şampiyonlar';
+      default:
+        return id.isEmpty ? '-' : id;
+    }
+  }
+
   void _appendIncomingMessage(Map<String, dynamic> msg) {
     final incomingId = msg['id']?.toString();
     final next = List<Map<String, dynamic>>.from(
@@ -412,7 +430,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                   children: [
                     _headerChip(
                       icon: Icons.shield_rounded,
-                      text: 'Lig ${table!['league_id'] ?? '-'}',
+                      text: 'Lig ${_leagueDisplayName(table!['league_id'])}',
                     ),
                     _headerChip(
                       icon: Icons.monetization_on_rounded,
@@ -453,7 +471,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           /// ÃœST OYUNCU
           if (top != null)
             Positioned(
-              top: 80,
+              top: 68,
               left: 0,
               right: 0,
               child: Column(
@@ -471,7 +489,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                     avatarPath: top['users']['avatar_url']?.toString(),
                     avatarKey: topAvatarKey,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
                   Text(
                     top['users']['username'] ?? "",
                     style: const TextStyle(color: Colors.white),
@@ -483,7 +501,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           /// ALT OYUNCU
           if (bottom != null)
             Positioned(
-              bottom: 80,
+              bottom: 58,
               left: 0,
               right: 0,
               child: Column(

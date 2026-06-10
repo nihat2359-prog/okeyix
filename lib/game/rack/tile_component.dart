@@ -1,9 +1,10 @@
-import 'package:flame/components.dart';
+﻿import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/engine/models/tile.dart';
+import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/game/theme_flags.dart';
 import '../okey_game.dart';
 import 'rack_config.dart';
@@ -16,13 +17,16 @@ extension TileColorTypeStyle on TileColorType {
   Color get color {
     switch (this) {
       case TileColorType.red:
-        return const Color(0xFFB3261E); // brick red
+        return const Color(0xFFD12B3F); // cooler crimson red
       case TileColorType.blue:
         return const Color(0xFF1E5CC6); // deep blue
       case TileColorType.black:
         return const Color(0xFF1A1A1A); // soft black
       case TileColorType.yellow:
-        return const Color(0xFFC49A00); // amber gold
+        if (UserState.colorBlindMode) {
+          return const Color(0xFF2E8B57);
+        }
+        return const Color(0xFF8D7300); // league-title gold
     }
   }
 }
@@ -69,7 +73,7 @@ class TileComponent extends PositionComponent
     final baseImage = await gameRef.images.load('tile_base.png');
     final backImage = await gameRef.images.load('tile_back.png');
 
-    // BACK SPRITE (ters yüz)
+    // BACK SPRITE (ters yÃ¼z)
     backSprite = SpriteComponent(
       sprite: Sprite(backImage),
       size: size,
@@ -86,7 +90,7 @@ class TileComponent extends PositionComponent
       position: size / 2,
     );
 
-    // Eğer gerçek okeyse ters başlat
+    // EÄŸer gerÃ§ek okeyse ters baÅŸlat
     if (isJoker) {
       isFaceDown = true;
       add(backSprite);
@@ -101,7 +105,7 @@ class TileComponent extends PositionComponent
       }
     }
 
-    // Eğer sahte okeyse ⭐ çiz
+    // EÄŸer sahte okeyse â­ Ã§iz
     if (isFakeJoker) {
       add(baseSprite);
       if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
@@ -110,7 +114,7 @@ class TileComponent extends PositionComponent
 
       final centerPos = Vector2(size.x / 2, size.y * 0.32);
 
-      // Premium altın zemin
+      // Premium altÄ±n zemin
       add(
         CircleComponent(
           radius: 26,
@@ -145,7 +149,7 @@ class TileComponent extends PositionComponent
         ),
       );
 
-      // Yıldız (şampanya tonu)
+      // YÄ±ldÄ±z (ÅŸampanya tonu)
       add(
         StarComponent(
           radius: 14,
@@ -157,10 +161,10 @@ class TileComponent extends PositionComponent
       return;
     }
 
-    // Eğer gerçek okey ama ters ise içerik çizme
+    // EÄŸer gerÃ§ek okey ama ters ise iÃ§erik Ã§izme
     if (isJoker && isFaceDown) return;
 
-    // NORMAL TAŞ İÇERİĞİ
+    // NORMAL TAÅ Ä°Ã‡ERÄ°ÄÄ°
 
     final inkColor = _getInkColor();
     final badgeColors = _getInkColor();
@@ -168,9 +172,34 @@ class TileComponent extends PositionComponent
     // Surface polish and bevel for a more premium tile body.
     add(TileSurfaceFx(size: size, position: size / 2));
 
-    // Number emboss shadow.
+    final numberPos = Vector2(size.x / 2, size.y * 0.345);
 
-    // Main number fill.
+    // Premium soft aura layer (kept subtle for readability).
+    final glowText = TextComponent(
+      text: value.toString(),
+      textRenderer: TextPaint(
+        style: TextStyle(
+          fontFamily: 'Montserrat',
+          fontWeight: FontWeight.w800,
+          fontSize: 56,
+          letterSpacing: -0.4,
+          color: const Color(0xFFE7C66A).withOpacity(0.32),
+          shadows: [
+            Shadow(
+              offset: const Offset(0, 0),
+              blurRadius: 4.5,
+              color: const Color(0xFFE7C66A).withOpacity(0.35),
+            ),
+          ],
+        ),
+      ),
+      anchor: Anchor.center,
+      position: numberPos,
+      priority: 1,
+    );
+    add(glowText);
+
+    // Main number fill (crisp foreground).
     numberText = TextComponent(
       text: value.toString(),
       textRenderer: TextPaint(
@@ -183,24 +212,17 @@ class TileComponent extends PositionComponent
           color: inkColor,
 
           shadows: [
-            // 🔥 alt gölge
             Shadow(
-              offset: Offset(0, 1.2),
-              blurRadius: 1.2,
-              color: Colors.black.withOpacity(0.3),
-            ),
-
-            // 🔥 üst highlight
-            Shadow(
-              offset: Offset(0, -0.5),
-              blurRadius: 0.5,
-              color: Colors.white.withOpacity(0.15),
+              offset: const Offset(0, 0),
+              blurRadius: 0.7,
+              color: Colors.black.withOpacity(0.18),
             ),
           ],
         ),
       ),
       anchor: Anchor.center,
-      position: Vector2(size.x / 2, size.y * 0.345),
+      position: numberPos,
+      priority: 2,
     );
     add(numberText);
 
@@ -313,7 +335,7 @@ class TileComponent extends PositionComponent
       }
     } else {
       add(baseSprite);
-      onLoad(); // tekrar ön yüzü çiz
+      onLoad(); // tekrar Ã¶n yÃ¼zÃ¼ Ã§iz
     }
   }
 
@@ -437,13 +459,13 @@ class TileComponent extends PositionComponent
         return;
       }
 
-      // 1) Discard alanına bırakıldı mı? (hitbox toleranslı)
+      // 1) Discard alanÄ±na bÄ±rakÄ±ldÄ± mÄ±? (hitbox toleranslÄ±)
       if (gameRef.bottomRightDiscard.containsPoint(worldPos) ||
           gameRef.isPointNearBottomDiscard(worldPos)) {
         final canDiscardNow =
             gameRef.hasDrawnThisTurn || gameRef.getMyHandCount() == 15;
         if (canDiscardNow) {
-          _handleDiscard(gameRef); // 🔥 await YOK
+          _handleDiscard(gameRef); // ğŸ”¥ await YOK
         } else {
           _restoreToOriginalSlot();
         }
@@ -560,7 +582,7 @@ class TileComponent extends PositionComponent
   Color _getInkColor() {
     switch (tile.color) {
       case TileColor.red:
-        return const Color(0xFFD32F2F);
+        return const Color(0xFFD12B3F);
 
       case TileColor.blue:
         return const Color(0xFF2F5BFF);
@@ -569,8 +591,10 @@ class TileComponent extends PositionComponent
         return const Color(0xFF1A1A1A);
 
       case TileColor.yellow:
-        // Softer amber-brown for better contrast on warm tile body.
-        return const Color(0xFF9C6A12);
+        if (UserState.colorBlindMode) {
+          return const Color(0xFF2E8B57);
+        }
+        return const Color(0xFF8D7300);
     }
   }
 
@@ -802,5 +826,6 @@ class StarComponent extends PositionComponent {
     canvas.drawPath(path, paint);
   }
 }
+
 
 

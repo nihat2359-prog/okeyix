@@ -441,6 +441,13 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     return (remain / _turnSeconds) * 15.0;
   }
 
+  double _ringProgressForSeat(int seatIndex) {
+    if (_turnSeconds <= 0) return 1.0;
+    if (seatIndex != _currentTurnSeat) return 1.0;
+    final remain = _remainingTurnSeconds();
+    return (remain / _turnSeconds).clamp(0.0, 1.0);
+  }
+
   int _normalizeTurnSeconds(int value) {
     if (value <= 0) return 15;
     if (value < 5) return 5;
@@ -533,7 +540,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             child: _buildSeatWithChatBubble(
               player: me.player,
               position: AvatarPosition.bottom,
-              progress: widget.game.getTurnProgress(),
+              progress: _ringProgressForSeat(me.seatIndex),
               onTap: () {
                 ProfileService.showUserCard({'id': me.player.id});
               },
@@ -550,10 +557,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               ? _buildSeatWithChatBubble(
                   player: opponent.player,
                   position: AvatarPosition.top,
-                  progress: (opponent.player.remainingTime / 15).clamp(
-                    0.0,
-                    1.0,
-                  ),
+                  progress: _ringProgressForSeat(opponent.seatIndex),
                   onTap: () {
                     ProfileService.showUserCard({'id': opponent.player.id});
                   },
@@ -589,10 +593,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               ? _buildSeatWithChatBubble(
                   player: occupied.player,
                   position: _avatarPositionFor(relativeSeat),
-                  progress: (occupied.player.remainingTime / 15).clamp(
-                    0.0,
-                    1.0,
-                  ),
+                  progress: _ringProgressForSeat(occupied.seatIndex),
                 )
               : (_tableStatus == 'playing'
                     ? const SizedBox.shrink()

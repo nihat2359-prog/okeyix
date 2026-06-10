@@ -1,6 +1,7 @@
 class Format {
   static const int ratingStep = 100;
-  static const int ratingMaxValue = 15000; // 15.0
+  static const int ratingMaxValue = 34000; // 34.0
+  static const int ratingLevelStep = 1000; // per-level bucket
 
   static String coin(num value) {
     if (value >= 1000000000000) {
@@ -57,6 +58,17 @@ class Format {
   static double ratingProgress(int value) {
     if (value <= 0) return 0;
     return (value / ratingMaxValue).clamp(0.0, 1.0).toDouble();
+  }
+
+  static int ratingLevel(int value) {
+    final safe = value < 0 ? 0 : value;
+    return (safe ~/ ratingLevelStep) + 1;
+  }
+
+  static double ratingLevelProgress(int value) {
+    final safe = value < 0 ? 0 : value;
+    final inLevel = safe % ratingLevelStep;
+    return (inLevel / ratingLevelStep).clamp(0.0, 1.0).toDouble();
   }
 
   static int ratingNextTarget(int value) {
