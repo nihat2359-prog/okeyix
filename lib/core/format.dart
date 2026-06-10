@@ -62,7 +62,8 @@ class Format {
 
   static int ratingLevel(int value) {
     final safe = value < 0 ? 0 : value;
-    return (safe ~/ ratingLevelStep) + 1;
+    final level = safe ~/ ratingLevelStep;
+    return level < 1 ? 1 : level;
   }
 
   static double ratingLevelProgress(int value) {

@@ -76,10 +76,13 @@ class _LobbyScreenState extends State<LobbyScreen>
   late final AnimationController _bgController;
   late final AnimationController _coinFxController;
   late final AnimationController _coinCountController;
+  late final AnimationController _ratingCountController;
   Animation<int>? _coinCountAnimation;
+  Animation<int>? _ratingCountAnimation;
   Timer? _coinFxTimer;
   bool _coinFxActive = false;
   int _coinDisplayValue = 0;
+  int _ratingDisplayValue = 0;
   final TextEditingController _chatController = TextEditingController();
   final _recorder = AudioRecorder();
   final ScrollController _chatScrollController = ScrollController();
@@ -201,6 +204,15 @@ class _LobbyScreenState extends State<LobbyScreen>
           if (anim == null || !mounted) return;
           setState(() => _coinDisplayValue = anim.value);
         });
+    _ratingCountController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1100),
+        )..addListener(() {
+          final anim = _ratingCountAnimation;
+          if (anim == null || !mounted) return;
+          setState(() => _ratingDisplayValue = anim.value);
+        });
 
     _storePulse = AnimationController(
       vsync: this,
@@ -309,6 +321,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     _bgController.dispose();
     _coinFxController.dispose();
     _coinCountController.dispose();
+    _ratingCountController.dispose();
     _storePulse.dispose();
     _audioPlayer.dispose();
     _tableInviteChannel?.unsubscribe();
@@ -985,6 +998,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final allowGameInvites =
           (profile?['allow_game_invites'] as bool?) ?? true;
       final previousCoin = UserState.userCoin;
+      final previousRating = _ratingDisplayValue;
 
       if (!mounted) return false;
       if (row != null) {
@@ -1024,6 +1038,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (profileCoin != previousCoin) {
         _animateCoinCount(previousCoin, profileCoin);
       }
+      if (profileRating != previousRating) {
+        _animateRatingCount(previousRating, profileRating);
+      }
       if (profileCoin > previousCoin) {
         _triggerCoinFx();
       }
@@ -1057,6 +1074,21 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
     _coinDisplayValue = from;
     _coinCountController
+      ..reset()
+      ..forward();
+  }
+
+  void _animateRatingCount(int from, int to) {
+    if (!mounted) return;
+    _ratingCountController.stop();
+    _ratingCountAnimation = IntTween(begin: from, end: to).animate(
+      CurvedAnimation(
+        parent: _ratingCountController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    _ratingDisplayValue = from;
+    _ratingCountController
       ..reset()
       ..forward();
   }
@@ -6198,71 +6230,64 @@ class _LobbyScreenState extends State<LobbyScreen>
     final t = _coinFxActive ? _coinFxController.value : 0.0;
     final spin = t * 6.28318;
     if (!coin) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: value.toDouble()),
-        duration: const Duration(milliseconds: 1100),
-        curve: Curves.easeOutCubic,
-        builder: (context, animatedValue, _) {
-          final levelValue = Format.ratingLevel(animatedValue.round());
-          final ratingProgress = Format.ratingLevelProgress(
-            animatedValue.round(),
-          ).clamp(0.0, 1.0);
-          final ratingDisplayProgress = ratingProgress > 0
-              ? ratingProgress.clamp(0.08, 1.0).toDouble()
-              : 0.0;
-          return SizedBox(
-            width: 92,
-            height: 24,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1A2328), Color(0xFF11181C)],
-                ),
-                border: Border.all(color: const Color(0x33E7C06A)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(color: const Color(0x664A5C53)),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FractionallySizedBox(
-                        widthFactor: ratingDisplayProgress,
-                        heightFactor: 1,
-                        child: const DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFA5D6A7),
-                                Color(0xFF66BB6A),
-                                Color(0xFF43A047),
-                              ],
-                            ),
-                          ),
+      final levelValue = Format.ratingLevel(_ratingDisplayValue);
+      final ratingProgress = Format.ratingLevelProgress(
+        _ratingDisplayValue,
+      ).clamp(0.0, 1.0);
+      final ratingDisplayProgress = ratingProgress > 0
+          ? ratingProgress.clamp(0.08, 1.0).toDouble()
+          : 0.0;
+      return SizedBox(
+        width: 92,
+        height: 24,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1A2328), Color(0xFF11181C)],
+            ),
+            border: Border.all(color: const Color(0x33E7C06A)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(color: const Color(0x664A5C53)),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: ratingDisplayProgress,
+                    heightFactor: 1,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFF7E6B5),
+                            Color(0xFFE2BE73),
+                            Color(0xFFB7893F),
+                          ],
                         ),
                       ),
                     ),
-                    Text(
-                      'Seviye $levelValue',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.w800,
-                        height: 1.0,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                Text(
+                  'Seviye $levelValue',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       );
     }
     final chipPadding = coin

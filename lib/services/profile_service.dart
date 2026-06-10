@@ -1311,7 +1311,8 @@ class ProfileService {
               duration: const Duration(milliseconds: 1100),
               curve: Curves.easeOutCubic,
               builder: (context, animatedRating, _) {
-                final safeProgress = Format.ratingProgress(
+                final levelValue = Format.ratingLevel(animatedRating.round());
+                final safeProgress = Format.ratingLevelProgress(
                   animatedRating.round(),
                 ).clamp(0.0, 1.0);
                 final displayProgress = safeProgress > 0
@@ -1423,11 +1424,11 @@ class ProfileService {
                           ),
                         ),
                         Text(
-                          Format.rating(animatedRating.round()),
+                          'Seviye $levelValue',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
-                            fontSize: 21,
+                            fontSize: 15.5,
                             height: 1.0,
                             shadows: [
                               Shadow(
