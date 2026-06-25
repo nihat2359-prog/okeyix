@@ -19,14 +19,14 @@ extension TileColorTypeStyle on TileColorType {
       case TileColorType.red:
         return const Color(0xFFD12B3F); // cooler crimson red
       case TileColorType.blue:
-        return const Color(0xFF1E5CC6); // deep blue
+        return const Color(0xFF1F5BFF); // classic vivid blue
       case TileColorType.black:
         return const Color(0xFF1A1A1A); // soft black
       case TileColorType.yellow:
         if (UserState.colorBlindMode) {
           return const Color(0xFF2E8B57);
         }
-        return const Color(0xFF8D7300); // league-title gold
+        return const Color(0xFFFFD400); // true vivid yellow
     }
   }
 }
@@ -168,36 +168,38 @@ class TileComponent extends PositionComponent
 
     final inkColor = _getInkColor();
     final badgeColors = _getInkColor();
+    final isYellowInk = tile.color == TileColor.yellow;
 
     // Surface polish and bevel for a more premium tile body.
     add(TileSurfaceFx(size: size, position: size / 2));
 
     final numberPos = Vector2(size.x / 2, size.y * 0.345);
 
-    // Premium soft aura layer (kept subtle for readability).
-    final glowText = TextComponent(
-      text: value.toString(),
-      textRenderer: TextPaint(
-        style: TextStyle(
-          fontFamily: 'Montserrat',
-          fontWeight: FontWeight.w800,
-          fontSize: 56,
-          letterSpacing: -0.4,
-          color: const Color(0xFFE7C66A).withOpacity(0.32),
-          shadows: [
-            Shadow(
-              offset: const Offset(0, 0),
-              blurRadius: 4.5,
-              color: const Color(0xFFE7C66A).withOpacity(0.35),
-            ),
-          ],
+    if (!isYellowInk) {
+      final glowText = TextComponent(
+        text: value.toString(),
+        textRenderer: TextPaint(
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            fontWeight: FontWeight.w800,
+            fontSize: 56,
+            letterSpacing: -0.4,
+            color: inkColor.withOpacity(0.28),
+            shadows: [
+              Shadow(
+                offset: const Offset(0, 0),
+                blurRadius: 4.0,
+                color: inkColor.withOpacity(0.30),
+              ),
+            ],
+          ),
         ),
-      ),
-      anchor: Anchor.center,
-      position: numberPos,
-      priority: 1,
-    );
-    add(glowText);
+        anchor: Anchor.center,
+        position: numberPos,
+        priority: 1,
+      );
+      add(glowText);
+    }
 
     // Main number fill (crisp foreground).
     numberText = TextComponent(
@@ -211,13 +213,37 @@ class TileComponent extends PositionComponent
 
           color: inkColor,
 
-          shadows: [
-            Shadow(
-              offset: const Offset(0, 0),
-              blurRadius: 0.7,
-              color: Colors.black.withOpacity(0.18),
-            ),
-          ],
+          shadows: isYellowInk
+              ? [
+                  // Thin dark contour so yellow stays readable on warm tile base.
+                  Shadow(
+                    offset: const Offset(-0.65, 0),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.72),
+                  ),
+                  Shadow(
+                    offset: const Offset(0.65, 0),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.72),
+                  ),
+                  Shadow(
+                    offset: const Offset(0, -0.65),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.65),
+                  ),
+                  Shadow(
+                    offset: const Offset(0, 0.6),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.70),
+                  ),
+                ]
+              : [
+                  Shadow(
+                    offset: const Offset(0, 0),
+                    blurRadius: 0.7,
+                    color: Colors.black.withOpacity(0.18),
+                  ),
+                ],
         ),
       ),
       anchor: Anchor.center,
@@ -233,6 +259,7 @@ class TileComponent extends PositionComponent
         center: Vector2(size.x / 2, size.y * 0.71),
         coreColor: badgeColors,
         rimColor: badgeColors,
+        mellow: isYellowInk,
       ),
     );
   }
@@ -585,7 +612,7 @@ class TileComponent extends PositionComponent
         return const Color(0xFFD12B3F);
 
       case TileColor.blue:
-        return const Color(0xFF2F5BFF);
+        return const Color(0xFF1F5BFF);
 
       case TileColor.black:
         return const Color(0xFF1A1A1A);
@@ -594,7 +621,7 @@ class TileComponent extends PositionComponent
         if (UserState.colorBlindMode) {
           return const Color(0xFF2E8B57);
         }
-        return const Color(0xFF8D7300);
+        return const Color(0xFFFFD400);
     }
   }
 
@@ -660,12 +687,14 @@ class TileGemBadge extends PositionComponent {
   final Vector2 center;
   final Color coreColor;
   final Color rimColor;
+  final bool mellow;
 
   TileGemBadge({
     required this.radius,
     required this.center,
     required this.coreColor,
     required this.rimColor,
+    this.mellow = false,
   }) {
     position = center;
     anchor = Anchor.center;
@@ -673,9 +702,13 @@ class TileGemBadge extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
+    final double outerCoreOpacity = mellow ? 0.84 : 0.96;
+    final double ringOpacity = mellow ? 0.36 : 0.53;
+    final double gleamOpacity = mellow ? 0.34 : 0.65;
+
     final outer = Paint()
       ..shader = RadialGradient(
-        colors: [coreColor.withOpacity(0.96), rimColor],
+        colors: [coreColor.withOpacity(outerCoreOpacity), rimColor],
         stops: const [0.35, 1.0],
       ).createShader(Rect.fromCircle(center: Offset.zero, radius: radius));
     canvas.drawCircle(Offset.zero, radius, outer);
@@ -683,10 +716,10 @@ class TileGemBadge extends PositionComponent {
     final ring = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4
-      ..color = const Color(0x88FFFFFF);
+      ..color = Colors.white.withOpacity(ringOpacity);
     canvas.drawCircle(Offset.zero, radius - 0.9, ring);
 
-    final gleam = Paint()..color = const Color(0xA6FFFFFF);
+    final gleam = Paint()..color = Colors.white.withOpacity(gleamOpacity);
     canvas.drawCircle(
       Offset(-radius * 0.3, -radius * 0.35),
       radius * 0.28,
