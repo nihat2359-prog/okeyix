@@ -1,7 +1,8 @@
-﻿import 'package:flame/components.dart';
+import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/services/user_state.dart';
@@ -26,7 +27,7 @@ extension TileColorTypeStyle on TileColorType {
         if (UserState.colorBlindMode) {
           return const Color(0xFF2E8B57);
         }
-        return const Color(0xFFFFD400); // true vivid yellow
+        return const Color(0xFFE3BB00);
     }
   }
 }
@@ -73,7 +74,7 @@ class TileComponent extends PositionComponent
     final baseImage = await gameRef.images.load('tile_base.png');
     final backImage = await gameRef.images.load('tile_back.png');
 
-    // BACK SPRITE (ters yÃ¼z)
+    // BACK SPRITE (ters yüz)
     backSprite = SpriteComponent(
       sprite: Sprite(backImage),
       size: size,
@@ -90,7 +91,7 @@ class TileComponent extends PositionComponent
       position: size / 2,
     );
 
-    // EÄŸer gerÃ§ek okeyse ters baÅŸlat
+    // Eğer gerçek okeyse ters başlat
     if (isJoker) {
       isFaceDown = true;
       add(backSprite);
@@ -105,7 +106,7 @@ class TileComponent extends PositionComponent
       }
     }
 
-    // EÄŸer sahte okeyse â­ Ã§iz
+    // Eğer sahte okeyse ⭐ çiz
     if (isFakeJoker) {
       add(baseSprite);
       if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
@@ -114,7 +115,7 @@ class TileComponent extends PositionComponent
 
       final centerPos = Vector2(size.x / 2, size.y * 0.32);
 
-      // Premium altÄ±n zemin
+      // Premium altın zemin
       add(
         CircleComponent(
           radius: 26,
@@ -149,7 +150,7 @@ class TileComponent extends PositionComponent
         ),
       );
 
-      // YÄ±ldÄ±z (ÅŸampanya tonu)
+      // Yıldız (şampanya tonu)
       add(
         StarComponent(
           radius: 14,
@@ -161,10 +162,10 @@ class TileComponent extends PositionComponent
       return;
     }
 
-    // EÄŸer gerÃ§ek okey ama ters ise iÃ§erik Ã§izme
+    // Eğer gerçek okey ama ters ise içerik çizme
     if (isJoker && isFaceDown) return;
 
-    // NORMAL TAÅ Ä°Ã‡ERÄ°ÄÄ°
+    // NORMAL TAŞ İÇERİĞİ
 
     final inkColor = _getInkColor();
     final badgeColors = _getInkColor();
@@ -362,7 +363,7 @@ class TileComponent extends PositionComponent
       }
     } else {
       add(baseSprite);
-      onLoad(); // tekrar Ã¶n yÃ¼zÃ¼ Ã§iz
+      onLoad(); // tekrar ön yüzü çiz
     }
   }
 
@@ -486,13 +487,13 @@ class TileComponent extends PositionComponent
         return;
       }
 
-      // 1) Discard alanÄ±na bÄ±rakÄ±ldÄ± mÄ±? (hitbox toleranslÄ±)
+      // 1) Discard alanına bırakıldı mı? (hitbox toleranslı)
       if (gameRef.bottomRightDiscard.containsPoint(worldPos) ||
           gameRef.isPointNearBottomDiscard(worldPos)) {
         final canDiscardNow =
             gameRef.hasDrawnThisTurn || gameRef.getMyHandCount() == 15;
         if (canDiscardNow) {
-          _handleDiscard(gameRef); // ğŸ”¥ await YOK
+          _handleDiscard(gameRef); // 🔥 await YOK
         } else {
           _restoreToOriginalSlot();
         }
@@ -621,7 +622,7 @@ class TileComponent extends PositionComponent
         if (UserState.colorBlindMode) {
           return const Color(0xFF2E8B57);
         }
-        return const Color(0xFFFFD400);
+        return const Color(0xFFE3BB00);
     }
   }
 
@@ -859,6 +860,8 @@ class StarComponent extends PositionComponent {
     canvas.drawPath(path, paint);
   }
 }
+
+
 
 
 
