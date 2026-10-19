@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/core/format.dart';
+import 'package:okeyix/core/table_creation_options.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -1484,7 +1485,13 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  Future<void> _createTable() async {
+  Future<void> _createTable({
+    required Map<String, dynamic> league,
+    required int entry,
+    required int turnSeconds,
+    required bool spectatorsEnabled,
+    required bool chatEnabled,
+  }) async {
     final user = supabase.auth.currentUser;
     if (user == null) {
       _msg('Oturum bulunamadı.');
@@ -1495,57 +1502,23 @@ class _LobbyScreenState extends State<LobbyScreen>
       return;
     }
 
-    final league = leagues.firstWhere(
-      (l) => l['id'] == selectedLeague,
-      orElse: () => leagues.first,
-    );
-
-    if (coinOptions.isEmpty) {
-      final minCoin = (league['min_coin'] as int?) ?? 100;
-      final maxCoin = (league['max_coin'] as int?) ?? minCoin;
-      int current = minCoin;
-      while (current < maxCoin) {
-        coinOptions.add(current);
-        if (current < 100000) {
-          current *= 2;
-        } else if (current < 1000000) {
-          current = (current * 2.5).toInt();
-        } else {
-          current = (current * 2).toInt();
-        }
-        if (coinOptions.length > 8) break;
-      }
-      if (!coinOptions.contains(maxCoin)) {
-        coinOptions.add(maxCoin);
-      }
-      if (coinOptions.isEmpty) {
-        coinOptions.add(minCoin);
-      }
-      selectedIndex = 0;
-    }
-
-    final effectiveTurnSeconds = draftTurnSeconds;
-    final safeIndex = selectedIndex.clamp(0, coinOptions.length - 1);
-    final entry = coinOptions[safeIndex];
     if (UserState.userCoin < entry) return _msg('Yetersiz coin.');
     if (UserState.userRating < ((league['min_rating'] as int?) ?? 0)) {
       return _msg('Bu lig için seviye yetersiz.');
     }
 
     try {
+      final payload = tableCreationPayload(
+        league: league,
+        userId: user.id,
+        entry: entry,
+        turnSeconds: turnSeconds,
+        spectatorsEnabled: spectatorsEnabled,
+        chatEnabled: chatEnabled,
+      );
       final table = await supabase
           .from('tables')
-          .insert({
-            'league_id': league['id'],
-            'max_players': createMaxPlayer,
-            'entry_coin': entry,
-            'min_rounds': league['min_rounds'] ?? 2,
-            'status': 'waiting',
-            'created_by': user.id,
-            'turn_seconds': effectiveTurnSeconds,
-            'spectators_enabled': createSpectatorEnabled,
-            'chat_enabled': createChatEnabled,
-          })
+          .insert(payload)
           .select()
           .single();
 
@@ -3041,21 +3014,12 @@ class _LobbyScreenState extends State<LobbyScreen>
       return;
     }
 
-    // Options are derived from the selected league, never a fixed visual list.
-    coinOptions = <int>[];
-    var amount = minCoin;
-    while (amount < maxCoin && coinOptions.length < 9) {
-      coinOptions.add(amount);
-      final next = amount < 100000
-          ? amount * 2
-          : amount < 1000000
-          ? (amount * 2.5).toInt()
-          : amount * 2;
-      if (next <= amount) break;
-      amount = next;
+    try {
+      coinOptions = buildTableStakes(minCoin, maxCoin);
+    } on ArgumentError {
+      _msg('Ligin giriş bedeli aralığı geçersiz.');
+      return;
     }
-    if (!coinOptions.contains(maxCoin)) coinOptions.add(maxCoin);
-    if (coinOptions.isEmpty) coinOptions.add(minCoin);
     selectedIndex = 0;
     draftTurnSeconds = 20;
     var spectator = createSpectatorEnabled;
@@ -3086,7 +3050,15 @@ class _LobbyScreenState extends State<LobbyScreen>
             createSpectatorEnabled = spectator;
             createChatEnabled = chat;
             Navigator.of(dialogContext).pop();
-            _createTable();
+            unawaited(
+              _createTable(
+                league: Map<String, dynamic>.from(league),
+                entry: coinOptions[selectedIndex],
+                turnSeconds: draftTurnSeconds,
+                spectatorsEnabled: spectator,
+                chatEnabled: chat,
+              ),
+            );
           },
         ),
       ),
@@ -6108,10 +6080,4 @@ class _OkeyCreateTablePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-String _formatCreateStake(int amount) {
-  if (amount >= 1000000)
-    return '${(amount / 1000000).toStringAsFixed(amount % 1000000 == 0 ? 0 : 1)}M';
-  if (amount >= 1000)
-    return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1)}K';
-  return '$amount';
-}
+String _formatCreateStake(int amount) => formatTableStake(amount);

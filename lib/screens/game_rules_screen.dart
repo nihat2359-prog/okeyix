@@ -57,7 +57,7 @@ class GameRulesScreen extends StatelessWidget {
       'min_rounds': 6,
       'turn_seconds': 30,
       'min_coin': 3000000,
-      'max_coin': 5000000,
+      'max_coin': 10000000,
       'icon': Icons.auto_awesome,
       'highlight': true,
     },
@@ -104,7 +104,11 @@ class GameRulesScreen extends StatelessWidget {
                 Text(
                   'OkeyIX tamamen sunucu kontrollü çalışır. '
                   'Taş dağıtımı, sıra yönetimi ve bitiş kontrolleri sunucu tarafında doğrulanır.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -194,7 +198,10 @@ class GameRulesScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: highlight ? Colors.black : const Color(0xFFE7C06A)),
+              Icon(
+                icon,
+                color: highlight ? Colors.black : const Color(0xFFE7C06A),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -213,8 +220,11 @@ class GameRulesScreen extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _chip('Min Seviye', minRating == 0 ? 'Yok' : '$minRating+',
-                  highlight: highlight),
+              _chip(
+                'Min Seviye',
+                minRating == 0 ? 'Yok' : '$minRating+',
+                highlight: highlight,
+              ),
               _chip(
                 'Coin Aralığı',
                 '${Format.coin(minCoin)} - ${Format.coin(maxCoin)}',
@@ -264,7 +274,10 @@ class GameRulesScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset('assets/images/lobby/lobby.png', fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/images/lobby/lobby.png',
+              fit: BoxFit.cover,
+            ),
           ),
           Positioned.fill(child: Container(color: const Color(0xCC000000))),
           SafeArea(
