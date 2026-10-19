@@ -3036,767 +3036,834 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _showCreateModal() async {
+    if (leagues.isEmpty) {
+      _msg('Lig bilgisi yüklenemedi.');
+      return;
+    }
     final league = leagues.firstWhere(
       (l) => l['id'] == selectedLeague,
       orElse: () => leagues.first,
     );
-
-    final entry = (league['entry_coin'] as int?) ?? 100;
-
-    final playerCoin = UserState.userCoin;
-    final playerRating = UserState.userRating;
-
-    final minCoin = league['min_coin'];
-    final minRating = league['min_rating'];
-
-    final eligible = playerCoin >= minCoin && playerRating >= minRating;
-
-    final maxCoin = league['max_coin'];
-    bool isDragging = false;
-
-    /// ?? PRESET COIN L?STES?
-
-    int current = minCoin;
-    coinOptions = [];
-    selectedIndex = 0;
-    draftTurnSeconds = 20;
-    bool draftSpectatorEnabled = createSpectatorEnabled;
-    bool draftChatEnabled = createChatEnabled;
-    while (current < maxCoin) {
-      coinOptions.add(current);
-
-      if (current < 100000) {
-        current *= 2;
-      } else if (current < 1000000) {
-        current = (current * 2.5).toInt();
-      } else {
-        current = (current * 2).toInt();
-      }
-
-      if (coinOptions.length > 8) break;
-    }
-
-    if (!coinOptions.contains(maxCoin)) {
-      coinOptions.add(maxCoin);
-    }
-
-    // normal default
-    /// ?? K?L?TL?YSE ? D?REKT SATIN ALMA
-    if (!eligible) {
+    final minCoin = (league['min_coin'] as num?)?.toInt() ?? 100;
+    final maxCoin = (league['max_coin'] as num?)?.toInt() ?? minCoin;
+    final minRating = (league['min_rating'] as num?)?.toInt() ?? 0;
+    if (UserState.userCoin < minCoin || UserState.userRating < minRating) {
       final result = await openStoreScreen(
         context,
         initialCoin: UserState.userCoin,
       );
-
-      /// ?? widget hala aktif mi?
       if (!mounted) return;
-
-      if (result == true) {
-        await _loadUser();
-      }
-
+      if (result == true) await _loadUser();
       return;
     }
 
-    showDialog(
+    // Options are derived from the selected league, never a fixed visual list.
+    coinOptions = <int>[];
+    var amount = minCoin;
+    while (amount < maxCoin && coinOptions.length < 9) {
+      coinOptions.add(amount);
+      final next = amount < 100000
+          ? amount * 2
+          : amount < 1000000
+          ? (amount * 2.5).toInt()
+          : amount * 2;
+      if (next <= amount) break;
+      amount = next;
+    }
+    if (!coinOptions.contains(maxCoin)) coinOptions.add(maxCoin);
+    if (coinOptions.isEmpty) coinOptions.add(minCoin);
+    selectedIndex = 0;
+    draftTurnSeconds = 20;
+    var spectator = createSpectatorEnabled;
+    var chat = createChatEnabled;
+    if (!mounted) return;
+
+    const gold = Color(0xFFF1C46C);
+    const muted = Color(0xFFA8AEB0);
+    const panel = Color(0xFF111316);
+    final entryChipsController = ScrollController();
+    await showDialog<void>(
       context: context,
-      barrierColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final canCreate = UserState.userCoin >= entry;
+      barrierColor: const Color(0xDD020507),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, refresh) {
+          final stake = coinOptions[selectedIndex];
+          final canCreate = UserState.userCoin >= stake;
 
-            return Material(
-              color: Colors.transparent,
-              child: Center(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = kIsWeb
-                        ? (constraints.maxWidth * 0.72).clamp(820.0, 1020.0)
-                        : constraints.maxWidth * 0.62;
-                    final double? height = kIsWeb
-                        ? null
-                        : constraints.maxHeight * 0.94;
-
-                    return Container(
-                      width: width,
-                      height: height,
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(26),
-                        border: Border.all(
-                          color: const Color(0xCFE7C66A),
-                          width: 1.0,
+          Widget speedChoice(
+            String label,
+            String subtitle,
+            IconData icon,
+            int seconds,
+          ) {
+            final active = draftTurnSeconds == seconds;
+            return Expanded(
+              child: InkWell(
+                onTap: () => refresh(() => draftTurnSeconds = seconds),
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: active ? gold : const Color(0xFF202124),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: active
+                          ? const Color(0xFFFFE1A0)
+                          : const Color(0xFF45413B),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: active ? const Color(0xFF21180B) : gold,
+                      ),
+                      const SizedBox(width: 7),
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: active
+                                    ? const Color(0xFF21180B)
+                                    : Colors.white,
+                              ),
+                            ),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: active ? const Color(0xFF574321) : muted,
+                              ),
+                            ),
+                          ],
                         ),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xF321252C), Color(0xF212151B)],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          Widget setting(
+            String label,
+            IconData icon,
+            bool value,
+            VoidCallback onTap,
+          ) {
+            return Expanded(
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  height: 47,
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
+                  decoration: BoxDecoration(
+                    color: panel,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF57472A)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, color: gold, size: 19),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: 30,
+                        height: 17,
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: value ? gold : const Color(0xFF4A4C51),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Align(
+                          alignment: value
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: const CircleAvatar(
+                            radius: 6.5,
+                            backgroundColor: Color(0xFFF8F1DC),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 7,
+            ),
+            child: LayoutBuilder(
+              builder: (context, limits) {
+                final width = min(limits.maxWidth, 1080.0);
+                final height = min(limits.maxHeight, 540.0);
+                final small = height < 390;
+                return Center(
+                  child: SizedBox(
+                    width: width,
+                    height: height,
+                    child: Container(
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0D0F12),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: const Color(0xFFC79949),
+                          width: 1.2,
                         ),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color(0xB3000000),
-                            blurRadius: 36,
-                            offset: Offset(0, 16),
-                          ),
-                          BoxShadow(
-                            color: Color(0x44E7C66A),
-                            blurRadius: 22,
-                            spreadRadius: -2,
+                            color: Color(0xC9000000),
+                            blurRadius: 28,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
-
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          /// HEADER
-                          Row(
-                            children: [
-                              const Text(
-                                "MASA OLUŞTUR",
-                                style: TextStyle(
-                                  color: Color(0xFFF2D38D),
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 22,
-                                  letterSpacing: 0.5,
-                                ),
+                          SizedBox(
+                            height: small ? 44 : 54,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
                               ),
-
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(999),
-                                  color: const Color(0x22363D48),
-                                  border: Border.all(
-                                    color: const Color(0x667B8593),
-                                    width: 0.8,
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.casino_rounded,
+                                    color: gold,
+                                    size: 24,
                                   ),
-                                ),
-                                child: Text(
-                                  league['name'],
-                                  style: const TextStyle(
-                                    color: Color(0xFFEAF3EE),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11.5,
+                                  const SizedBox(width: 9),
+                                  Text(
+                                    'MASA OLUŞTUR',
+                                    style: TextStyle(
+                                      color: gold,
+                                      fontSize: small ? 17 : 20,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: .5,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFF55514B),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${league['name']}',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xFFD2D2D2),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Kapat',
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white,
+                                      size: 23,
+                                    ),
+                                  ),
+                                ],
                               ),
-
-                              const Spacer(),
-
-                              InkWell(
-                                onTap: () => Navigator.pop(context),
-                                child: const Icon(
-                                  Icons.close,
-                                  color: Color(0xFFDCE8E2),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-
-                          /// LEAGUE INFO
-
-                          /// PICKERS YAN YANA
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              /// ?? SE??LEN COIN (HERO)
-
-                              /// ?? SLIDER (AAA)
-                              SizedBox(
-                                height: 72,
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final width = constraints.maxWidth;
-
-                                    const handleWidth = 94.0;
-                                    const sidePadding = 48.0;
-
-                                    final usableWidth =
-                                        width - (sidePadding * 2);
-                                    final percent =
-                                        selectedIndex /
-                                        (coinOptions.length - 1);
-                                    final left =
-                                        sidePadding +
-                                        (usableWidth - handleWidth) * percent;
-
-                                    return Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        /// ?? TRACK
-                                        Positioned.fill(
-                                          child: Container(
-                                            margin: const EdgeInsets.symmetric(
-                                              vertical: 14,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(30),
-                                              gradient: const LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: [
-                                                  Color(0x3318221E),
-                                                  Color(0x22101814),
-                                                ],
-                                              ),
-                                              border: Border.all(
-                                                color: const Color(0x446E8F7F),
-                                                width: 1.2,
-                                              ),
-                                              boxShadow: const [
-                                                BoxShadow(
-                                                  color: Color(0x6A000000),
-                                                  blurRadius: 12,
-                                                  offset: Offset(0, 4),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(9, 0, 9, 9),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    flex: 36,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: LayoutBuilder(
+                                        builder: (context, sceneSize) {
+                                          final sceneW = sceneSize.maxWidth;
+                                          final sceneH = sceneSize.maxHeight;
+                                          return Stack(
+                                            children: [
+                                              // High-resolution cinematic table artwork. The stake plate and
+                                              // game-speed badge below are live Flutter widgets, not baked text.
+                                              Positioned.fill(
+                                                child: Image.asset(
+                                                  'assets/images/lobby/okey_create_table_scene.png',
+                                                  fit: BoxFit.cover,
+                                                  alignment: Alignment.center,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      CustomPaint(
+                                                        painter:
+                                                            _OkeyLiveTablePainter(
+                                                              stake: stake,
+                                                              fast:
+                                                                  draftTurnSeconds ==
+                                                                  15,
+                                                            ),
+                                                      ),
                                                 ),
-                                                BoxShadow(
-                                                  color: Color(0x2AE7C66A),
-                                                  blurRadius: 16,
-                                                  spreadRadius: -6,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-
-                                        /// ?? - BUTTON
-                                        Positioned(
-                                          left: 6,
-                                          top: 0,
-                                          bottom: 0,
-                                          child: Center(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                setDialogState(() {
-                                                  selectedIndex =
-                                                      (selectedIndex - 1).clamp(
-                                                        0,
-                                                        coinOptions.length - 1,
-                                                      );
-                                                });
-                                              },
-                                              child: _circleButton(
-                                                Icons.remove,
                                               ),
-                                            ),
-                                          ),
-                                        ),
-
-                                        Positioned(
-                                          right: 6,
-                                          top: 0,
-                                          bottom: 0,
-                                          child: Center(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                setDialogState(() {
-                                                  selectedIndex =
-                                                      (selectedIndex + 1).clamp(
-                                                        0,
-                                                        coinOptions.length - 1,
-                                                      );
-                                                });
-                                              },
-                                              child: _circleButton(Icons.add),
-                                            ),
-                                          ),
-                                        ),
-
-                                        /// ?? HANDLE + DRAG
-                                        Positioned(
-                                          left: left,
-                                          top: 20,
-                                          child: GestureDetector(
-                                            onHorizontalDragStart: (_) {
-                                              setDialogState(
-                                                () => isDragging = true,
-                                              );
-                                            },
-                                            onHorizontalDragUpdate: (details) {
-                                              final dx = details
-                                                  .localPosition
-                                                  .dx
-                                                  .clamp(0, usableWidth);
-                                              final newIndex =
-                                                  ((dx / usableWidth) *
-                                                          (coinOptions.length -
-                                                              1))
-                                                      .round();
-
-                                              setDialogState(() {
-                                                selectedIndex = newIndex.clamp(
-                                                  0,
-                                                  coinOptions.length - 1,
-                                                );
-                                              });
-                                            },
-                                            onHorizontalDragEnd: (_) {
-                                              setDialogState(
-                                                () => isDragging = false,
-                                              );
-                                            },
-
-                                            child: Stack(
-                                              clipBehavior: Clip.none,
-                                              children: [
-                                                /// ?? BALON (SADECE DRAG SIRASINDA)
-                                                if (isDragging)
-                                                  Positioned(
-                                                    top: -46,
-                                                    left: 0,
-                                                    right: 0,
-                                                    child: Center(
-                                                      child: Column(
-                                                        children: [
-                                                          /// ?? BALON
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal:
-                                                                      14,
-                                                                  vertical: 7,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-
-                                                              /// ?? MODERN DARK GLASS
-                                                              gradient: LinearGradient(
-                                                                colors: [
-                                                                  Colors.black
-                                                                      .withOpacity(
-                                                                        0.85,
-                                                                      ),
-                                                                  Colors.black
-                                                                      .withOpacity(
-                                                                        0.65,
-                                                                      ),
-                                                                ],
-                                                              ),
-
-                                                              border: Border.all(
-                                                                color: Colors
-                                                                    .white
-                                                                    .withOpacity(
-                                                                      0.15,
-                                                                    ),
-                                                              ),
-
-                                                              boxShadow: [
-                                                                /// glow
-                                                                BoxShadow(
-                                                                  color: Colors
-                                                                      .amber
-                                                                      .withOpacity(
-                                                                        0.4,
-                                                                      ),
-                                                                  blurRadius:
-                                                                      12,
-                                                                ),
-
-                                                                /// depth
-                                                                BoxShadow(
-                                                                  color: Colors
-                                                                      .black
-                                                                      .withOpacity(
-                                                                        0.6,
-                                                                      ),
-                                                                  blurRadius: 8,
-                                                                  offset:
-                                                                      const Offset(
-                                                                        0,
-                                                                        4,
-                                                                      ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            child: Text(
-                                                              Format.coin(
-                                                                coinOptions[selectedIndex],
-                                                              ),
-                                                              style: const TextStyle(
-                                                                color: Color(
-                                                                  0xFFF2C14E,
-                                                                ),
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w900,
-                                                                fontSize: 13,
-                                                                letterSpacing:
-                                                                    0.5,
-                                                              ),
-                                                            ),
-                                                          ),
-
-                                                          /// ?? POINTER
-                                                          Container(
-                                                            width: 10,
-                                                            height: 6,
-                                                            decoration: BoxDecoration(
-                                                              color: Colors
-                                                                  .black
-                                                                  .withOpacity(
-                                                                    0.8,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    2,
-                                                                  ),
-                                                            ),
-                                                          ),
+                                              Positioned.fill(
+                                                child: IgnorePointer(
+                                                  child: DecoratedBox(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        begin:
+                                                            Alignment.topCenter,
+                                                        end: Alignment
+                                                            .bottomCenter,
+                                                        colors: [
+                                                          Colors.black
+                                                              .withOpacity(.08),
+                                                          Colors.transparent,
+                                                          Colors.black
+                                                              .withOpacity(.25),
                                                         ],
                                                       ),
                                                     ),
                                                   ),
-
-                                                /// ?? HANDLE
-                                                AnimatedContainer(
+                                                ),
+                                              ),
+                                              // Replaces the amount printed in the concept artwork.
+                                              Positioned(
+                                                left: sceneW * .348,
+                                                top: sceneH * .435,
+                                                width: sceneW * .304,
+                                                height: sceneH * .115,
+                                                child: AnimatedContainer(
                                                   duration: const Duration(
-                                                    milliseconds: 120,
+                                                    milliseconds: 220,
                                                   ),
-                                                  width: handleWidth,
-                                                  height: 34,
                                                   alignment: Alignment.center,
                                                   decoration: BoxDecoration(
+                                                    color: const Color(
+                                                      0xFF0B1210,
+                                                    ),
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                          15,
+                                                          9,
                                                         ),
-
-                                                    gradient:
-                                                        const LinearGradient(
-                                                          colors: [
-                                                            Color(0xFFFFE082),
-                                                            Color(0xFFF2C14E),
-                                                            Color(0xFFD4A24C),
-                                                          ],
-                                                          begin: Alignment
-                                                              .topCenter,
-                                                          end: Alignment
-                                                              .bottomCenter,
-                                                        ),
-
-                                                    boxShadow: [
+                                                    border: Border.all(
+                                                      color: gold,
+                                                      width: 1.1,
+                                                    ),
+                                                    boxShadow: const [
                                                       BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.6),
-                                                        blurRadius: 10,
-                                                        offset: const Offset(
-                                                          0,
-                                                          4,
+                                                        color: Color(
+                                                          0xB0000000,
                                                         ),
-                                                      ),
-                                                      BoxShadow(
-                                                        color: const Color(
-                                                          0xFFF2C14E,
-                                                        ).withOpacity(0.5),
-                                                        blurRadius: 12,
+                                                        blurRadius: 9,
                                                       ),
                                                     ],
                                                   ),
-
-                                                  child: Text(
-                                                    Format.coin(
-                                                      coinOptions[selectedIndex],
-                                                    ),
-                                                    style: const TextStyle(
-                                                      color: Color(0xFF1A1A1A),
-                                                      fontWeight:
-                                                          FontWeight.w900,
-                                                      fontSize: 13,
+                                                  child: FittedBox(
+                                                    fit: BoxFit.scaleDown,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 7,
+                                                          ),
+                                                      child: Text(
+                                                        _formatCreateStake(
+                                                          stake,
+                                                        ),
+                                                        style: TextStyle(
+                                                          color: gold,
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          fontSize: min(
+                                                            sceneH * .075,
+                                                            27,
+                                                          ),
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-
-                              /// ? OYUN HIZI (AAA SEGMENTED)
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-                                  color: const Color(0x1F101A16),
-                                  border: Border.all(
-                                    color: const Color(0x44779B8A),
-                                    width: 1,
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x66000000),
-                                      blurRadius: 10,
-                                      offset: Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    /// ? HIZLI
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setDialogState(() {
-                                            draftTurnSeconds = 15;
-                                          });
-                                        },
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 200,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                            color: draftTurnSeconds == 15
-                                                ? const Color(0x33E7C66A)
-                                                : Colors.transparent,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.flash_on,
-                                                size: 14,
-                                                color: draftTurnSeconds == 15
-                                                    ? const Color(0xFFF2D38D)
-                                                    : Colors.white54,
                                               ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                "Hızlı",
+                                              Positioned(
+                                                right: 8,
+                                                top: 8,
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(
+                                                      0xCC101511,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                        0x887C663A,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        draftTurnSeconds == 15
+                                                            ? Icons.bolt_rounded
+                                                            : Icons
+                                                                  .hourglass_bottom_rounded,
+                                                        size: 12,
+                                                        color: gold,
+                                                      ),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        draftTurnSeconds == 15
+                                                            ? '15 SN'
+                                                            : '20 SN',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 9,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    flex: 64,
+                                    child: Container(
+                                      padding: EdgeInsets.all(small ? 10 : 13),
+                                      decoration: BoxDecoration(
+                                        color: panel,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: const Color(0xFF67502D),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.toll_rounded,
+                                                color: gold,
+                                                size: 19,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Text(
+                                                'GİRİŞ BEDELİ',
                                                 style: TextStyle(
-                                                  color: draftTurnSeconds == 15
-                                                      ? const Color(0xFFF2D38D)
-                                                      : Colors.white70,
-                                                  fontWeight: FontWeight.w700,
+                                                  color: gold,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w900,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                      ),
-                                    ),
+                                          SizedBox(height: small ? 7 : 11),
+                                          // Bahisler HER ZAMAN tek satırda kalır. Dar ekranlarda yatay kaydırılır.
+                                          SizedBox(
+                                            height: small ? 46 : 57,
+                                            child: LayoutBuilder(
+                                              builder: (context, area) {
+                                                const gap = 6.0;
+                                                final count =
+                                                    coinOptions.length;
+                                                final visibleCount = count <= 5
+                                                    ? count
+                                                    : 5;
+                                                // Reserve space for navigation arrows; never wrap chips.
+                                                const arrowWidth = 28.0;
+                                                final listWidth = max(
+                                                  0.0,
+                                                  area.maxWidth -
+                                                      arrowWidth * 2 -
+                                                      8,
+                                                );
+                                                final naturalWidth =
+                                                    (listWidth -
+                                                        gap *
+                                                            (visibleCount -
+                                                                1)) /
+                                                    visibleCount;
+                                                final itemWidth = naturalWidth
+                                                    .clamp(55.0, 88.0)
+                                                    .toDouble();
 
-                                    /// ?? NORMAL
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setDialogState(() {
-                                            draftTurnSeconds = 20;
-                                          });
-                                        },
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 200,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
+                                                Widget scrollArrow(
+                                                  IconData icon,
+                                                  int direction,
+                                                ) {
+                                                  return SizedBox(
+                                                    width: arrowWidth,
+                                                    child: IconButton(
+                                                      tooltip: direction < 0
+                                                          ? 'Önceki giriş bedelleri'
+                                                          : 'Sonraki giriş bedelleri',
+                                                      padding: EdgeInsets.zero,
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                            minWidth: 28,
+                                                            minHeight: 36,
+                                                          ),
+                                                      onPressed: () {
+                                                        if (!entryChipsController
+                                                            .hasClients)
+                                                          return;
+                                                        final position =
+                                                            entryChipsController
+                                                                .position;
+                                                        final target =
+                                                            (position.pixels +
+                                                                    direction *
+                                                                        (itemWidth +
+                                                                            gap) *
+                                                                        2)
+                                                                .clamp(
+                                                                  position
+                                                                      .minScrollExtent,
+                                                                  position
+                                                                      .maxScrollExtent,
+                                                                )
+                                                                .toDouble();
+                                                        entryChipsController
+                                                            .animateTo(
+                                                              target,
+                                                              duration:
+                                                                  const Duration(
+                                                                    milliseconds:
+                                                                        240,
+                                                                  ),
+                                                              curve: Curves
+                                                                  .easeOutCubic,
+                                                            );
+                                                      },
+                                                      icon: Icon(
+                                                        icon,
+                                                        color: gold,
+                                                        size: 23,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+
+                                                return Row(
+                                                  children: [
+                                                    scrollArrow(
+                                                      Icons
+                                                          .chevron_left_rounded,
+                                                      -1,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Expanded(
+                                                      child: ListView.separated(
+                                                        controller:
+                                                            entryChipsController,
+                                                        scrollDirection:
+                                                            Axis.horizontal,
+                                                        physics:
+                                                            const BouncingScrollPhysics(),
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        itemCount: count,
+                                                        separatorBuilder:
+                                                            (_, __) =>
+                                                                const SizedBox(
+                                                                  width: gap,
+                                                                ),
+                                                        itemBuilder: (context, i) {
+                                                          final active =
+                                                              selectedIndex ==
+                                                              i;
+                                                          return SizedBox(
+                                                            width: itemWidth,
+                                                            child: InkWell(
+                                                              onTap: () => refresh(
+                                                                () =>
+                                                                    selectedIndex =
+                                                                        i,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    10,
+                                                                  ),
+                                                              child: AnimatedContainer(
+                                                                duration:
+                                                                    const Duration(
+                                                                      milliseconds:
+                                                                          180,
+                                                                    ),
+                                                                decoration: BoxDecoration(
+                                                                  color: active
+                                                                      ? const Color(
+                                                                          0xFF392B17,
+                                                                        )
+                                                                      : const Color(
+                                                                          0xFF191B1D,
+                                                                        ),
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        10,
+                                                                      ),
+                                                                  border: Border.all(
+                                                                    color:
+                                                                        active
+                                                                        ? gold
+                                                                        : const Color(
+                                                                            0xFF45413A,
+                                                                          ),
+                                                                    width:
+                                                                        active
+                                                                        ? 1.5
+                                                                        : .8,
+                                                                  ),
+                                                                  boxShadow:
+                                                                      active
+                                                                      ? [
+                                                                          BoxShadow(
+                                                                            color: gold.withOpacity(
+                                                                              .15,
+                                                                            ),
+                                                                            blurRadius:
+                                                                                8,
+                                                                          ),
+                                                                        ]
+                                                                      : null,
+                                                                ),
+                                                                child: LayoutBuilder(
+                                                                  builder:
+                                                                      (
+                                                                        context,
+                                                                        tileBox,
+                                                                      ) {
+                                                                        final chipSize = min(
+                                                                          tileBox.maxHeight *
+                                                                              .49,
+                                                                          30.0,
+                                                                        );
+                                                                        return Column(
+                                                                          mainAxisAlignment:
+                                                                              MainAxisAlignment.center,
+                                                                          children: [
+                                                                            SizedBox(
+                                                                              width: chipSize,
+                                                                              height: chipSize,
+                                                                              child: CustomPaint(
+                                                                                painter: _OkeyEntryChipPainter(
+                                                                                  tier: i,
+                                                                                  selected: active,
+                                                                                ),
+                                                                              ),
+                                                                            ),
+                                                                            const SizedBox(
+                                                                              height: 1,
+                                                                            ),
+                                                                            Text(
+                                                                              _formatCreateStake(
+                                                                                coinOptions[i],
+                                                                              ),
+                                                                              maxLines: 1,
+                                                                              overflow: TextOverflow.ellipsis,
+                                                                              style: TextStyle(
+                                                                                color: active
+                                                                                    ? gold
+                                                                                    : const Color(
+                                                                                        0xFFF2E7D1,
+                                                                                      ),
+                                                                                fontWeight: FontWeight.w900,
+                                                                                fontSize: small
+                                                                                    ? 12
+                                                                                    : 14,
+                                                                              ),
+                                                                            ),
+                                                                          ],
+                                                                        );
+                                                                      },
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    scrollArrow(
+                                                      Icons
+                                                          .chevron_right_rounded,
+                                                      1,
+                                                    ),
+                                                  ],
+                                                );
+                                              },
                                             ),
-                                            color: draftTurnSeconds == 20
-                                                ? const Color(0x33E7C66A)
-                                                : Colors.transparent,
                                           ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
+                                          SizedBox(height: small ? 6 : 10),
+                                          const Row(
                                             children: [
                                               Icon(
-                                                Icons.schedule,
-                                                size: 14,
-                                                color: draftTurnSeconds == 20
-                                                    ? const Color(0xFFF2D38D)
-                                                    : Colors.white54,
+                                                Icons.bolt_rounded,
+                                                color: gold,
+                                                size: 18,
                                               ),
-                                              const SizedBox(width: 6),
+                                              SizedBox(width: 7),
                                               Text(
-                                                "Normal",
+                                                'OYUN HIZI',
                                                 style: TextStyle(
-                                                  color: draftTurnSeconds == 20
-                                                      ? const Color(0xFFF2D38D)
-                                                      : Colors.white70,
-                                                  fontWeight: FontWeight.w700,
+                                                  color: gold,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 12,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 7,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: draftSpectatorEnabled
-                                            ? const Color(0x2B3A4350)
-                                            : const Color(0x1F101A16),
-                                        border: Border.all(
-                                          color: const Color(0x44779B8A),
-                                          width: 1,
-                                        ),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            color: Color(0x55000000),
-                                            blurRadius: 8,
-                                            offset: Offset(0, 2),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              speedChoice(
+                                                'Hızlı',
+                                                '15 saniye',
+                                                Icons.bolt_rounded,
+                                                15,
+                                              ),
+                                              const SizedBox(width: 7),
+                                              speedChoice(
+                                                'Normal',
+                                                '20 saniye',
+                                                Icons.hourglass_bottom_rounded,
+                                                20,
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.visibility_rounded,
-                                            size: 14,
-                                            color: draftSpectatorEnabled
-                                                ? const Color(0xFFE6F3EC)
-                                                : Colors.white70,
+                                          SizedBox(height: small ? 6 : 9),
+                                          Row(
+                                            children: [
+                                              setting(
+                                                'Seyirci',
+                                                Icons.visibility_outlined,
+                                                spectator,
+                                                () => refresh(
+                                                  () => spectator = !spectator,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 7),
+                                              setting(
+                                                'Sohbet',
+                                                Icons
+                                                    .chat_bubble_outline_rounded,
+                                                chat,
+                                                () =>
+                                                    refresh(() => chat = !chat),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              'Seyirci',
-                                              style: TextStyle(
-                                                color: draftSpectatorEnabled
-                                                    ? const Color(0xFFE6F3EC)
-                                                    : Colors.white70,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
+                                          SizedBox(height: small ? 6 : 9),
+                                          SizedBox(
+                                            height: small ? 37 : 44,
+                                            child: ElevatedButton.icon(
+                                              onPressed: !canCreate
+                                                  ? null
+                                                  : () {
+                                                      createMaxPlayer = 2;
+                                                      createTurnSeconds =
+                                                          draftTurnSeconds;
+                                                      createSpectatorEnabled =
+                                                          spectator;
+                                                      createChatEnabled = chat;
+                                                      Navigator.of(
+                                                        dialogContext,
+                                                      ).pop();
+                                                      _createTable();
+                                                    },
+                                              icon: const Icon(
+                                                Icons.play_arrow_rounded,
+                                                size: 21,
                                               ),
-                                            ),
-                                          ),
-                                          Transform.scale(
-                                            scale: 0.82,
-                                            child: Switch(
-                                              value: draftSpectatorEnabled,
-                                              onChanged: (v) {
-                                                setDialogState(() {
-                                                  draftSpectatorEnabled = v;
-                                                });
-                                              },
-                                              activeColor: const Color(
-                                                0xFFE6F3EC,
+                                              label: Text(
+                                                canCreate
+                                                    ? 'MASAYI OLUŞTUR'
+                                                    : 'YETERSİZ BAKİYE',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: .6,
+                                                ),
                                               ),
-                                              activeTrackColor: const Color(
-                                                0xAA5B6475,
-                                              ),
-                                              inactiveThumbColor: const Color(
-                                                0xFFD9D6CC,
-                                              ),
-                                              inactiveTrackColor: const Color(
-                                                0x554B5A53,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 7,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: draftChatEnabled
-                                            ? const Color(0x2B3A4350)
-                                            : const Color(0x1F101A16),
-                                        border: Border.all(
-                                          color: const Color(0x44779B8A),
-                                          width: 1,
-                                        ),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            color: Color(0x55000000),
-                                            blurRadius: 8,
-                                            offset: Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.chat_bubble_rounded,
-                                            size: 14,
-                                            color: draftChatEnabled
-                                                ? const Color(0xFFE6F3EC)
-                                                : Colors.white70,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              'Sohbet',
-                                              style: TextStyle(
-                                                color: draftChatEnabled
-                                                    ? const Color(0xFFE6F3EC)
-                                                    : Colors.white70,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          Transform.scale(
-                                            scale: 0.82,
-                                            child: Switch(
-                                              value: draftChatEnabled,
-                                              onChanged: (v) {
-                                                setDialogState(() {
-                                                  draftChatEnabled = v;
-                                                });
-                                              },
-                                              activeColor: const Color(
-                                                0xFFE6F3EC,
-                                              ),
-                                              activeTrackColor: const Color(
-                                                0xAA5B6475,
-                                              ),
-                                              inactiveThumbColor: const Color(
-                                                0xFFD9D6CC,
-                                              ),
-                                              inactiveTrackColor: const Color(
-                                                0x554B5A53,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: gold,
+                                                foregroundColor: const Color(
+                                                  0xFF201806,
+                                                ),
+                                                disabledBackgroundColor:
+                                                    const Color(0xFF645E51),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -3806,48 +3873,20 @@ class _LobbyScreenState extends State<LobbyScreen>
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          /// CREATE BUTTON
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: Ink(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-
-                                child: buildCreateButton(
-                                  canCreate: canCreate,
-                                  onTap: () {
-                                    createMaxPlayer = 2;
-                                    createTurnSeconds = draftTurnSeconds;
-                                    createSpectatorEnabled =
-                                        draftSpectatorEnabled;
-                                    createChatEnabled = draftChatEnabled;
-
-                                    Navigator.pop(context);
-                                    _createTable();
-                                  },
-                                ),
-                              ),
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-              ),
-            );
-          },
-        );
-      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
     );
+    entryChipsController.dispose();
   }
 
   Widget buildCreateButton({
@@ -5652,7 +5691,9 @@ class _LobbyScreenState extends State<LobbyScreen>
       context: context,
       builder: (context) {
         final width = MediaQuery.of(context).size.width;
-        final dialogWidth = width > 700 ? 430.0 : (width * 0.86).clamp(300.0, 430.0);
+        final dialogWidth = width > 700
+            ? 430.0
+            : (width * 0.86).clamp(300.0, 430.0);
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Center(
@@ -5663,7 +5704,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xCC121826),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0x66E7C06A), width: 1.2),
+                  border: Border.all(
+                    color: const Color(0x66E7C06A),
+                    width: 1.2,
+                  ),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x66000000),
@@ -5676,36 +5720,36 @@ class _LobbyScreenState extends State<LobbyScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Row(
-                  children: const [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Color(0xFFFFB4B4),
-                      size: 22,
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Hesabı Sil',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFFFB4B4),
+                          size: 22,
                         ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Hesabı Sil',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Bu işlem geri alınamaz.\nHesabınız ve tüm verileriniz kalıcı olarak silinecek.',
+                      style: TextStyle(
+                        color: Color(0xFFD8DEE8),
+                        fontSize: 14,
+                        height: 1.35,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Bu işlem geri alınamaz.\nHesabınız ve tüm verileriniz kalıcı olarak silinecek.',
-                  style: TextStyle(
-                    color: Color(0xFFD8DEE8),
-                    fontSize: 14,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 14),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
@@ -6244,9 +6288,9 @@ class _LobbyScreenState extends State<LobbyScreen>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             gradient: const LinearGradient(
-              colors: [Color(0xFF1A2328), Color(0xFF11181C)],
+              colors: [Color(0xFF26332E), Color(0xFF111C1B)],
             ),
-            border: Border.all(color: const Color(0x33E7C06A)),
+            border: Border.all(color: const Color(0x77D9B675)),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -6308,7 +6352,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             gradient: LinearGradient(
               colors: coin && _coinFxActive
                   ? const [Color(0xFF242A31), Color(0xFF141920)]
-                  : const [Color(0xFF1A2328), Color(0xFF11181C)],
+                  : const [Color(0xFF26332E), Color(0xFF111C1B)],
             ),
             border: Border.all(
               color: coin && _coinFxActive
@@ -6447,21 +6491,18 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Widget _dockLeft() {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         AaaDockIcon(
           onTap: _toggleSideMenu,
-          child: Opacity(
-            opacity: 0.88,
-            child: Image.asset(
-              "assets/images/lobby/menu_bar.png",
-              width: 24,
-              height: 24,
-              filterQuality: FilterQuality.high,
-            ),
+          child: Image.asset(
+            "assets/images/lobby/menu_bar.png",
+            width: 24,
+            height: 24,
+            filterQuality: FilterQuality.high,
           ),
         ),
-        const SizedBox(width: 10),
-
+        const SizedBox(width: 9),
         InkWell(
           onTap: () => ProfileService.showUserCard(
             {
@@ -6479,35 +6520,56 @@ class _LobbyScreenState extends State<LobbyScreen>
             },
           ),
           borderRadius: BorderRadius.circular(999),
-          child: LobbyAvatar(
-            username: UserState.userName,
-            avatarUrl: UserState.userAvatarUrl,
+          child: Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFEDB4),
+                  Color(0xFFD6A74C),
+                  Color(0xFF80551F),
+                ],
+              ),
+              boxShadow: const [
+                BoxShadow(color: Color(0x55E7B95A), blurRadius: 9),
+              ],
+            ),
+            child: LobbyAvatar(
+              username: UserState.userName,
+              avatarUrl: UserState.userAvatarUrl,
+            ),
           ),
         ),
-
-        const SizedBox(width: 10),
-
+        const SizedBox(width: 9),
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              UserState.userName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 190),
+              child: Text(
+                UserState.userName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFFFF2D7),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 0.2,
+                  shadows: [Shadow(color: Color(0x99000000), blurRadius: 5)],
+                ),
               ),
             ),
-
-            const SizedBox(height: 5), // ?? BURASI
-
+            const SizedBox(height: 5),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 statChip(Icons.star, UserState.userRating, false),
-
-                const SizedBox(width: 10),
-
+                const SizedBox(width: 7),
                 statChip(Icons.monetization_on, UserState.userCoin, true),
               ],
             ),
@@ -6532,26 +6594,30 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Row(
       children: [
         _coinBuyDockButton(),
-        const SizedBox(width: 8),
+        const SizedBox(width: 7),
         AaaDockIcon(
-          icon: Icons.emoji_events,
+          icon: Icons.emoji_events_rounded,
           onTap: () {
             _openLeaderboard();
           },
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 7),
         AaaDockIcon(
-          icon: Icons.people,
+          icon: Icons.people_alt_rounded,
           onTap: () => _openRightPanel(_RightPanelType.friends),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 7),
         AaaDockIcon(
           onTap: () => _openRightPanel(_RightPanelType.messages),
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              const Icon(Icons.mail, size: 20, color: Color(0xFFE7C66A)),
+              const Icon(
+                Icons.mark_email_unread_rounded,
+                size: 21,
+                color: Color(0xFFE7C66A),
+              ),
               if (unreadTotal > 0)
                 Positioned(
                   right: -10,
@@ -6615,18 +6681,22 @@ class _LobbyScreenState extends State<LobbyScreen>
               }
             },
             child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF21262D), Color(0xFF12171D)],
+                  colors: [
+                    Color(0xFF3B3021),
+                    Color(0xFF1B211E),
+                    Color(0xFF11191A),
+                  ],
                 ),
                 border: Border.all(
                   color: const Color.fromARGB(169, 231, 198, 106),
-                  width: 1.6,
+                  width: 1.15,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -6670,7 +6740,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       Icon(
                         Icons.monetization_on_rounded,
                         color: Color(0xFFE8C988),
-                        size: 18,
+                        size: 19,
                       ),
                       SizedBox(width: 8),
                       Text(
@@ -6871,4 +6941,441 @@ class LobbyLayout extends StatelessWidget {
       },
     );
   }
+}
+
+// Masa kurma sahnesi: hafif perspektifli keçe, köşe ışıkları ve altın masa izi.
+class _OkeyCreateTablePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF183D30), Color(0xFF061912), Color(0xFF102B22)],
+      ).createShader(rect);
+    canvas.drawRect(rect, paint);
+    final table = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.width * .10,
+        size.height * .13,
+        size.width * .80,
+        size.height * .76,
+      ),
+      const Radius.elliptical(140, 90),
+    );
+    canvas.drawRRect(table, Paint()..color = const Color(0x33000000));
+    canvas.drawRRect(
+      table,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = const Color(0x557DAD7E),
+    );
+    canvas.drawRRect(
+      table,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x667E6230),
+    );
+    final glow = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [const Color(0x2CF7C66D), const Color(0x00F7C66D)],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width / 2, size.height * .45),
+              radius: size.width * .35,
+            ),
+          );
+    canvas.drawRect(rect, glow);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+String _formatCreateStake(int amount) {
+  if (amount >= 1000000)
+    return '${(amount / 1000000).toStringAsFixed(amount % 1000000 == 0 ? 0 : 1)}M';
+  if (amount >= 1000)
+    return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1)}K';
+  return '$amount';
+}
+
+class _OkeyLiveTablePainter extends CustomPainter {
+  final int stake;
+  final bool fast;
+  const _OkeyLiveTablePainter({required this.stake, required this.fast});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final bg = Rect.fromLTWH(0, 0, w, h);
+    canvas.drawRect(
+      bg,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF29302A), Color(0xFF0B1514), Color(0xFF14181B)],
+        ).createShader(bg),
+    );
+    // Warm table-room light and skyline silhouettes.
+    canvas.drawCircle(
+      Offset(w * .19, h * .13),
+      h * .31,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: [const Color(0x66CE9A43), const Color(0x00CE9A43)],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(w * .19, h * .13),
+                radius: h * .31,
+              ),
+            ),
+    );
+    final skyline = Paint()..color = const Color(0xFF101E21);
+    for (var i = 0; i < 16; i++) {
+      final x = i * w / 15;
+      final bh = h * (.12 + (i * 17 % 13) / 110);
+      canvas.drawRect(Rect.fromLTWH(x, h * .28 - bh, w / 19, bh), skyline);
+    }
+    final center = Offset(w * .5, h * .58);
+    final tableRect = Rect.fromCenter(
+      center: center,
+      width: w * .96,
+      height: h * .72,
+    );
+    canvas.drawOval(
+      tableRect.shift(const Offset(0, 10)),
+      Paint()
+        ..color = const Color(0xAA000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+    );
+    canvas.drawOval(tableRect, Paint()..color = const Color(0xFF593318));
+    canvas.drawOval(
+      tableRect.deflate(5),
+      Paint()..color = const Color(0xFFD4A45A),
+    );
+    canvas.drawOval(
+      tableRect.deflate(10),
+      Paint()..color = const Color(0xFF342016),
+    );
+    final felt = tableRect.deflate(15);
+    canvas.drawOval(
+      felt,
+      Paint()
+        ..shader = const RadialGradient(
+          colors: [Color(0xFF237352), Color(0xFF0A3427)],
+          radius: .85,
+        ).createShader(felt),
+    );
+    canvas.drawOval(
+      felt,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x6683A98A),
+    );
+
+    // Racks and tiles. They remain visually stable while stake / speed update.
+    void rack(double x, double y, double length) {
+      final r = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(x, y), width: length, height: h * .065),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(r, Paint()..color = const Color(0xFF8B5025));
+      canvas.drawLine(
+        Offset(x - length * .47, y - h * .012),
+        Offset(x + length * .47, y - h * .012),
+        Paint()
+          ..color = const Color(0xFFD8A264)
+          ..strokeWidth = 2,
+      );
+    }
+
+    rack(w * .5, h * .29, w * .32);
+    rack(w * .5, h * .87, w * .65);
+    rack(w * .11, h * .58, w * .16);
+    rack(w * .89, h * .58, w * .16);
+
+    final tileW = min(w * .055, h * .075);
+    final tileH = tileW * 1.48;
+    for (var i = 0; i < 9; i++) {
+      final x = w * .5 + (i - 4) * tileW * 1.06;
+      final y = h * .79;
+      final tile = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x - tileW / 2, y - tileH / 2, tileW, tileH),
+        const Radius.circular(2),
+      );
+      canvas.drawRRect(tile, Paint()..color = const Color(0xFFFFE8C2));
+      canvas.drawRRect(
+        tile,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .7
+          ..color = const Color(0xFFAB906C),
+      );
+      _text(
+        canvas,
+        '${(i * 3) % 13 + 1}',
+        Offset(x, y),
+        tileW * .66,
+        i % 3 == 0
+            ? const Color(0xFFBD3333)
+            : i % 3 == 1
+            ? const Color(0xFF255F9A)
+            : const Color(0xFF252525),
+      );
+    }
+    for (var i = 0; i < 3; i++) {
+      final x = w * (.31 + i * .18), y = h * (.53 + (i % 2) * .07);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x, y),
+          width: tileW * 1.1,
+          height: tileH * .95,
+        ),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(rect, Paint()..color = const Color(0xFFF7DDB0));
+      _text(
+        canvas,
+        '${(i * 4 + 3) % 13 + 1}',
+        Offset(x, y),
+        tileW * .66,
+        const Color(0xFFB02D26),
+      );
+    }
+    // Animated-by-state coin pile: selected stake is painted into the table scene.
+    final coinCenter = Offset(w * .5, h * .45);
+    for (var pile = 0; pile < 3; pile++) {
+      final count = 3 + ((stake ~/ max(1, 1000)) % 4) + pile;
+      final cx = coinCenter.dx + (pile - 1) * w * .065;
+      for (var i = 0; i < count; i++) {
+        final cy = coinCenter.dy - i * 3.2;
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(cx, cy),
+            width: w * .07,
+            height: h * .025,
+          ),
+          Paint()
+            ..color = i.isEven
+                ? const Color(0xFFF2C568)
+                : const Color(0xFFAD752C),
+        );
+      }
+    }
+    final plate = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(w * .5, h * .52),
+        width: w * .27,
+        height: h * .12,
+      ),
+      const Radius.circular(9),
+    );
+    canvas.drawRRect(plate, Paint()..color = const Color(0xF00D1411));
+    canvas.drawRRect(
+      plate,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3
+        ..color = const Color(0xFFE6B85C),
+    );
+    _text(
+      canvas,
+      _formatCreateStake(stake),
+      Offset(w * .5, h * .52),
+      min(h * .08, 28),
+      const Color(0xFFFFD37A),
+    );
+    // A small visible change in speed mode, tied to the real turn setting.
+    final speedLabel = fast ? 'HIZLI • 15 SN' : 'NORMAL • 20 SN';
+    _text(
+      canvas,
+      speedLabel,
+      Offset(w * .5, h * .17),
+      min(h * .032, 12),
+      const Color(0xFFE2C38A),
+    );
+  }
+
+  void _text(
+    Canvas canvas,
+    String value,
+    Offset center,
+    double fontSize,
+    Color color,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(
+      canvas,
+      center - Offset(painter.width / 2, painter.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _OkeyLiveTablePainter oldDelegate) =>
+      oldDelegate.stake != stake || oldDelegate.fast != fast;
+}
+
+/// Decorative coin stacks on top of the cinematic scene; their height follows
+/// the selected entry-fee tier while the displayed amount comes from the league.
+class _OkeyStakeCoinPainter extends CustomPainter {
+  final int level;
+  const _OkeyStakeCoinPainter({required this.level});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shadow = Paint()
+      ..color = const Color(0x88000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    final dark = Paint()..color = const Color(0xFF9B5A16);
+    final edge = Paint()..color = const Color(0xFFF5D27A);
+    final top = Paint()..color = const Color(0xFFE7B64F);
+    for (var pile = 0; pile < 3; pile++) {
+      final count = (2 + level + (pile == 1 ? 2 : 0)).clamp(2, 11);
+      final cx = size.width * (.23 + pile * .27);
+      final baseY = size.height * .88;
+      final coinW = size.width * .23;
+      final coinH = size.height * .16;
+      final step = size.height * .085;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(cx, baseY + 3),
+          width: coinW * 1.2,
+          height: coinH * 1.5,
+        ),
+        shadow,
+      );
+      for (var i = 0; i < count; i++) {
+        final y = baseY - i * step;
+        final rect = Rect.fromCenter(
+          center: Offset(cx, y),
+          width: coinW,
+          height: coinH,
+        );
+        canvas.drawOval(rect.shift(const Offset(0, 2)), dark);
+        canvas.drawOval(rect, top);
+        canvas.drawOval(rect.deflate(1.3), edge);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OkeyStakeCoinPainter oldDelegate) =>
+      oldDelegate.level != level;
+}
+
+/// Poker-style entry chips; their labels are still generated from the league's
+/// min_coin/max_coin values rather than from the decorative chip palette.
+class _OkeyEntryChipPainter extends CustomPainter {
+  final int tier;
+  final bool selected;
+  const _OkeyEntryChipPainter({required this.tier, required this.selected});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = min(size.width, size.height) * .47;
+    const palette = <Color>[
+      Color(0xFF73777C),
+      Color(0xFF23815C),
+      Color(0xFF2475B7),
+      Color(0xFFB83B3B),
+      Color(0xFF7043A2),
+      Color(0xFFB48A34),
+      Color(0xFF277E86),
+      Color(0xFFAD6239),
+      Color(0xFF606C3D),
+    ];
+    final base = palette[tier % palette.length];
+    canvas.drawCircle(
+      center + const Offset(0, 1.3),
+      radius + 1,
+      Paint()..color = const Color(0xB0000000),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Color.lerp(base, Colors.white, .25)!,
+            base,
+            Color.lerp(base, Colors.black, .42)!,
+          ],
+          stops: const [0, .64, 1],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+    final dashPaint = Paint()
+      ..color = const Color(0xFFF1E9D7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * .24;
+    for (var j = 0; j < 8; j++) {
+      final angle = j * pi / 4;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius * .84),
+        angle - .15,
+        .30,
+        false,
+        dashPaint,
+      );
+    }
+    canvas.drawCircle(
+      center,
+      radius * .61,
+      Paint()..color = Color.lerp(base, Colors.black, .36)!,
+    );
+    canvas.drawCircle(
+      center,
+      radius * .61,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..color = selected ? const Color(0xFFFFD87D) : const Color(0xFFCEBFA2),
+    );
+    canvas.drawCircle(
+      center,
+      radius * .31,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFFEEE4CC),
+    );
+    canvas.drawCircle(
+      center,
+      radius * .10,
+      Paint()
+        ..color = selected ? const Color(0xFFFFDB83) : const Color(0xFFE8E0CE),
+    );
+    if (selected) {
+      canvas.drawCircle(
+        center,
+        radius + .3,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3
+          ..color = const Color(0xFFF7C869),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OkeyEntryChipPainter oldDelegate) =>
+      oldDelegate.tier != tier || oldDelegate.selected != selected;
 }

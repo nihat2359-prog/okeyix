@@ -95,8 +95,8 @@ class AvatarCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+              color: const Color(0xFFF4EBD7),
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -148,7 +148,7 @@ class AvatarCard extends StatelessWidget {
         },
       ),
       active: player.isActive,
-      colors: const [Color(0xFF253129), Color(0xFF141B17)],
+      colors: const [Color(0xFF20382F), Color(0xFF12231E)],
       textColor: const Color(0xFFE7C77B),
     );
   }
@@ -166,7 +166,7 @@ class AvatarCard extends StatelessWidget {
         ),
       ),
       active: player.isActive,
-      colors: const [Color(0xFF253129), Color(0xFF141B17)],
+      colors: const [Color(0xFF20382F), Color(0xFF12231E)],
       textColor: const Color(0xFFE7C77B),
     );
   }
@@ -188,8 +188,8 @@ class AvatarCard extends StatelessWidget {
           colors: active ? colors : [colors[0].withOpacity(0.92), colors[1]],
         ),
         border: Border.all(
-          color: active ? Colors.white.withOpacity(0.8) : Colors.white54,
-          width: 1,
+          color: active ? const Color(0x99D9C18A) : const Color(0x556D806F),
+          width: 0.8,
         ),
         boxShadow: active
             ? [
@@ -205,11 +205,7 @@ class AvatarCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 11,
-            color: textColor,
-          ),
+          Icon(icon, size: 11, color: textColor),
           const SizedBox(width: 3),
           DefaultTextStyle.merge(
             style: const TextStyle(height: 1.0),
@@ -422,33 +418,26 @@ class AvatarCard extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: active
-            ? const [Color(0xCC2E362F), Color(0xCC141A16)]
-            : const [Color(0xCC1B242D), Color(0xAA10161C)],
+            ? const [Color(0xEE19392F), Color(0xEE0B201B)]
+            : const [Color(0xE51A2B28), Color(0xE50C1918)],
       ),
       border: Border.all(
-        color: active ? const Color(0xB8E3BE62) : const Color(0x55B9C7D6),
-        width: active ? 1.4 : 1.0,
+        color: active ? const Color(0xB8CDB27C) : const Color(0x667D8878),
+        width: active ? 1.2 : 0.9,
       ),
-      boxShadow: active
-          ? [
-              const BoxShadow(
-                color: Color(0x44D9B45A),
-                blurRadius: 14,
-                spreadRadius: 0.8,
-              ),
-              const BoxShadow(
-                color: Color(0x33000000),
-                blurRadius: 8,
-                offset: Offset(0, 3),
-              ),
-            ]
-          : const [
-              BoxShadow(
-                color: Color(0x26000000),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
+      boxShadow: [
+        const BoxShadow(
+          color: Color(0x66000000),
+          blurRadius: 9,
+          offset: Offset(0, 3),
+        ),
+        if (active)
+          const BoxShadow(
+            color: Color(0x3355C29B),
+            blurRadius: 11,
+            spreadRadius: 0.4,
+          ),
+      ],
     );
   }
 }
@@ -464,14 +453,14 @@ class _ActiveTurnGlowPainter extends CustomPainter {
     final baseRadius = size.width / 2 - 5;
 
     final outer = Paint()
-      ..color = const Color(0x66E5BE68).withOpacity(0.32 + (wave * 0.22))
+      ..color = const Color(0x665BC7A1).withOpacity(0.20 + (wave * 0.16))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6 + (wave * 2.4);
+      ..strokeWidth = 4 + (wave * 1.4);
 
     final inner = Paint()
-      ..color = const Color(0x99F1D287).withOpacity(0.45 + (wave * 0.25))
+      ..color = const Color(0x99CBB47B).withOpacity(0.32 + (wave * 0.18))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2;
+      ..strokeWidth = 1.6;
 
     canvas.drawCircle(center, baseRadius, outer);
     canvas.drawCircle(center, baseRadius - 2.6, inner);
@@ -537,4 +526,3 @@ class _CircleTimerPainter extends CustomPainter {
         const Color(0xFFE64B3C);
   }
 }
-

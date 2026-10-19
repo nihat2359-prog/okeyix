@@ -8,6 +8,7 @@ import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:okeyix/core/format.dart';
+import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
 import '../game/spectator_game.dart';
 
@@ -32,6 +33,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   final ScrollController _chatScrollController = ScrollController();
   Map<String, dynamic>? _lastIncomingMessage;
   bool _showMessageBanner = false;
+  Timer? _messageBannerTimer;
+  List<Map<String, dynamic>> _visibleSpectators = [];
+  final Map<String, String> _spectatorBubbles = {};
+  final Map<String, Timer> _spectatorBubbleTimers = {};
   bool chatOpen = false;
   final TextEditingController chatController = TextEditingController();
   List messages = [];
@@ -139,7 +144,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     final next = List<Map<String, dynamic>>.from(
       messages.map((e) => Map<String, dynamic>.from(e as Map)),
     );
-    final alreadyExists = incomingId != null &&
+    final alreadyExists =
+        incomingId != null &&
         next.any((m) => m['id']?.toString() == incomingId);
     if (!alreadyExists) {
       next.add(msg);
@@ -185,6 +191,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         .select()
         .eq('table_id', widget.tableId);
 
+    await _refreshSpectators();
+
     final m = await supabase
         .from('table_messages')
         .select('*,users(username)')
@@ -209,6 +217,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
             setState(() {
               spectators++;
+              unawaited(_refreshSpectators());
             });
           },
         )
@@ -225,6 +234,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
               setState(() {
                 spectators = (spectators - 1).clamp(0, 9999);
+                unawaited(_refreshSpectators());
               });
             }
           },
@@ -272,7 +282,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             final row = payload.newRecord;
             final turnStartedAt = _parseServerTime(row['turn_started_at']);
             final turnSeconds = (row['turn_seconds'] as int?) ?? _turnSeconds;
-            final currentTurnSeat = (row['current_turn'] as int?) ?? _currentTurnSeat;
+            final currentTurnSeat =
+                (row['current_turn'] as int?) ?? _currentTurnSeat;
             if (mounted) {
               setState(() {
                 table = {...?table, ...row};
@@ -414,115 +425,159 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           if (table != null)
             Positioned(
               top: 10,
-              left: 20,
-              right: 20,
+              left: 14,
+              right: 14,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(.45),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                child: Wrap(
-                  spacing: 14,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _headerChip(
-                      icon: Icons.shield_rounded,
-                      text: 'Lig ${_leagueDisplayName(table!['league_id'])}',
-                    ),
-                    _headerChip(
-                      icon: Icons.monetization_on_rounded,
-                      text: Format.coin((table!['entry_coin'] as int?) ?? 0),
-                      highlight: true,
-                    ),
-                    _headerChip(
-                      icon: Icons.soup_kitchen_rounded,
-                      text: Format.coin((table!['pot_amount'] as int?) ?? 0),
-                    ),
-                    _headerChip(
-                      icon: Icons.flag_rounded,
-                      text: '${(table!['round_count'] as int?) ?? 1} el',
-                    ),
-                    _headerChip(
-                      icon: Icons.timer_rounded,
-                      text: '${(table!['turn_seconds'] as int?) ?? 20} sn',
-                    ),
-                    _headerChip(
-                      icon: Icons.people_alt_rounded,
-                      text: '${players.length}/${(table!['max_players'] as int?) ?? 2}',
-                    ),
-                    _headerChip(
-                      icon: Icons.remove_red_eye_rounded,
-                      text: '$spectators',
-                    ),
-                    _headerChip(
-                      icon: _tableChatEnabled
-                          ? Icons.chat_bubble_rounded
-                          : Icons.chat_bubble_outline_rounded,
-                      text: _tableChatEnabled ? 'Sohbet Açık' : 'Sohbet Kapalı',
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xF011211D), Color(0xED09120F)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0x886F6140),
+                    width: 0.8,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x66000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 5),
                     ),
                   ],
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _headerChip(
+                        icon: Icons.shield_rounded,
+                        text: 'Lig ${_leagueDisplayName(table!['league_id'])}',
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: Icons.monetization_on_rounded,
+                        text: Format.coin((table!['entry_coin'] as int?) ?? 0),
+                        highlight: true,
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: Icons.soup_kitchen_rounded,
+                        text: Format.coin((table!['pot_amount'] as int?) ?? 0),
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: Icons.flag_rounded,
+                        text: '${(table!['round_count'] as int?) ?? 1} el',
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: Icons.timer_rounded,
+                        text: '${(table!['turn_seconds'] as int?) ?? 20} sn',
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: Icons.people_alt_rounded,
+                        text:
+                            '${players.length}/${(table!['max_players'] as int?) ?? 2}',
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: Icons.remove_red_eye_rounded,
+                        text: '$spectators',
+                      ),
+                      const SizedBox(width: 9),
+                      _headerChip(
+                        icon: _tableChatEnabled
+                            ? Icons.chat_bubble_rounded
+                            : Icons.chat_bubble_outline_rounded,
+                        text: _tableChatEnabled
+                            ? 'Sohbet Açık'
+                            : 'Sohbet Kapalı',
+                      ),
+                      const SizedBox(width: 9),
+                    ],
+                  ),
                 ),
               ),
             ),
 
-          /// ÃœST OYUNCU
+          /// OYUNCULAR: iki koltukta da ayni dikey avatar/isim yerlesimi.
           if (top != null)
             Positioned(
-              top: 68,
+              top: 60,
               left: 0,
               right: 0,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
-                      .isNotEmpty)
+                      .isNotEmpty) ...[
                     _buildAvatarBubble(
                       _avatarChatByUserId[top['user_id']?.toString()]!,
                     ),
-                  if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
-                      .isNotEmpty)
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
+                  ],
                   _buildTurnAvatar(
                     seatIndex: 1,
+                    userId: top['user_id']?.toString(),
                     avatarPath: top['users']['avatar_url']?.toString(),
                     avatarKey: topAvatarKey,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    top['users']['username'] ?? "",
-                    style: const TextStyle(color: Colors.white),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      final id = top['user_id']?.toString();
+                      if (id != null && id.isNotEmpty) {
+                        ProfileService.showUserCard({'id': id});
+                      }
+                    },
+                    child: _buildSpectatorName(
+                      top['users']['username']?.toString() ?? '',
+                    ),
                   ),
                 ],
               ),
             ),
 
-          /// ALT OYUNCU
           if (bottom != null)
             Positioned(
               bottom: 58,
               left: 0,
               right: 0,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if ((_avatarChatByUserId[bottom['user_id']?.toString()] ?? '')
-                      .isNotEmpty)
+                      .isNotEmpty) ...[
                     _buildAvatarBubble(
                       _avatarChatByUserId[bottom['user_id']?.toString()]!,
                     ),
-                  if ((_avatarChatByUserId[bottom['user_id']?.toString()] ?? '')
-                      .isNotEmpty)
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
+                  ],
                   _buildTurnAvatar(
                     seatIndex: 0,
+                    userId: bottom['user_id']?.toString(),
                     avatarPath: bottom['users']['avatar_url']?.toString(),
                     avatarKey: bottomAvatarKey,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    bottom['users']['username'] ?? "",
-                    style: const TextStyle(color: Colors.white),
+                  const SizedBox(height: 2),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      final id = bottom['user_id']?.toString();
+                      if (id != null && id.isNotEmpty) {
+                        ProfileService.showUserCard({'id': id});
+                      }
+                    },
+                    child: _buildSpectatorName(
+                      bottom['users']['username']?.toString() ?? '',
+                    ),
                   ),
                 ],
               ),
@@ -727,7 +782,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                         color: Colors.white,
                                       ),
                                       onPressed: () async {
-                                        if (!FeedbackSettingsService.soundEnabled) {
+                                        if (!FeedbackSettingsService
+                                            .soundEnabled) {
                                           await FeedbackSettingsService.triggerHaptic();
                                           return;
                                         }
@@ -929,8 +985,15 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 ),
               ),
             ),
+          if (_visibleSpectators.isNotEmpty)
+            Positioned(top: 76, right: 12, child: _spectatorStrip()),
           if (_showMessageBanner && _lastIncomingMessage != null)
-            Positioned(top: 72, right: 12, width: 360, child: _buildMessageBanner()),
+            Positioned(
+              top: 72,
+              right: 12,
+              width: 360,
+              child: _buildMessageBanner(),
+            ),
           if (_showFinishOverlay) Positioned.fill(child: _buildFinishOverlay()),
         ],
       ),
@@ -1013,12 +1076,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     bool highlight = false,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0x770B1512),
-        borderRadius: BorderRadius.circular(10),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1B2A24), Color(0xFF101B17)],
+        ),
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(
-          color: highlight ? const Color(0x88E7C06A) : const Color(0x44E7C06A),
+          color: highlight ? const Color(0xB8D9B46A) : const Color(0x557E795F),
           width: 0.8,
         ),
       ),
@@ -1040,6 +1105,33 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSpectatorName(String name) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 210),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xF01C392E), Color(0xF00C211B)],
+        ),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0x887C7050), width: 0.8),
+        boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 8)],
+      ),
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Color(0xFFF5EBDD),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }
@@ -1126,6 +1218,150 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     return players.any((p) => p['user_id']?.toString() == senderId);
   }
 
+  Future<void> _refreshSpectators() async {
+    try {
+      final rows = await supabase
+          .from('table_spectators')
+          .select('user_id,created_at,users(username,avatar_url)')
+          .eq('table_id', widget.tableId);
+      final list = (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      list.sort(
+        (a, b) => (a['created_at'] ?? '').toString().compareTo(
+          (b['created_at'] ?? '').toString(),
+        ),
+      );
+      if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
+    } catch (e) {
+      // Some deployments do not expose created_at or the users relationship.
+      try {
+        final rows = await supabase
+            .from('table_spectators')
+            .select()
+            .eq('table_id', widget.tableId);
+        final list = (rows as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        list.sort(
+          (a, b) => (a['created_at'] ?? '').toString().compareTo(
+            (b['created_at'] ?? '').toString(),
+          ),
+        );
+        for (final item in list.take(3)) {
+          final u = await supabase
+              .from('users')
+              .select('username,avatar_url')
+              .eq('id', item['user_id'])
+              .maybeSingle();
+          item['users'] = u;
+        }
+        if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
+      } catch (_) {}
+    }
+  }
+
+  Widget _spectatorStrip() {
+    if (_visibleSpectators.isEmpty) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: _visibleSpectators.map((entry) {
+        final id = entry['user_id']?.toString() ?? '';
+        final user = entry['users'] is Map ? entry['users'] as Map : const {};
+        final name = (user['username'] ?? 'İzleyici').toString();
+        final path = (user['avatar_url'] ?? '').toString();
+        final message = _spectatorBubbles[id];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (message != null)
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 165),
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xF01A3029),
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: const Color(0x99E3BB62)),
+                  ),
+                  child: Text(
+                    message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: Colors.white),
+                  ),
+                ),
+              Tooltip(
+                message: name,
+                child: Container(
+                  width: 33,
+                  height: 33,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF24342C),
+                    border: Border.all(
+                      color: const Color(0xFFD9B66B),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: path.isEmpty
+                        ? const Icon(
+                            Icons.person,
+                            color: Color(0xFFE8CD8D),
+                            size: 19,
+                          )
+                        : path.startsWith('http')
+                        ? Image.network(
+                            path,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.person, color: Colors.white),
+                          )
+                        : Image.asset(
+                            path,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.person, color: Colors.white),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showSpectatorBubble(Map<String, dynamic> msg) {
+    final id = msg['sender_id']?.toString() ?? '';
+    if (!_visibleSpectators.any((e) => e['user_id']?.toString() == id)) return;
+    final text =
+        (msg['type'] == 'voice'
+                ? 'Sesli mesaj'
+                : msg['content']?.toString() ?? '')
+            .trim();
+    if (text.isEmpty) return;
+    _spectatorBubbleTimers[id]?.cancel();
+    if (mounted)
+      setState(
+        () => _spectatorBubbles[id] = (text.length > 70
+            ? '${text.substring(0, 70)}...'
+            : text),
+      );
+    _spectatorBubbleTimers[id] = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _spectatorBubbles.remove(id));
+      _spectatorBubbleTimers.remove(id);
+    });
+  }
+
   void _handleIncomingMessageEffects(Map<String, dynamic> msg) {
     final senderId = msg['sender_id']?.toString();
     if (senderId == null) return;
@@ -1151,14 +1387,19 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       return;
     }
 
-    if (!mine && role == 'spectator') {
+    if (role == 'spectator') {
+      _showSpectatorBubble(msg);
+    }
+    if (!mine &&
+        role == 'spectator' &&
+        !_visibleSpectators.any((e) => e['user_id']?.toString() == senderId)) {
       setState(() {
         _lastIncomingMessage = msg;
         _showMessageBanner = true;
       });
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        setState(() => _showMessageBanner = false);
+      _messageBannerTimer?.cancel();
+      _messageBannerTimer = Timer(const Duration(seconds: 6), () {
+        if (mounted) setState(() => _showMessageBanner = false);
       });
     }
   }
@@ -1437,53 +1678,86 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   Widget _buildTurnAvatar({
     required int seatIndex,
+    required String? userId,
     required String? avatarPath,
     required Key avatarKey,
   }) {
     final isTurn = _currentTurnSeat == seatIndex;
     final progress = _turnProgress();
     final remain = _turnRemaining();
-    return SizedBox(
-      width: 66,
-      height: 66,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (isTurn)
-            SizedBox(
-              width: 66,
-              height: 66,
-              child: CircularProgressIndicator(
-                value: progress,
-                strokeWidth: 4,
-                backgroundColor: Colors.white24,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFD4AF37),
-                ),
-              ),
-            ),
-          avatar(avatarPath, key: avatarKey),
-          if (isTurn)
-            Positioned(
-              bottom: -2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0x66D4AF37)),
-                ),
-                child: Text(
-                  '${remain}s',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: userId == null || userId.isEmpty
+          ? null
+          : () => ProfileService.showUserCard({'id': userId}),
+      child: SizedBox(
+        width: 70,
+        height: 70,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            if (isTurn)
+              SizedBox(
+                width: 64,
+                height: 64,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 4,
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFFD4AF37),
                   ),
                 ),
               ),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isTurn
+                      ? const Color(0xFF83CE9D)
+                      : const Color(0xFFCCAB67),
+                  width: 1.4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isTurn
+                        ? const Color(0x6645C486)
+                        : const Color(0x443B2B14),
+                    blurRadius: isTurn ? 12 : 5,
+                    spreadRadius: isTurn ? 1 : 0,
+                  ),
+                ],
+              ),
+              child: Center(child: avatar(avatarPath, key: avatarKey)),
             ),
-        ],
+            if (isTurn)
+              Positioned(
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x66D4AF37)),
+                  ),
+                  child: Text(
+                    '${remain}s',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1511,6 +1785,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   @override
   void dispose() {
+    _messageBannerTimer?.cancel();
+    for (final timer in _spectatorBubbleTimers.values) {
+      timer.cancel();
+    }
     for (final t in _avatarChatTimers.values) {
       t.cancel();
     }
@@ -1541,6 +1819,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         'table_id': widget.tableId,
         'user_id': user.id,
       });
+      await _refreshSpectators();
     } catch (e) {
       print("JOIN ERROR: $e");
     }

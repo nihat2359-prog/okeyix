@@ -12,6 +12,7 @@ class LobbyLeagueList extends StatelessWidget {
   final int userCoin;
   final int userRating;
   final bool loading;
+
   const LobbyLeagueList({
     super.key,
     required this.leagues,
@@ -24,781 +25,276 @@ class LobbyLeagueList extends StatelessWidget {
     required this.loading,
   });
 
+  static const _assetFolder = 'assets/images/lobby/leagues/';
+  static const _assetNames = <String>[
+    'acemiler',
+    'ciraklar',
+    'kalfalar',
+    'ustalar',
+    'sampiyonlar',
+  ];
+
+  static const _themes = <_LeagueTheme>[
+    _LeagueTheme(Color(0xFFB56C2C), Color(0xFFF9CF7A), Color(0xFF402310)),
+    _LeagueTheme(Color(0xFF7389A9), Color(0xFFE6F2FF), Color(0xFF162A42)),
+    _LeagueTheme(Color(0xFFAF8B2F), Color(0xFFFFE39A), Color(0xFF263624)),
+    _LeagueTheme(Color(0xFF9253C8), Color(0xFFE9B7FF), Color(0xFF27173E)),
+    _LeagueTheme(Color(0xFF3CBA83), Color(0xFFFFE1A1), Color(0xFF13362D)),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const LobbyLoading();
-    }
-
+    if (loading) return const LobbyLoading();
     if (leagues.isEmpty) {
       return const Center(
         child: Text(
-          "No leagues available",
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          'No leagues available',
+          style: TextStyle(color: Colors.white70),
         ),
       );
     }
-    return _buildLeagueGrid();
-  }
 
-  Widget _buildLeagueGrid() {
-    if (leagues.length < 5) return const SizedBox();
-
+    // Five leagues always fit in 3 rows; no vertical scrolling on phones.
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = MediaQuery.of(context).size;
-        final isTablet = size.shortestSide >= 600;
-        final isWideWeb = size.width >= 1100;
-        final compactMobile = size.width < 700;
-
-        if (isTablet || isWideWeb) {
-          return Column(
-            children: List.generate(leagues.length, (i) {
-              return Expanded(
-                child: AnimatedLeagueItem(
-                  index: i,
-                  child: LayoutBuilder(
-                    builder: (context, cardConstraints) => SizedBox(
-                      width: double.infinity,
-                      child: _leagueItem(
-                        leagues[i],
-                        isBig: true,
-                        heightOverride: cardConstraints.maxHeight,
-                        compactMobile: compactMobile,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          );
-        }
-
+        final gap = constraints.maxHeight < 210 ? 3.0 : 6.0;
+        final count = leagues.length < 5 ? leagues.length : 5;
         return Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: AnimatedLeagueItem(
-                    index: 0,
-                    child: _leagueItem(
-                      leagues[0],
-                      compactMobile: compactMobile,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: AnimatedLeagueItem(
-                    index: 1,
-                    child: _leagueItem(
-                      leagues[1],
-                      compactMobile: compactMobile,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: AnimatedLeagueItem(
-                    index: 2,
-                    child: _leagueItem(
-                      leagues[2],
-                      compactMobile: compactMobile,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: AnimatedLeagueItem(
-                    index: 3,
-                    child: _leagueItem(
-                      leagues[3],
-                      compactMobile: compactMobile,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            AnimatedLeagueItem(
-              index: 4,
-              child: SizedBox(
-                width: double.infinity,
-                child: _leagueItem(
-                  leagues[4],
-                  isBig: true,
-                  compactMobile: compactMobile,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-  Widget _leagueItem(
-    Map league, {
-    bool isBig = false,
-    double? heightOverride,
-    bool compactMobile = false,
-  }) {
-    final l = Map<String, dynamic>.from(league);
-
-    final selected = l['id'] == selectedLeagueId;
-
-    final color = _leagueColorById(l['id']);
-
-    return LayoutBuilder(
-      builder: (context, itemConstraints) {
-        final compactCard =
-            compactMobile || (!isBig && itemConstraints.maxWidth < 220);
-
-        return GestureDetector(
-          onTap: () => onSelect(l),
-
-      child: AnimatedScale(
-        scale: selected ? 1.015 : 1.0,
-        duration: const Duration(milliseconds: 180),
-
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-
-          /// 🔥 GOLD BORDER (gradient)
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              colors: selected
-                  ? [
-                      Color(0xFF2D3138),
-                      Color(0xFFF0C776),
-                      Color(0xFF2D3138),
-                    ]
-                  : [Color(0x55303438), Color(0x77494B51)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-
-            boxShadow: [
-              if (selected)
-                BoxShadow(
-                  color: const Color(0x77F0C776),
-                  blurRadius: 26,
-                  spreadRadius: 1.4,
-                ),
-              if (selected)
-                const BoxShadow(
-                  color: Color(0x44000000),
-                  blurRadius: 14,
-                  offset: Offset(0, 3),
-                ),
-              if (selected)
-                const BoxShadow(
-                  color: Color(0x66323A44),
-                  blurRadius: 18,
-                  spreadRadius: 0.9,
-                ),
-            ],
-          ),
-
-          /// 🔥 BORDER KALINLIĞI
-          padding: EdgeInsets.all(selected ? 2.0 : 1.2),
-
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: heightOverride ?? (isBig ? 67 : 55),
-
-            padding: EdgeInsets.symmetric(
-              horizontal: l['id'] == 'elite' ? 2 : 8,
-              vertical: 5,
-            ),
-
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16), // 🔥 18 - padding
-
-              gradient: LinearGradient(
-                colors: selected
-                    ? [const Color(0xE622252C), const Color(0xE614171D)]
-                    : [const Color(0xD91D2026), const Color(0xD912151A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: selected
-                    ? const Color(0xFFF2C56C)
-                    : const Color(0x77606A73),
-                width: selected ? 1.25 : 0.9,
-              ),
-
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 8),
-                const BoxShadow(
-                  color: Color(0xFF15181D),
-                  blurRadius: 24,
-                  spreadRadius: -10,
-                ),
-              ],
-            ),
-
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _SubtleNoisePainter(
-                        noiseOpacity: selected ? 0.04 : 0.025,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withOpacity(selected ? 0.16 : 0.11),
-                            Colors.white.withOpacity(selected ? 0.05 : 0.03),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.42, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withOpacity(selected ? 0.16 : 0.12),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.34],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (l['id'] == 'elite')
-                  _eliteCard(l, color, isBig, compactCard)
-                else
-                  _normalCard(l, color, isBig, compactCard),
-              ],
-            ),
-          ),
-        ),
-      ),
-        );
-      },
-    );
-  }
-
-  Widget _leagueTitle(
-    String text,
-    Color color, {
-    bool isBig = false,
-    bool compact = false,
-    Alignment alignment = Alignment.center,
-    TextAlign textAlign = TextAlign.center,
-  }) {
-    final fontSize = compact ? 12.8 : (isBig ? 21.0 : 15.5);
-
-    return Align(
-      alignment: alignment,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          /// 🔥 ALT GÖLGE (depth)
-          Transform.translate(
-            offset: const Offset(0, 2),
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: textAlign,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: fontSize,
-                letterSpacing: 0.35,
-                color: Colors.black.withOpacity(0.9),
-              ),
-            ),
-          ),
-
-          /// 🔥 ANA METAL GOLD (white YOK)
-          ShaderMask(
-            blendMode: BlendMode.srcATop,
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [
-                Color(0xFF7A5A1F),
-                Color(0xFFCFAE54),
-                Color(0xFFE7C66A),
-                Color(0xFFCFAE54),
-                Color(0xFF7A5A1F),
-              ],
-              stops: [0.0, 0.35, 0.55, 0.75, 1.0],
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-            ).createShader(bounds),
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: textAlign,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: fontSize,
-                letterSpacing: 0.35,
-                color: Colors.white, // shader için
-              ),
-            ),
-          ),
-
-          /// 🔥 GOLD GLOW (çok hafif)
-          Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: textAlign,
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: fontSize,
-              letterSpacing: 0.35,
-              color: Colors.transparent,
-              shadows: [
-                Shadow(
-                  color: const Color(0xFFE7C66A).withOpacity(0.35),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _leagueColorById(String id) {
-    switch (id) {
-      case 'standard': // Acemiler
-        return const Color(0xFFFFD54F);
-
-      case 'bronze': // Çıraklar
-        return const Color(0xFFFFD54F);
-
-      case 'silver': // Kalfalar
-        return const Color(0xFFFFD54F);
-
-      case 'gold': // Ustalar
-        return const Color(0xFFFFD54F);
-
-      case 'elite': // Şampiyonlar
-        return const Color(0xFFFFD54F);
-
-      default:
-        return const Color(0xFFFFD54F);
-    }
-  }
-
-  Widget _eliteCard(Map l, Color color, bool isBig, bool compactMobile) {
-    final activePlayers = leagueActivePlayers[l['id']] ?? 0;
-    final activeTables = leagueActiveTables[l['id']] ?? 0;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        /// 🏆 SOL ARKA PLAN ICON
-        Positioned(
-          left: 8,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: Opacity(
-              opacity: 1, // 🔥 transparan (çok önemli)
-              child: _goldTrophyIcon(size: 50),
-            ),
-          ),
-        ),
-
-        /// 🔥 ANA CONTENT (ORTALI)
-        Center(
-          child: Padding(
-            padding: EdgeInsets.only(left: isBig ? 50 : 40), // 🔥 boşluk
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _leagueTitle(l['name'] ?? '', color, isBig: isBig),
-
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+            for (int row = 0; row < 3; row++) ...[
+              if (row > 0) SizedBox(height: gap),
+              Expanded(
+                child: Row(
                   children: [
-                    const Icon(
-                      Icons.people,
-                      size: 14,
-                      color: Color(0xFFFFD76A),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$activePlayers",
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 14,
+                    for (int col = 0; col < (row == 2 ? 1 : 2); col++) ...[
+                      if (col > 0) SizedBox(width: gap),
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            final index = row * 2 + col;
+                            if (index >= count) return const SizedBox.shrink();
+                            return _card(leagues[index], index, row == 2);
+                          },
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(width: 6),
-                    const Text("•", style: TextStyle(color: Colors.white38)),
-                    const SizedBox(width: 6),
-
-                    const Icon(
-                      Icons.table_bar,
-                      size: 14,
-                      color: Color(0xFFFFD76A),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$activeTables",
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 14,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _goldTrophyIcon({double size = 50}) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          width: size + 10,
-          height: size + 10,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF2A2F36), Color(0xFF181D23)],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFE7C66A).withOpacity(0.35),
-                blurRadius: 10,
               ),
             ],
-          ),
-        ),
-        Container(
-          width: size + 6,
-          height: size + 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF1D2228), Color(0xFF101419)],
-              ),
-            border: Border.all(color: const Color(0x66747E88), width: 0.9),
-            ),
-          ),
-        /// 🔥 ALT GÖLGE (derinlik)
-        Transform.translate(
-          offset: const Offset(0, 2),
-          child: Icon(
-            Icons.emoji_events,
-            size: size,
-            color: Colors.black.withOpacity(0.9),
-          ),
-        ),
-
-        /// 🔥 ANA METAL GOLD
-        ShaderMask(
-          blendMode: BlendMode.srcATop,
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [
-              Color(0xFF2B6B62),
-              Color(0xFF58AFA0),
-              Color(0xFFE7C66A),
-              Color(0xFF58AFA0),
-              Color(0xFF2B6B62),
-            ],
-            stops: [0.0, 0.35, 0.55, 0.75, 1.0],
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-          ).createShader(bounds),
-          child: Icon(
-            Icons.emoji_events,
-            size: size,
-            color: Colors.white, // shader için
-          ),
-        ),
-
-        /// 🔥 GOLD GLOW
-        Icon(
-          Icons.emoji_events,
-          size: size,
-          color: Colors.transparent,
-          shadows: [
-            Shadow(
-              color: const Color(0xFFE7C66A).withOpacity(0.5),
-              blurRadius: 14,
-            ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _normalCard(Map l, Color color, bool isBig, bool compactMobile) {
-    final selected = l['id'] == selectedLeagueId;
-    final activePlayers = leagueActivePlayers[l['id']] ?? 0;
-    final activeTables = leagueActiveTables[l['id']] ?? 0;
+  Widget _card(Map<String, dynamic> league, int index, bool wide) {
+    final theme = _themes[index.clamp(0, 4)];
+    final selected = league['id'] == selectedLeagueId;
+    final players = leagueActivePlayers[league['id']] ?? 0;
+    final tables = leagueActiveTables[league['id']] ?? 0;
+    final unlocked =
+        userCoin >= ((league['min_coin'] as num?)?.toInt() ?? 0) &&
+        userRating >= ((league['min_rating'] as num?)?.toInt() ?? 0);
 
-    return Row(
-      children: [
-        /// 🔥 SOL KUPA
-        SizedBox(
-          width: compactMobile ? 34 : 58,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _leagueTrophy(l['id'], selected),
-          ),
-        ),
-        SizedBox(width: compactMobile ? 1 : 0),
-
-        /// 🔥 CONTENT
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: compactMobile
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              _leagueTitle(
-                l['name'] ?? '',
-                color,
-                isBig: isBig,
-                compact: compactMobile && !isBig,
-                alignment: Alignment.center,
-                textAlign: TextAlign.center,
+    return LayoutBuilder(
+      builder: (context, box) {
+        final h = box.maxHeight;
+        final small = h < 72 || box.maxWidth < 175;
+        final trophySize = (h * (wide ? .96 : .91)).clamp(40.0, 76.0);
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => onSelect(Map<String, dynamic>.from(league)),
+            borderRadius: BorderRadius.circular(13),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(13),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.lerp(theme.dark, theme.base, selected ? .38 : .19)!,
+                    const Color(0xFF111921),
+                  ],
+                ),
+                border: Border.all(
+                  color: selected ? theme.light : theme.base.withOpacity(.46),
+                  width: selected ? 1.8 : .9,
+                ),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: theme.base.withOpacity(.35),
+                          blurRadius: 12,
+                        ),
+                      ]
+                    : null,
               ),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: Align(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      '$_assetFolder${_assetNames[index]}_arka_plan.png',
+                      fit: BoxFit.cover,
                       alignment: Alignment.center,
+                      errorBuilder: (_, __, ___) =>
+                          ColoredBox(color: theme.dark),
+                    ),
+                    // Keep text readable even over detailed background artwork.
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(.02),
+                            Colors.black.withOpacity(.17),
+                            Colors.black.withOpacity(.35),
+                          ],
+                          stops: const [0, .42, 1],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: wide ? 8 : 4,
+                        vertical: 3,
+                      ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.people,
-                                size: 12,
-                                color: Color(0xFFD4B85F),
+                          SizedBox(
+                            width: wide ? trophySize + 8 : trophySize + 1,
+                            child: Center(
+                              child: Image.asset(
+                                '$_assetFolder${_assetNames[index]}_kupa.png',
+                                width: trophySize,
+                                height: trophySize,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.medium,
+                                errorBuilder: (_, __, ___) =>
+                                    _trophy(theme, trophySize, index == 4),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                "$activePlayers",
-                                style: const TextStyle(
-                                  color: Color(0xFFD3DBD6),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-
-                          const SizedBox(width: 2),
-
-                          const Text(
-                            "•",
-                            style: TextStyle(color: Color(0x66FFFFFF)),
-                          ),
-
-                          const SizedBox(width: 2),
-
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.table_bar,
-                                size: 12,
-                                color: Color(0xFFD4B85F),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                "$activeTables",
-                                style: const TextStyle(
-                                  color: Color(0xFFD3DBD6),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
+                          SizedBox(width: wide ? 6 : 2),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  league['name']?.toString() ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: selected
+                                        ? theme.light
+                                        : const Color(0xFFF0E5D3),
+                                    fontSize: wide
+                                        ? (small ? 16 : 19)
+                                        : (small ? 12.0 : 14),
+                                    fontWeight: FontWeight.w900,
+                                    shadows: const [
+                                      Shadow(
+                                        color: Colors.black87,
+                                        blurRadius: 4,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                SizedBox(height: small ? 1 : 4),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.people_alt_rounded,
+                                      size: small ? 10 : 12,
+                                      color: theme.light,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '$players',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: small ? 10 : 11,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.table_restaurant_rounded,
+                                      size: small ? 10 : 12,
+                                      color: theme.light,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '$tables',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: small ? 10 : 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            unlocked
+                                ? Icons.chevron_right_rounded
+                                : Icons.lock_outline_rounded,
+                            size: small ? 15 : 19,
+                            color: theme.light.withOpacity(.9),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  TrophyStyle _trophyStyle(String id) {
-    switch (id) {
-      case 'standard':
-        return TrophyStyle(
-          size: 20,
-          colors: [
-            Color(0xFF9CA3AF), // açık gri
-            Color(0xFFD1D5DB),
-          ],
-          glow: 0,
-        );
-
-      case 'bronze': // artık bronze değil, darker silver
-        return TrophyStyle(
-          size: 24,
-          colors: [
-            Color(0xFF6B7280), // orta gri
-            Color(0xFF9CA3AF),
-            Color(0xFFD1D5DB),
-          ],
-          glow: 0,
-        );
-
-      case 'silver':
-        return TrophyStyle(
-          size: 28,
-          colors: [
-            Color(0xFF4B5563), // koyu steel
-            Color(0xFF9CA3AF),
-            Color(0xFFE5E7EB),
-          ],
-          glow: 2,
-        );
-
-      case 'gold': // ustalar (platinum hissi)
-        return TrophyStyle(
-          size: 32,
-          colors: [
-            Color(0xFF374151), // daha koyu
-            Color(0xFF9CA3AF),
-            Color(0xFFE5E7EB),
-          ],
-          glow: 4,
-        );
-
-      default:
-        return TrophyStyle(
-          size: 22,
-          colors: [Color(0xFFCFAE54), Color(0xFFE7C66A)],
-          glow: 0,
-        );
-    }
-  }
-
-  Widget _leagueTrophy(String id, bool selected) {
-    final style = _trophyStyle(id);
-    final outerSize = style.size + (style.size * 0.18);
-    final innerSize = style.size + (style.size * 0.10);
-    const ringWidth = 0.35;
-    final glowBlur = selected ? (style.size * 0.38) : (style.size * 0.24);
-    final slotWidth = outerSize + 4;
-
-    return SizedBox(
-      width: slotWidth,
-      child: Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-        Container(
-              width: outerSize,
-              height: outerSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF2A2F36), Color(0xFF181D23)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFE7C66A).withOpacity(
-                      selected ? 0.35 : 0.18,
-                    ),
-                    blurRadius: glowBlur,
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: innerSize,
-              height: innerSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF1D2228), Color(0xFF101419)],
-                ),
-                border: Border.all(
-                  color: const Color(0x66747E88),
-                  width: ringWidth,
-                ),
-              ),
-            ),
-            if (style.glow > 0)
-              Icon(
-                Icons.emoji_events,
-                size: style.size,
-                color: Colors.transparent,
-                shadows: [
-                  Shadow(
-                    color: style.colors.last.withOpacity(0.5),
-                    blurRadius: style.glow,
-                  ),
-                ],
-              ),
-            ShaderMask(
-              blendMode: BlendMode.srcATop,
-              shaderCallback: (bounds) => LinearGradient(
-                colors: style.colors,
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-              ).createShader(bounds),
-              child: Icon(
-                Icons.emoji_events,
-                size: style.size,
-                color: Colors.white,
-              ),
-            ),
-          ],
+  Widget _trophy(_LeagueTheme theme, double size, bool champion) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [theme.base.withOpacity(.30), theme.dark.withOpacity(.12)],
+        ),
+      ),
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [theme.light, theme.base, theme.light],
+        ).createShader(bounds),
+        child: Icon(
+          champion
+              ? Icons.workspace_premium_rounded
+              : Icons.emoji_events_rounded,
+          size: size * .82,
+          color: Colors.white,
         ),
       ),
     );
   }
+}
+
+class _LeagueTheme {
+  final Color base;
+  final Color light;
+  final Color dark;
+  const _LeagueTheme(this.base, this.light, this.dark);
 }
 
 class AnimatedLeagueItem extends StatefulWidget {
@@ -932,11 +428,3 @@ class TrophyStyle {
 
   TrophyStyle({required this.size, required this.colors, required this.glow});
 }
-
-
-
-
-
-
-
-

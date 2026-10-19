@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart' as jo;
 import 'package:flame/game.dart';
+import 'package:okeyix/game/components/dragged_tiles_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/components/finish_screen.dart';
@@ -13,6 +14,7 @@ import 'package:okeyix/services/feedback_settings_service.dart';
 import 'package:okeyix/services/voice_command_service.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:okeyix/services/user_state.dart';
+import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/ui/game_avatar_overlay.dart' as overlay;
 import 'package:okeyix/ui/ambient/sky_planes_overlay.dart';
 import 'package:path_provider/path_provider.dart';
@@ -83,6 +85,13 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   Map<String, dynamic>? _lastIncomingMessage;
   OverlayEntry? _quickChatOverlay;
   bool _showMessageBanner = false;
+  Timer? _spectatorBannerTimer;
+  RealtimeChannel? _spectatorsChannel;
+  List<Map<String, dynamic>> _visibleSpectators = [];
+  final Map<String, String> _spectatorBubbles = {};
+  final Map<String, Map<String, dynamic>> _spectatorVoiceBubbles = {};
+  StreamSubscription<ja.PlayerState>? _spectatorVoiceStateSubscription;
+  final Map<String, Timer> _spectatorBubbleTimers = {};
   final Map<String, String> _avatarChatByUserId = {};
   final Map<String, Timer> _avatarChatTimers = {};
   final _player = jo.AudioPlayer();
@@ -192,6 +201,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _bootstrap();
     _loadChatMessages();
     _subscribeRealtime();
+    _refreshSpectators();
     _startUiLoops();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _prepareVisuals();
@@ -202,6 +212,33 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     )..repeat(reverse: true);
     _voiceCommands.addListener(_onVoiceCommandsChanged);
     _voiceCommands.initialize();
+    _spectatorVoiceStateSubscription = _audioPlayer.playerStateStream.listen((
+      state,
+    ) {
+      if (state.processingState != ja.ProcessingState.completed || !mounted)
+        return;
+      final finishedId = _playingMessageId;
+      setState(() => _playingMessageId = null);
+      if (finishedId == null) return;
+      for (final entry in _spectatorVoiceBubbles.entries.toList()) {
+        if (entry.value['id'] == finishedId) {
+          final spectatorId = entry.key;
+          _spectatorBubbleTimers.remove(spectatorId)?.cancel();
+          _spectatorBubbleTimers[spectatorId] = Timer(
+            const Duration(seconds: 1),
+            () {
+              if (!mounted ||
+                  _spectatorVoiceBubbles[spectatorId]?['id'] != finishedId)
+                return;
+              setState(() {
+                _spectatorVoiceBubbles.remove(spectatorId);
+                _spectatorBubbles.remove(spectatorId);
+              });
+            },
+          );
+        }
+      }
+    });
   }
 
   void _onVoiceCommandsChanged() {
@@ -301,6 +338,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _playersChannel?.unsubscribe();
     _chatChannel?.unsubscribe();
     _discardChannel?.unsubscribe();
+    _spectatorsChannel?.unsubscribe();
+    _spectatorVoiceStateSubscription?.cancel();
+    _spectatorBannerTimer?.cancel();
+    for (final timer in _spectatorBubbleTimers.values) {
+      timer.cancel();
+    }
     _tablePoll?.cancel();
     _playersPoll?.cancel();
     for (final t in _avatarChatTimers.values) {
@@ -437,6 +480,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         .subscribe();
 
     _discardChannel?.unsubscribe();
+    _spectatorsChannel = _supabase
+        .channel('okey_screen_spectators_${widget.tableId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'table_spectators',
+          callback: (_) => _refreshSpectators(),
+        )
+        .subscribe();
+
     _discardChannel = _supabase
         .channel('okey_screen_discards_${widget.tableId}')
         .onPostgresChanges(
@@ -482,6 +535,280 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         });
   }
 
+  Future<void> _refreshSpectators() async {
+    try {
+      final rows = await _supabase
+          .from('table_spectators')
+          .select('user_id,created_at,users(username,avatar_url)')
+          .eq('table_id', widget.tableId);
+      final list = (rows as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      list.sort(
+        (a, b) => (a['created_at'] ?? '').toString().compareTo(
+          (b['created_at'] ?? '').toString(),
+        ),
+      );
+      if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
+    } catch (e) {
+      // Some deployments do not expose created_at or the users relationship.
+      try {
+        final rows = await _supabase
+            .from('table_spectators')
+            .select()
+            .eq('table_id', widget.tableId);
+        final list = (rows as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        list.sort(
+          (a, b) => (a['created_at'] ?? '').toString().compareTo(
+            (b['created_at'] ?? '').toString(),
+          ),
+        );
+        for (final item in list.take(3)) {
+          final u = await _supabase
+              .from('users')
+              .select('username,avatar_url')
+              .eq('id', item['user_id'])
+              .maybeSingle();
+          item['users'] = u;
+        }
+        if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
+      } catch (_) {}
+    }
+  }
+
+  String _spectatorName(String name) {
+    final chars = name.trim().runes.toList();
+    if (chars.length <= 10) return name.trim();
+    return '${String.fromCharCodes(chars.take(10))}…';
+  }
+
+  Widget _spectatorStrip() {
+    if (_visibleSpectators.isEmpty) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: _visibleSpectators.map((entry) {
+        final id = entry['user_id']?.toString() ?? '';
+        final user = entry['users'] is Map ? entry['users'] as Map : const {};
+        final name = (user['username'] ?? 'İzleyici').toString();
+        final path = (user['avatar_url'] ?? '').toString();
+        final message = _spectatorBubbles[id];
+        final voiceMessage = _spectatorVoiceBubbles[id];
+        return TweenAnimationBuilder<double>(
+          key: ValueKey('spectator-entry-$id'),
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 480),
+          curve: Curves.easeOutBack,
+          builder: (context, progress, child) => Opacity(
+            opacity: progress.clamp(0.0, 1.0),
+            child: Transform.translate(
+              offset: Offset(45 * (1 - progress), 0),
+              child: Transform.scale(
+                scale: 0.88 + 0.12 * progress,
+                alignment: Alignment.centerRight,
+                child: child,
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message != null || voiceMessage != null) ...[
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 164),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF172C23),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFFFD67B),
+                        width: 1.8,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xBB000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 4),
+                        ),
+                        BoxShadow(color: Color(0x55E7BF69), blurRadius: 9),
+                      ],
+                    ),
+                    child: voiceMessage != null
+                        ? InkWell(
+                            onTap: () => _playVoice(voiceMessage),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _playingMessageId == voiceMessage['id']
+                                      ? Icons.pause_circle_filled_rounded
+                                      : Icons.play_circle_fill_rounded,
+                                  color: const Color(0xFFFFD67B),
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 5),
+                                const Icon(
+                                  Icons.graphic_eq_rounded,
+                                  color: Color(0xFFFFD67B),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'Sesli mesaj',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Text(
+                            message!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.22,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                  const Icon(
+                    Icons.arrow_right_rounded,
+                    color: Color(0xFFE7BF69),
+                    size: 15,
+                  ),
+                ],
+                GestureDetector(
+                  onTap: id.isEmpty ? null : () => overlaySpectatorProfile(id),
+                  child: Container(
+                    width: 105,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (message != null || voiceMessage != null)
+                          ? const Color(0xFF31472D)
+                          : const Color(0xF0182822),
+                      borderRadius: BorderRadius.circular(23),
+                      border: Border.all(
+                        color: (message != null || voiceMessage != null)
+                            ? const Color(0xFFFFD67B)
+                            : const Color(0xAAE1B96A),
+                        width: (message != null || voiceMessage != null)
+                            ? 1.8
+                            : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 29,
+                          height: 29,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF24342C),
+                            border: Border.all(
+                              color: const Color(0xFFD9B66B),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: path.isEmpty
+                                ? const Icon(
+                                    Icons.person,
+                                    color: Color(0xFFE8CD8D),
+                                    size: 18,
+                                  )
+                                : path.startsWith('http')
+                                ? Image.network(
+                                    path,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Image.asset(
+                                    path,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            _spectatorName(name),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFF2D79C),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void overlaySpectatorProfile(String id) {
+    ProfileService.showUserCard({'id': id});
+  }
+
+  void _showSpectatorBubble(Map<String, dynamic> msg) {
+    final id = msg['sender_id']?.toString() ?? '';
+    if (!_visibleSpectators.any((e) => e['user_id']?.toString() == id)) return;
+    final isVoice = msg['type'] == 'voice';
+    final text = (msg['content']?.toString() ?? '').trim();
+    if (!isVoice && text.isEmpty) return;
+    // Yeni mesaj eskisini hemen değiştirir; kuyruk yok.
+    _spectatorBubbleTimers.remove(id)?.cancel();
+    if (!mounted) return;
+    setState(() {
+      if (isVoice) {
+        _spectatorVoiceBubbles[id] = Map<String, dynamic>.from(msg);
+        _spectatorBubbles.remove(id);
+      } else {
+        _spectatorBubbles[id] = _shortText(text, max: 100);
+        _spectatorVoiceBubbles.remove(id);
+      }
+    });
+    _spectatorBubbleTimers[id] = Timer(const Duration(seconds: 6), () {
+      if (!mounted) return;
+      // Ses oynuyorsa oynatma bitene kadar görünür tut.
+      if (isVoice && _playingMessageId == msg['id']) return;
+      setState(() {
+        _spectatorBubbles.remove(id);
+        _spectatorVoiceBubbles.remove(id);
+      });
+      _spectatorBubbleTimers.remove(id);
+    });
+  }
+
   void _showIncomingMessage(Map<String, dynamic> msg) {
     final senderId = msg['sender_id']?.toString();
 
@@ -495,11 +822,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     _playMessageSound();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _showMessageBanner = false;
-      });
+    _spectatorBannerTimer?.cancel();
+    _spectatorBannerTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _showMessageBanner = false);
     });
   }
 
@@ -638,7 +963,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                           border: Border.all(color: const Color(0x662BE1FF)),
                         ),
                         child: const Text(
-                          'Ä°zleyici',
+                          'İzleyici',
                           style: TextStyle(
                             color: Color(0xFF9DEEFF),
                             fontSize: 10,
@@ -1055,7 +1380,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     if (role == 'player') {
       _showAvatarChatBubble(enriched);
     } else if (role == 'spectator' && senderId != _myUserId) {
-      _showIncomingMessage(enriched);
+      _showSpectatorBubble(enriched);
+      if (!_visibleSpectators.any(
+        (e) => e['user_id']?.toString() == senderId.toString(),
+      ))
+        _showIncomingMessage(enriched);
     }
   }
 
@@ -1533,6 +1862,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                                 playerChatByUserId: _avatarChatByUserId,
                               );
                             },
+                            'DraggedTiles': (context, game) =>
+                                DraggedTilesOverlay(game: game),
                             'DoubleConfirm': (context, game) {
                               return DoubleConfirmDialog(game: game);
                             },
@@ -1558,6 +1889,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                     if (_showFinishFx) _buildFinishFx(),
                     if (_showIndicatorRewardFx) _buildIndicatorRewardFx(),
 
+                    if (!finishOverlayOpen && _visibleSpectators.isNotEmpty)
+                      Positioned(top: 89, right: 8, child: _spectatorStrip()),
                     if (!finishOverlayOpen &&
                         _showMessageBanner &&
                         _lastIncomingMessage != null)
@@ -3187,7 +3520,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   Widget _buildWaitingOverlay() {
     final screenW = MediaQuery.of(context).size.width;
-    final panelWidth = screenW < 560 ? (screenW - 28).clamp(280.0, 460.0) : 430.0;
+    final panelWidth = screenW < 560
+        ? (screenW - 28).clamp(280.0, 460.0)
+        : 430.0;
     final full = _playerCount >= _maxPlayers;
     final gameCount = _game.getCountdown();
     final count = gameCount > 0

@@ -34,6 +34,24 @@ extension TileColorTypeStyle on TileColorType {
 
 class TileComponent extends PositionComponent
     with HasGameReference<FlameGame>, DragCallbacks, TapCallbacks {
+  bool renderInDragOverlay = false;
+  bool _paintingDragOverlay = false;
+
+  @override
+  void renderTree(Canvas canvas) {
+    if (renderInDragOverlay && !_paintingDragOverlay) return;
+    super.renderTree(canvas);
+  }
+
+  void paintOnDragOverlay(Canvas canvas) {
+    _paintingDragOverlay = true;
+    try {
+      renderTree(canvas);
+    } finally {
+      _paintingDragOverlay = false;
+    }
+  }
+
   final TileModel tile;
 
   late SpriteComponent baseSprite;
@@ -293,18 +311,15 @@ class TileComponent extends PositionComponent
     final startPriority = priority;
     priority = 120;
 
-    children
-        .whereType<MoveEffect>()
-        .toList()
-        .forEach((e) => e.removeFromParent());
-    children
-        .whereType<ScaleEffect>()
-        .toList()
-        .forEach((e) => e.removeFromParent());
-    children
-        .whereType<_InvalidFinishFx>()
-        .toList()
-        .forEach((e) => e.removeFromParent());
+    children.whereType<MoveEffect>().toList().forEach(
+      (e) => e.removeFromParent(),
+    );
+    children.whereType<ScaleEffect>().toList().forEach(
+      (e) => e.removeFromParent(),
+    );
+    children.whereType<_InvalidFinishFx>().toList().forEach(
+      (e) => e.removeFromParent(),
+    );
 
     add(_InvalidFinishFx(size: size, position: size / 2));
 
@@ -409,6 +424,7 @@ class TileComponent extends PositionComponent
     originalPosition = position.clone();
     dragOffset = event.localPosition;
     priority = 100;
+    gameRef.showTileAboveAvatars(this);
 
     originalSlotIndex = currentSlotIndex;
     if (currentSlotIndex != null) {
@@ -430,6 +446,7 @@ class TileComponent extends PositionComponent
     }
 
     position += event.localDelta / zoom;
+    gameRef.notifyDraggedTileMoved();
     gameRef.updatePreview(position);
     _tryActivateGroupByLiftHold(gameRef);
   }
@@ -452,6 +469,7 @@ class TileComponent extends PositionComponent
         return;
       }
 
+      gameRef.hideTileAboveAvatars(this);
       final worldPos = absolutePosition;
       if (gameRef.isPointNearIndicator(worldPos)) {
         final claimed = await gameRef.tryClaimIndicatorBonus(this);
@@ -521,6 +539,7 @@ class TileComponent extends PositionComponent
     } catch (_) {
       final gameRef = _tryGame();
       if (gameRef != null) {
+        gameRef.hideTileAboveAvatars(this);
         _restoreToOriginalSlot();
         priority = 20;
         gameRef.clearPreview();
@@ -666,7 +685,6 @@ class TileSurfaceFx extends PositionComponent {
         stops: [0.65, 1.0],
       ).createShader(rect);
     canvas.drawRRect(rrect, edgeShadow);
-
   }
 }
 
@@ -860,8 +878,3 @@ class StarComponent extends PositionComponent {
     canvas.drawPath(path, paint);
   }
 }
-
-
-
-
-

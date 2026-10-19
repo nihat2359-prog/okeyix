@@ -29,7 +29,8 @@ class LobbyBottomDock extends StatelessWidget {
             builder: (context, constraints) {
               const double sidePadding = 12;
               const double centerReserve = 112;
-              final double innerWidth = constraints.maxWidth - (sidePadding * 2);
+              final double innerWidth =
+                  constraints.maxWidth - (sidePadding * 2);
               final double sideWidth = ((innerWidth - centerReserve) / 2).clamp(
                 56.0,
                 innerWidth / 2,
@@ -46,7 +47,7 @@ class LobbyBottomDock extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(22),
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                         child: Container(
                           height: 66,
                           width: double.infinity,
@@ -55,61 +56,82 @@ class LobbyBottomDock extends StatelessWidget {
                             gradient: const LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Color(0x06161B1F), Color(0x080A0D10)],
+                              colors: [
+                                Color(0xE5272726),
+                                Color(0xED111719),
+                                Color(0xF2080C10),
+                              ],
                             ),
-                            color: const Color(0x03000000),
                             border: Border.all(
-                              color: const Color(0x35FFEBC6),
+                              color: const Color(0x99D7A958),
                               width: 1.0,
                             ),
                             boxShadow: const [
                               BoxShadow(
-                                color: Color(0x16FFD76A),
-                                blurRadius: 10,
-                                spreadRadius: 0.2,
+                                color: Color(0x3A000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 3),
                               ),
                             ],
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: sidePadding,
-                            ),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: sideWidth,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: left,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                top: 1,
+                                left: 20,
+                                right: 20,
+                                child: Container(
+                                  height: 1,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        Color(0x88FFE4A0),
+                                        Colors.transparent,
+                                      ],
                                     ),
                                   ),
                                 ),
-                                const Spacer(),
-                                SizedBox(
-                                  width: sideWidth,
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerRight,
-                                      child: right,
-                                    ),
-                                  ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: sidePadding,
                                 ),
-                              ],
-                            ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: sideWidth,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: left,
+                                        ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    SizedBox(
+                                      width: sideWidth,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerRight,
+                                          child: right,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                  Positioned(
-                    top: -1,
-                    child: center,
-                  ),
+                  Positioned(top: -1, child: center),
                 ],
               );
             },
