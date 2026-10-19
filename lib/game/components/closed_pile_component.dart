@@ -2,10 +2,12 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../okey_game.dart';
+import 'cached_decoration.dart';
 
 class ClosedPileComponent extends PositionComponent
     with HasGameReference<OkeyGame>, TapCallbacks, DragCallbacks {
   late Sprite backSprite;
+  final _decoration = ClosedPileDecoration();
   TextComponent? countText;
 
   int _currentCount;
@@ -35,7 +37,11 @@ class ClosedPileComponent extends PositionComponent
           letterSpacing: -0.2,
           color: Color(0xFF253A63),
           shadows: [
-            Shadow(offset: Offset(0, 1.0), blurRadius: 1.2, color: Colors.black38),
+            Shadow(
+              offset: Offset(0, 1.0),
+              blurRadius: 1.2,
+              color: Colors.black38,
+            ),
             Shadow(
               offset: Offset(0, -0.35),
               blurRadius: 0.4,
@@ -55,76 +61,16 @@ class ClosedPileComponent extends PositionComponent
   void render(Canvas canvas) {
     final gameRef = findGame() as OkeyGame;
     if (gameRef.isFinishOpen) return;
-    // Stack efekti render içinde
-    for (int i = 0; i < 4; i++) {
-      final pos = Vector2(i * 2.2, -i * 2.0);
-      backSprite.render(canvas, size: size, position: pos);
-      _renderBackFrame(canvas, pos);
-    }
-
-    final plateRect = Rect.fromCenter(
-      center: Offset(size.x * 0.53, size.y * 0.52),
-      width: size.x * 0.38,
-      height: size.y * 0.26,
-    );
-    final plate = RRect.fromRectAndRadius(plateRect, const Radius.circular(12));
-    final plateFill = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xC8FFF3D8), Color(0x99E5D7BA)],
-      ).createShader(plateRect);
-    final plateBorder = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = const Color(0xA5FFFFFF);
-    canvas.drawRRect(plate, plateFill);
-    canvas.drawRRect(plate, plateBorder);
-
+    _decoration.size.setFrom(size);
+    _decoration.backSprite = backSprite;
+    _decoration.render(canvas);
     super.render(canvas);
   }
 
-  void _renderBackFrame(Canvas canvas, Vector2 pos) {
-    final rect = Rect.fromLTWH(pos.x, pos.y, size.x, size.y);
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
-    final borderRect = rect.deflate(0.6);
-    final borderRRect = RRect.fromRectAndRadius(
-      borderRect,
-      const Radius.circular(11.4),
-    );
-
-    final outerShadow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0
-      ..color = const Color(0x8F4A525C);
-    canvas.drawRRect(borderRRect, outerShadow);
-
-    final outerCore = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.6
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
-        stops: [0.0, 0.56, 1.0],
-      ).createShader(rect);
-    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
-
-    final edgeSpecular = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
-      ).createShader(rect);
-    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
-
-    final innerCore = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.9
-      ..color = const Color(0x8A7D8792);
-    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
+  @override
+  void onRemove() {
+    _decoration.onRemove();
+    super.onRemove();
   }
 
   @override
@@ -211,5 +157,104 @@ class RackActionsComponent extends PositionComponent {
         ),
       ),
     );
+  }
+}
+
+/// Fixed artwork only; count text and game interaction remain on the parent.
+class ClosedPileDecoration extends PositionComponent with CachedDecoration {
+  late Sprite backSprite;
+  @override
+  Object get decorationKey {
+    final paint = backSprite.paint;
+    return (
+      backSprite,
+      backSprite.image,
+      backSprite.src,
+      paint.color,
+      paint.blendMode,
+      paint.colorFilter,
+      paint.imageFilter,
+      paint.maskFilter,
+      paint.shader,
+      paint.filterQuality,
+      paint.isAntiAlias,
+      paint.invertColors,
+      paint.style,
+      paint.strokeWidth,
+      paint.strokeCap,
+      paint.strokeJoin,
+      paint.strokeMiterLimit,
+    );
+  }
+
+  @override
+  void renderDecoration(Canvas canvas) {
+    // Stack efekti render içinde
+    for (int i = 0; i < 4; i++) {
+      final pos = Vector2(i * 2.2, -i * 2.0);
+      backSprite.render(canvas, size: size, position: pos);
+      _renderBackFrame(canvas, pos);
+    }
+
+    final plateRect = Rect.fromCenter(
+      center: Offset(size.x * 0.53, size.y * 0.52),
+      width: size.x * 0.38,
+      height: size.y * 0.26,
+    );
+    final plate = RRect.fromRectAndRadius(plateRect, const Radius.circular(12));
+    final plateFill = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xC8FFF3D8), Color(0x99E5D7BA)],
+      ).createShader(plateRect);
+    final plateBorder = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..color = const Color(0xA5FFFFFF);
+    canvas.drawRRect(plate, plateFill);
+    canvas.drawRRect(plate, plateBorder);
+  }
+
+  void _renderBackFrame(Canvas canvas, Vector2 pos) {
+    final rect = Rect.fromLTWH(pos.x, pos.y, size.x, size.y);
+    final borderRect = rect.deflate(0.6);
+    final borderRRect = RRect.fromRectAndRadius(
+      borderRect,
+      const Radius.circular(11.4),
+    );
+
+    final outerShadow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0
+      ..color = const Color(0x8F4A525C);
+    canvas.drawRRect(borderRRect, outerShadow);
+
+    final outerCore = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.6
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFF5F8FC), Color(0xFFC8D0DA), Color(0xFF9BA3AE)],
+        stops: [0.0, 0.56, 1.0],
+      ).createShader(rect);
+    canvas.drawRRect(borderRRect.deflate(0.7), outerCore);
+
+    final edgeSpecular = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xD9FFFFFF), Color(0x1AFFFFFF)],
+      ).createShader(rect);
+    canvas.drawRRect(borderRRect.deflate(1.6), edgeSpecular);
+
+    final innerCore = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = const Color(0x8A7D8792);
+    canvas.drawRRect(borderRRect.deflate(2.7), innerCore);
   }
 }

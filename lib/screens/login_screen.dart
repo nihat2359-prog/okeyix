@@ -1,12 +1,10 @@
-import 'dart:math' as math;
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/services/device_identity_service.dart';
 import 'package:okeyix/services/analytics_service.dart';
-import 'package:okeyix/widgets/aaa_button.dart';
+import 'package:okeyix/ui/login_start_scene.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'lobby_screen.dart';
@@ -29,20 +27,14 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final supabase = Supabase.instance.client;
 
-  late final AnimationController _fadeController;
-  late final AnimationController _particleController;
-
   bool _loading = false;
   bool _loadingGuest = false;
   String? _error;
-
-  final List<Particle> particles = [];
 
   @override
   void initState() {
@@ -65,40 +57,13 @@ class _LoginScreenState extends State<LoginScreen>
       }
     });
 
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..forward();
-
-    _particleController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 20),
-    )..repeat();
-
-    _generateParticles();
     _error = widget.error;
     WidgetsBinding.instance.addObserver(this);
-  }
-
-  void _generateParticles() {
-    final rand = math.Random();
-    for (int i = 0; i < 40; i++) {
-      particles.add(
-        Particle(
-          x: rand.nextDouble(),
-          y: rand.nextDouble(),
-          speed: 0.02 + rand.nextDouble() * 0.04,
-          size: 1 + rand.nextDouble() * 2,
-        ),
-      );
-    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _fadeController.dispose();
-    _particleController.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -305,189 +270,14 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          /// ?? BACKGROUND
-          Positioned.fill(
-            child: Image.asset(
-              "assets/images/lobby/lobby.png",
-              fit: BoxFit.cover,
-            ),
-          ),
-
-          /// ?? DARK OVERLAY (focus verir)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0.4, 0),
-                  radius: 1.2,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.75)],
-                ),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                const spacing = 12.0;
-                final maxW = constraints.maxWidth;
-                final contentW = (maxW - 36).clamp(220.0, 2000.0);
-                final compactScale = ((contentW / 3) / 250).clamp(0.62, 1.0);
-                final logoScale = (1.15 + (1 - compactScale) * 0.25).clamp(
-                  1.08,
-                  1.32,
-                );
-                final isCompactLabels = compactScale < 0.84;
-
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1100),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Transform.scale(
-                                scale: logoScale,
-                                child: const OkeyixLogo(),
-                              ),
-                              const SizedBox(height: 26),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(
-                                    sigmaX: 16,
-                                    sigmaY: 16,
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.06),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.25),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: AuthButton(
-                                            icon: const Icon(
-                                              Icons.apple,
-                                              color: Colors.white,
-                                              size: 22,
-                                            ),
-                                            text: isCompactLabels
-                                                ? "Apple"
-                                                : "Apple ile devam et",
-                                            type: AuthButtonType.apple,
-                                            onTap: _loginWithApple,
-                                          ),
-                                        ),
-                                        const SizedBox(width: spacing),
-                                        Expanded(
-                                          child: AuthButton(
-                                            icon: Image.asset(
-                                              "assets/images/google.png",
-                                              height: 20,
-                                            ),
-                                            text: isCompactLabels
-                                                ? "Google"
-                                                : "Google ile devam et",
-                                            type: AuthButtonType.google,
-                                            onTap: _loginWithGoogle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: spacing),
-                                        Expanded(
-                                          child: AuthButton(
-                                            icon: const Icon(
-                                              Icons.person_outline,
-                                              color: Color(0xFFE7C66A),
-                                            ),
-                                            text: "Hızlı Başla",
-                                            type: AuthButtonType.guest,
-                                            onTap: _loadingGuest
-                                                ? null
-                                                : _playAsGuest,
-                                            loading: _loadingGuest,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 900,
-                                ),
-                                child: _errorBox(),
-                              ),
-                              const OkeyixLegalBlock(),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _errorBox() {
-    if (_error == null) return const SizedBox();
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xAA2A0F10),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.redAccent),
-        boxShadow: const [
-          BoxShadow(color: Colors.redAccent, blurRadius: 12, spreadRadius: 1),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _error!,
-              style: const TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  Widget build(BuildContext context) => LoginStartScene(
+    onApple: _loginWithApple,
+    onGoogle: _loginWithGoogle,
+    onGuest: _playAsGuest,
+    loadingGuest: _loadingGuest,
+    error: _error,
+    legal: const OkeyixLegalBlock(),
+  );
   Future<void> _checkAgeGate() async {
     final prefs = await SharedPreferences.getInstance();
     final ageVerified = prefs.getBool("age_verified") ?? false;
@@ -609,42 +399,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-class ParticlePainter extends CustomPainter {
-  final double progress;
-  final List<Particle> particles;
-
-  ParticlePainter({required this.progress, required this.particles});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0x66F2C14E);
-
-    for (final p in particles) {
-      final x = p.x * size.width;
-      final y = ((p.y + progress * p.speed) % 1.0) * size.height;
-
-      canvas.drawCircle(Offset(x, y), p.size, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class Particle {
-  double x;
-  double y;
-  double speed;
-  double size;
-
-  Particle({
-    required this.x,
-    required this.y,
-    required this.speed,
-    required this.size,
-  });
-}
-
 class OkeyixLogo extends StatelessWidget {
   const OkeyixLogo({super.key});
 
@@ -723,51 +477,61 @@ class OkeyixLegalBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        /// ?? GİZLİLİK METNİ
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 11,
-                height: 1.4,
-              ),
-              children: [
-                const TextSpan(text: "Giriş yaparak "),
-                TextSpan(
-                  text: "Gizlilik Politikası",
-                  style: const TextStyle(
-                    color: Color(0xFFE7C66A),
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = _openPrivacy,
+    final scaler = MediaQuery.textScalerOf(context);
+    return LayoutBuilder(
+      builder: (context, bounds) {
+        final privacy = RichText(
+          textScaler: scaler,
+          textAlign: TextAlign.center,
+          text: TextSpan(
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
+              color: Color(0xFFCCD4C9),
+              fontSize: 10.5,
+              height: 1.2,
+            ),
+            children: [
+              const TextSpan(text: 'Giriş yaparak '),
+              TextSpan(
+                text: 'Gizlilik Politikası',
+                style: const TextStyle(
+                  color: Color(0xFFE7C66A),
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
                 ),
-                const TextSpan(text: "’nı kabul etmiş olursun."),
-              ],
-            ),
+                recognizer: TapGestureRecognizer()..onTap = _openPrivacy,
+              ),
+              const TextSpan(text: '’nı kabul etmiş olursun.'),
+            ],
           ),
-        ),
-
-        const SizedBox(height: 8),
-
-        /// ?? WEBSITE (DAHA SAKİN)
-        GestureDetector(
+        );
+        final website = GestureDetector(
           onTap: _openWebsite,
-          child: Text(
-            "www.okeyix.com",
+          child: const Text(
+            'www.okeyix.com',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.35),
-              fontSize: 11,
-              letterSpacing: 0.5,
+              color: Color(0xFFACBDB0),
+              fontSize: 10.5,
+              height: 1.2,
+              letterSpacing: .4,
             ),
           ),
-        ),
-      ],
+        );
+        if (bounds.maxWidth > scaler.scale(500)) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(child: privacy),
+              const SizedBox(width: 24),
+              website,
+            ],
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [privacy, const SizedBox(height: 4), website],
+        );
+      },
     );
   }
 }

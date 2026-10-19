@@ -1,4 +1,5 @@
-﻿import 'package:flame/collisions.dart';
+import 'package:okeyix/game/observed_effect.dart';
+import 'package:flame/collisions.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
@@ -135,14 +136,55 @@ class RackCinematicFx extends PositionComponent {
   }
 }
 
-class RackActionButton extends PositionComponent with TapCallbacks {
+class RackActionButton extends PositionComponent with TapCallbacks, ActivityLifecycleObservation {
   final String label;
   final Vector2 targetPosition;
   final Vector2 startPosition;
   final VoidCallback onTap;
   bool _pressed = false;
-  late final TextPaint _textPaint;
-  late final double _lineHeight;
+  final List<TextPainter> _labels = [];
+  double? _labelWidth;
+  double? _labelHeight;
+  int textMeasurements = 0;
+
+  void _clearLabels() {
+    for (final painter in _labels) {
+      painter.dispose();
+    }
+    _labels.clear();
+    _labelWidth = null;
+    _labelHeight = null;
+  }
+
+  void _prepareLabels() {
+    if (_labelWidth == size.x && _labelHeight == size.y) return;
+    _clearLabels();
+    for (final line in label.split(' ')) {
+      _labels.add(
+        TextPainter(
+          text: TextSpan(
+            text: line,
+            style: TextStyle(
+              color: const Color(0xFFF6D783),
+              fontSize: size.y >= 150 ? 30 : 22,
+              fontWeight: FontWeight.w700,
+              height: 1.0,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(),
+      );
+      textMeasurements++;
+    }
+    _labelWidth = size.x;
+    _labelHeight = size.y;
+  }
+
+  @override
+  void onRemove() {
+    _clearLabels();
+    super.onRemove();
+  }
 
   RackActionButton({
     required this.label,
@@ -160,22 +202,13 @@ class RackActionButton extends PositionComponent with TapCallbacks {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _textPaint = TextPaint(
-      style: TextStyle(
-        color: Color(0xFFF6D783),
-        fontSize: size.y >= 150 ? 30 : 22,
-        fontWeight: FontWeight.w700,
-        height: 1.0,
-      ),
-    );
-    _lineHeight = size.y >= 150 ? 34 : 24;
     add(RectangleHitbox(size: size, anchor: Anchor.topLeft));
 
     add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         targetPosition,
         EffectController(duration: 0.32, curve: Curves.easeOutBack),
-      ),
+      ), activityProbeFor(this), 'stage.dart:1'),
     );
   }
 
@@ -225,28 +258,18 @@ class RackActionButton extends PositionComponent with TapCallbacks {
     canvas.drawRRect(r, gloss);
     canvas.drawRRect(r, border);
     canvas.drawRRect(r.deflate(5), inner);
-    final lines = label.split(' ');
-    final totalHeight = lines.length * _lineHeight;
-    var y = (size.y - totalHeight) / 2 + (_lineHeight / 2);
-    for (final line in lines) {
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: line,
-          style: TextStyle(
-            color: const Color(0xFFF6D783),
-            fontSize: size.y >= 150 ? 30 : 22,
-            fontWeight: FontWeight.w700,
-            height: 1.0,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final w = textPainter.width;
-      final x = (size.x - w) / 2;
-      _textPaint.render(canvas, line, Vector2(x, y), anchor: Anchor.topLeft);
-      y += _lineHeight;
-    }
+    renderLabels(canvas);
     if (_pressed) canvas.restore();
+  }
+
+  void renderLabels(Canvas canvas) {
+    _prepareLabels();
+    final lineHeight = size.y >= 150 ? 34.0 : 24.0;
+    var y = (size.y - _labels.length * lineHeight) / 2 + lineHeight / 2;
+    for (final painter in _labels) {
+      painter.paint(canvas, Offset((size.x - painter.width) / 2, y));
+      y += lineHeight;
+    }
   }
 
   @override
@@ -254,10 +277,10 @@ class RackActionButton extends PositionComponent with TapCallbacks {
     if (_pressed) return;
     _pressed = true;
     add(
-      ScaleEffect.to(
+      observeGameEffect(ScaleEffect.to(
         Vector2.all(0.96),
         EffectController(duration: 0.06, curve: Curves.easeOut),
-      ),
+      ), activityProbeFor(this), 'stage.dart:2'),
     );
     onTap();
   }
@@ -266,10 +289,10 @@ class RackActionButton extends PositionComponent with TapCallbacks {
   void onTapUp(TapUpEvent event) {
     _pressed = false;
     add(
-      ScaleEffect.to(
+      observeGameEffect(ScaleEffect.to(
         Vector2.all(1.0),
         EffectController(duration: 0.08, curve: Curves.easeOut),
-      ),
+      ), activityProbeFor(this), 'stage.dart:3'),
     );
   }
 
@@ -277,10 +300,10 @@ class RackActionButton extends PositionComponent with TapCallbacks {
   void onTapCancel(TapCancelEvent event) {
     _pressed = false;
     add(
-      ScaleEffect.to(
+      observeGameEffect(ScaleEffect.to(
         Vector2.all(1.0),
         EffectController(duration: 0.08, curve: Curves.easeOut),
-      ),
+      ), activityProbeFor(this), 'stage.dart:4'),
     );
   }
 }

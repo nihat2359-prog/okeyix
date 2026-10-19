@@ -24,11 +24,11 @@ class LobbyBottomDock extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: SizedBox(
-          height: 88,
+          height: 78,
           child: LayoutBuilder(
             builder: (context, constraints) {
               const double sidePadding = 12;
-              const double centerReserve = 112;
+              const double centerReserve = 88;
               final double innerWidth =
                   constraints.maxWidth - (sidePadding * 2);
               final double sideWidth = ((innerWidth - centerReserve) / 2).clamp(
@@ -47,9 +47,9 @@ class LobbyBottomDock extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(22),
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                         child: Container(
-                          height: 66,
+                          height: 62,
                           width: double.infinity,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(22),
@@ -63,7 +63,7 @@ class LobbyBottomDock extends StatelessWidget {
                               ],
                             ),
                             border: Border.all(
-                              color: const Color(0x99D7A958),
+                              color: const Color(0x667F7459),
                               width: 1.0,
                             ),
                             boxShadow: const [

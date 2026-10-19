@@ -54,28 +54,27 @@ class LobbyLeagueList extends StatelessWidget {
       );
     }
 
-    // Five leagues always fit in 3 rows; no vertical scrolling on phones.
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final gap = constraints.maxHeight < 210 ? 3.0 : 6.0;
+      builder: (context, bounds) {
+        final gap = (bounds.maxHeight * .025).clamp(3.0, 7.0);
         final count = leagues.length < 5 ? leagues.length : 5;
         return Column(
           children: [
-            for (int row = 0; row < 3; row++) ...[
+            for (var row = 0; row < 3; row++) ...[
               if (row > 0) SizedBox(height: gap),
               Expanded(
                 child: Row(
                   children: [
-                    for (int col = 0; col < (row == 2 ? 1 : 2); col++) ...[
+                    for (var col = 0; col < (row == 2 ? 1 : 2); col++) ...[
                       if (col > 0) SizedBox(width: gap),
                       Expanded(
-                        child: Builder(
-                          builder: (context) {
-                            final index = row * 2 + col;
-                            if (index >= count) return const SizedBox.shrink();
-                            return _card(leagues[index], index, row == 2);
-                          },
-                        ),
+                        child: row * 2 + col < count
+                            ? _card(
+                                leagues[row * 2 + col],
+                                row * 2 + col,
+                                row == 2,
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ],
                   ],
@@ -99,159 +98,189 @@ class LobbyLeagueList extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, box) {
-        final h = box.maxHeight;
-        final small = h < 72 || box.maxWidth < 175;
-        final trophySize = (h * (wide ? .96 : .91)).clamp(40.0, 76.0);
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => onSelect(Map<String, dynamic>.from(league)),
-            borderRadius: BorderRadius.circular(13),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              decoration: BoxDecoration(
+        return Semantics(
+          selected: selected,
+          button: true,
+          label:
+              '${league['name']}, $players oyuncu, $tables masa, ${unlocked ? 'Açık' : 'Kilitli'}',
+          child: Tooltip(
+            message: unlocked
+                ? '${league['name']}'
+                : 'Gereken: ${league['min_coin']} coin · ${league['min_rating']} puan',
+            child: Material(
+              key: ValueKey('league-${league['id']}'),
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onSelect(Map<String, dynamic>.from(league)),
                 borderRadius: BorderRadius.circular(13),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color.lerp(theme.dark, theme.base, selected ? .38 : .19)!,
-                    const Color(0xFF111921),
-                  ],
-                ),
-                border: Border.all(
-                  color: selected ? theme.light : theme.base.withOpacity(.46),
-                  width: selected ? 1.8 : .9,
-                ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: theme.base.withOpacity(.35),
-                          blurRadius: 12,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      '$_assetFolder${_assetNames[index]}_arka_plan.png',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                      errorBuilder: (_, __, ___) =>
-                          ColoredBox(color: theme.dark),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(13),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color.lerp(
+                          theme.dark,
+                          theme.base,
+                          selected ? .32 : .12,
+                        )!,
+                        const Color(0xFF111921),
+                      ],
                     ),
-                    // Keep text readable even over detailed background artwork.
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.black.withOpacity(.02),
-                            Colors.black.withOpacity(.17),
-                            Colors.black.withOpacity(.35),
-                          ],
-                          stops: const [0, .42, 1],
-                        ),
-                      ),
+                    border: Border.all(
+                      color: selected
+                          ? theme.light
+                          : theme.base.withOpacity(.46),
+                      width: selected ? 1.8 : .9,
                     ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: wide ? 8 : 4,
-                        vertical: 3,
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: wide ? trophySize + 8 : trophySize + 1,
-                            child: Center(
-                              child: Image.asset(
-                                '$_assetFolder${_assetNames[index]}_kupa.png',
-                                width: trophySize,
-                                height: trophySize,
-                                fit: BoxFit.contain,
-                                filterQuality: FilterQuality.medium,
-                                errorBuilder: (_, __, ___) =>
-                                    _trophy(theme, trophySize, index == 4),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: theme.base.withOpacity(.18),
+                              blurRadius: 12,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          '$_assetFolder${_assetNames[index]}_arka_plan.png',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          errorBuilder: (_, __, ___) =>
+                              ColoredBox(color: theme.dark),
+                        ),
+                        // Keep text readable even over detailed background artwork.
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withOpacity(.02),
+                                Colors.black.withOpacity(.17),
+                                Colors.black.withOpacity(.62),
+                              ],
+                              stops: const [0, .42, 1],
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: SizedBox(
+                              width: wide ? 280 : 150,
+                              height: 64,
+                              child: Row(
+                                children: [
+                                  Image.asset(
+                                    '$_assetFolder${_assetNames[index]}_kupa.png',
+                                    width: wide ? 56 : 36,
+                                    height: 56,
+                                    fit: BoxFit.contain,
+                                    filterQuality: FilterQuality.medium,
+                                    errorBuilder: (_, _, _) => _trophy(
+                                      theme,
+                                      wide ? 56 : 36,
+                                      index == 4,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Flexible(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              league['name']?.toString() ?? '',
+                                              style: TextStyle(
+                                                color: selected
+                                                    ? theme.light
+                                                    : const Color(0xFFF0E5D3),
+                                                fontSize: wide ? 20 : 14,
+                                                fontWeight: FontWeight.w900,
+                                                shadows: const [
+                                                  Shadow(
+                                                    color: Colors.black87,
+                                                    blurRadius: 4,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Flexible(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.people_alt_rounded,
+                                                  size: 11,
+                                                  color: theme.light,
+                                                ),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  '$players',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFE2E8DF),
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Icon(
+                                                  Icons
+                                                      .table_restaurant_rounded,
+                                                  size: 11,
+                                                  color: theme.light,
+                                                ),
+                                                const SizedBox(width: 3),
+                                                Text(
+                                                  '$tables',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFE2E8DF),
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Icon(
+                                    unlocked
+                                        ? (selected
+                                              ? Icons.check_circle_rounded
+                                              : Icons.chevron_right_rounded)
+                                        : Icons.lock_outline_rounded,
+                                    size: 14,
+                                    color: theme.light,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          SizedBox(width: wide ? 6 : 2),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  league['name']?.toString() ?? '',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: selected
-                                        ? theme.light
-                                        : const Color(0xFFF0E5D3),
-                                    fontSize: wide
-                                        ? (small ? 16 : 19)
-                                        : (small ? 12.0 : 14),
-                                    fontWeight: FontWeight.w900,
-                                    shadows: const [
-                                      Shadow(
-                                        color: Colors.black87,
-                                        blurRadius: 4,
-                                        offset: Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(height: small ? 1 : 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.people_alt_rounded,
-                                      size: small ? 10 : 12,
-                                      color: theme.light,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      '$players',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: small ? 10 : 11,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Icon(
-                                      Icons.table_restaurant_rounded,
-                                      size: small ? 10 : 12,
-                                      color: theme.light,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      '$tables',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: small ? 10 : 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            unlocked
-                                ? Icons.chevron_right_rounded
-                                : Icons.lock_outline_rounded,
-                            size: small ? 15 : 19,
-                            color: theme.light.withOpacity(.9),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

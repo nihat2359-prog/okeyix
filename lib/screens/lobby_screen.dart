@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -14,6 +14,7 @@ import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
+import 'package:okeyix/ui/lobby/lobby_columns.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
@@ -464,15 +465,11 @@ class _LobbyScreenState extends State<LobbyScreen>
               },
             );
             if (claimed != true) {
-              if (mounted) {
-                _msg('Bugünkü günlük bonus daha önce alınmış.');
-                Navigator.of(context).pop();
-              }
-              return;
+              return false;
             }
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('daily_bonus_claimed_${user.id}', dayKey);
-            if (mounted) Navigator.of(context).pop();
+            return true;
           },
         ),
       );
@@ -4028,9 +4025,6 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final compact = size.width < 1320;
-    final leagueWidth = compact ? 260.0 : 270.0;
     if (!_deviceReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -4055,6 +4049,17 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
           ),
           const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x88081016), Color(0x22081016), Color(0xAA050D10)],
+                ),
+              ),
+            ),
+          ),
+          const Positioned.fill(
             child: SkyPlanesOverlay(skyHeightFactor: 0.34, planeCount: 2),
           ),
 
@@ -4070,9 +4075,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       children: [
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _connectedLeagueAndTables(
-                            leagueWidth: leagueWidth,
-                          ),
+                          child: _connectedLeagueAndTables(),
                         ),
                       ],
                     ),
@@ -5959,20 +5962,17 @@ class _LobbyScreenState extends State<LobbyScreen>
     return input;
   }
 
-  Widget _connectedLeagueAndTables({required double leagueWidth}) {
-    return Row(
-      children: [
+  Widget _connectedLeagueAndTables() {
+    return LobbyColumns(
+      leagues:
         /// ?? SOL PANEL (GLASS EFFECT)
         ClipRRect(
           borderRadius: BorderRadius.circular(22),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
             child: Container(
-              /// ?? biraz daha geni?
-              width: leagueWidth + 80,
-
               margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
-              padding: const EdgeInsets.fromLTRB(6, 8, 14, 8),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
 
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
@@ -6003,7 +6003,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ),
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 2),
                   Column(
                     children: [
                       const Text(
@@ -6097,8 +6097,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
 
         /// ?? MASALAR
-        Expanded(child: _buildTablesPanel()),
-      ],
+        tables: _buildTablesPanel(),
     );
   }
 
@@ -6584,7 +6583,31 @@ class _LobbyScreenState extends State<LobbyScreen>
       offset: const Offset(0, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [CreateButton(onTap: _showCreateModal)],
+        children: [
+          Tooltip(
+            message: 'Masa Aç',
+            child: Semantics(
+              button: true,
+              label: 'Masa Aç',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: FittedBox(child: CreateButton(onTap: _showCreateModal)),
+                  ),
+                  const SizedBox(
+                    height: 12,
+                    child: FittedBox(
+                      child: Text('MASA AÇ', style: TextStyle(color: Color(0xFFE8D2A0), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .7)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

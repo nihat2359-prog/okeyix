@@ -58,120 +58,135 @@ class LobbyTableCard extends StatelessWidget {
           final cardWidth = constraints.maxWidth;
           final cardHeight = constraints.maxHeight;
           return Stack(
-        children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: ColorFiltered(
-                colorFilter: const ColorFilter.matrix(<double>[
-                  0.88, 0.04, 0.04, 0, 0,
-                  0.04, 0.88, 0.04, 0, 0,
-                  0.04, 0.04, 0.88, 0, 0,
-                  0, 0, 0, 1, 0,
-                ]),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      'assets/images/table.png',
-                      fit: BoxFit.fill,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Image.asset(
-                          'assets/images/lobby/table_surface.png',
-                          fit: BoxFit.cover,
-                        );
-                      },
-                    ),
-                    Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x44101514), Color(0x55101514)],
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: ColorFiltered(
+                    colorFilter: const ColorFilter.matrix(<double>[
+                      0.88,
+                      0.04,
+                      0.04,
+                      0,
+                      0,
+                      0.04,
+                      0.88,
+                      0.04,
+                      0,
+                      0,
+                      0.04,
+                      0.04,
+                      0.88,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      1,
+                      0,
+                    ]),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          'assets/images/table.png',
+                          fit: BoxFit.fill,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              'assets/images/lobby/table_surface.png',
+                              fit: BoxFit.cover,
+                            );
+                          },
                         ),
-                      ),
-                    ),
-                    Container(
-                      decoration: const BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment(0, 0.05),
-                          radius: 1.0,
-                          colors: [Color(0x00101514), Color(0x55101514)],
+                        Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0x44101514), Color(0x55101514)],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          Positioned(
-            left: 10,
-            top: 8,
-            child: _tableMetaColumn(),
-          ),
-          ..._decorativeDiscardAnchors(cardWidth, cardHeight),
-          if (isPlaying && !isFake && spectatorsEnabled)
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: InkWell(
-                onTap: () => onSpectate(table),
-                borderRadius: BorderRadius.circular(999),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(
-                        Icons.remove_red_eye_rounded,
-                        size: 13,
-                        color: Color(0xFFE5C57A),
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'IZLE',
-                        style: TextStyle(
-                          color: Color(0xFFE5C57A),
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                          fontSize: 10.2,
+                        Container(
+                          decoration: const BoxDecoration(
+                            gradient: RadialGradient(
+                              center: Alignment(0, 0.05),
+                              radius: 1.0,
+                              colors: [Color(0x00101514), Color(0x55101514)],
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          if (!(isPlaying && !isFake))
-            Positioned(
-              right: 10,
-              top: 8,
-              child: _tableStatusIcons(),
-            ),
 
-          ...List.generate(maxPlayers, (seat) {
-            Map<String, dynamic>? player;
+              Positioned(left: 10, top: 8, child: _tableMetaColumn()),
+              ..._decorativeDiscardAnchors(cardWidth, cardHeight),
+              if (isPlaying && !isFake && spectatorsEnabled)
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: InkWell(
+                    key: ValueKey('spectate-${table['id']}'),
+                    onTap: () => onSpectate(table),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xE610241D),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0x99D7B773)),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.remove_red_eye_rounded,
+                            size: 13,
+                            color: Color(0xFFE5C57A),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'İZLE',
+                            style: TextStyle(
+                              color: Color(0xFFE5C57A),
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.3,
+                              fontSize: 10.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (!(isPlaying && !isFake))
+                Positioned(right: 10, top: 8, child: _tableStatusIcons()),
 
-            for (final p in players) {
-              if (p['seat_index'] == seat) {
-                player = p;
-                break;
-              }
-            }
+              ...List.generate(maxPlayers, (seat) {
+                Map<String, dynamic>? player;
 
-            return _seatAnchor(
-              seatIndex: seat,
-              maxPlayers: maxPlayers,
-              child: _seatContent(player),
-            );
-          }),
-        ],
-      );
+                for (final p in players) {
+                  if (p['seat_index'] == seat) {
+                    player = p;
+                    break;
+                  }
+                }
+
+                return _seatAnchor(
+                  seatIndex: seat,
+                  maxPlayers: maxPlayers,
+                  availableHeight: cardHeight,
+                  child: _seatContent(player),
+                );
+              }),
+            ],
+          );
         },
       ),
     );
@@ -190,13 +205,21 @@ class LobbyTableCard extends StatelessWidget {
   Widget _seatAnchor({
     required int seatIndex,
     required int maxPlayers,
+    required double availableHeight,
     required Widget child,
   }) {
     if (maxPlayers == 2) {
+      final seat = SizedBox(
+        height: (availableHeight - 32) / 2,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: SizedBox(width: 120, child: child),
+        ),
+      );
       if (seatIndex == 0) {
-        return Positioned(left: 48, right: 48, bottom: 18, child: child);
+        return Positioned(left: 72, right: 60, bottom: 12, child: seat);
       }
-      return Positioned(left: 48, right: 48, top: 10, child: child);
+      return Positioned(left: 72, right: 60, top: 10, child: seat);
     }
 
     switch (seatIndex) {
@@ -251,6 +274,7 @@ class LobbyTableCard extends StatelessWidget {
                 child: Text(
                   player['username']?.toString() ?? 'Oyuncu',
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -348,16 +372,14 @@ class LobbyTableCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 13,
-          color: baseColor,
-        ),
+        Icon(icon, size: 13, color: baseColor),
         const SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
-            color: accentColor ?? (highlight ? const Color(0xFFE7C06A) : Colors.white),
+            color:
+                accentColor ??
+                (highlight ? const Color(0xFFE7C06A) : Colors.white),
             fontSize: 10.5,
             fontWeight: FontWeight.w800,
             height: 1.0,

@@ -20,14 +20,19 @@ class SkyPlanesOverlay extends StatefulWidget {
 }
 
 class _SkyPlanesOverlayState extends State<SkyPlanesOverlay>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final Ticker _ticker;
   double _elapsedSeconds = 0;
   int _lastFrameMicros = 0;
+  double _elapsedBeforePause = 0;
+  bool _foreground = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed;
     _ticker = createTicker((elapsed) {
       if (!mounted) return;
       final micros = elapsed.inMicroseconds;
@@ -35,13 +40,37 @@ class _SkyPlanesOverlayState extends State<SkyPlanesOverlay>
       if (micros - _lastFrameMicros < 33333) return;
       _lastFrameMicros = micros;
       setState(() {
-        _elapsedSeconds = micros / 1000000.0;
+        _elapsedSeconds = _elapsedBeforePause + micros / 1000000.0;
       });
-    })..start();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncTicker();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncTicker();
+  }
+
+  void _syncTicker() {
+    final visible = _foreground && TickerMode.of(context);
+    if (visible && !_ticker.isActive) {
+      _elapsedBeforePause = _elapsedSeconds;
+      _lastFrameMicros = 0;
+      _ticker.start();
+    } else if (!visible && _ticker.isActive) {
+      _ticker.stop();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     super.dispose();
   }

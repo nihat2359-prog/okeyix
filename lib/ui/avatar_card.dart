@@ -1,8 +1,9 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'avatar_preset.dart';
 import '../models/player_model.dart';
+import 'periodic_ui_builder.dart';
 
 enum AvatarPosition { bottom, top, left, right }
 
@@ -10,6 +11,8 @@ class AvatarCard extends StatelessWidget {
   final PlayerModel player;
   final AvatarPosition position;
   final double progress;
+  final double Function()? progressReader;
+  final bool animateProgress;
   final bool showRating;
   final bool showRatingProgress;
   final VoidCallback? onTap;
@@ -18,6 +21,8 @@ class AvatarCard extends StatelessWidget {
     required this.player,
     required this.position,
     required this.progress,
+    this.progressReader,
+    this.animateProgress = false,
     this.showRating = true,
     this.showRatingProgress = true,
     this.onTap,
@@ -262,15 +267,29 @@ class AvatarCard extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (player.isActive)
-            CustomPaint(
-              size: const Size(72, 72),
-              painter: _ActiveTurnGlowPainter(progress),
+          RepaintBoundary(
+            child: PeriodicUiBuilder(
+              interval: const Duration(milliseconds: 33),
+              enabled:
+                  animateProgress && player.isActive && progressReader != null,
+              builder: (_) {
+                final current = progressReader?.call() ?? progress;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (player.isActive)
+                      CustomPaint(
+                        size: const Size(72, 72),
+                        painter: _ActiveTurnGlowPainter(current),
+                      ),
+                    CustomPaint(
+                      size: const Size(70, 70),
+                      painter: _CircleTimerPainter(current),
+                    ),
+                  ],
+                );
+              },
             ),
-          // GOLD TIMER RING
-          CustomPaint(
-            size: const Size(70, 70),
-            painter: _CircleTimerPainter(progress),
           ),
 
           // AVATAR

@@ -1,6 +1,8 @@
-﻿import 'dart:async' as async;
+import 'dart:async' as async;
 import 'dart:async';
 import 'dart:convert';
+import 'game_activity_probe.dart';
+import 'observed_effect.dart';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/game.dart';
@@ -23,7 +25,8 @@ import 'package:okeyix/services/debug_event_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class OkeyGame extends FlameGame with TapDetector {
+class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHost {
+  final GameActivityProbe? activityProbe = GameActivityProbe.enabled ? GameActivityProbe() : null;
   @override
   Color backgroundColor() => const Color(0x00000000);
 
@@ -33,6 +36,17 @@ class OkeyGame extends FlameGame with TapDetector {
 
   final String tableId;
   final bool isCreator;
+  final SupabaseClient? _realtimeClient;
+  SupabaseClient get _tableRealtimeClient =>
+      _realtimeClient ?? Supabase.instance.client;
+  bool _lifecycleRemoved = false;
+  bool _lifecycleDetached = false;
+  int _tableChannelGeneration = 0;
+  async.Timer? _reconnectTimer;
+  Future<void>? _tableChannelClosing;
+  async.Timer? _finishHideTimer;
+  DateTime? _finishHideAt;
+  bool get _lifecycleActive => !_lifecycleRemoved && !_lifecycleDetached;
   final VoidCallback? onTileSfx;
   final VoidCallback? onStartDealSfx;
   bool isTempShiftActive = false;
@@ -180,7 +194,8 @@ class OkeyGame extends FlameGame with TapDetector {
     required this.isCreator,
     this.onTileSfx,
     this.onStartDealSfx,
-  });
+    SupabaseClient? realtimeClient,
+  }) : _realtimeClient = realtimeClient;
 
   void _dbg(
     String tag,
@@ -210,6 +225,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   void _emitStartDealSfx() {
+    activityProbe?.event('dealRequested');
     try {
       onStartDealSfx?.call();
     } catch (_) {
@@ -227,6 +243,7 @@ class OkeyGame extends FlameGame with TapDetector {
     _sessionStartedAt = DateTime.now();
     _initStage();
     await _loadInitialState();
+    if (!_lifecycleActive) return;
     _subscribeRealtime();
     _subscribeTablePlayersRealtime();
     _subscribeTableDiscardsRealtime();
@@ -253,6 +270,8 @@ class OkeyGame extends FlameGame with TapDetector {
     bool isDoubleFinish,
   ) {
     // Guarantee clean rack before showing finish overlay.
+    if (!_lifecycleActive) return;
+    _finishHideTimer?.cancel();
     _clearRenderedHand();
     finishView?.removeFromParent();
 
@@ -276,12 +295,28 @@ class OkeyGame extends FlameGame with TapDetector {
     closedPileComponent?.setHidden(true);
     camera.viewport.add(finishView!);
 
-    Future.delayed(const Duration(seconds: 4), () {
+    _finishHideAt = DateTime.now().add(const Duration(seconds: 4));
+    _scheduleFinishHide();
+  }
+
+  void _scheduleFinishHide() {
+    _finishHideTimer?.cancel();
+    final deadline = _finishHideAt;
+    if (!_lifecycleActive || deadline == null || !isFinishOpen) return;
+    final displayed = finishView;
+    final remaining = deadline.difference(DateTime.now());
+    _finishHideTimer = async.Timer(remaining.isNegative ? Duration.zero : remaining, () {
+      _finishHideTimer = null;
+      if (!_lifecycleActive || !identical(finishView, displayed)) return;
       hideFinish();
     });
   }
 
   void hideFinish() {
+    _finishHideTimer?.cancel();
+    _finishHideTimer = null;
+    _finishHideAt = null;
+    if (!_lifecycleActive || (!isFinishOpen && finishView == null)) return;
     finishView?.removeFromParent();
     finishView = null;
     isFinishOpen = false;
@@ -534,9 +569,15 @@ class OkeyGame extends FlameGame with TapDetector {
   @override
   @override
   void onRemove() {
-    if (_tableChannel != null) {
-      supabase.removeChannel(_tableChannel!);
-    }
+    if (_lifecycleRemoved) return;
+    _lifecycleRemoved = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _finishHideTimer?.cancel();
+    _finishHideTimer = null;
+    _finishHideAt = null;
+    activityProbe?.dispose();
+    _releaseTableChannel();
 
     if (_tablePlayersChannel != null) {
       supabase.removeChannel(_tablePlayersChannel!);
@@ -578,6 +619,7 @@ class OkeyGame extends FlameGame with TapDetector {
 
   @override
   void update(double dt) {
+    if (GameActivityProbe.enabled) _sampleActivity();
     super.update(dt);
     if (_deferredTileRemovals.isEmpty) return;
     final pending = List<TileComponent>.from(_deferredTileRemovals);
@@ -587,6 +629,19 @@ class OkeyGame extends FlameGame with TapDetector {
         tile.removeFromParent();
       }
     }
+  }
+
+  void _sampleActivity() {
+    final probe = activityProbe;
+    if (probe == null) return;
+    probe.sample(this,
+      pending: hasLifecycleEvents || _deferredTileRemovals.isNotEmpty || _networkInFlight || _actionInFlight || _stateSyncInFlight || _uiLocked || _handIntegrityInFlight,
+      dragging: activeDraggedTile != null || _sourceDrawDragActive || _dragOverlayTiles.isNotEmpty);
+  }
+  @override
+  void onGameResize(Vector2 size) {
+    activityProbe?.notifyWake(GameWakeReason.resize);
+    super.onGameResize(size);
   }
 
   double getTurnProgress() {
@@ -623,7 +678,7 @@ class OkeyGame extends FlameGame with TapDetector {
     final targetPos = getMyDiscardPosition(tile);
 
     tile.add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         targetPos,
         EffectController(duration: 0.18, curve: Curves.easeOut),
         onComplete: () async {
@@ -631,13 +686,13 @@ class OkeyGame extends FlameGame with TapDetector {
           _isAnimatingRemoteMove = false;
           if (!success) {
             tile.add(
-              MoveEffect.to(originalPos, EffectController(duration: 0.2)),
+              observeGameEffect(MoveEffect.to(originalPos, EffectController(duration: 0.2)), activityProbe, 'okey_game.dart:2'),
             );
           }
 
           _uiLocked = false;
         },
-      ),
+      ), activityProbe, 'okey_game.dart:1'),
     );
   }
 
@@ -1817,7 +1872,13 @@ class OkeyGame extends FlameGame with TapDetector {
     return runScore >= setScore ? 'run' : 'set';
   }
 
-  Future<void> _pollLiveTableState() async {
+  Future<void> _pollLiveTableState() {
+    final probe = activityProbe;
+    if (probe == null) return _pollLiveTableStateObservedBody();
+    return probe.observeOperation(() => _pollLiveTableStateObservedBody());
+  }
+
+  Future<void> _pollLiveTableStateObservedBody() async {
     try {
       final rows = await Supabase.instance.client
           .from('tables')
@@ -1991,7 +2052,13 @@ class OkeyGame extends FlameGame with TapDetector {
     );
   }
 
-  Future<void> _checkAuthoritativeHandIntegrity() async {
+  Future<void> _checkAuthoritativeHandIntegrity() {
+    final probe = activityProbe;
+    if (probe == null) return _checkAuthoritativeHandIntegrityObservedBody();
+    return probe.observeOperation(() => _checkAuthoritativeHandIntegrityObservedBody());
+  }
+
+  Future<void> _checkAuthoritativeHandIntegrityObservedBody() async {
     if (!_gameStarted ||
         isFinishOpen ||
         _handIntegrityInFlight ||
@@ -2617,6 +2684,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   void _renderHand(List<dynamic> hand) {
+    activityProbe?.event('handRenderCandidate');
     _cleanupOrphanRackTiles();
     final parsed = <TileModel>[];
     final incomingRawIds = <String>{};
@@ -2752,14 +2820,14 @@ class OkeyGame extends FlameGame with TapDetector {
       world.add(tile);
       if (wasHandEmptyBeforeRender) {
         tile.add(
-          MoveEffect.to(
+          observeGameEffect(MoveEffect.to(
             slotPositions[slotIndex],
             EffectController(
               duration: 0.22,
               startDelay: i * 0.025,
               curve: Curves.easeOutCubic,
             ),
-          ),
+          ), activityProbe, 'okey_game.dart:3'),
         );
       } else {
         tile.position = slotPositions[slotIndex];
@@ -3410,20 +3478,20 @@ class OkeyGame extends FlameGame with TapDetector {
     final target = indicator.position.clone();
     try {
       tile.add(
-        SequenceEffect([
-          MoveEffect.to(
+        observeGameEffect(SequenceEffect([
+          observeGameEffect(MoveEffect.to(
             target,
             EffectController(duration: 0.18, curve: Curves.easeOut),
-          ),
-          RotateEffect.by(
+          ), activityProbe, 'okey_game.dart:5'),
+          observeGameEffect(RotateEffect.by(
             6.28318,
             EffectController(duration: 0.35, curve: Curves.easeInOut),
-          ),
-          MoveEffect.to(
+          ), activityProbe, 'okey_game.dart:6'),
+          observeGameEffect(MoveEffect.to(
             start,
             EffectController(duration: 0.2, curve: Curves.easeInOut),
-          ),
-        ]),
+          ), activityProbe, 'okey_game.dart:7'),
+        ]), activityProbe, 'okey_game.dart:4'),
       );
       await Future<void>.delayed(const Duration(milliseconds: 760));
 
@@ -3683,78 +3751,88 @@ class OkeyGame extends FlameGame with TapDetector {
     _updateIndicatorFromDeck();
   }
 
-  void _subscribeRealtime() {
-    // 🔥 eskiyi temizle
-    if (_tableChannel != null) {
-      Supabase.instance.client.removeChannel(_tableChannel!);
-      _tableChannel = null;
-    }
-
-    final channel = Supabase.instance.client.channel('table_$tableId');
-
+  Future<void> _subscribeRealtime() async {
+    if (!_lifecycleActive) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    final generation = ++_tableChannelGeneration;
+    final previous = _tableChannel;
+    _tableChannel = null;
+    final closing = previous != null
+        ? _tableRealtimeClient.removeChannel(previous).then<void>((_) {})
+        : _tableChannelClosing;
+    if (closing != null) await closing;
+    if (!_lifecycleActive || generation != _tableChannelGeneration) return;
+    final channel = _tableRealtimeClient.channel('table_$tableId');
+    _tableChannel = channel;
+    bool current() => _lifecycleActive && generation == _tableChannelGeneration &&
+        identical(_tableChannel, channel);
     channel.onPostgresChanges(
       event: PostgresChangeEvent.update,
-      schema: 'public',
-      table: 'tables',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'id',
-        value: tableId,
-      ),
+      schema: 'public', table: 'tables',
+      filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq,
+        column: 'id', value: tableId),
       callback: (payload) {
+        if (!current()) return;
         _handleTableUpdate(payload.newRecord);
       },
     );
-
-    // 🔥 EN KRİTİK KISIM
     channel.subscribe((status, [error]) {
-      print("📡 TABLE STATUS: $status");
-
-      if (error != null) {
-        print("❌ TABLE ERROR: $error");
-      }
-
+      if (!current()) return;
       if (status == RealtimeSubscribeStatus.subscribed) {
-        print("✅ TABLE CONNECTED");
+        _reconnectAttempt = 0;
+        _reconnectTimer?.cancel();
+        _reconnectTimer = null;
       }
-
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.closed) {
-        print("💥 TABLE DROPPED → RECONNECT");
-
         _reconnectTableChannel();
       }
     });
-
-    _tableChannel = channel;
   }
 
   int _reconnectAttempt = 0;
 
   void _reconnectTableChannel() {
-    if (_reconnectAttempt > 5) return;
-
-    _reconnectAttempt++;
-
-    final delay = Duration(seconds: _reconnectAttempt);
-
-    print("🔁 Reconnecting in ${delay.inSeconds}s...");
-
-    Future.delayed(delay, () {
-      _subscribeRealtime();
+    if (!_lifecycleActive || _reconnectTimer?.isActive == true || _reconnectAttempt >= 6) return;
+    final generation = _tableChannelGeneration;
+    final delay = Duration(seconds: ++_reconnectAttempt);
+    _reconnectTimer = async.Timer(delay, () {
+      _reconnectTimer = null;
+      if (!_lifecycleActive || generation != _tableChannelGeneration) return;
+      unawaited(_subscribeRealtime());
     });
+  }
+
+  void _releaseTableChannel() {
+    ++_tableChannelGeneration;
+    final channel = _tableChannel;
+    _tableChannel = null;
+    if (channel != null) {
+      _tableChannelClosing = _tableRealtimeClient.removeChannel(channel).then<void>((_) {});
+    }
+  }
+
+  @override
+  void onAttach() {
+    super.onAttach();
+    if (_lifecycleRemoved) return;
+    _lifecycleDetached = false;
+    if (isLoaded && _tableChannel == null) unawaited(_subscribeRealtime());
+    _scheduleFinishHide();
   }
 
   @override
   void onDetach() {
-    if (_tableChannel != null) {
-      Supabase.instance.client.removeChannel(_tableChannel!);
-      _tableChannel = null;
-    }
-
+    _lifecycleDetached = true;
+    _reconnectAttempt = 0;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _finishHideTimer?.cancel();
+    _finishHideTimer = null;
+    _releaseTableChannel();
     super.onDetach();
   }
-
   void _subscribeRealtimeMoves() {
     if (_stabilityMode) return;
     _movesChannel = Supabase.instance.client
@@ -3824,7 +3902,13 @@ class OkeyGame extends FlameGame with TapDetector {
     _processingQueue = false;
   }
 
-  Future<void> _handleMove(Map<String, dynamic> move) async {
+  Future<void> _handleMove(Map<String, dynamic> move) {
+    final probe = activityProbe;
+    if (probe == null) return _handleMoveObservedBody(move);
+    return probe.observeOperation(() => _handleMoveObservedBody(move));
+  }
+
+  Future<void> _handleMoveObservedBody(Map<String, dynamic> move) async {
     final type = move['move_type']?.toString();
     final playerId = move['player_id'];
     final myUserId = UserState.userId;
@@ -3903,10 +3987,10 @@ class OkeyGame extends FlameGame with TapDetector {
     );
     world.add(transient);
     transient.add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         _drawAnimationTargetForSeat(toSeat),
         EffectController(duration: 0.28, curve: Curves.easeOutCubic),
-      ),
+      ), activityProbe, 'okey_game.dart:8'),
     );
     await Future<void>.delayed(const Duration(milliseconds: 320));
     transient.removeFromParent();
@@ -3979,10 +4063,10 @@ class OkeyGame extends FlameGame with TapDetector {
     final completer = Completer<void>();
 
     transient.add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         end,
         EffectController(duration: 0.28, curve: Curves.easeOutCubic),
-      ),
+      ), activityProbe, 'okey_game.dart:9'),
     );
 
     async.Timer(const Duration(milliseconds: 320), () {
@@ -4093,10 +4177,10 @@ class OkeyGame extends FlameGame with TapDetector {
     _discardAnimationInFlightSeats.add(seat);
 
     transient.add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         slot.position.clone(),
         EffectController(duration: 0.28, curve: Curves.easeOutCubic),
-      ),
+      ), activityProbe, 'okey_game.dart:10'),
     );
 
     async.Timer(const Duration(milliseconds: 320), () {
@@ -4308,7 +4392,14 @@ class OkeyGame extends FlameGame with TapDetector {
     return true;
   }
 
-  Future<void> _handleTableUpdate(Map<String, dynamic> table) async {
+  Future<void> _handleTableUpdate(Map<String, dynamic> table) {
+    final probe = activityProbe;
+    if (probe == null) return _handleTableUpdateObservedBody(table);
+    return probe.observeOperation(() => _handleTableUpdateObservedBody(table));
+  }
+
+  Future<void> _handleTableUpdateObservedBody(Map<String, dynamic> table) async {
+    activityProbe?.event('tableUpdateCandidate');
     try {
       final status = table['status'] as String?;
       if (status == null) {
@@ -4506,7 +4597,7 @@ class OkeyGame extends FlameGame with TapDetector {
   }
 
   void _initStage() {
-    world = World();
+    world = GameActivityProbe.enabled ? ActivityObservedWorld() : World();
     cameraComponent = CameraComponent.withFixedResolution(
       world: world,
       width: 1600,
@@ -4550,7 +4641,13 @@ class OkeyGame extends FlameGame with TapDetector {
     }
   }
 
-  Future<void> _syncDiscardTopsFromServer() async {
+  Future<void> _syncDiscardTopsFromServer() {
+    final probe = activityProbe;
+    if (probe == null) return _syncDiscardTopsFromServerObservedBody();
+    return probe.observeOperation(() => _syncDiscardTopsFromServerObservedBody());
+  }
+
+  Future<void> _syncDiscardTopsFromServerObservedBody() async {
     if (_discardSyncInFlight) {
       _discardSyncRequested = true;
       return;
@@ -5506,10 +5603,10 @@ class OkeyGame extends FlameGame with TapDetector {
     );
 
     tile.add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         target,
         EffectController(duration: 0.16, curve: Curves.easeOutBack),
-      ),
+      ), activityProbe, 'okey_game.dart:11'),
     );
   }
 
@@ -6466,10 +6563,10 @@ class OkeyGame extends FlameGame with TapDetector {
       (e) => e.removeFromParent(),
     );
     tile.add(
-      MoveEffect.to(
+      observeGameEffect(MoveEffect.to(
         slotPositions[targetSlot].clone(),
         EffectController(duration: 0.09, curve: Curves.easeOutCubic),
-      ),
+      ), activityProbe, 'okey_game.dart:12'),
     );
     _pendingDrawVisualTile = tile;
   }

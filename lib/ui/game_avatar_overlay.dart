@@ -1,4 +1,5 @@
-﻿import 'dart:async';
+import 'package:okeyix/services/game_view_data_source.dart';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
@@ -12,12 +13,14 @@ import 'avatar_preset.dart';
 
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
+  final GameViewDataSource? viewData;
   final double topInset;
   final OkeyGame game;
   final Map<String, String> playerChatByUserId;
   const GameAvatarOverlay({
     super.key,
     required this.tableId,
+    this.viewData,
     this.topInset = 0,
     required this.game,
     this.playerChatByUserId = const {},
@@ -29,6 +32,8 @@ class GameAvatarOverlay extends StatefulWidget {
 
 class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   final SupabaseClient _supabase = Supabase.instance.client;
+  late final GameViewDataSource _viewData;
+  final _viewRefresh = CoalescedViewRefresh();
   static const int _localCoinFloor = 50000;
 
   List<_SeatPlayer> players = [];
@@ -46,13 +51,13 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   int _turnSeconds = 15;
   int _lastSeenTurnSeat = -1;
   DateTime? _turnStartedAt;
-  Timer? _tickerTimer;
   bool _hasLoadedPlayersOnce = false;
   final List<_FlyAwayFx> _flyAwayFx = <_FlyAwayFx>[];
 
   @override
   void initState() {
     super.initState();
+    _viewData = widget.viewData ?? GameViewDataSource.supabase(_supabase, widget.tableId);
     _loadPlayers();
     _subscribeTablePlayers();
     _subscribeTable();
@@ -60,21 +65,18 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       const Duration(seconds: 2),
       (_) => _loadPlayers(),
     );
-    _tickerTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _tablePlayersChannel?.unsubscribe();
-    _tableChannel?.unsubscribe();
+    if (_tablePlayersChannel != null) { unawaited(_supabase.removeChannel(_tablePlayersChannel!)); }
+    if (_tableChannel != null) { unawaited(_supabase.removeChannel(_tableChannel!)); }
     _pollTimer?.cancel();
-    _tickerTimer?.cancel();
+    _viewRefresh.dispose();
+    if (widget.viewData == null) _viewData.dispose();
     _tablePlayersChannel = null;
     _tableChannel = null;
     _pollTimer = null;
-    _tickerTimer = null;
     super.dispose();
   }
 
@@ -91,9 +93,17 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             column: 'table_id',
             value: widget.tableId,
           ),
-          callback: (_) async => _loadPlayers(),
+          callback: (payload) {
+            _viewData.playersChanged(payload.commitTimestamp.toString());
+            _loadPlayers();
+          },
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            _viewData.invalidateAll();
+            _loadPlayers();
+          }
+        });
   }
 
   void _subscribeTable() {
@@ -110,6 +120,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             value: widget.tableId,
           ),
           callback: (payload) async {
+            _viewData.tableChanged(payload.commitTimestamp.toString());
             final nextTurnRaw = payload.newRecord['current_turn'];
             final nextTurn = int.tryParse('$nextTurnRaw');
             final nextTurnStartedAt = _parseServerTime(
@@ -124,35 +135,22 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             await _loadPlayers();
           },
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            _viewData.invalidateAll();
+            _loadPlayers();
+          }
+        });
   }
 
-  Future<void> _loadPlayers() async {
+  Future<void> _loadPlayers() => _viewRefresh.run(_loadPlayersOnce);
+
+  Future<void> _loadPlayersOnce() async {
     try {
       _myUserId = _supabase.auth.currentUser?.id;
 
-      Map<String, dynamic> table;
-      try {
-        final row = await _supabase
-            .from('tables')
-            .select(
-              'max_players, league_id, entry_coin, status, current_turn, turn_seconds, turn_started_at',
-            )
-            .eq('id', widget.tableId)
-            .maybeSingle();
-        if (row == null) return;
-        table = Map<String, dynamic>.from(row);
-      } catch (_) {
-        final row = await _supabase
-            .from('tables')
-            .select(
-              'max_players, league_id, entry_coin, status, current_turn, turn_started_at',
-            )
-            .eq('id', widget.tableId)
-            .maybeSingle();
-        if (row == null) return;
-        table = Map<String, dynamic>.from(row);
-      }
+      final table = await _viewData.table();
+      if (!mounted || table == null) return;
 
       _tableSize = (table['max_players'] as int?) ?? 2;
       _tableStatus = table['status']?.toString() ?? 'waiting';
@@ -178,11 +176,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       final tableTurnSeconds = table['turn_seconds'] as int?;
       if (_leagueId != null) {
         try {
-          final league = await _supabase
-              .from('leagues')
-              .select('turn_seconds')
-              .eq('id', _leagueId!)
-              .limit(1);
+          final league = await _viewData.league(_leagueId!);
+          if (!mounted) return;
           if ((league as List).isNotEmpty) {
             _turnSeconds =
                 (league.first['turn_seconds'] as int?) ?? _turnSeconds;
@@ -194,20 +189,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       }
       _turnSeconds = _normalizeTurnSeconds(_turnSeconds);
 
-      dynamic rows;
-      try {
-        rows = await _supabase
-            .from('table_players')
-            .select('seat_index, user_id, is_double_mode')
-            .eq('table_id', widget.tableId)
-            .order('seat_index', ascending: true);
-      } catch (_) {
-        rows = await _supabase
-            .from('table_players')
-            .select('seat_index, user_id')
-            .eq('table_id', widget.tableId)
-            .order('seat_index', ascending: true);
-      }
+      final rows = await _viewData.players();
+      if (!mounted) return;
 
       final playerRows = (rows as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
@@ -235,7 +218,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           .cast<int?>()
           .firstWhere((v) => v != null, orElse: () => null);
 
-      if (!mounted) return;
+      if (!mounted ||
+          _myUserId != _supabase.auth.currentUser?.id ||
+          !_viewData.matchesMembers(userIds)) return;
       final previousPlayers = List<_SeatPlayer>.from(players);
       final previousIds = players.map((p) => p.player.id).toSet();
       final joinedPlayers = _hasLoadedPlayersOnce
@@ -304,10 +289,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     if (userIds.isEmpty) return {};
 
     try {
-      final rows = await _supabase
-          .from('profiles')
-          .select('id, username, coins')
-          .inFilter('id', userIds);
+      final rows = await _viewData.profiles(userIds);
 
       return (rows as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
@@ -327,10 +309,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     if (userIds.isEmpty) return {};
 
     try {
-      final rows = await _supabase
-          .from('users')
-          .select('id, username, email, avatar_url')
-          .inFilter('id', userIds);
+      final rows = await _viewData.users(userIds);
 
       return (rows as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
@@ -540,7 +519,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             child: _buildSeatWithChatBubble(
               player: me.player,
               position: AvatarPosition.bottom,
-              progress: _ringProgressForSeat(me.seatIndex),
+              progressReader: () => _ringProgressForSeat(me.seatIndex),
               onTap: () {
                 ProfileService.showUserCard({'id': me.player.id});
               },
@@ -557,7 +536,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               ? _buildSeatWithChatBubble(
                   player: opponent.player,
                   position: AvatarPosition.top,
-                  progress: _ringProgressForSeat(opponent.seatIndex),
+                  progressReader: () => _ringProgressForSeat(opponent.seatIndex),
                   onTap: () {
                     ProfileService.showUserCard({'id': opponent.player.id});
                   },
@@ -593,7 +572,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               ? _buildSeatWithChatBubble(
                   player: occupied.player,
                   position: _avatarPositionFor(relativeSeat),
-                  progress: _ringProgressForSeat(occupied.seatIndex),
+                  progressReader: () => _ringProgressForSeat(occupied.seatIndex),
                 )
               : (_tableStatus == 'playing'
                     ? const SizedBox.shrink()
@@ -618,7 +597,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   Widget _buildSeatWithChatBubble({
     required PlayerModel player,
     required AvatarPosition position,
-    required double progress,
+    required double Function() progressReader,
     VoidCallback? onTap,
   }) {
     final text = widget.playerChatByUserId[player.id];
@@ -631,7 +610,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           child: AvatarCard(
             player: player,
             position: position,
-            progress: progress,
+            progress: progressReader(),
+            progressReader: progressReader,
+            animateProgress: _tableStatus == 'playing',
             showRating: false,
             showRatingProgress: true,
             onTap: onTap,

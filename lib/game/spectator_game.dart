@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/game.dart';
@@ -14,9 +15,48 @@ import 'dart:ui' as ui;
 class SpectatorGame extends FlameGame {
   final String tableId;
   final VoidCallback? onTableClosed;
-  SpectatorGame({required this.tableId, this.onTableClosed});
+  SpectatorGame({required this.tableId, this.onTableClosed, SupabaseClient? realtimeClient})
+      : supabase = realtimeClient ?? Supabase.instance.client;
 
-  final supabase = Supabase.instance.client;
+  final SupabaseClient supabase;
+  RealtimeChannel? _realtimeChannel;
+  Future<void>? _realtimeClosing;
+  int _realtimeGeneration = 0;
+  bool _lifecycleRemoved = false;
+  bool _lifecycleDetached = false;
+  bool get _lifecycleActive => !_lifecycleRemoved && !_lifecycleDetached;
+
+  void _releaseRealtime() {
+    ++_realtimeGeneration;
+    final channel = _realtimeChannel;
+    _realtimeChannel = null;
+    if (channel != null) {
+      _realtimeClosing = supabase.removeChannel(channel).then<void>((_) {});
+    }
+  }
+
+  @override
+  void onAttach() {
+    super.onAttach();
+    if (_lifecycleRemoved) return;
+    _lifecycleDetached = false;
+    if (isLoaded) unawaited(startRealtime());
+  }
+
+  @override
+  void onDetach() {
+    _lifecycleDetached = true;
+    _releaseRealtime();
+    super.onDetach();
+  }
+
+  @override
+  void onRemove() {
+    if (_lifecycleRemoved) return;
+    _lifecycleRemoved = true;
+    _releaseRealtime();
+    super.onRemove();
+  }
 
   @override
   late final World world;
@@ -243,8 +283,16 @@ class SpectatorGame extends FlameGame {
     }
   }
 
-  void startRealtime() {
+  Future<void> startRealtime() async {
+    if (!_lifecycleActive || _realtimeChannel != null) return;
+    final generation = ++_realtimeGeneration;
+    final closing = _realtimeClosing;
+    if (closing != null) await closing;
+    if (!_lifecycleActive || generation != _realtimeGeneration) return;
     final channel = supabase.channel('realtime:$tableId');
+    _realtimeChannel = channel;
+    bool current() => _lifecycleActive && generation == _realtimeGeneration &&
+        identical(_realtimeChannel, channel);
 
     /// 🔥 MATCH MOVES (zaten vardı)
     channel.onPostgresChanges(
@@ -257,6 +305,7 @@ class SpectatorGame extends FlameGame {
         value: tableId,
       ),
       callback: (payload) {
+        if (!current()) return;
         final row = payload.newRecord;
         final type = row['move_type'];
         final tile = row['tile_data'];
@@ -286,6 +335,7 @@ class SpectatorGame extends FlameGame {
       schema: 'public',
       table: 'tables',
       callback: (payload) {
+        if (!current()) return;
         final old = payload.oldRecord;
         if (old['id'] == tableId) {
           onTableClosed?.call();
@@ -303,6 +353,7 @@ class SpectatorGame extends FlameGame {
         value: tableId,
       ),
       callback: (payload) async {
+        if (!current()) return;
         final row = payload.newRecord;
         _applyDeckFromRaw(row['deck'], fallbackDeckCount: row['deck_count']);
         _applyIndicatorFromRaw(row['indicator_tile']);
@@ -313,6 +364,7 @@ class SpectatorGame extends FlameGame {
 
     /// 🔥 EN SON subscribe
     channel.subscribe((status, err) {
+      if (!current()) return;
       if (err != null) {
         print("REALTIME ERROR: $err");
       }

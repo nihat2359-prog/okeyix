@@ -7,6 +7,7 @@ import 'package:okeyix/game/rack/rack_config.dart';
 
 import '../okey_game.dart';
 import '../rack/tile_component.dart';
+import 'cached_decoration.dart';
 
 class DiscardSlotComponent extends PositionComponent
     with HasGameReference<OkeyGame>, TapCallbacks, DragCallbacks {
@@ -112,13 +113,12 @@ class DiscardSlotComponent extends PositionComponent
   }
 }
 
-class _PremiumDiscardFrame extends PositionComponent {
+class _PremiumDiscardFrame extends PositionComponent with CachedDecoration {
   _PremiumDiscardFrame({required Vector2 size, required Vector2 position})
     : super(size: size, position: position, anchor: Anchor.center);
 
   @override
-  void render(Canvas canvas) {
-    super.render(canvas);
+  void renderDecoration(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final outer = RRect.fromRectAndRadius(rect, const Radius.circular(13));
     final inner = RRect.fromRectAndRadius(

@@ -68,10 +68,12 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     }
 
     if (widget.isLocked) {
-      return _buildLockedLeagueCard(
-        league: widget.lockedLeague,
-        playerCoin: widget.playerCoin,
-        playerRating: widget.playerRating,
+      return SingleChildScrollView(
+        child: _buildLockedLeagueCard(
+          league: widget.lockedLeague,
+          playerCoin: widget.playerCoin,
+          playerRating: widget.playerRating,
+        ),
       );
     }
 
@@ -85,80 +87,85 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           ),
         );
       }
-      return _buildEmptyCta();
+      return SingleChildScrollView(child: _buildEmptyCta());
     }
-    return RefreshIndicator(
-      onRefresh: widget.onRefresh,
+    return LayoutBuilder(
+      builder: (context, bounds) => RefreshIndicator(
+        onRefresh: widget.onRefresh,
 
-      /// ğŸ”¥ KRÄ°TÄ°K: refresh iÃ§in scrollable wrapper
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.85,
+        /// ğŸ”¥ KRÄ°TÄ°K: refresh iÃ§in scrollable wrapper
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: bounds.maxHeight,
 
-          child: ListWheelScrollView.useDelegate(
-            controller: _controller,
+            child: ListWheelScrollView.useDelegate(
+              controller: _controller,
 
-            itemExtent: 200,
+              itemExtent: bounds.maxHeight.clamp(160.0, 300.0),
 
-            /// ğŸ”¥ daha iyi his
-            perspective: 0.003,
-            diameterRatio: 2.2,
-            squeeze: 1.1,
+              /// ğŸ”¥ daha iyi his
+              perspective: 0.003,
+              diameterRatio: 2.2,
+              squeeze: 1.1,
 
-            physics: const FixedExtentScrollPhysics(),
+              physics: const FixedExtentScrollPhysics(),
 
-            onSelectedItemChanged: (index) {
-              setState(() {
-                selectedIndex = index;
-              });
-            },
+              onSelectedItemChanged: (index) {
+                setState(() {
+                  selectedIndex = index;
+                });
+              },
 
-            childDelegate: ListWheelChildBuilderDelegate(
-              childCount: widget.tables.length,
-              builder: (context, index) {
-                final table = widget.tables[index];
-                final isSelected = index == selectedIndex;
+              childDelegate: ListWheelChildBuilderDelegate(
+                childCount: widget.tables.length,
+                builder: (context, index) {
+                  final table = widget.tables[index];
+                  final isSelected = index == selectedIndex;
 
-                return Center(
-                  child: Transform.scale(
-                    scale: isSelected ? 0.92 : 0.75,
-                    child: Opacity(
-                      opacity: isSelected ? 1 : 0.5,
-                      child: IgnorePointer(
-                        ignoring: !isSelected,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                  return Center(
+                    child: Transform.scale(
+                      scale: isSelected ? 0.97 : 0.82,
+                      child: Opacity(
+                        opacity: isSelected ? 1 : 0.5,
+                        child: IgnorePointer(
+                          ignoring: !isSelected,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
 
-                          decoration: BoxDecoration(
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: const Color(0x66F2C14E),
-                                      blurRadius: 35,
-                                      spreadRadius: 3,
-                                    ),
-                                  ]
-                                : [],
-                          ),
+                            decoration: BoxDecoration(
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0x66F2C14E),
+                                        blurRadius: 12,
+                                        spreadRadius: 0,
+                                      ),
+                                    ]
+                                  : [],
+                            ),
 
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: LobbyTableCard(
-                              table: table,
-                              blockedUserIds: widget.blockedUserIds,
-                              onJoin: widget.onJoin,
-                              onSpectate: widget.onSpectate,
-                              canSpectateAll: widget.canSpectateAll,
-                              onUserTap: widget.onUserTap,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 6,
+                              ),
+                              child: LobbyTableCard(
+                                table: table,
+                                blockedUserIds: widget.blockedUserIds,
+                                onJoin: widget.onJoin,
+                                onSpectate: widget.onSpectate,
+                                canSpectateAll: widget.canSpectateAll,
+                                onUserTap: widget.onUserTap,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -410,7 +417,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
       child: Center(
         // ğŸ”¥ TÃœM Ä°Ã‡ERÄ°ÄÄ° ORTALAR
-        child: Row(
+        child: FittedBox(fit: BoxFit.scaleDown, child: Row(
           mainAxisSize: MainAxisSize.min, // ğŸ”¥ iÃ§erik kadar yer kaplar
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -457,7 +464,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               ],
             ),
           ],
-        ),
+        )),
       ),
     );
   }

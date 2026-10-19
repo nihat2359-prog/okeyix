@@ -1,16 +1,16 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../components/cached_decoration.dart';
 
-class PreviewComponent extends PositionComponent with HasVisibility {
+class PreviewComponent extends PositionComponent
+    with HasVisibility, CachedDecoration {
   PreviewComponent({required Vector2 size}) {
     this.size = size;
     anchor = Anchor.center;
   }
 
   @override
-  void render(Canvas canvas) {
-    super.render(canvas);
-
+  void renderDecoration(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 

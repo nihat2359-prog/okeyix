@@ -1,4 +1,5 @@
-﻿import 'dart:async';
+import 'package:okeyix/services/game_view_data_source.dart';
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart' as jo;
@@ -9,7 +10,7 @@ import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/components/finish_screen.dart';
 import 'package:okeyix/game/components/radial_quick_chat.dart';
 import 'package:okeyix/game/okey_game.dart';
-import 'package:okeyix/game/theme_flags.dart';
+import 'package:okeyix/game/game_activity_probe.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
 import 'package:okeyix/services/voice_command_service.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
@@ -42,6 +43,9 @@ class OkeyGameScreen extends StatefulWidget {
 class _OkeyGameScreenState extends State<OkeyGameScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final SupabaseClient _supabase = Supabase.instance.client;
+  late final GameViewDataSource _viewData;
+  final _tableViewRefresh = CoalescedViewRefresh();
+  final _playersViewRefresh = CoalescedViewRefresh();
 
   late final OkeyGame _game;
   final TextEditingController _chatController = TextEditingController();
@@ -52,6 +56,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   RealtimeChannel? _discardChannel;
 
   Timer? _ticker;
+  final ValueNotifier<int> _hudRevision = ValueNotifier(0);
+  Object? _lastHudSnapshot;
+  bool _decorationsForeground = true;
   Timer? _tablePoll;
   Timer? _playersPoll;
   bool _loopsRunning = false;
@@ -165,6 +172,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _viewData = GameViewDataSource.supabase(_supabase, widget.tableId);
     _game = OkeyGame(
       tableId: widget.tableId,
       isCreator: widget.isCreator,
@@ -306,39 +314,36 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     setState(() => _visualReady = true);
   }
 
-  Widget _buildTableBackdrop() {
-    if (!ThemeFlags.useCinematicTheme) {
-      return Image.asset('assets/images/table.png', fit: BoxFit.fill);
+  Widget _buildTableBackdrop() =>
+      Image.asset('assets/images/table.png', fit: BoxFit.fill);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncDecorations();
+  }
+
+  void _syncDecorations() {
+    final visible = _decorationsForeground && TickerMode.of(context);
+    if (visible && !_hourglassCtrl.isAnimating) {
+      _hourglassCtrl.repeat(reverse: true);
+    } else if (!visible) {
+      _hourglassCtrl.stop();
     }
-    return AnimatedBuilder(
-      animation: _hourglassCtrl,
-      builder: (context, _) {
-        final t = _hourglassCtrl.value;
-        final pulse = 0.18 + (t * 0.12);
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset('assets/images/table.png', fit: BoxFit.fill),
-
-            // Ambient color pass for a more cinematic look.
-
-            // Soft center glow.
-
-            // Vignette to add depth.
-          ],
-        );
-      },
-    );
   }
 
   @override
   void dispose() {
     _stopUiLoops();
-    _tableChannel?.unsubscribe();
-    _playersChannel?.unsubscribe();
-    _chatChannel?.unsubscribe();
-    _discardChannel?.unsubscribe();
-    _spectatorsChannel?.unsubscribe();
+    _tableViewRefresh.dispose();
+    _playersViewRefresh.dispose();
+    _viewData.dispose();
+    _hudRevision.dispose();
+    if (_tableChannel != null) { unawaited(_supabase.removeChannel(_tableChannel!)); }
+    if (_playersChannel != null) { unawaited(_supabase.removeChannel(_playersChannel!)); }
+    if (_chatChannel != null) { unawaited(_supabase.removeChannel(_chatChannel!)); }
+    if (_discardChannel != null) { unawaited(_supabase.removeChannel(_discardChannel!)); }
+    if (_spectatorsChannel != null) { unawaited(_supabase.removeChannel(_spectatorsChannel!)); }
     _spectatorVoiceStateSubscription?.cancel();
     _spectatorBannerTimer?.cancel();
     for (final timer in _spectatorBubbleTimers.values) {
@@ -366,11 +371,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _decorationsForeground = state == AppLifecycleState.resumed;
+    _syncDecorations();
     if (state == AppLifecycleState.resumed) {
+      _viewData.invalidateAll();
       _startUiLoops();
-      if (!_hourglassCtrl.isAnimating) {
-        _hourglassCtrl.repeat(reverse: true);
-      }
       unawaited(_loadTable());
       unawaited(_loadPlayers());
       return;
@@ -419,7 +424,21 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _ticker = Timer.periodic(const Duration(milliseconds: 300), (_) {
       if (!mounted) return;
       _syncTurnTickSfx();
-      setState(() {});
+      // Keep sound cadence and game-owned clocks; notify only affected HUDs.
+      final snapshot = (
+        _game.gameStarted,
+        _game.getCountdown(),
+        _joinCountdown,
+        _game.getRound(),
+        _game.getPot(),
+        _game.getLeague()?['name'],
+        _game.getTableEntry(),
+        _game.getTurnSeconds(),
+      );
+      if (snapshot != _lastHudSnapshot) {
+        _lastHudSnapshot = snapshot;
+        _hudRevision.value++;
+      }
     });
     _tablePoll = Timer.periodic(const Duration(seconds: 2), (_) {
       _loadTable();
@@ -459,9 +478,18 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             column: 'id',
             value: widget.tableId,
           ),
-          callback: (_) => _loadTable(),
+          callback: (payload) {
+            _viewData.tableChanged(payload.commitTimestamp.toString());
+            _loadTable();
+          },
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            _viewData.invalidateAll();
+            unawaited(_loadTable());
+            unawaited(_loadPlayers());
+          }
+        });
 
     _playersChannel?.unsubscribe();
     _playersChannel = _supabase
@@ -475,9 +503,18 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             column: 'table_id',
             value: widget.tableId,
           ),
-          callback: (_) => _loadPlayers(),
+          callback: (payload) {
+            _viewData.playersChanged(payload.commitTimestamp.toString());
+            _loadPlayers();
+          },
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            _viewData.invalidateAll();
+            unawaited(_loadTable());
+            unawaited(_loadPlayers());
+          }
+        });
 
     _discardChannel?.unsubscribe();
     _spectatorsChannel = _supabase
@@ -1148,15 +1185,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     }
   }
 
-  Future<void> _loadTable() async {
+  Future<void> _loadTable() => _tableViewRefresh.run(_loadTableOnce);
+
+  Future<void> _loadTableOnce() async {
     try {
-      final row = await _supabase
-          .from('tables')
-          .select(
-            'status,max_players,ready_since,last_finish_at,last_winner_user_id,chat_enabled,spectators_enabled,last_final_slots,last_finish_tile,last_win_amount,pot_amount',
-          )
-          .eq('id', widget.tableId)
-          .maybeSingle();
+      final row = await _viewData.table();
+      if (!mounted) return;
 
       if (row == null) return;
 
@@ -1208,22 +1242,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     }
   }
 
-  Future<void> _loadPlayers() async {
+  Future<void> _loadPlayers() => _playersViewRefresh.run(_loadPlayersOnce);
+
+  Future<void> _loadPlayersOnce() async {
     try {
-      dynamic rows;
-      try {
-        rows = await _supabase
-            .from('table_players')
-            .select('seat_index,user_id,is_double_mode')
-            .eq('table_id', widget.tableId)
-            .order('seat_index', ascending: true);
-      } catch (_) {
-        rows = await _supabase
-            .from('table_players')
-            .select('seat_index,user_id')
-            .eq('table_id', widget.tableId)
-            .order('seat_index', ascending: true);
-      }
+      final rows = await _viewData.players();
+      if (!mounted) return;
 
       final players = (rows as List)
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -1277,10 +1301,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           .toList();
 
       if (ids.isNotEmpty) {
-        final rows = await _supabase
-            .from('users')
-            .select('id,username,email')
-            .inFilter('id', ids);
+        final rows = await _viewData.users(ids);
+        if (!mounted || !_viewData.matchesMembers(ids)) return;
+        _userNames.removeWhere((id, _) => !ids.contains(id));
         for (final raw in (rows as List)) {
           final row = Map<String, dynamic>.from(raw as Map);
           final id = row['id']?.toString();
@@ -1760,9 +1783,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   @override
   Widget build(BuildContext context) {
-    final showWaitingOverlay =
-        (_tableStatus == 'waiting' || _tableStatus == 'start') &&
-        !_game.gameStarted;
     final finishOverlayOpen = _hideTopHudForFinish;
 
     if (!_visualReady) {
@@ -1850,12 +1870,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
                       /// ğŸ® GAME (FULL)
                       Positioned.fill(
-                        child: GameWidget<OkeyGame>(
+                        child: GameActivityBoundary(
+                          probe: _game.activityProbe,
+                          child: GameWidget<OkeyGame>(
                           game: _game,
 
                           overlayBuilderMap: {
                             'Avatars': (context, game) {
                               return overlay.GameAvatarOverlay(
+                                key: ValueKey('avatars:${widget.tableId}:${_supabase.auth.currentUser?.id}'),
+                                viewData: _viewData,
                                 tableId: widget.tableId,
                                 topInset: 5,
                                 game: game,
@@ -1873,6 +1897,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                             'Avatars',
                           ], // ğŸ”¥ baÅŸlangÄ±Ã§ta avatar aÃ§Ä±k
                         ),
+                        ),
                       ),
                     ],
                   );
@@ -1883,8 +1908,15 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
               SafeArea(
                 child: Stack(
                   children: [
-                    if (!finishOverlayOpen && showWaitingOverlay)
-                      _buildWaitingOverlay(),
+                    ValueListenableBuilder<int>(
+                      valueListenable: _hudRevision,
+                      builder: (_, _, _) =>
+                          !finishOverlayOpen &&
+                              (_tableStatus == 'waiting' || _tableStatus == 'start') &&
+                              !_game.gameStarted
+                          ? _buildWaitingOverlay()
+                          : const SizedBox.shrink(),
+                    ),
                     if (!finishOverlayOpen && _menuOpen) _buildMenuPanel(),
                     if (_showFinishFx) _buildFinishFx(),
                     if (_showIndicatorRewardFx) _buildIndicatorRewardFx(),
@@ -1918,8 +1950,14 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildTopLeftPanel(),
-                      _buildTopRightLeague(),
+                      ValueListenableBuilder<int>(
+                        valueListenable: _hudRevision,
+                        builder: (_, _, _) => _buildTopLeftPanel(),
+                      ),
+                      ValueListenableBuilder<int>(
+                        valueListenable: _hudRevision,
+                        builder: (_, _, _) => _buildTopRightLeague(),
+                      ),
                       _buildVoiceCommandHud(),
                       if (_showVoiceCoachmark) _buildVoiceCoachmark(),
                       if (_chatOpen) _buildChatPanel(),

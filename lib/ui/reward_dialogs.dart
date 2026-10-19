@@ -1,377 +1,675 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:okeyix/core/format.dart';
+import 'package:intl/intl.dart';
 
-class WelcomeRewardDialog extends StatefulWidget {
+const _gold = Color(0xFFFFDA83);
+
+class WelcomeRewardDialog extends StatelessWidget {
   final int amount;
   const WelcomeRewardDialog({super.key, required this.amount});
-
   @override
-  State<WelcomeRewardDialog> createState() => _WelcomeRewardDialogState();
+  Widget build(BuildContext context) => _RewardCard(
+    amount: amount,
+    title: 'Okeyix’e hoş geldin!',
+    message: 'İlk masanın heyecanı seni bekliyor. Oyun başlasın!',
+    badge: 'HOŞ GELDİN HEDİYESİ',
+    button: 'Harika, başlayalım',
+    onPressed: () => Navigator.of(context).pop(),
+  );
 }
 
-class _WelcomeRewardDialogState extends State<WelcomeRewardDialog>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: isLandscape ? 120 : 26,
-          vertical: isLandscape ? 10 : 18,
-        ),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: isLandscape ? 560 : 640,
-          ),
-          padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xEE171B23), Color(0xDD0D1016)],
-            ),
-            border: Border.all(color: const Color(0x66E7C06A), width: 1.1),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0xAA000000),
-                blurRadius: 26,
-                offset: Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Color(0x66E7C66A),
-                blurRadius: 22,
-                spreadRadius: -5,
-              ),
-            ],
-          ),
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (context, _) {
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: RadialGradient(
-                          center: const Alignment(0, -0.45),
-                          radius: 0.92,
-                          colors: [
-                            const Color(0x66FFE7A3).withOpacity(0.38),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  ...List.generate(26, (i) {
-                    final t = (_ctrl.value + i * 0.051) % 1;
-                    final drift = math.sin((t * math.pi * 2) + i) * 14;
-                    final x = 14 + (i * 12) % 280 + drift;
-                    final y = 250 - (t * 220);
-                    final op = (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0);
-                    final iconSize = 8.0 + (i % 3);
-                    return Positioned(
-                      left: x,
-                      top: y,
-                      child: Opacity(
-                        opacity: op * 0.8,
-                        child: Icon(
-                          i % 4 == 0
-                              ? Icons.auto_awesome_rounded
-                              : Icons.monetization_on_rounded,
-                          size: iconSize,
-                          color: i % 4 == 0
-                              ? const Color(0xFFFFE9B3)
-                              : const Color(0xFFE7C66A),
-                        ),
-                      ),
-                    );
-                  }),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.monetization_on_rounded,
-                        color: Color(0xFFEFD28A),
-                        size: 50,
-                      ),
-                      const SizedBox(height: 7),
-                      const Text(
-                        'Hos Geldin!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Hesabina hos geldin coini yuklendi.\nHemen masaya gecebilirsin.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFFD9EBDD),
-                          fontSize: 13,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: const Color(0x2211161E),
-                          border: Border.all(color: const Color(0x66E7C66A)),
-                        ),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Hediye Coin',
-                              style: TextStyle(
-                                color: Color(0xFFCFE3D7),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '+ ${Format.coin(widget.amount)}',
-                              style: const TextStyle(
-                                color: Color(0xFFEFD28A),
-                                fontSize: 27,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE7C66A),
-                            foregroundColor: const Color(0xFF2A1A04),
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Harika, Basla',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
+enum _ClaimState { ready, loading, success, alreadyClaimed, error }
 
 class DailyBonusDialog extends StatefulWidget {
   final int amount;
-  final VoidCallback onClaim;
+  // A win is shown only after a confirmed server credit.
+  final Future<bool> Function() onClaim;
   const DailyBonusDialog({
     super.key,
     required this.amount,
     required this.onClaim,
   });
-
   @override
   State<DailyBonusDialog> createState() => _DailyBonusDialogState();
 }
 
-class _DailyBonusDialogState extends State<DailyBonusDialog>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
+class _DailyBonusDialogState extends State<DailyBonusDialog> {
+  _ClaimState _state = _ClaimState.ready;
+  Future<void> _claim() async {
+    if (_state == _ClaimState.loading) return;
+    if (_state == _ClaimState.success || _state == _ClaimState.alreadyClaimed) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _state = _ClaimState.loading);
+    try {
+      final credited = await widget.onClaim();
+      if (!mounted) return;
+      setState(
+        () => _state = credited
+            ? _ClaimState.success
+            : _ClaimState.alreadyClaimed,
+      );
+    } catch (_) {
+      if (mounted) setState(() => _state = _ClaimState.error);
+    }
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
+  Widget build(BuildContext context) {
+    final success = _state == _ClaimState.success;
+    final already = _state == _ClaimState.alreadyClaimed;
+    return _RewardCard(
+      amount: widget.amount,
+      badge: success
+          ? 'ÖDÜL SENİN'
+          : already
+          ? 'BUGÜN TAMAMLANDI'
+          : 'HER GÜN YENİ BİR HEDİYE',
+      title: success
+          ? 'Harika! Kazandın.'
+          : already
+          ? 'Bugünkü ödülün alındı'
+          : 'Günlük bonusun hazır!',
+      message: success
+          ? 'Coinlerin hesabına eklendi. Şimdi masada parlama zamanı!'
+          : already
+          ? 'Yarın yeni bir bonus için tekrar gel. Masalar seni bekliyor.'
+          : 'Yeni bir gün, yeni bir şans. Hediyeni al, masaya güçlü başla.',
+      button: success || already
+          ? 'Devam et'
+          : _state == _ClaimState.error
+          ? 'Tekrar dene'
+          : 'Al',
+      loading: _state == _ClaimState.loading,
+      success: success,
+      alreadyClaimed: already,
+      error: _state == _ClaimState.error
+          ? 'Bonus alınamadı. Lütfen tekrar deneyin.'
+          : null,
+      onPressed: _claim,
+    );
+  }
+}
+
+class _RewardCard extends StatefulWidget {
+  final int amount;
+  final String title, message, badge, button;
+  final String? error;
+  final bool loading, success, alreadyClaimed;
+  final VoidCallback onPressed;
+  const _RewardCard({
+    required this.amount,
+    required this.title,
+    required this.message,
+    required this.badge,
+    required this.button,
+    required this.onPressed,
+    this.error,
+    this.loading = false,
+    this.success = false,
+    this.alreadyClaimed = false,
+  });
+  @override
+  State<_RewardCard> createState() => _RewardCardState();
+}
+
+class _RewardCardState extends State<_RewardCard>
+    with TickerProviderStateMixin {
+  late final AnimationController _entrance = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 380),
+  );
+  late final AnimationController _win = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 850),
+  );
+  bool _started = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _started = true;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _entrance.value = 1;
+      } else {
+        _entrance.forward();
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _RewardCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.success &&
+        !oldWidget.success &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      _win.forward(from: 0);
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _entrance.dispose();
+    _win.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
+    final curve = _entrance.drive(CurveTween(curve: Curves.easeOutCubic));
     return PopScope(
       canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: isLandscape ? 140 : 30,
-          vertical: isLandscape ? 12 : 18,
-        ),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: isLandscape ? 500 : 620,
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xEE171B23), Color(0xDD0D1016)],
-            ),
-            border: Border.all(color: const Color(0x66E7C66A), width: 1),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0xAA000000),
-                blurRadius: 24,
-                offset: Offset(0, 12),
-              ),
-            ],
-          ),
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (context, _) {
-              return Stack(
-                children: [
-                  ...List.generate(24, (i) {
-                    final t = (_ctrl.value + i * 0.047) % 1;
-                    final drift = math.sin((t * math.pi * 2) + i) * 13;
-                    final x = 10 + (i * 11) % 270 + drift;
-                    final y = 232 - (t * 205);
-                    final op = (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0);
-                    final s = 7.0 + (i % 3);
-                    return Positioned(
-                      left: x,
-                      top: y,
-                      child: Opacity(
-                        opacity: op * 0.78,
-                        child: Icon(
-                          i % 4 == 0
-                              ? Icons.auto_awesome_rounded
-                              : Icons.monetization_on_rounded,
-                          size: s,
-                          color: i % 4 == 0
-                              ? const Color(0xFFFFE9B3)
-                              : const Color(0xFFE7C66A),
-                        ),
-                      ),
-                    );
-                  }),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.card_giftcard_rounded,
-                        color: Color(0xFFE7C66A),
-                        size: 40,
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Gunluk Bonus',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Bugunun bonus coinini al ve oyuna devam et.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFFD0D8EE),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: const Color(0x2211161E),
-                          border: Border.all(color: const Color(0x66E7C66A)),
-                        ),
-                        child: Text(
-                          '+ ${Format.coin(widget.amount)}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFFEFD28A),
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
+      child: SafeArea(
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.all(8),
+          child: LayoutBuilder(
+            builder: (context, bounds) => FadeTransition(
+              opacity: curve,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: .94, end: 1).animate(curve),
+                child: SizedBox(
+                  width: math.min(bounds.maxWidth, 980),
+                  height: math.min(bounds.maxHeight, 520),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/images/table.png',
+                            fit: BoxFit.cover,
+                            excludeFromSemantics: true,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: widget.onClaim,
-                          icon: const Icon(Icons.redeem_rounded),
-                          label: const Text('Al'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE7C66A),
-                            foregroundColor: const Color(0xFF2A1A04),
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(11),
+                        const Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Color(0x55030D0C),
+                                  Color(0xD9071315),
+                                  Color(0xF2071015),
+                                ],
+                                stops: [0, .55, 1],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          'O K E Y I X',
+                                          style: TextStyle(
+                                            color: _gold,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      key: const ValueKey('reward-close'),
+                                      tooltip: 'Kapat',
+                                      onPressed: widget.loading
+                                          ? null
+                                          : () => Navigator.of(context).pop(),
+                                      icon: const Icon(Icons.close_rounded),
+                                      color: const Color(0xFFE5D4AF),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ],
+                                ),
+                                Expanded(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(flex: 5, child: _treasure()),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        flex: 5,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 8,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Expanded(
+                                                child: SingleChildScrollView(
+                                                  key: const ValueKey(
+                                                    'reward-details',
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      const SizedBox(height: 6),
+                                                      CustomPaint(
+                                                        painter:
+                                                            const _Insignia(),
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.fromLTRB(
+                                                                20,
+                                                                6,
+                                                                8,
+                                                                6,
+                                                              ),
+                                                          child: Text(
+                                                            widget.badge,
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: _gold,
+                                                                  fontSize: 10,
+                                                                  letterSpacing:
+                                                                      1.4,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w800,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 12,
+                                                      ),
+                                                      Text(
+                                                        widget.title,
+                                                        style: const TextStyle(
+                                                          color: Color(
+                                                            0xFFFFF1D4,
+                                                          ),
+                                                          fontSize: 30,
+                                                          height: 1.06,
+                                                          fontWeight:
+                                                              FontWeight.w900,
+                                                          shadows: [
+                                                            Shadow(
+                                                              color:
+                                                                  Colors.black,
+                                                              offset: Offset(
+                                                                0,
+                                                                3,
+                                                              ),
+                                                              blurRadius: 8,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                        height: 12,
+                                                      ),
+                                                      Semantics(
+                                                        liveRegion: true,
+                                                        child: Text(
+                                                          widget.message,
+                                                          style:
+                                                              const TextStyle(
+                                                                color: Color(
+                                                                  0xFFC2CEC8,
+                                                                ),
+                                                                fontSize: 13,
+                                                                height: 1.5,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                      if (widget.error != null)
+                                                        Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                top: 8,
+                                                              ),
+                                                          child: Semantics(
+                                                            liveRegion: true,
+                                                            child: Text(
+                                                              widget.error!,
+                                                              style:
+                                                                  const TextStyle(
+                                                                    color: Color(
+                                                                      0xFFFFC6B4,
+                                                                    ),
+                                                                    height: 1.3,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              _action(),
+                                              const SizedBox(height: 4),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              );
-            },
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _treasure() => LayoutBuilder(
+    builder: (context, bounds) => Stack(
+      children: [
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: CustomPaint(painter: const _RewardDais()),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: bounds.maxHeight * .25,
+          child: AnimatedBuilder(
+            animation: _win,
+            builder: (context, child) => Transform.scale(
+              scale: 1 + math.sin(_win.value * math.pi) * .12,
+              child: child,
+            ),
+            child: Image.asset(
+              'assets/images/coins/coins_huge.png',
+              fit: BoxFit.contain,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 4,
+          height: bounds.maxHeight * .30,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Semantics(
+                  label: '${widget.amount} coin',
+                  excludeSemantics: true,
+                  child: Text(
+                    '+ ${NumberFormat.decimalPattern('tr').format(widget.amount)}',
+                    style: const TextStyle(
+                      color: _gold,
+                      fontSize: 54,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      shadows: [
+                        Shadow(color: Color(0xFF382205), offset: Offset(0, 3)),
+                        Shadow(color: Color(0xAA000000), blurRadius: 12),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  widget.alreadyClaimed
+                      ? 'BUGÜNKÜ BONUS ALINDI'
+                      : widget.success
+                      ? 'HESABINA EKLENDİ'
+                      : 'COIN HEDİYESİ',
+                  style: const TextStyle(
+                    color: Color(0xFFE1CF9D),
+                    fontSize: 10,
+                    letterSpacing: 2.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(painter: _WinParticles(_win)),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _action() => CustomPaint(
+    painter: _MetalButton(widget.loading),
+    child: ElevatedButton.icon(
+      key: const ValueKey('reward-action'),
+      onPressed: widget.loading ? null : widget.onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        disabledBackgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        foregroundColor: const Color(0xFF30220E),
+        disabledForegroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        shape: const BeveledRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      icon: widget.loading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : Icon(
+              widget.success || widget.alreadyClaimed
+                  ? Icons.arrow_forward_rounded
+                  : Icons.redeem_rounded,
+            ),
+      label: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          widget.loading ? 'Alınıyor...' : widget.button,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            letterSpacing: .4,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _MetalButton extends CustomPainter {
+  final bool disabled;
+  _MetalButton(this.disabled);
+  @override
+  void paint(Canvas canvas, Size size) {
+    Path shape(Rect r) => Path()
+      ..moveTo(r.left + 12, r.top)
+      ..lineTo(r.right - 12, r.top)
+      ..lineTo(r.right, r.center.dy)
+      ..lineTo(r.right - 12, r.bottom)
+      ..lineTo(r.left + 12, r.bottom)
+      ..lineTo(r.left, r.center.dy)
+      ..close();
+    final rect = Offset.zero & size;
+    canvas.drawPath(
+      shape(rect.shift(const Offset(0, 4))),
+      Paint()..color = const Color(0xFF60401B),
+    );
+    canvas.drawPath(
+      shape(rect),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: disabled
+              ? const [Color(0xFF8F8872), Color(0xFF5D584D)]
+              : const [Color(0xFFFFE9AF), Color(0xFFD5A746), Color(0xFFB57D29)],
+          stops: disabled ? null : const [0, .55, 1],
+        ).createShader(rect),
+    );
+    canvas.drawPath(
+      shape(rect.deflate(3)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x99FFF0BD),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MetalButton oldDelegate) =>
+      oldDelegate.disabled != disabled;
+}
+
+class _Insignia extends CustomPainter {
+  const _Insignia();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFFCBAD69)
+      ..strokeWidth = 1;
+    final y = size.height / 2;
+    canvas.drawPath(
+      Path()
+        ..moveTo(5, y - 5)
+        ..lineTo(10, y)
+        ..lineTo(5, y + 5)
+        ..lineTo(0, y)
+        ..close(),
+      p,
+    );
+    canvas.drawLine(
+      Offset(20, size.height),
+      Offset(size.width, size.height),
+      p..color = const Color(0x667B704F),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _Insignia oldDelegate) => false;
+}
+
+class _RewardDais extends CustomPainter {
+  const _RewardDais();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height * .61);
+    final oval = Rect.fromCenter(
+      center: center,
+      width: size.width * .82,
+      height: size.height * .17,
+    );
+    canvas.drawOval(
+      oval.shift(const Offset(0, 5)),
+      Paint()..color = const Color(0xBB020908),
+    );
+    canvas.drawOval(
+      oval,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF335748), Color(0xFF102821)],
+        ).createShader(oval),
+    );
+    canvas.drawOval(
+      oval.deflate(3),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0xFFB89856),
+    );
+    final paint = Paint()
+      ..color = const Color(0x668D7B49)
+      ..strokeWidth = 1;
+    for (var i = 0; i < 9; i++) {
+      final angle = math.pi + i * math.pi / 8;
+      final origin = Offset(size.width / 2, size.height * .38);
+      canvas.drawLine(
+        origin +
+            Offset(
+              math.cos(angle) * size.width * .28,
+              math.sin(angle) * size.height * .23,
+            ),
+        origin +
+            Offset(
+              math.cos(angle) * size.width * .42,
+              math.sin(angle) * size.height * .36,
+            ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RewardDais oldDelegate) => false;
+}
+
+class _WinParticles extends CustomPainter {
+  final Animation<double> progress;
+  _WinParticles(this.progress) : super(repaint: progress);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = progress.value;
+    if (t <= 0 || t >= 1) return;
+    final paint = Paint()..color = _gold.withValues(alpha: 1 - t);
+    final center = size.center(Offset.zero);
+    for (var i = 0; i < 20; i++) {
+      final angle = i * math.pi * 2 / 20;
+      final radius = 18 + 95 * Curves.easeOut.transform(t);
+      final point =
+          center +
+          Offset(
+            math.cos(angle) * radius,
+            math.sin(angle) * radius * .6 + 18 * t * t,
+          );
+      canvas.save();
+      canvas.translate(point.dx, point.dy);
+      canvas.rotate(angle + t * 2);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: i.isEven ? 5 : 3,
+            height: 8,
+          ),
+          const Radius.circular(2),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WinParticles oldDelegate) =>
+      oldDelegate.progress != progress;
 }

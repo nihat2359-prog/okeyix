@@ -1,3 +1,4 @@
+import 'package:okeyix/game/observed_effect.dart';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
@@ -9,6 +10,7 @@ import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/game/theme_flags.dart';
 import '../okey_game.dart';
 import 'rack_config.dart';
+import '../components/cached_decoration.dart';
 import 'dart:math' as math;
 import 'dart:async' as async;
 
@@ -33,7 +35,7 @@ extension TileColorTypeStyle on TileColorType {
 }
 
 class TileComponent extends PositionComponent
-    with HasGameReference<FlameGame>, DragCallbacks, TapCallbacks {
+    with HasGameReference<FlameGame>, DragCallbacks, TapCallbacks, ActivityLifecycleObservation {
   bool renderInDragOverlay = false;
   bool _paintingDragOverlay = false;
 
@@ -324,24 +326,24 @@ class TileComponent extends PositionComponent
     add(_InvalidFinishFx(size: size, position: size / 2));
 
     add(
-      SequenceEffect(
+      observeGameEffect(SequenceEffect(
         [
-          MoveEffect.by(
+          observeGameEffect(MoveEffect.by(
             Vector2(0, -16),
             EffectController(duration: 0.11, curve: Curves.easeOutCubic),
-          ),
-          ScaleEffect.to(
+          ), activityProbeFor(this), 'tile_component.dart:2'),
+          observeGameEffect(ScaleEffect.to(
             Vector2(1.08, 1.08),
             EffectController(duration: 0.11, curve: Curves.easeOutBack),
-          ),
-          MoveEffect.to(
+          ), activityProbeFor(this), 'tile_component.dart:3'),
+          observeGameEffect(MoveEffect.to(
             startPos,
             EffectController(duration: 0.15, curve: Curves.easeInCubic),
-          ),
-          ScaleEffect.to(
+          ), activityProbeFor(this), 'tile_component.dart:4'),
+          observeGameEffect(ScaleEffect.to(
             startScale,
             EffectController(duration: 0.12, curve: Curves.easeInOut),
-          ),
+          ), activityProbeFor(this), 'tile_component.dart:5'),
         ],
         onComplete: () {
           if (!isMounted) return;
@@ -349,7 +351,7 @@ class TileComponent extends PositionComponent
             priority = startPriority;
           }
         },
-      ),
+      ), activityProbeFor(this), 'tile_component.dart:1'),
     );
   }
 
@@ -656,7 +658,7 @@ class TileComponent extends PositionComponent
   }
 }
 
-class TileSurfaceFx extends PositionComponent {
+class TileSurfaceFx extends PositionComponent with CachedDecoration {
   TileSurfaceFx({required Vector2 size, required Vector2 position}) {
     this.size = size;
     this.position = position;
@@ -664,7 +666,7 @@ class TileSurfaceFx extends PositionComponent {
   }
 
   @override
-  void render(Canvas canvas) {
+  void renderDecoration(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 
