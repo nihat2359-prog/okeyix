@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -15,129 +15,466 @@ class LobbyBottomDock extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final double systemBottomInset = MediaQuery.of(context).padding.bottom;
-    final double bottomGap = systemBottomInset > 0 ? 2 : 8;
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    minimum: const EdgeInsets.only(bottom: 4),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: SizedBox(
+        height: 78,
+        child: LayoutBuilder(
+          builder: (context, bounds) {
+            final sides = (bounds.maxWidth - 96).clamp(0.0, bounds.maxWidth);
+            return Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _GameRail()),
+                  ),
+                ),
+                Positioned(
+                  left: 8,
+                  bottom: 0,
+                  width: sides * .5,
+                  height: 60,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: left,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  bottom: 0,
+                  width: sides * .5,
+                  height: 60,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: right,
+                    ),
+                  ),
+                ),
+                Positioned(top: 3, child: center),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}
 
-    return SafeArea(
-      minimum: EdgeInsets.only(bottom: bottomGap),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: SizedBox(
-          height: 78,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              const double sidePadding = 12;
-              const double centerReserve = 88;
-              final double innerWidth =
-                  constraints.maxWidth - (sidePadding * 2);
-              final double sideWidth = ((innerWidth - centerReserve) / 2).clamp(
-                56.0,
-                innerWidth / 2,
-              );
-
-              return Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.bottomCenter,
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                        child: Container(
-                          height: 62,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Color(0xE5272726),
-                                Color(0xED111719),
-                                Color(0xF2080C10),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: const Color(0x667F7459),
-                              width: 1.0,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x3A000000),
-                                blurRadius: 12,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: 1,
-                                left: 20,
-                                right: 20,
-                                child: Container(
-                                  height: 1,
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        Color(0x88FFE4A0),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: sidePadding,
-                                ),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: sideWidth,
-                                      child: Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.centerLeft,
-                                          child: left,
-                                        ),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    SizedBox(
-                                      width: sideWidth,
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.centerRight,
-                                          child: right,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+class LobbyDockAction extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Widget? child;
+  final LobbyDockEmblemKind? emblem;
+  final VoidCallback onTap;
+  const LobbyDockAction({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.child,
+    this.emblem,
+  });
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: label,
+    child: Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 48,
+            height: 52,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Center(
+                    child:
+                        child ??
+                        (emblem != null
+                            ? LobbyDockEmblem(kind: emblem!)
+                            : Icon(
+                                icon,
+                                size: 23,
+                                color: const Color(0xFFE6C990),
+                              )),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 12,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Color(0xFFBDCCBD),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: .2,
                       ),
                     ),
                   ),
-                  Positioned(top: -1, child: center),
-                ],
-              );
-            },
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    ),
+  );
+}
+
+enum LobbyDockEmblemKind { store, ranking, social, messages }
+
+class LobbyDockEmblem extends StatelessWidget {
+  final LobbyDockEmblemKind kind;
+  const LobbyDockEmblem({super.key, required this.kind});
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: CustomPaint(
+      size: const Size(32, 32),
+      painter: _DockEmblemPainter(kind),
+    ),
+  );
+}
+
+class _DockEmblemPainter extends CustomPainter {
+  final LobbyDockEmblemKind kind;
+  const _DockEmblemPainter(this.kind);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 32, size.height / 32);
+    final symbol = Path();
+    switch (kind) {
+      case LobbyDockEmblemKind.store:
+        // Treasure chest with a domed lid, bands and a central clasp.
+        symbol.addRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(7, 12, 18, 12),
+            const Radius.circular(2),
+          ),
+        );
+        symbol.moveTo(7, 12);
+        symbol.cubicTo(7, 5, 25, 5, 25, 12);
+        break;
+      case LobbyDockEmblemKind.ranking:
+        symbol.moveTo(10, 7);
+        symbol.lineTo(22, 7);
+        symbol.lineTo(21, 15);
+        symbol.quadraticBezierTo(16, 22, 11, 15);
+        symbol.close();
+        symbol.moveTo(10, 9);
+        symbol.lineTo(6, 9);
+        symbol.quadraticBezierTo(6, 17, 12, 16);
+        symbol.moveTo(22, 9);
+        symbol.lineTo(26, 9);
+        symbol.quadraticBezierTo(26, 17, 20, 16);
+        symbol.moveTo(16, 19);
+        symbol.lineTo(16, 24);
+        symbol.moveTo(11, 25);
+        symbol.lineTo(21, 25);
+        break;
+      case LobbyDockEmblemKind.social:
+        symbol.addOval(const Rect.fromLTWH(12, 7, 8, 8));
+        symbol.addOval(const Rect.fromLTWH(5, 11, 5, 5));
+        symbol.addOval(const Rect.fromLTWH(22, 11, 5, 5));
+        symbol.moveTo(9, 25);
+        symbol.cubicTo(8, 14, 24, 14, 23, 25);
+        symbol.close();
+        symbol.moveTo(5, 24);
+        symbol.lineTo(4, 24);
+        symbol.quadraticBezierTo(3, 18, 8, 18);
+        symbol.moveTo(27, 24);
+        symbol.lineTo(28, 24);
+        symbol.quadraticBezierTo(29, 18, 24, 18);
+        break;
+      case LobbyDockEmblemKind.messages:
+        symbol.addRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(6, 9, 20, 15),
+            const Radius.circular(2),
+          ),
+        );
+        symbol.moveTo(7, 10);
+        symbol.lineTo(16, 17);
+        symbol.lineTo(25, 10);
+        symbol.moveTo(7, 23);
+        symbol.lineTo(12, 18);
+        symbol.moveTo(25, 23);
+        symbol.lineTo(20, 18);
+        break;
+    }
+    final ink = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.save();
+    canvas.translate(0, 1);
+    canvas.drawPath(symbol, ink..color = const Color(0xCC061D14));
+    canvas.restore();
+    canvas.drawPath(
+      symbol,
+      ink
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFEAC0), Color(0xFFD0A354)],
+        ).createShader(const Rect.fromLTWH(5, 6, 22, 20)),
+    );
+    if (kind == LobbyDockEmblemKind.store) {
+      final detail = Paint()
+        ..color = const Color(0xFFEED29A)
+        ..strokeWidth = 1;
+      canvas.drawLine(const Offset(8, 15), const Offset(24, 15), detail);
+      canvas.drawLine(const Offset(11, 12), const Offset(11, 23), detail);
+      canvas.drawLine(const Offset(21, 12), const Offset(21, 23), detail);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(14, 14, 4, 5),
+          const Radius.circular(1),
+        ),
+        detail,
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _DockEmblemPainter oldDelegate) =>
+      kind != oldDelegate.kind;
+}
+
+class LobbyDockCreate extends StatefulWidget {
+  final VoidCallback onTap;
+  const LobbyDockCreate({super.key, required this.onTap});
+  @override
+  State<LobbyDockCreate> createState() => _LobbyDockCreateState();
+}
+
+class _LobbyDockCreateState extends State<LobbyDockCreate> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Masa Aç',
+    child: Semantics(
+      button: true,
+      label: 'Masa Aç',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHighlightChanged: (value) => setState(() => _pressed = value),
+          customBorder: const StadiumBorder(),
+          child: SizedBox(
+            width: 76,
+            height: 74,
+            child: Column(
+              children: [
+                AnimatedScale(
+                  scale: _pressed ? .94 : 1,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 100),
+                  child: const RepaintBoundary(
+                    child: CustomPaint(
+                      size: Size(56, 56),
+                      painter: _CreateMedallion(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const SizedBox(
+                  height: 12,
+                  child: FittedBox(
+                    child: Text(
+                      'MASA AÇ',
+                      style: TextStyle(
+                        color: Color(0xFFEED8AB),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Engraved metal rim and enamel face. Static decoration has no ticker.
+class _CreateMedallion extends CustomPainter {
+  const _CreateMedallion();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2;
+    final bounds = Offset.zero & size;
+    canvas.drawCircle(
+      c.translate(0, 2),
+      r - 3,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..color = const Color(0xAA030609),
+    );
+    canvas.drawCircle(
+      c,
+      r - 3,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFEDBC),
+            Color(0xFFC99B48),
+            Color(0xFF72501F),
+            Color(0xFFE2BE72),
+          ],
+          stops: [0, .4, .76, 1],
+        ).createShader(bounds),
+    );
+    canvas.drawCircle(
+      c,
+      r - 2,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .7
+        ..color = const Color(0xFFFFE6A6),
+    );
+    final notch = Paint()
+      ..strokeWidth = .8
+      ..color = const Color(0x99734C21);
+    for (var i = 0; i < 28; i++) {
+      final angle = i * math.pi * 2 / 28;
+      final direction = Offset(math.cos(angle), math.sin(angle));
+      canvas.drawLine(c + direction * (r - 3), c + direction * (r - 5), notch);
+    }
+    canvas.drawCircle(
+      c,
+      r - 6,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0xFF6C501F),
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r - 7.5),
+      math.pi,
+      math.pi * .8,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .7
+        ..color = const Color(0x55EAD6A5),
+    );
+    final emblem = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: c, width: 6, height: 24),
+          const Radius.circular(1.4),
+        ),
+      )
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: c, width: 24, height: 6),
+          const Radius.circular(1.4),
+        ),
+      );
+    canvas.save();
+    canvas.translate(0, 1.5);
+    canvas.drawPath(emblem, Paint()..color = const Color(0xFF080B10));
+    canvas.restore();
+    canvas.drawPath(
+      emblem,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF0C2), Color(0xFFE8C779), Color(0xFFB98A3A)],
+        ).createShader(Rect.fromCircle(center: c, radius: 12)),
     );
   }
+
+  @override
+  bool shouldRepaint(covariant _CreateMedallion oldDelegate) => false;
+}
+
+class _GameRail extends CustomPainter {
+  const _GameRail();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height, mid = size.width / 2;
+    final rail = Path()
+      ..moveTo(18, 16)
+      ..lineTo(w - 18, 16)
+      ..quadraticBezierTo(w, 16, w, 34)
+      ..lineTo(w, h - 16)
+      ..quadraticBezierTo(w, h, w - 16, h)
+      ..lineTo(16, h)
+      ..quadraticBezierTo(0, h, 0, h - 16)
+      ..lineTo(0, 34)
+      ..quadraticBezierTo(0, 16, 18, 16)
+      ..close();
+    // The 56 px button and its surround share the same centre. Use a real
+    // circle instead of a Bezier approximation that flattens above the button.
+    final surround = Path()
+      ..addOval(Rect.fromCircle(center: Offset(mid, 31), radius: 30.5));
+    final body = Path.combine(PathOperation.union, rail, surround);
+    canvas.drawPath(
+      body,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x8020252E), Color(0x9912151D), Color(0xB3090C12)],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      body,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .8
+        ..shader = const LinearGradient(
+          colors: [Color(0x507F8999), Color(0x99D1B879), Color(0x507F8999)],
+        ).createShader(Offset.zero & size),
+    );
+    final line = Paint()
+      ..color = const Color(0x24EAD6A5)
+      ..strokeWidth = .7;
+    canvas.drawLine(const Offset(20, 19), Offset(mid - 47, 19), line);
+    canvas.drawLine(Offset(mid + 47, 19), Offset(w - 20, 19), line);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GameRail oldDelegate) => false;
 }

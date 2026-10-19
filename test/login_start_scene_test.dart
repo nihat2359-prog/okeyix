@@ -21,6 +21,7 @@ Future<void> pumpScene(
   Future<void> Function()? apple,
   Future<void> Function()? google,
   Future<void> Function()? guest,
+  EdgeInsets insets = const EdgeInsets.fromLTRB(24, 12, 24, 24),
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -31,8 +32,8 @@ Future<void> pumpScene(
         key: const ValueKey('login-capture'),
         child: MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-            viewPadding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            padding: insets,
+            viewPadding: insets,
             textScaler: TextScaler.linear(scale),
             disableAnimations: reduced,
           ),
@@ -71,9 +72,58 @@ void visible(WidgetTester tester, Size size) {
     expect(rect.width, lessThanOrEqualTo(310));
   }
   expect(tester.takeException(), isNull);
+  final apple = tester.getRect(find.byKey(const ValueKey('login-apple')));
+  final google = tester.getRect(find.byKey(const ValueKey('login-google')));
+  final guest = tester.getRect(find.byKey(const ValueKey('login-guest')));
+  expect(apple.width, closeTo(google.width, .01));
+  expect(apple.height, google.height);
+  expect(apple.top, google.top);
+  expect(apple.right, lessThan(google.left));
+  expect(guest.bottom, lessThan(apple.top));
 }
 
 void main() {
+  for (final size in [
+    const Size(568, 320),
+    const Size(640, 360),
+    const Size(844, 390),
+  ]) {
+    testWidgets(
+      'notched landscape $size keeps compact actions and privacy accessible',
+      (tester) async {
+        const insets = EdgeInsets.fromLTRB(59, 0, 44, 21);
+        await pumpScene(
+          tester,
+          size: size,
+          scale: 2,
+          insets: insets,
+          error: 'Bağlantı kurulamadı. Lütfen tekrar dene.',
+        );
+        for (final id in ['guest', 'apple', 'google']) {
+          final rect = tester.getRect(find.byKey(ValueKey('login-$id')));
+          expect(rect.left, greaterThanOrEqualTo(insets.left));
+          expect(rect.right, lessThanOrEqualTo(size.width - insets.right));
+          expect(rect.bottom, lessThanOrEqualTo(size.height - insets.bottom));
+          expect(rect.height, greaterThanOrEqualTo(44));
+          expect(
+            find.byKey(ValueKey('login-$id')).hitTestable(),
+            findsOneWidget,
+          );
+        }
+        final privacy = find.textContaining(
+          'Gizlilik Politikası',
+          findRichText: true,
+        );
+        expect(privacy.hitTestable(), findsOneWidget);
+        final rich = tester.widget<RichText>(privacy);
+        final link = (rich.text as TextSpan).children!
+            .whereType<TextSpan>()
+            .firstWhere((span) => span.text == 'Gizlilik Politikası');
+        expect(link.recognizer, isNotNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   setUpAll(() async {
     final text = FontLoader('Montserrat')
       ..addFont(rootBundle.load('assets/fonts/Montserrat-Regular.ttf'))

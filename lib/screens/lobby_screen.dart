@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -15,11 +15,11 @@ import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
 import 'package:okeyix/ui/lobby/lobby_columns.dart';
+import 'package:okeyix/ui/lobby/create_table_scene.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
-import 'package:okeyix/widgets/create_button.dart';
-import 'package:okeyix/widgets/dock_icon.dart';
+
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -118,7 +118,6 @@ class _LobbyScreenState extends State<LobbyScreen>
   RealtimeChannel? _messagesChannel;
   String? _messagesBoundUserId;
 
-  late AnimationController _storePulse;
   bool _isRecording = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
@@ -214,11 +213,6 @@ class _LobbyScreenState extends State<LobbyScreen>
           if (anim == null || !mounted) return;
           setState(() => _ratingDisplayValue = anim.value);
         });
-
-    _storePulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
 
     _init();
     _startLobbyLoops();
@@ -323,7 +317,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     _coinFxController.dispose();
     _coinCountController.dispose();
     _ratingCountController.dispose();
-    _storePulse.dispose();
     _audioPlayer.dispose();
     _tableInviteChannel?.unsubscribe();
     _messagesChannel?.unsubscribe();
@@ -371,9 +364,6 @@ class _LobbyScreenState extends State<LobbyScreen>
       _ensureTableInviteListener();
       _ensureMessagesListener();
     });
-    if (!_storePulse.isAnimating) {
-      _storePulse.repeat(reverse: true);
-    }
   }
 
   void _stopLobbyLoops() {
@@ -390,9 +380,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     _spectatorPassTimer = null;
     _tableInvitePollTimer?.cancel();
     _tableInvitePollTimer = null;
-    if (_storePulse.isAnimating) {
-      _storePulse.stop();
-    }
     if (_bgController.isAnimating) {
       _bgController.stop();
     }
@@ -3075,815 +3062,35 @@ class _LobbyScreenState extends State<LobbyScreen>
     var chat = createChatEnabled;
     if (!mounted) return;
 
-    const gold = Color(0xFFF1C46C);
-    const muted = Color(0xFFA8AEB0);
-    const panel = Color(0xFF111316);
-    final entryChipsController = ScrollController();
     await showDialog<void>(
       context: context,
       barrierColor: const Color(0xDD020507),
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, refresh) {
-          final stake = coinOptions[selectedIndex];
-          final canCreate = UserState.userCoin >= stake;
-
-          Widget speedChoice(
-            String label,
-            String subtitle,
-            IconData icon,
-            int seconds,
-          ) {
-            final active = draftTurnSeconds == seconds;
-            return Expanded(
-              child: InkWell(
-                onTap: () => refresh(() => draftTurnSeconds = seconds),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active ? gold : const Color(0xFF202124),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: active
-                          ? const Color(0xFFFFE1A0)
-                          : const Color(0xFF45413B),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        icon,
-                        size: 20,
-                        color: active ? const Color(0xFF21180B) : gold,
-                      ),
-                      const SizedBox(width: 7),
-                      Flexible(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              label,
-                              maxLines: 1,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                color: active
-                                    ? const Color(0xFF21180B)
-                                    : Colors.white,
-                              ),
-                            ),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: active ? const Color(0xFF574321) : muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
-          Widget setting(
-            String label,
-            IconData icon,
-            bool value,
-            VoidCallback onTap,
-          ) {
-            return Expanded(
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  height: 47,
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  decoration: BoxDecoration(
-                    color: panel,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF57472A)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(icon, color: gold, size: 19),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        width: 30,
-                        height: 17,
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: value ? gold : const Color(0xFF4A4C51),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Align(
-                          alignment: value
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: const CircleAvatar(
-                            radius: 6.5,
-                            backgroundColor: Color(0xFFF8F1DC),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 7,
-            ),
-            child: LayoutBuilder(
-              builder: (context, limits) {
-                final width = min(limits.maxWidth, 1080.0);
-                final height = min(limits.maxHeight, 540.0);
-                final small = height < 390;
-                return Center(
-                  child: SizedBox(
-                    width: width,
-                    height: height,
-                    child: Container(
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D0F12),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: const Color(0xFFC79949),
-                          width: 1.2,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0xC9000000),
-                            blurRadius: 28,
-                            offset: Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: small ? 44 : 54,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.casino_rounded,
-                                    color: gold,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 9),
-                                  Text(
-                                    'MASA OLUŞTUR',
-                                    style: TextStyle(
-                                      color: gold,
-                                      fontSize: small ? 17 : 20,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: .5,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            18,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0xFF55514B),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '${league['name']}',
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Color(0xFFD2D2D2),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Kapat',
-                                    onPressed: () =>
-                                        Navigator.of(dialogContext).pop(),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 36,
-                                      minHeight: 36,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      color: Colors.white,
-                                      size: 23,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(9, 0, 9, 9),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    flex: 36,
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: LayoutBuilder(
-                                        builder: (context, sceneSize) {
-                                          final sceneW = sceneSize.maxWidth;
-                                          final sceneH = sceneSize.maxHeight;
-                                          return Stack(
-                                            children: [
-                                              // High-resolution cinematic table artwork. The stake plate and
-                                              // game-speed badge below are live Flutter widgets, not baked text.
-                                              Positioned.fill(
-                                                child: Image.asset(
-                                                  'assets/images/lobby/okey_create_table_scene.png',
-                                                  fit: BoxFit.cover,
-                                                  alignment: Alignment.center,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      CustomPaint(
-                                                        painter:
-                                                            _OkeyLiveTablePainter(
-                                                              stake: stake,
-                                                              fast:
-                                                                  draftTurnSeconds ==
-                                                                  15,
-                                                            ),
-                                                      ),
-                                                ),
-                                              ),
-                                              Positioned.fill(
-                                                child: IgnorePointer(
-                                                  child: DecoratedBox(
-                                                    decoration: BoxDecoration(
-                                                      gradient: LinearGradient(
-                                                        begin:
-                                                            Alignment.topCenter,
-                                                        end: Alignment
-                                                            .bottomCenter,
-                                                        colors: [
-                                                          Colors.black
-                                                              .withOpacity(.08),
-                                                          Colors.transparent,
-                                                          Colors.black
-                                                              .withOpacity(.25),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              // Replaces the amount printed in the concept artwork.
-                                              Positioned(
-                                                left: sceneW * .348,
-                                                top: sceneH * .435,
-                                                width: sceneW * .304,
-                                                height: sceneH * .115,
-                                                child: AnimatedContainer(
-                                                  duration: const Duration(
-                                                    milliseconds: 220,
-                                                  ),
-                                                  alignment: Alignment.center,
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFF0B1210,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          9,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: gold,
-                                                      width: 1.1,
-                                                    ),
-                                                    boxShadow: const [
-                                                      BoxShadow(
-                                                        color: Color(
-                                                          0xB0000000,
-                                                        ),
-                                                        blurRadius: 9,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: FittedBox(
-                                                    fit: BoxFit.scaleDown,
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 7,
-                                                          ),
-                                                      child: Text(
-                                                        _formatCreateStake(
-                                                          stake,
-                                                        ),
-                                                        style: TextStyle(
-                                                          color: gold,
-                                                          fontWeight:
-                                                              FontWeight.w900,
-                                                          fontSize: min(
-                                                            sceneH * .075,
-                                                            27,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Positioned(
-                                                right: 8,
-                                                top: 8,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 7,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xCC101511,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: const Color(
-                                                        0x887C663A,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Icon(
-                                                        draftTurnSeconds == 15
-                                                            ? Icons.bolt_rounded
-                                                            : Icons
-                                                                  .hourglass_bottom_rounded,
-                                                        size: 12,
-                                                        color: gold,
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        draftTurnSeconds == 15
-                                                            ? '15 SN'
-                                                            : '20 SN',
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 9,
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 9),
-                                  Expanded(
-                                    flex: 64,
-                                    child: Container(
-                                      padding: EdgeInsets.all(small ? 10 : 13),
-                                      decoration: BoxDecoration(
-                                        color: panel,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: const Color(0xFF67502D),
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.toll_rounded,
-                                                color: gold,
-                                                size: 19,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Text(
-                                                'GİRİŞ BEDELİ',
-                                                style: TextStyle(
-                                                  color: gold,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(height: small ? 7 : 11),
-                                          // Bahisler HER ZAMAN tek satırda kalır. Dar ekranlarda yatay kaydırılır.
-                                          SizedBox(
-                                            height: small ? 46 : 57,
-                                            child: LayoutBuilder(
-                                              builder: (context, area) {
-                                                const gap = 6.0;
-                                                final count =
-                                                    coinOptions.length;
-                                                final visibleCount = count <= 5
-                                                    ? count
-                                                    : 5;
-                                                // Reserve space for navigation arrows; never wrap chips.
-                                                const arrowWidth = 28.0;
-                                                final listWidth = max(
-                                                  0.0,
-                                                  area.maxWidth -
-                                                      arrowWidth * 2 -
-                                                      8,
-                                                );
-                                                final naturalWidth =
-                                                    (listWidth -
-                                                        gap *
-                                                            (visibleCount -
-                                                                1)) /
-                                                    visibleCount;
-                                                final itemWidth = naturalWidth
-                                                    .clamp(55.0, 88.0)
-                                                    .toDouble();
-
-                                                Widget scrollArrow(
-                                                  IconData icon,
-                                                  int direction,
-                                                ) {
-                                                  return SizedBox(
-                                                    width: arrowWidth,
-                                                    child: IconButton(
-                                                      tooltip: direction < 0
-                                                          ? 'Önceki giriş bedelleri'
-                                                          : 'Sonraki giriş bedelleri',
-                                                      padding: EdgeInsets.zero,
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                            minWidth: 28,
-                                                            minHeight: 36,
-                                                          ),
-                                                      onPressed: () {
-                                                        if (!entryChipsController
-                                                            .hasClients)
-                                                          return;
-                                                        final position =
-                                                            entryChipsController
-                                                                .position;
-                                                        final target =
-                                                            (position.pixels +
-                                                                    direction *
-                                                                        (itemWidth +
-                                                                            gap) *
-                                                                        2)
-                                                                .clamp(
-                                                                  position
-                                                                      .minScrollExtent,
-                                                                  position
-                                                                      .maxScrollExtent,
-                                                                )
-                                                                .toDouble();
-                                                        entryChipsController
-                                                            .animateTo(
-                                                              target,
-                                                              duration:
-                                                                  const Duration(
-                                                                    milliseconds:
-                                                                        240,
-                                                                  ),
-                                                              curve: Curves
-                                                                  .easeOutCubic,
-                                                            );
-                                                      },
-                                                      icon: Icon(
-                                                        icon,
-                                                        color: gold,
-                                                        size: 23,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-
-                                                return Row(
-                                                  children: [
-                                                    scrollArrow(
-                                                      Icons
-                                                          .chevron_left_rounded,
-                                                      -1,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Expanded(
-                                                      child: ListView.separated(
-                                                        controller:
-                                                            entryChipsController,
-                                                        scrollDirection:
-                                                            Axis.horizontal,
-                                                        physics:
-                                                            const BouncingScrollPhysics(),
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        itemCount: count,
-                                                        separatorBuilder:
-                                                            (_, __) =>
-                                                                const SizedBox(
-                                                                  width: gap,
-                                                                ),
-                                                        itemBuilder: (context, i) {
-                                                          final active =
-                                                              selectedIndex ==
-                                                              i;
-                                                          return SizedBox(
-                                                            width: itemWidth,
-                                                            child: InkWell(
-                                                              onTap: () => refresh(
-                                                                () =>
-                                                                    selectedIndex =
-                                                                        i,
-                                                              ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    10,
-                                                                  ),
-                                                              child: AnimatedContainer(
-                                                                duration:
-                                                                    const Duration(
-                                                                      milliseconds:
-                                                                          180,
-                                                                    ),
-                                                                decoration: BoxDecoration(
-                                                                  color: active
-                                                                      ? const Color(
-                                                                          0xFF392B17,
-                                                                        )
-                                                                      : const Color(
-                                                                          0xFF191B1D,
-                                                                        ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        10,
-                                                                      ),
-                                                                  border: Border.all(
-                                                                    color:
-                                                                        active
-                                                                        ? gold
-                                                                        : const Color(
-                                                                            0xFF45413A,
-                                                                          ),
-                                                                    width:
-                                                                        active
-                                                                        ? 1.5
-                                                                        : .8,
-                                                                  ),
-                                                                  boxShadow:
-                                                                      active
-                                                                      ? [
-                                                                          BoxShadow(
-                                                                            color: gold.withOpacity(
-                                                                              .15,
-                                                                            ),
-                                                                            blurRadius:
-                                                                                8,
-                                                                          ),
-                                                                        ]
-                                                                      : null,
-                                                                ),
-                                                                child: LayoutBuilder(
-                                                                  builder:
-                                                                      (
-                                                                        context,
-                                                                        tileBox,
-                                                                      ) {
-                                                                        final chipSize = min(
-                                                                          tileBox.maxHeight *
-                                                                              .49,
-                                                                          30.0,
-                                                                        );
-                                                                        return Column(
-                                                                          mainAxisAlignment:
-                                                                              MainAxisAlignment.center,
-                                                                          children: [
-                                                                            SizedBox(
-                                                                              width: chipSize,
-                                                                              height: chipSize,
-                                                                              child: CustomPaint(
-                                                                                painter: _OkeyEntryChipPainter(
-                                                                                  tier: i,
-                                                                                  selected: active,
-                                                                                ),
-                                                                              ),
-                                                                            ),
-                                                                            const SizedBox(
-                                                                              height: 1,
-                                                                            ),
-                                                                            Text(
-                                                                              _formatCreateStake(
-                                                                                coinOptions[i],
-                                                                              ),
-                                                                              maxLines: 1,
-                                                                              overflow: TextOverflow.ellipsis,
-                                                                              style: TextStyle(
-                                                                                color: active
-                                                                                    ? gold
-                                                                                    : const Color(
-                                                                                        0xFFF2E7D1,
-                                                                                      ),
-                                                                                fontWeight: FontWeight.w900,
-                                                                                fontSize: small
-                                                                                    ? 12
-                                                                                    : 14,
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        );
-                                                                      },
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    scrollArrow(
-                                                      Icons
-                                                          .chevron_right_rounded,
-                                                      1,
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          SizedBox(height: small ? 6 : 10),
-                                          const Row(
-                                            children: [
-                                              Icon(
-                                                Icons.bolt_rounded,
-                                                color: gold,
-                                                size: 18,
-                                              ),
-                                              SizedBox(width: 7),
-                                              Text(
-                                                'OYUN HIZI',
-                                                style: TextStyle(
-                                                  color: gold,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              speedChoice(
-                                                'Hızlı',
-                                                '15 saniye',
-                                                Icons.bolt_rounded,
-                                                15,
-                                              ),
-                                              const SizedBox(width: 7),
-                                              speedChoice(
-                                                'Normal',
-                                                '20 saniye',
-                                                Icons.hourglass_bottom_rounded,
-                                                20,
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(height: small ? 6 : 9),
-                                          Row(
-                                            children: [
-                                              setting(
-                                                'Seyirci',
-                                                Icons.visibility_outlined,
-                                                spectator,
-                                                () => refresh(
-                                                  () => spectator = !spectator,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 7),
-                                              setting(
-                                                'Sohbet',
-                                                Icons
-                                                    .chat_bubble_outline_rounded,
-                                                chat,
-                                                () =>
-                                                    refresh(() => chat = !chat),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(height: small ? 6 : 9),
-                                          SizedBox(
-                                            height: small ? 37 : 44,
-                                            child: ElevatedButton.icon(
-                                              onPressed: !canCreate
-                                                  ? null
-                                                  : () {
-                                                      createMaxPlayer = 2;
-                                                      createTurnSeconds =
-                                                          draftTurnSeconds;
-                                                      createSpectatorEnabled =
-                                                          spectator;
-                                                      createChatEnabled = chat;
-                                                      Navigator.of(
-                                                        dialogContext,
-                                                      ).pop();
-                                                      _createTable();
-                                                    },
-                                              icon: const Icon(
-                                                Icons.play_arrow_rounded,
-                                                size: 21,
-                                              ),
-                                              label: Text(
-                                                canCreate
-                                                    ? 'MASAYI OLUŞTUR'
-                                                    : 'YETERSİZ BAKİYE',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w900,
-                                                  letterSpacing: .6,
-                                                ),
-                                              ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: gold,
-                                                foregroundColor: const Color(
-                                                  0xFF201806,
-                                                ),
-                                                disabledBackgroundColor:
-                                                    const Color(0xFF645E51),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
+        builder: (dialogContext, refresh) => CreateTableScene(
+          leagueName: '${league['name']}',
+          stakes: coinOptions,
+          selectedIndex: selectedIndex,
+          turnSeconds: draftTurnSeconds,
+          spectator: spectator,
+          chat: chat,
+          canCreate: UserState.userCoin >= coinOptions[selectedIndex],
+          formatStake: _formatCreateStake,
+          onStake: (index) => refresh(() => selectedIndex = index),
+          onSpeed: (seconds) => refresh(() => draftTurnSeconds = seconds),
+          onSpectator: () => refresh(() => spectator = !spectator),
+          onChat: () => refresh(() => chat = !chat),
+          onClose: () => Navigator.of(dialogContext).pop(),
+          onCreate: () {
+            createMaxPlayer = 2;
+            createTurnSeconds = draftTurnSeconds;
+            createSpectatorEnabled = spectator;
+            createChatEnabled = chat;
+            Navigator.of(dialogContext).pop();
+            _createTable();
+          },
+        ),
       ),
     );
-    entryChipsController.dispose();
   }
 
   Widget buildCreateButton({
@@ -4054,7 +3261,11 @@ class _LobbyScreenState extends State<LobbyScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0x88081016), Color(0x22081016), Color(0xAA050D10)],
+                  colors: [
+                    Color(0x88081016),
+                    Color(0x22081016),
+                    Color(0xAA050D10),
+                  ],
                 ),
               ),
             ),
@@ -4074,9 +3285,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     child: Row(
                       children: [
                         const SizedBox(width: 10),
-                        Expanded(
-                          child: _connectedLeagueAndTables(),
-                        ),
+                        Expanded(child: _connectedLeagueAndTables()),
                       ],
                     ),
                   ),
@@ -5965,139 +5174,139 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _connectedLeagueAndTables() {
     return LobbyColumns(
       leagues:
-        /// ?? SOL PANEL (GLASS EFFECT)
-        ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          /// ?? SOL PANEL (GLASS EFFECT)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
 
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
 
-                /// ?? ANA BORDER (daha koyu + classy)
-                border: Border.all(
-                  color: const Color(0x33FFEBC6), // ?? opacity d???r?ld?
-                  width: 1.0,
-                ),
-
-                /// ?? SOFT SHADOW SYSTEM
-                boxShadow: [
-                  /// ?ok hafif d?? glow
-                  BoxShadow(
-                    color: const Color(0xFFFFD76A).withOpacity(0.10),
-                    blurRadius: 10,
-                    spreadRadius: 0,
+                  /// ?? ANA BORDER (daha koyu + classy)
+                  border: Border.all(
+                    color: const Color(0x33FFEBC6), // ?? opacity d???r?ld?
+                    width: 1.0,
                   ),
 
-                  /// ambient shadow
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.35),
-                    blurRadius: 12,
-                  ),
-
-                  /// i? derinlik
-                ],
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 2),
-                  Column(
-                    children: [
-                      const Text(
-                        "Adil Dağıtım • Gerçek Rekabet",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFFD4A24C),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  /// ?? GOLD DIVIDER
-                  Container(
-                    height: 1,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Color(0x66F2C14E),
-                          Colors.transparent,
-                        ],
-                      ),
+                  /// ?? SOFT SHADOW SYSTEM
+                  boxShadow: [
+                    /// ?ok hafif d?? glow
+                    BoxShadow(
+                      color: const Color(0xFFFFD76A).withOpacity(0.10),
+                      blurRadius: 10,
+                      spreadRadius: 0,
                     ),
-                  ),
-                  const SizedBox(height: 7),
 
-                  /// ?? L?G L?STES?
-                  Expanded(
-                    child: Stack(
+                    /// ambient shadow
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.35),
+                      blurRadius: 12,
+                    ),
+
+                    /// i? derinlik
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 2),
+                    Column(
                       children: [
-                        LobbyLeagueList(
-                          leagues: leagues,
-                          selectedLeagueId: selectedLeague,
-                          leagueActivePlayers: leagueActivePlayers,
-                          leagueActiveTables: leagueActiveTables,
-                          userCoin: UserState.userCoin,
-                          userRating: UserState.userRating,
-                          loading: loadingLeagues,
-                          onSelect: (league) {
-                            final playerCoin = UserState.userCoin;
-                            final playerRating = UserState.userRating;
-
-                            final minCoin = league['min_coin'];
-                            final minRating = league['min_rating'];
-
-                            final eligible =
-                                playerCoin >= minCoin &&
-                                playerRating >= minRating;
-
-                            setState(() {
-                              selectedLeague = league['id'];
-
-                              if (!eligible) {
-                                isLeagueLocked = true;
-                                lockedLeague = league;
-
-                                tables = [];
-                                loadingTables = false;
-                                _tablesInitialized = true;
-                                return;
-                              }
-
-                              /// ?? NORMAL
-                              isLeagueLocked = false;
-                              lockedLeague = null;
-
-                              tables = [];
-                              loadingTables = true;
-                              _tablesInitialized = false;
-                            });
-
-                            if (eligible) {
-                              _loadTables();
-                            }
-                          },
+                        const Text(
+                          "Adil Dağıtım • Gerçek Rekabet",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFD4A24C),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 8),
+
+                    /// ?? GOLD DIVIDER
+                    Container(
+                      height: 1,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Color(0x66F2C14E),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+
+                    /// ?? L?G L?STES?
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          LobbyLeagueList(
+                            leagues: leagues,
+                            selectedLeagueId: selectedLeague,
+                            leagueActivePlayers: leagueActivePlayers,
+                            leagueActiveTables: leagueActiveTables,
+                            userCoin: UserState.userCoin,
+                            userRating: UserState.userRating,
+                            loading: loadingLeagues,
+                            onSelect: (league) {
+                              final playerCoin = UserState.userCoin;
+                              final playerRating = UserState.userRating;
+
+                              final minCoin = league['min_coin'];
+                              final minRating = league['min_rating'];
+
+                              final eligible =
+                                  playerCoin >= minCoin &&
+                                  playerRating >= minRating;
+
+                              setState(() {
+                                selectedLeague = league['id'];
+
+                                if (!eligible) {
+                                  isLeagueLocked = true;
+                                  lockedLeague = league;
+
+                                  tables = [];
+                                  loadingTables = false;
+                                  _tablesInitialized = true;
+                                  return;
+                                }
+
+                                /// ?? NORMAL
+                                isLeagueLocked = false;
+                                lockedLeague = null;
+
+                                tables = [];
+                                loadingTables = true;
+                                _tablesInitialized = false;
+                              });
+
+                              if (eligible) {
+                                _loadTables();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
 
-        /// ?? MASALAR
-        tables: _buildTablesPanel(),
+      /// ?? MASALAR
+      tables: _buildTablesPanel(),
     );
   }
 
@@ -6492,7 +5701,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AaaDockIcon(
+        LobbyDockAction(
+          label: 'Menü',
           onTap: _toggleSideMenu,
           child: Image.asset(
             "assets/images/lobby/menu_bar.png",
@@ -6578,69 +5788,36 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
-  Widget _dockCenter() {
-    return Transform.translate(
-      offset: const Offset(0, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Tooltip(
-            message: 'Masa Aç',
-            child: Semantics(
-              button: true,
-              label: 'Masa Aç',
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: FittedBox(child: CreateButton(onTap: _showCreateModal)),
-                  ),
-                  const SizedBox(
-                    height: 12,
-                    child: FittedBox(
-                      child: Text('MASA AÇ', style: TextStyle(color: Color(0xFFE8D2A0), fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .7)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _dockCenter() => LobbyDockCreate(onTap: _showCreateModal);
 
   Widget _dockRight() {
     final unreadTotal = _unreadTotal;
     return Row(
       children: [
         _coinBuyDockButton(),
-        const SizedBox(width: 7),
-        AaaDockIcon(
-          icon: Icons.emoji_events_rounded,
+        const SizedBox(width: 2),
+        LobbyDockAction(
+          label: 'Sıralama',
+          emblem: LobbyDockEmblemKind.ranking,
           onTap: () {
             _openLeaderboard();
           },
         ),
-        const SizedBox(width: 7),
-        AaaDockIcon(
-          icon: Icons.people_alt_rounded,
+        const SizedBox(width: 2),
+        LobbyDockAction(
+          label: 'Sosyal',
+          emblem: LobbyDockEmblemKind.social,
           onTap: () => _openRightPanel(_RightPanelType.friends),
         ),
-        const SizedBox(width: 7),
-        AaaDockIcon(
+        const SizedBox(width: 2),
+        LobbyDockAction(
+          label: 'Mesajlar',
           onTap: () => _openRightPanel(_RightPanelType.messages),
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              const Icon(
-                Icons.mark_email_unread_rounded,
-                size: 21,
-                color: Color(0xFFE7C66A),
-              ),
+              const LobbyDockEmblem(kind: LobbyDockEmblemKind.messages),
               if (unreadTotal > 0)
                 Positioned(
                   right: -10,
@@ -6685,107 +5862,19 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
-  Widget _coinBuyDockButton() {
-    return AnimatedBuilder(
-      animation: _storePulse,
-      builder: (context, child) {
-        final t = Curves.easeInOut.transform(_storePulse.value);
-        return Transform.scale(
-          scale: 1 + (t * 0.03),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () async {
-              final result = await openStoreScreen(
-                context,
-                initialCoin: UserState.userCoin,
-              );
-              if (result == true) {
-                await _loadUser();
-              }
-            },
-            child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 13),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF3B3021),
-                    Color(0xFF1B211E),
-                    Color(0xFF11191A),
-                  ],
-                ),
-                border: Border.all(
-                  color: const Color.fromARGB(169, 231, 198, 106),
-                  width: 1.15,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(
-                      0xFFE7C66A,
-                    ).withOpacity(0.22 + (t * 0.15)),
-                    blurRadius: 14,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.78),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    top: 0,
-                    left: -10,
-                    right: -20,
-                    child: Container(
-                      height: 60,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withOpacity(0.17),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.monetization_on_rounded,
-                        color: Color(0xFFE8C988),
-                        size: 19,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'MAĞAZA',
-                        style: TextStyle(
-                          color: Color(0xFFE8C988),
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.35,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
+  Widget _coinBuyDockButton() => LobbyDockAction(
+    label: 'Mağaza',
+    emblem: LobbyDockEmblemKind.store,
+    onTap: () async {
+      final result = await openStoreScreen(
+        context,
+        initialCoin: UserState.userCoin,
+      );
+      if (result == true) {
+        await _loadUser();
+      }
+    },
+  );
   void _openLeaderboard() {
     Navigator.push(
       context,
@@ -7025,380 +6114,4 @@ String _formatCreateStake(int amount) {
   if (amount >= 1000)
     return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1)}K';
   return '$amount';
-}
-
-class _OkeyLiveTablePainter extends CustomPainter {
-  final int stake;
-  final bool fast;
-  const _OkeyLiveTablePainter({required this.stake, required this.fast});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final bg = Rect.fromLTWH(0, 0, w, h);
-    canvas.drawRect(
-      bg,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF29302A), Color(0xFF0B1514), Color(0xFF14181B)],
-        ).createShader(bg),
-    );
-    // Warm table-room light and skyline silhouettes.
-    canvas.drawCircle(
-      Offset(w * .19, h * .13),
-      h * .31,
-      Paint()
-        ..shader =
-            RadialGradient(
-              colors: [const Color(0x66CE9A43), const Color(0x00CE9A43)],
-            ).createShader(
-              Rect.fromCircle(
-                center: Offset(w * .19, h * .13),
-                radius: h * .31,
-              ),
-            ),
-    );
-    final skyline = Paint()..color = const Color(0xFF101E21);
-    for (var i = 0; i < 16; i++) {
-      final x = i * w / 15;
-      final bh = h * (.12 + (i * 17 % 13) / 110);
-      canvas.drawRect(Rect.fromLTWH(x, h * .28 - bh, w / 19, bh), skyline);
-    }
-    final center = Offset(w * .5, h * .58);
-    final tableRect = Rect.fromCenter(
-      center: center,
-      width: w * .96,
-      height: h * .72,
-    );
-    canvas.drawOval(
-      tableRect.shift(const Offset(0, 10)),
-      Paint()
-        ..color = const Color(0xAA000000)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
-    );
-    canvas.drawOval(tableRect, Paint()..color = const Color(0xFF593318));
-    canvas.drawOval(
-      tableRect.deflate(5),
-      Paint()..color = const Color(0xFFD4A45A),
-    );
-    canvas.drawOval(
-      tableRect.deflate(10),
-      Paint()..color = const Color(0xFF342016),
-    );
-    final felt = tableRect.deflate(15);
-    canvas.drawOval(
-      felt,
-      Paint()
-        ..shader = const RadialGradient(
-          colors: [Color(0xFF237352), Color(0xFF0A3427)],
-          radius: .85,
-        ).createShader(felt),
-    );
-    canvas.drawOval(
-      felt,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = const Color(0x6683A98A),
-    );
-
-    // Racks and tiles. They remain visually stable while stake / speed update.
-    void rack(double x, double y, double length) {
-      final r = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, y), width: length, height: h * .065),
-        const Radius.circular(3),
-      );
-      canvas.drawRRect(r, Paint()..color = const Color(0xFF8B5025));
-      canvas.drawLine(
-        Offset(x - length * .47, y - h * .012),
-        Offset(x + length * .47, y - h * .012),
-        Paint()
-          ..color = const Color(0xFFD8A264)
-          ..strokeWidth = 2,
-      );
-    }
-
-    rack(w * .5, h * .29, w * .32);
-    rack(w * .5, h * .87, w * .65);
-    rack(w * .11, h * .58, w * .16);
-    rack(w * .89, h * .58, w * .16);
-
-    final tileW = min(w * .055, h * .075);
-    final tileH = tileW * 1.48;
-    for (var i = 0; i < 9; i++) {
-      final x = w * .5 + (i - 4) * tileW * 1.06;
-      final y = h * .79;
-      final tile = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x - tileW / 2, y - tileH / 2, tileW, tileH),
-        const Radius.circular(2),
-      );
-      canvas.drawRRect(tile, Paint()..color = const Color(0xFFFFE8C2));
-      canvas.drawRRect(
-        tile,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = .7
-          ..color = const Color(0xFFAB906C),
-      );
-      _text(
-        canvas,
-        '${(i * 3) % 13 + 1}',
-        Offset(x, y),
-        tileW * .66,
-        i % 3 == 0
-            ? const Color(0xFFBD3333)
-            : i % 3 == 1
-            ? const Color(0xFF255F9A)
-            : const Color(0xFF252525),
-      );
-    }
-    for (var i = 0; i < 3; i++) {
-      final x = w * (.31 + i * .18), y = h * (.53 + (i % 2) * .07);
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(x, y),
-          width: tileW * 1.1,
-          height: tileH * .95,
-        ),
-        const Radius.circular(3),
-      );
-      canvas.drawRRect(rect, Paint()..color = const Color(0xFFF7DDB0));
-      _text(
-        canvas,
-        '${(i * 4 + 3) % 13 + 1}',
-        Offset(x, y),
-        tileW * .66,
-        const Color(0xFFB02D26),
-      );
-    }
-    // Animated-by-state coin pile: selected stake is painted into the table scene.
-    final coinCenter = Offset(w * .5, h * .45);
-    for (var pile = 0; pile < 3; pile++) {
-      final count = 3 + ((stake ~/ max(1, 1000)) % 4) + pile;
-      final cx = coinCenter.dx + (pile - 1) * w * .065;
-      for (var i = 0; i < count; i++) {
-        final cy = coinCenter.dy - i * 3.2;
-        canvas.drawOval(
-          Rect.fromCenter(
-            center: Offset(cx, cy),
-            width: w * .07,
-            height: h * .025,
-          ),
-          Paint()
-            ..color = i.isEven
-                ? const Color(0xFFF2C568)
-                : const Color(0xFFAD752C),
-        );
-      }
-    }
-    final plate = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(w * .5, h * .52),
-        width: w * .27,
-        height: h * .12,
-      ),
-      const Radius.circular(9),
-    );
-    canvas.drawRRect(plate, Paint()..color = const Color(0xF00D1411));
-    canvas.drawRRect(
-      plate,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.3
-        ..color = const Color(0xFFE6B85C),
-    );
-    _text(
-      canvas,
-      _formatCreateStake(stake),
-      Offset(w * .5, h * .52),
-      min(h * .08, 28),
-      const Color(0xFFFFD37A),
-    );
-    // A small visible change in speed mode, tied to the real turn setting.
-    final speedLabel = fast ? 'HIZLI • 15 SN' : 'NORMAL • 20 SN';
-    _text(
-      canvas,
-      speedLabel,
-      Offset(w * .5, h * .17),
-      min(h * .032, 12),
-      const Color(0xFFE2C38A),
-    );
-  }
-
-  void _text(
-    Canvas canvas,
-    String value,
-    Offset center,
-    double fontSize,
-    Color color,
-  ) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: value,
-        style: TextStyle(
-          color: color,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    painter.paint(
-      canvas,
-      center - Offset(painter.width / 2, painter.height / 2),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _OkeyLiveTablePainter oldDelegate) =>
-      oldDelegate.stake != stake || oldDelegate.fast != fast;
-}
-
-/// Decorative coin stacks on top of the cinematic scene; their height follows
-/// the selected entry-fee tier while the displayed amount comes from the league.
-class _OkeyStakeCoinPainter extends CustomPainter {
-  final int level;
-  const _OkeyStakeCoinPainter({required this.level});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final shadow = Paint()
-      ..color = const Color(0x88000000)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-    final dark = Paint()..color = const Color(0xFF9B5A16);
-    final edge = Paint()..color = const Color(0xFFF5D27A);
-    final top = Paint()..color = const Color(0xFFE7B64F);
-    for (var pile = 0; pile < 3; pile++) {
-      final count = (2 + level + (pile == 1 ? 2 : 0)).clamp(2, 11);
-      final cx = size.width * (.23 + pile * .27);
-      final baseY = size.height * .88;
-      final coinW = size.width * .23;
-      final coinH = size.height * .16;
-      final step = size.height * .085;
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(cx, baseY + 3),
-          width: coinW * 1.2,
-          height: coinH * 1.5,
-        ),
-        shadow,
-      );
-      for (var i = 0; i < count; i++) {
-        final y = baseY - i * step;
-        final rect = Rect.fromCenter(
-          center: Offset(cx, y),
-          width: coinW,
-          height: coinH,
-        );
-        canvas.drawOval(rect.shift(const Offset(0, 2)), dark);
-        canvas.drawOval(rect, top);
-        canvas.drawOval(rect.deflate(1.3), edge);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _OkeyStakeCoinPainter oldDelegate) =>
-      oldDelegate.level != level;
-}
-
-/// Poker-style entry chips; their labels are still generated from the league's
-/// min_coin/max_coin values rather than from the decorative chip palette.
-class _OkeyEntryChipPainter extends CustomPainter {
-  final int tier;
-  final bool selected;
-  const _OkeyEntryChipPainter({required this.tier, required this.selected});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) * .47;
-    const palette = <Color>[
-      Color(0xFF73777C),
-      Color(0xFF23815C),
-      Color(0xFF2475B7),
-      Color(0xFFB83B3B),
-      Color(0xFF7043A2),
-      Color(0xFFB48A34),
-      Color(0xFF277E86),
-      Color(0xFFAD6239),
-      Color(0xFF606C3D),
-    ];
-    final base = palette[tier % palette.length];
-    canvas.drawCircle(
-      center + const Offset(0, 1.3),
-      radius + 1,
-      Paint()..color = const Color(0xB0000000),
-    );
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Color.lerp(base, Colors.white, .25)!,
-            base,
-            Color.lerp(base, Colors.black, .42)!,
-          ],
-          stops: const [0, .64, 1],
-        ).createShader(Rect.fromCircle(center: center, radius: radius)),
-    );
-    final dashPaint = Paint()
-      ..color = const Color(0xFFF1E9D7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = radius * .24;
-    for (var j = 0; j < 8; j++) {
-      final angle = j * pi / 4;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius * .84),
-        angle - .15,
-        .30,
-        false,
-        dashPaint,
-      );
-    }
-    canvas.drawCircle(
-      center,
-      radius * .61,
-      Paint()..color = Color.lerp(base, Colors.black, .36)!,
-    );
-    canvas.drawCircle(
-      center,
-      radius * .61,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1
-        ..color = selected ? const Color(0xFFFFD87D) : const Color(0xFFCEBFA2),
-    );
-    canvas.drawCircle(
-      center,
-      radius * .31,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = const Color(0xFFEEE4CC),
-    );
-    canvas.drawCircle(
-      center,
-      radius * .10,
-      Paint()
-        ..color = selected ? const Color(0xFFFFDB83) : const Color(0xFFE8E0CE),
-    );
-    if (selected) {
-      canvas.drawCircle(
-        center,
-        radius + .3,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3
-          ..color = const Color(0xFFF7C869),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _OkeyEntryChipPainter oldDelegate) =>
-      oldDelegate.tier != tier || oldDelegate.selected != selected;
 }

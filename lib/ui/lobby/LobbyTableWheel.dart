@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/screens/store_screen.dart';
 import 'package:okeyix/services/user_state.dart';
-import 'lobby_table_card.dart';
+import 'lobby_table_listing_card.dart';
 import 'lobby_shimmer_loaders.dart';
 
 class LobbyTableWheel extends StatefulWidget {
@@ -45,13 +45,12 @@ class LobbyTableWheel extends StatefulWidget {
 }
 
 class _LobbyTableWheelState extends State<LobbyTableWheel> {
-  int selectedIndex = 0;
-  late final FixedExtentScrollController _controller;
+  late final ScrollController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = FixedExtentScrollController(initialItem: 0);
+    _controller = ScrollController();
   }
 
   @override
@@ -90,86 +89,67 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
       return SingleChildScrollView(child: _buildEmptyCta());
     }
     return LayoutBuilder(
-      builder: (context, bounds) => RefreshIndicator(
-        onRefresh: widget.onRefresh,
-
-        /// ğŸ”¥ KRÄ°TÄ°K: refresh iÃ§in scrollable wrapper
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: bounds.maxHeight,
-
-            child: ListWheelScrollView.useDelegate(
-              controller: _controller,
-
-              itemExtent: bounds.maxHeight.clamp(160.0, 300.0),
-
-              /// ğŸ”¥ daha iyi his
-              perspective: 0.003,
-              diameterRatio: 2.2,
-              squeeze: 1.1,
-
-              physics: const FixedExtentScrollPhysics(),
-
-              onSelectedItemChanged: (index) {
-                setState(() {
-                  selectedIndex = index;
-                });
-              },
-
-              childDelegate: ListWheelChildBuilderDelegate(
-                childCount: widget.tables.length,
-                builder: (context, index) {
-                  final table = widget.tables[index];
-                  final isSelected = index == selectedIndex;
-
-                  return Center(
-                    child: Transform.scale(
-                      scale: isSelected ? 0.97 : 0.82,
-                      child: Opacity(
-                        opacity: isSelected ? 1 : 0.5,
-                        child: IgnorePointer(
-                          ignoring: !isSelected,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-
-                            decoration: BoxDecoration(
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0x66F2C14E),
-                                        blurRadius: 12,
-                                        spreadRadius: 0,
-                                      ),
-                                    ]
-                                  : [],
-                            ),
-
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 6,
-                              ),
-                              child: LobbyTableCard(
-                                table: table,
-                                blockedUserIds: widget.blockedUserIds,
-                                onJoin: widget.onJoin,
-                                onSpectate: widget.onSpectate,
-                                canSpectateAll: widget.canSpectateAll,
-                                onUserTap: widget.onUserTap,
-                              ),
-                            ),
-                          ),
+      builder: (context, bounds) {
+        final cardHeight = ((bounds.maxHeight - 40 - 12) / 3).clamp(0.0, 92.0);
+        return Column(
+          children: [
+            SizedBox(
+              height: 40,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'AÇIK MASALAR · ${widget.tables.length}',
+                        style: const TextStyle(
+                          color: Color(0xFFEAD6A5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .8,
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                  IconButton(
+                    tooltip: 'Masaları yenile',
+                    onPressed: widget.onRefresh,
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      size: 19,
+                      color: Color(0xFFEAD6A5),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
-      ),
+            Expanded(
+              child: ListView.separated(
+                key: const ValueKey('vertical-tables'),
+                controller: _controller,
+                scrollDirection: Axis.vertical,
+                padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+                itemCount: widget.tables.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 4),
+                itemBuilder: (context, index) => SizedBox(
+                  height: cardHeight,
+                  child: LobbyTableListingCard(
+                    key: ValueKey(widget.tables[index]['id'].toString()),
+                    table: widget.tables[index],
+                    number: index + 1,
+                    blockedUserIds: widget.blockedUserIds,
+                    onJoin: widget.onJoin,
+                    onSpectate: widget.onSpectate,
+                    canSpectateAll: widget.canSpectateAll,
+                    onUserTap: widget.onUserTap,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -307,7 +287,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     ),
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 4),
 
                   Expanded(
                     child: Text(
@@ -358,7 +338,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                       ok: coinOk,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 4),
                   Expanded(
                     child: _premiumReqItem(
                       icon: Icons.star,
@@ -417,54 +397,57 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
       child: Center(
         // ğŸ”¥ TÃœM Ä°Ã‡ERÄ°ÄÄ° ORTALAR
-        child: FittedBox(fit: BoxFit.scaleDown, child: Row(
-          mainAxisSize: MainAxisSize.min, // ğŸ”¥ iÃ§erik kadar yer kaplar
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            /// ğŸ”¥ ICON
-            Container(
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: ok ? const Color(0x33343C4A) : const Color(0x334A2820),
-              ),
-              child: Icon(
-                icon,
-                size: 16,
-                color: ok ? const Color(0xFFC5CEDD) : const Color(0xFFE3A27F),
-              ),
-            ),
-
-            const SizedBox(width: 10),
-
-            /// ğŸ”¥ TEXTLER
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start, // soldan hizalÄ± metin
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFFC9D1CD),
-                    fontSize: 11,
-                  ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min, // ğŸ”¥ iÃ§erik kadar yer kaplar
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              /// ğŸ”¥ ICON
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: ok ? const Color(0x33343C4A) : const Color(0x334A2820),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Color(0xFFF6F2E8),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                  ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: ok ? const Color(0xFFC5CEDD) : const Color(0xFFE3A27F),
                 ),
-              ],
-            ),
-          ],
-        )),
+              ),
+
+              const SizedBox(height: 4),
+
+              /// ğŸ”¥ TEXTLER
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start, // soldan hizalÄ± metin
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Color(0xFFC9D1CD),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Color(0xFFF6F2E8),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

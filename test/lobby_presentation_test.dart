@@ -5,7 +5,6 @@ import 'package:okeyix/ui/lobby/lobby_columns.dart';
 import 'package:okeyix/ui/lobby/lobby_league_list.dart';
 import 'package:okeyix/ui/lobby/lobby_bottom_dock.dart';
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
-import 'package:okeyix/widgets/create_button.dart';
 
 const sizes = [
   Size(640, 360),
@@ -49,6 +48,9 @@ Future<void> lobby(
   double scale,
   List<String> calls, {
   String state = 'playing',
+  EdgeInsets insets = const EdgeInsets.fromLTRB(24, 12, 24, 20),
+  String selected = 'l0',
+  List<Map<String, dynamic>>? openTables,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -59,8 +61,8 @@ Future<void> lobby(
         key: const ValueKey('capture'),
         child: MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
-            viewPadding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+            padding: insets,
+            viewPadding: insets,
             textScaler: TextScaler.linear(scale),
           ),
           child: child!,
@@ -89,7 +91,7 @@ Future<void> lobby(
                           padding: const EdgeInsets.all(8),
                           child: LobbyLeagueList(
                             leagues: leagues,
-                            selectedLeagueId: 'l0',
+                            selectedLeagueId: selected,
                             leagueActivePlayers: {
                               for (var i = 0; i < 5; i++) 'l$i': 24 + i,
                             },
@@ -103,7 +105,9 @@ Future<void> lobby(
                           ),
                         ),
                         tables: LobbyTableWheel(
-                          tables: state == 'empty' ? [] : [table(state)],
+                          tables:
+                              openTables ??
+                              (state == 'empty' ? [] : [table(state)]),
                           blockedUserIds: const {},
                           onJoin: (_) => calls.add('join'),
                           onSpectate: (_) => calls.add('spectate'),
@@ -143,32 +147,7 @@ Future<void> lobby(
                           ),
                       ],
                     ),
-                    center: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 60,
-                          height: 60,
-                          child: FittedBox(
-                            child: CreateButton(
-                              onTap: () => calls.add('create'),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 12,
-                          child: FittedBox(
-                            child: Text(
-                              'MASA AÇ',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    center: LobbyDockCreate(onTap: () => calls.add('create')),
                     right: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -178,13 +157,21 @@ Future<void> lobby(
                           'friends': Icons.people_outline,
                           'messages': Icons.mail_outline,
                         }.entries)
-                          IconButton(
+                          LobbyDockAction(
                             key: ValueKey(entry.key),
-                            onPressed: () => calls.add(entry.key),
-                            icon: Icon(
-                              entry.value,
-                              color: const Color(0xFFEAD6A7),
-                            ),
+                            label: {
+                              'store': 'Mağaza',
+                              'cup': 'Sıralama',
+                              'friends': 'Sosyal',
+                              'messages': 'Mesajlar',
+                            }[entry.key]!,
+                            onTap: () => calls.add(entry.key),
+                            emblem: {
+                              'store': LobbyDockEmblemKind.store,
+                              'cup': LobbyDockEmblemKind.ranking,
+                              'friends': LobbyDockEmblemKind.social,
+                              'messages': LobbyDockEmblemKind.messages,
+                            }[entry.key],
                           ),
                       ],
                     ),
@@ -201,6 +188,101 @@ Future<void> lobby(
 }
 
 void main() {
+  testWidgets(
+    'game dock actions retain callbacks and settle without a repeating ticker',
+    (tester) async {
+      final calls = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: LobbyBottomDock(
+                left: LobbyDockAction(
+                  label: 'Menü',
+                  icon: Icons.menu_rounded,
+                  onTap: () => calls.add('menu'),
+                ),
+                center: LobbyDockCreate(onTap: () => calls.add('create')),
+                right: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final id in [
+                      'Mağaza',
+                      'Sıralama',
+                      'Sosyal',
+                      'Mesajlar',
+                    ])
+                      LobbyDockAction(
+                        key: ValueKey(id),
+                        label: id,
+                        icon: Icons.star_outline,
+                        onTap: () => calls.add(id),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
+      await tester.tap(find.byType(LobbyDockCreate));
+      for (final id in ['Mağaza', 'Sıralama', 'Sosyal', 'Mesajlar']) {
+        await tester.tap(find.byKey(ValueKey(id)));
+      }
+      await tester.tap(find.byType(LobbyDockAction).first);
+      await tester.pumpAndSettle();
+      expect(calls, [
+        'create',
+        'Mağaza',
+        'Sıralama',
+        'Sosyal',
+        'Mesajlar',
+        'menu',
+      ]);
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  for (final size in [const Size(640, 360), const Size(844, 390)]) {
+    testWidgets('notched $size keeps all league cards visible in 2-2-1', (
+      tester,
+    ) async {
+      final calls = <String>[];
+      await lobby(
+        tester,
+        size,
+        1.5,
+        calls,
+        insets: const EdgeInsets.fromLTRB(59, 0, 44, 21),
+        selected: 'l4',
+      );
+      final cards = [
+        for (var i = 0; i < 5; i++)
+          tester.getRect(find.byKey(ValueKey('league-l$i'))),
+      ];
+      expect(cards[0].top, cards[1].top);
+      expect(cards[2].top, cards[3].top);
+      expect(cards[4].left, cards[0].left);
+      expect(cards[4].right, cards[1].right);
+      for (var i = 0; i < 5; i++) {
+        expect(
+          find.byKey(ValueKey('league-l$i')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(cards[i].left, greaterThanOrEqualTo(59));
+        expect(cards[i].bottom, lessThan(size.height - 21));
+      }
+      expect(find.text('SEÇİLİ'), findsNothing);
+      expect(find.text('KİLİTLİ'), findsNothing);
+      expect(find.text('AÇIK'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('league-l4')));
+      expect(calls, contains('l4'));
+      expect(tester.takeException(), isNull);
+    });
+  }
   setUpAll(() async {
     final font = FontLoader('Montserrat')
       ..addFont(rootBundle.load('assets/fonts/Montserrat-Regular.ttf'))
@@ -265,7 +347,7 @@ void main() {
           await tester.tap(target);
           expect(calls, contains(id));
         }
-        await tester.tap(find.byType(CreateButton));
+        await tester.tap(find.byType(LobbyDockCreate));
         expect(calls, contains('create'));
         expect(tester.takeException(), isNull);
       });
@@ -277,14 +359,135 @@ void main() {
       await lobby(tester, const Size(640, 360), 2, calls, state: state);
       expect(tester.takeException(), isNull);
       if (state == 'waiting') {
-        await tester.tap(find.byIcon(Icons.login_rounded).first);
+        await tester.tap(find.byKey(const ValueKey('join-live')));
         expect(calls, contains('join'));
       }
     });
   }
+  testWidgets('vertical tables scroll, refresh and two-seat actions', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    final waiting = table('waiting')..['id'] = 'waiting';
+    final full = table('playing')..['id'] = 'full';
+    final closed = table('playing')
+      ..['id'] = 'closed'
+      ..['spectators_enabled'] = false;
+    final fake = table('playing')
+      ..['id'] = 'fake'
+      ..['is_fake'] = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              height: 260,
+              child: LobbyTableWheel(
+                tables: [waiting, full, closed, fake],
+                blockedUserIds: const {'a'},
+                onJoin: (t) => calls.add('join-${t['id']}'),
+                onSpectate: (t) => calls.add('watch-${t['id']}'),
+                onUserTap: (p) => calls.add('user-${p['user_id']}'),
+                canSpectateAll: true,
+                onRefresh: () async {
+                  calls.add('refresh');
+                },
+                loading: false,
+                playerCoin: 10000,
+                playerRating: 1000,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ListWheelScrollView), findsNothing);
+    expect(find.text('1/2'), findsNothing);
+    expect(find.text('Boş yer'), findsNothing);
+    expect(find.text('Masa 1'), findsNothing);
+    expect(find.text('Masa 2'), findsNothing);
+    expect(find.text('2.5 K'), findsWidgets);
+    expect(find.text('5 K'), findsWidgets);
+    expect(find.text('3 el · 20 sn'), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('join-waiting')));
+    await tester.tap(find.byKey(const ValueKey('seat-waiting-0')));
+    expect(calls, containsAll(['join-waiting', 'user-a']));
+    await tester.drag(
+      find.byKey(const ValueKey('vertical-tables')),
+      const Offset(0, -24),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('spectate-full')));
+    await tester.tap(find.byKey(const ValueKey('spectate-full')));
+    expect(calls, contains('watch-full'));
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('join-closed')));
+    await tester.tap(find.byKey(const ValueKey('join-closed')));
+    expect(calls, isNot(contains('watch-closed')));
+    expect(calls, isNot(contains('join-closed')));
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('join-fake')));
+    await tester.tap(find.byKey(const ValueKey('join-fake')));
+    expect(calls, isNot(contains('watch-fake')));
+    expect(calls, isNot(contains('join-fake')));
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Masaları yenile'));
+    expect(calls, contains('refresh'));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+  for (final size in sizes) {
+    testWidgets('three complete compact tables visible at $size', (
+      tester,
+    ) async {
+      final openTables = List.generate(
+        6,
+        (i) => table(i.isEven ? 'waiting' : 'playing')..['id'] = 'table-$i',
+      );
+      await lobby(tester, size, 2, [], openTables: openTables);
+      final viewport = tester.getRect(
+        find.byKey(const ValueKey('vertical-tables')),
+      );
+      Rect? previous;
+      for (var i = 0; i < 3; i++) {
+        final card = tester.getRect(find.byKey(ValueKey('table-$i')));
+        expect(card.top, greaterThanOrEqualTo(viewport.top));
+        expect(card.bottom, lessThanOrEqualTo(viewport.bottom));
+        expect(card.height, lessThanOrEqualTo(92));
+        if (previous != null) expect(card.top, greaterThan(previous.bottom));
+        previous = card;
+      }
+      final scrollable = tester.widget<ListView>(find.byType(ListView));
+      expect(scrollable.scrollDirection, Axis.vertical);
+      await tester.drag(
+        find.byKey(const ValueKey('vertical-tables')),
+        const Offset(0, -170),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('table-3')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final size in [const Size(640, 360), const Size(932, 430)]) {
     testWidgets('lobby component golden $size', (tester) async {
-      await lobby(tester, size, 1, []);
+      await lobby(
+        tester,
+        size,
+        1,
+        [],
+        openTables: List.generate(
+          5,
+          (i) => table(i.isEven ? 'waiting' : 'playing')..['id'] = 'preview-$i',
+        ),
+      );
       await expectLater(
         find.byKey(const ValueKey('capture')),
         matchesGoldenFile(
