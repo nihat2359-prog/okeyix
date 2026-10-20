@@ -1,13 +1,16 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:okeyix/core/format.dart';
 import 'package:okeyix/main.dart';
+import 'package:okeyix/models/profile_statistics.dart';
+import 'package:okeyix/screens/player_comparison_screen.dart';
+import 'package:okeyix/services/player_comparison_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/avatar_preset.dart';
 import 'package:okeyix/ui/avatar_selection_screen.dart';
 import 'package:okeyix/ui/gift_selector_sheet.dart';
 import 'package:okeyix/ui/lobby/lobby_avatar.dart';
+import 'package:okeyix/ui/player_profile_card.dart';
 import 'package:okeyix/ui/profile_setup_dialog.dart';
 import 'package:okeyix/ui/report_user_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,20 +34,21 @@ class ProfileService {
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
-    final userId = otherId ?? '';
+    final userId = otherId;
     if (userId.isEmpty) return;
 
-    final isSelf = userId == UserState.userId;
-    final isFriend = UserState.friendIds?.contains(userId) ?? false;
-    final isBlocked = UserState.blockedUserIds?.contains(userId) ?? false;
-    final incoming = UserState.incomingRequestIds?.contains(userId) ?? false;
-    final outgoing = UserState.outgoingRequestIds?.contains(userId) ?? false;
+    final viewerId = supabase.auth.currentUser?.id;
+    final isSelf = userId == viewerId;
+    final isFriend = UserState.friendIds.contains(userId);
+    final isBlocked = UserState.blockedUserIds.contains(userId);
+    final incoming = UserState.incomingRequestIds.contains(userId);
+    final outgoing = UserState.outgoingRequestIds.contains(userId);
 
     int coins = (userinfo['coins'] as num?)?.toInt() ?? 0;
     int rating = (userinfo['rating'] as num?)?.toInt() ?? 1200;
     String username = (userinfo['username'] as String?) ?? "Oyuncu";
-    int wins = (userinfo['wins'] as num?)?.toInt() ?? 0;
-    int losses = (userinfo['losses'] as num?)?.toInt() ?? 0;
+    int? careerWins = (userinfo['wins'] as num?)?.toInt();
+    int? careerLosses = (userinfo['losses'] as num?)?.toInt();
     String? avatarUrl = userinfo['avatar_url'] as String?;
 
     final profileFuture = supabase
@@ -55,15 +59,19 @@ class ProfileService {
 
     final userFuture = supabase
         .from('users')
-        .select('username, wins, losses, avatar_url')
+        .select('username, avatar_url, wins, losses')
         .eq('id', userId)
         .maybeSingle();
 
     try {
-      final results = await Future.wait<dynamic>([
-        profileFuture.catchError((_) => null),
-        userFuture.catchError((_) => null),
-      ]).timeout(const Duration(milliseconds: 900), onTimeout: () => [null, null]);
+      final results =
+          await Future.wait<dynamic>([
+            profileFuture.catchError((_) => null),
+            userFuture.catchError((_) => null),
+          ]).timeout(
+            const Duration(milliseconds: 900),
+            onTimeout: () => [null, null],
+          );
 
       final profileData = results[0] as Map<String, dynamic>?;
       final userData = results[1] as Map<String, dynamic>?;
@@ -74,9 +82,9 @@ class ProfileService {
         username = (profileData['username'] as String?) ?? username;
       }
       if (userData != null) {
+        careerWins = (userData['wins'] as num?)?.toInt() ?? careerWins;
+        careerLosses = (userData['losses'] as num?)?.toInt() ?? careerLosses;
         username = (userData['username'] as String?) ?? username;
-        wins = (userData['wins'] as int?) ?? wins;
-        losses = (userData['losses'] as int?) ?? losses;
         avatarUrl = userData['avatar_url'] as String? ?? avatarUrl;
       }
     } catch (_) {
@@ -102,424 +110,207 @@ class ProfileService {
         ? const Color(0xFF7ED9A5)
         : const Color(0xFFF2C14E);
 
-    final Color _goldBorderColor = Color(0xCCB07A1A);
-    final double _goldBorderWidth = 0.3;
-
-    await showDialog(
+    if (!context.mounted) return;
+    await showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withOpacity(.78),
-      builder: (_) {
-        final screenSize = MediaQuery.of(context).size;
-        final isLandscape = screenSize.width > screenSize.height;
-
-        // ✅ Yatay ekranda daha dar yap
-        final maxWidth = isLandscape ? screenSize.width * 0.55 : 430.0;
-        final maxHeight = isLandscape
-            ? screenSize.height * 0.92
-            : double.infinity;
-
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: isLandscape ? 40 : 18,
-            vertical: isLandscape ? 12 : 24,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxWidth,
-              maxHeight: maxHeight,
+      barrierColor: Colors.black.withValues(alpha: .45),
+      builder: (dialogContext) => PlayerProfileCard(
+        userId: userId,
+        username: username,
+        avatar: LobbyAvatar(
+          username: username,
+          avatarUrl: avatarUrl,
+          size: 36,
+          blocked: isBlocked,
+          enablePreview: true,
+        ),
+        rating: rating,
+        coins: coins,
+        careerWins: careerWins,
+        careerLosses: careerLosses,
+        status: statusText,
+        statusColor: statusColor,
+        onClose: () => Navigator.of(dialogContext).pop(),
+        loadStatistics: () async {
+          final data = await supabase
+              .rpc('okeyix_profile_statistics', params: {'p_user_id': userId})
+              .timeout(const Duration(seconds: 10));
+          return ProfileStatistics.fromJson(
+            Map<String, dynamic>.from(data as Map),
+          );
+        },
+        actions: [
+          // 👤 KENDİ PROFİLİ
+          if (isSelf) ...[
+            ProfileCardAction(
+              Icons.edit,
+              label: 'Düzenle',
+              onPressed: () async {
+                navigatorKey.currentState?.pop();
+                await openProfileSetupDialog(
+                  forceComplete: false,
+                  onSuccess: onRefresh,
+                );
+              },
             ),
-            child: SingleChildScrollView(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF151B22).withOpacity(0.90),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0xD7D0A14A),
-                    width: 0.5,
-                  ),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xEE222831), Color(0xEE131820)],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // BAŞLIK
-                    
 
-                    // AVATAR & İSİM
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFE9C46A).withOpacity(.28),
-                                blurRadius: 16,
-                              ),
-                            ],
-                          ),
-                          child: LobbyAvatar(
-                            username: username,
-                            avatarUrl: avatarUrl,
-                            size: 46,
-                            blocked: isBlocked,
-                            enablePreview: true,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                username,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: .2,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withOpacity(.18),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: statusColor.withOpacity(.55),
-                                  ),
-                                ),
-                                child: Text(
-                                  statusText,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0x1A1A2520),
-                            border: Border.all(color: const Color(0x44FFFFFF)),
-                          ),
-                          child: IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white60,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
+            ProfileCardAction(
+              Icons.card_giftcard,
+              label: 'Hediye Geçmişi',
+              onPressed: () {
+                navigatorKey.currentState?.pop();
+                Navigator.push(
+                  navigatorKey.currentContext!,
+                  MaterialPageRoute(builder: (_) => const GiftHistoryScreen()),
+                );
+              },
+            ),
+          ],
 
-                    // RATING & COIN
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF2A313C).withOpacity(0.10),
-                            const Color(0xFF161B24).withOpacity(0.10),
-                          ],
-                        ),
-                        border: Border.all(
-                          color: const Color(0xFFD4AF37).withOpacity(0.35),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          /// 🔥 SOL PANEL (COIN + RATING)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _infoTileWithProgress(
-                                ratingValue: rating,
-                              ),
-                              const SizedBox(height: 8),
-                              _infoTileLarge(
-                                icon: Icons.monetization_on_rounded,
-                                coinValue: coins,
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(width: 8),
-
-                          /// 🔥 SAĞ PANEL (DİKEY BARLAR)
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                _statBarVertical(
-                                  label: "Win",
-                                  value: wins,
-                                  total: wins + losses,
-                                  color: Colors.green,
-                                ),
-                                _statBarVertical(
-                                  label: "Lose",
-                                  value: losses,
-                                  total: wins + losses,
-                                  color: Colors.red,
-                                ),
-                                _statBarVertical(
-                                  label: "Total",
-                                  value: wins + losses,
-                                  total: wins + losses,
-                                  color: const Color(0xFFD4AF37),
-                                ),
-                                _statBarVertical(
-                                  label: "%",
-                                  value: _getWinRateValue(wins, losses),
-                                  total: 100,
-                                  color: const Color(0xFFE9C46A),
-                                  isPercent: true,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+          // 👥 BAŞKA KULLANICI
+          if (!isSelf) ...[
+            if (viewerId != null)
+              ProfileCardAction(
+                Icons.compare_arrows_rounded,
+                label: 'Karşılaştır',
+                onPressed: () async {
+                  if (supabase.auth.currentUser?.id != viewerId) return;
+                  Navigator.of(dialogContext).pop();
+                  await navigatorKey.currentState?.push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PlayerComparisonScreen(
+                        viewerId: viewerId,
+                        opponentId: userId,
+                        load: PlayerComparisonService(supabase).load,
                       ),
                     ),
-
-                    const SizedBox(height: 5),
-                    // BUTONLAR
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        // 👤 KENDİ PROFİLİ
-                        if (isSelf) ...[
-                          _iconBtn(
-                            Icons.edit,
-                            label: 'Düzenle',
-                            onPressed: () async {
-                              navigatorKey.currentState?.pop();
-                              await openProfileSetupDialog(
-                                forceComplete: false,
-                                onSuccess: onRefresh,
-                              );
-                            },
-                          ),
-
-                          _iconBtn(
-                            Icons.card_giftcard,
-                            label: 'Geçmiş',
-                            onPressed: () {
-                              navigatorKey.currentState?.pop();
-                              Navigator.push(
-                                navigatorKey.currentContext!,
-                                MaterialPageRoute(
-                                  builder: (_) => const GiftHistoryScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-
-                        // 👥 BAŞKA KULLANICI
-                        if (!isSelf) ...[
-                          // Arkadaş değil
-                          if (!isFriend &&
-                              !incoming &&
-                              !outgoing &&
-                              !isBlocked) ...[
-                            _iconBtn(
-                              Icons.person_add,
-                              label: 'Ekle',
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await sendFriendRequest(otherId);
-                              },
-                            ),
-
-                            _iconBtn(
-                              Icons.card_giftcard,
-                              label: 'Hediye',
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await showModalBottomSheet(
-                                  context: context,
-                                  backgroundColor: Colors.transparent,
-                                  isScrollControlled: true,
-                                  builder: (_) => GiftSelectorSheet(
-                                    receiverId: otherId,
-                                    receiverName: username,
-                                    onGiftSent: () {
-                                      debugPrint('Hediye gönderildi!');
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-
-                          // Gelen istek
-                          if (incoming) ...[
-                            _iconBtn(
-                              Icons.check,
-                              label: 'Kabul',
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await acceptFriendRequest(otherId);
-                              },
-                            ),
-
-                            _iconBtn(
-                              Icons.close,
-                              label: 'Reddet',
-                              color: Colors.red,
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await rejectFriendRequest(otherId);
-                              },
-                            ),
-                          ],
-
-                          // Arkadaş ise
-                          if (isFriend && !isBlocked) ...[
-                            _iconBtn(
-                              Icons.card_giftcard,
-                              label: 'Hediye',
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await showModalBottomSheet(
-                                  context: context,
-                                  backgroundColor: Colors.transparent,
-                                  isScrollControlled: true,
-                                  builder: (_) => GiftSelectorSheet(
-                                    receiverId: otherId,
-                                    receiverName: username,
-                                    onGiftSent: () {
-                                      debugPrint('Hediye gönderildi!');
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-
-                            _iconBtn(
-                              Icons.person_remove,
-                              label: 'Çıkar',
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await removeFriend(otherId);
-                              },
-                            ),
-                          ],
-
-                          // Gönderilmiş istek
-                          if (outgoing && !isBlocked) ...[
-                            _iconBtn(
-                              Icons.hourglass_top,
-                              label: 'Bekliyor',
-                              onPressed: null,
-                            ),
-                          ],
-
-                          // Engelle
-                          if (!isBlocked) ...[
-                            _iconBtn(
-                              Icons.block,
-                              label: 'Engelle',
-                              color: Colors.red,
-                              onPressed: () async {
-                                navigatorKey.currentState?.pop();
-                                await blockUser(otherId);
-                              },
-                            ),
-                          ],
-                          if (!isSelf) ...[
-                            _iconBtn(
-                              Icons.flag,
-                              label: 'Şikayet',
-                              color: Colors.orange,
-                              onPressed: () {
-                                navigatorKey.currentState
-                                    ?.pop(); // profil modalı kapat
-                                _openReportSheet(context, otherId, username);
-                              },
-                            ),
-                          ],
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    SizedBox(
-                      height: 18,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SelectableText.rich(
-                            TextSpan(
-                              children: [
-                                const TextSpan(
-                                  text: 'ID: ',
-                                  style: TextStyle(
-                                    color: Color(0x66FFFFFF),
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.1,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: userId,
-                                  style: const TextStyle(
-                                    color: Color(0x99FFFFFF),
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-            ),
-          ),
-        );
-      },
+            // Arkadaş değil
+            if (!isFriend && !incoming && !outgoing && !isBlocked) ...[
+              ProfileCardAction(
+                Icons.person_add,
+                label: 'Ekle',
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await sendFriendRequest(otherId);
+                },
+              ),
+
+              ProfileCardAction(
+                Icons.card_giftcard,
+                label: 'Hediye',
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => GiftSelectorSheet(
+                      receiverId: otherId,
+                      receiverName: username,
+                      onGiftSent: () {
+                        debugPrint('Hediye gönderildi!');
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+
+            // Gelen istek
+            if (incoming) ...[
+              ProfileCardAction(
+                Icons.check,
+                label: 'Kabul',
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await acceptFriendRequest(otherId);
+                },
+              ),
+
+              ProfileCardAction(
+                Icons.close,
+                label: 'Reddet',
+                color: Colors.red,
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await rejectFriendRequest(otherId);
+                },
+              ),
+            ],
+
+            // Arkadaş ise
+            if (isFriend && !isBlocked) ...[
+              ProfileCardAction(
+                Icons.card_giftcard,
+                label: 'Hediye',
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => GiftSelectorSheet(
+                      receiverId: otherId,
+                      receiverName: username,
+                      onGiftSent: () {
+                        debugPrint('Hediye gönderildi!');
+                      },
+                    ),
+                  );
+                },
+              ),
+
+              ProfileCardAction(
+                Icons.person_remove,
+                secondary: true,
+                label: 'Çıkar',
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await removeFriend(otherId);
+                },
+              ),
+            ],
+
+            // Gönderilmiş istek
+            if (outgoing && !isBlocked) ...[
+              ProfileCardAction(
+                Icons.hourglass_top,
+                label: 'Bekliyor',
+                onPressed: null,
+              ),
+            ],
+
+            // Engelle
+            if (!isBlocked) ...[
+              ProfileCardAction(
+                Icons.block,
+                secondary: true,
+                label: 'Engelle',
+                color: Colors.red,
+                onPressed: () async {
+                  navigatorKey.currentState?.pop();
+                  await blockUser(otherId);
+                },
+              ),
+            ],
+            if (!isSelf) ...[
+              ProfileCardAction(
+                Icons.flag,
+                secondary: true,
+                label: 'Şikayet',
+                color: Colors.orange,
+                onPressed: () {
+                  navigatorKey.currentState?.pop(); // profil modalı kapat
+                  _openReportSheet(context, otherId, username);
+                },
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 
@@ -548,125 +339,6 @@ class ProfileService {
     );
   }
 
-  static Widget _statBarVertical({
-    required String label,
-    required int value,
-    required int total,
-    required Color color,
-    bool isPercent = false,
-  }) {
-    final safeTotal = total == 0 ? 1 : total;
-    final percent = isPercent
-        ? value / 100
-        : value.toDouble() / safeTotal.toDouble();
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        /// 🔥 BAR
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: percent.clamp(0, 1)),
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeOutCubic,
-          builder: (context, val, _) {
-            return Container(
-              width: 31,
-              height: 88,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6), // 🔥 radius düşürdük
-                color: Colors.black.withOpacity(0.15), // 🔥 daha derin track
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: [
-                  /// 🔥 DOLAN KISIM
-                  FractionallySizedBox(
-                    heightFactor: val,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            color.withOpacity(0.9),
-                            color.withOpacity(0.6),
-                          ],
-                        ),
-
-                        /// 🔥 glow
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withOpacity(0.35),
-                            blurRadius: 10,
-                            spreadRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  /// 🔥 ÜST HIGHLIGHT (çok premium fark yaratır)
-                  if (val > 0)
-                    Positioned(
-                      top: 0,
-                      child: Container(
-                        width: 16,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withOpacity(0.25),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  /// 🔥 ORTADA VALUE
-                  Positioned(
-                    bottom: 3,
-                    child: Text(
-                      isPercent ? "${value.toInt()}%" : value.toString(),
-                      style: const TextStyle(
-                        fontFamily: "Orbitron",
-                        fontSize: 8.8,
-                        color: Color(0xFF142018),
-                        fontWeight: FontWeight.w700,
-                        shadows: [
-                          Shadow(
-                            color: Color(0x55FFFFFF),
-                            blurRadius: 2,
-                            offset: Offset(0, 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-
-        const SizedBox(height: 4),
-
-        /// LABEL
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 8.8,
-            color: Colors.white.withOpacity(0.6),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
   static void _openReportSheet(
     BuildContext context,
     String userId,
@@ -678,52 +350,6 @@ class ProfileService {
       backgroundColor: Colors.transparent,
       builder: (_) =>
           ReportUserSheet(reportedUserId: userId, reportedUsername: username),
-    );
-  }
-
-  static Widget _iconBtn(
-    IconData icon, {
-    required String label,
-    VoidCallback? onPressed,
-    Color? color,
-  }) {
-    final enabled = onPressed != null;
-    return Padding(
-      padding: const EdgeInsets.only(left: 8),
-      child: InkWell(
-        onTap: enabled ? onPressed : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 66,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(enabled ? 0.05 : 0.03),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: enabled ? (color ?? Colors.white) : Colors.white38,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: enabled ? Colors.white70 : Colors.white38,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -1055,13 +681,6 @@ class ProfileService {
     // }
   }
 
-  static int _getWinRateValue(int wins, int losses) {
-    int total = wins + losses;
-    if (total == 0) return 0;
-
-    return ((wins / total) * 100).round();
-  }
-
   static void msg(String text) {
     final context = navigatorKey.currentContext;
 
@@ -1114,21 +733,19 @@ class ProfileService {
 
     ProfileSetupResult? result;
     if (forceComplete) {
-      final selectedAvatar = await Navigator.of(
-        context,
-        rootNavigator: true,
-      ).push<String>(
-        MaterialPageRoute(
-          builder: (_) => AvatarSelectionScreen(
-            ownedPremiumAvatarRefs: {...ownedPremiumAvatars},
-            userCoins: 0,
-            showPremium: false,
-            title: 'Avatarını Seç, Oyuna Başla',
-            canClose: false,
-          ),
-          fullscreenDialog: true,
-        ),
-      );
+      final selectedAvatar = await Navigator.of(context, rootNavigator: true)
+          .push<String>(
+            MaterialPageRoute(
+              builder: (_) => AvatarSelectionScreen(
+                ownedPremiumAvatarRefs: {...ownedPremiumAvatars},
+                userCoins: 0,
+                showPremium: false,
+                title: 'Avatarını Seç, Oyuna Başla',
+                canClose: false,
+              ),
+              fullscreenDialog: true,
+            ),
+          );
       if (selectedAvatar == null || selectedAvatar.trim().isEmpty) return;
       final autoUsername = await _generateAutoUsernameByAvatar(selectedAvatar);
       result = ProfileSetupResult(
@@ -1173,10 +790,7 @@ class ProfileService {
       }
 
       final targetId = UserState.userId ?? user.id;
-      final payloadprofiles = {
-        'id': targetId,
-        'username': result.username,
-      };
+      final payloadprofiles = {'id': targetId, 'username': result.username};
       final updated = await supabase
           .from('users')
           .update(payload)
@@ -1279,220 +893,6 @@ class ProfileService {
     }
   }
 
-  static Widget _infoTileWithProgress({
-    required int ratingValue,
-  }) {
-    return SizedBox(
-      width: 118,
-      height: 40,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF243338), Color(0xFF161F23)],
-          ),
-          border: Border.all(color: const Color(0x40E7C06A), width: 1.0),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 10,
-              offset: Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: ratingValue.toDouble()),
-              duration: const Duration(milliseconds: 1100),
-              curve: Curves.easeOutCubic,
-              builder: (context, animatedRating, _) {
-                final levelValue = Format.ratingLevel(animatedRating.round());
-                final safeProgress = Format.ratingLevelProgress(
-                  animatedRating.round(),
-                ).clamp(0.0, 1.0);
-                final displayProgress = safeProgress > 0
-                    ? safeProgress.clamp(0.08, 1.0).toDouble()
-                    : 0.0;
-                Color mix(Color a, Color b, double t) =>
-                    Color.lerp(a, b, t) ?? a;
-
-                Color startColor;
-                Color endColor;
-                if (safeProgress < 0.5) {
-                  final t = safeProgress / 0.5;
-                  startColor = mix(
-                    const Color(0xFFFF8A65),
-                    const Color(0xFFFFC75F),
-                    t,
-                  );
-                  endColor = mix(
-                    const Color(0xFFFFB74D),
-                    const Color(0xFFF4D27A),
-                    t,
-                  );
-                } else {
-                  final t = (safeProgress - 0.5) / 0.5;
-                  startColor = mix(
-                    const Color(0xFFFFC75F),
-                    const Color(0xFF8BE28B),
-                    t,
-                  );
-                  endColor = mix(
-                    const Color(0xFFF4D27A),
-                    const Color(0xFF4FCB78),
-                    t,
-                  );
-                }
-
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final fillWidth = constraints.maxWidth * displayProgress;
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF2A3A3E), Color(0xFF202D31)],
-                            ),
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: FractionallySizedBox(
-                            widthFactor: displayProgress,
-                            heightFactor: 1,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    mix(Colors.white, startColor, 0.35),
-                                    startColor,
-                                    endColor,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (displayProgress > 0.12)
-                          Positioned(
-                            left: (fillWidth - 10).clamp(
-                              0.0,
-                              constraints.maxWidth - 10,
-                            ),
-                            child: Container(
-                              width: 10,
-                              height: constraints.maxHeight,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color(0x66FFFFFF),
-                                    Color(0x00FFFFFF),
-                                  ],
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x66FFD36A),
-                                    blurRadius: 6,
-                                    spreadRadius: 0.5,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        IgnorePointer(
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0x22FFFFFF), Color(0x00FFFFFF)],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'Seviye $levelValue',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15.5,
-                            height: 1.0,
-                            shadows: [
-                              Shadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static Widget _infoTileLarge({
-    required IconData icon,
-    required int coinValue,
-  }) {
-    return Container(
-      width: 118,
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A2328), Color(0xFF11181C)],
-        ),
-        border: Border.all(color: const Color(0x33E7C06A)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18, color: const Color(0xFFE9C46A)),
-          const SizedBox(width: 6),
-          TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: coinValue.toDouble()),
-            duration: const Duration(milliseconds: 1100),
-            curve: Curves.easeOutCubic,
-            builder: (context, animatedCoins, _) {
-              return Text(
-                Format.coin(animatedCoins.round()),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  height: 1.0,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   static Future<bool> _isUsernameTakenForSetup(
     String username,
     String currentUserId,
@@ -1520,7 +920,8 @@ class ProfileService {
   }
 
   static Future<String> _generateAutoUsernameByAvatar(String avatarRef) async {
-    final currentUserId = UserState.userId ?? supabase.auth.currentUser?.id ?? '';
+    final currentUserId =
+        UserState.userId ?? supabase.auth.currentUser?.id ?? '';
 
     String buildSuffix(int length) {
       const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1542,7 +943,8 @@ class ProfileService {
     // Teorik fallback (pratikte buraya dusmez), yine uniqueness kontrolu var.
     while (true) {
       final raw =
-          (DateTime.now().microsecondsSinceEpoch ^ _profileRandom.nextInt(1 << 20))
+          (DateTime.now().microsecondsSinceEpoch ^
+                  _profileRandom.nextInt(1 << 20))
               .toRadixString(36)
               .toUpperCase();
       final suffix = raw.length > 6 ? raw.substring(raw.length - 6) : raw;

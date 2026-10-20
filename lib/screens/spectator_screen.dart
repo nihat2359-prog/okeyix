@@ -1,5 +1,8 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
+import 'package:okeyix/services/game_view_data_source.dart';
+import 'package:okeyix/ui/spectator_table_scores.dart';
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'package:just_audio/just_audio.dart';
@@ -26,7 +29,12 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   final topAvatarKey = GlobalKey();
   final bottomAvatarKey = GlobalKey();
   late SpectatorGame game;
-  late RealtimeChannel spectatorChannel;
+  RealtimeChannel? spectatorChannel;
+  final _scoresRefresh = CoalescedViewRefresh();
+  final _scoreMembersRefresh = CoalescedViewRefresh();
+  List<Map<String,dynamic>> _playerScores = [];
+  String? _scoresViewer;
+  String? _scoresTable;
   Map<String, dynamic>? table;
   List players = [];
   int spectators = 0;
@@ -169,6 +177,87 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     _load();
   }
 
+  Future<void> _refreshPlayerScores() => _scoresRefresh.run(() async {
+    final viewer = supabase.auth.currentUser?.id;
+    final tableId = widget.tableId;
+    if (viewer == null) {
+      return;
+    }
+    try {
+      final data = Map<String, dynamic>.from(
+        await supabase.rpc(
+              'okeyix_spectator_table_scores',
+              params: {'p_table_id': tableId},
+            )
+            as Map,
+      );
+      if (!mounted ||
+          widget.tableId != tableId ||
+          supabase.auth.currentUser?.id != viewer ||
+          data['table_id'] != tableId) {
+        return;
+      }
+      final rows = (data['players'] as List)
+          .map((p) => Map<String, dynamic>.from(p as Map))
+          .toList();
+      if (_scoresViewer == viewer &&
+          _scoresTable == tableId &&
+          jsonEncode(rows) == jsonEncode(_playerScores)) {
+        return;
+      }
+      setState(() {
+        _playerScores = rows;
+        _scoresViewer = viewer;
+        _scoresTable = tableId;
+      });
+    } catch (_) {
+      // Existing Realtime updates/reconnect and the successful spectator join retry.
+      // No extra polling; late replies never carry over to another viewer/table.
+    }
+  });
+
+  Future<void> _refreshScoreMembers() => _scoreMembersRefresh.run(() async {
+    final tableId = widget.tableId;
+    final viewer = supabase.auth.currentUser?.id;
+    try {
+      final rows = await supabase
+          .from('table_players')
+          .select('user_id,seat_index,users(username,avatar_url)')
+          .eq('table_id', tableId);
+      if (!mounted ||
+          widget.tableId != tableId ||
+          supabase.auth.currentUser?.id != viewer) {
+        return;
+      }
+      setState(() => players = rows);
+      await _refreshPlayerScores();
+    } catch (_) {}
+  });
+
+  List<Map<String, dynamic>> get _visibleScores {
+    if (_scoresViewer == supabase.auth.currentUser?.id &&
+        _scoresTable == widget.tableId) {
+      return _playerScores;
+    }
+    final rows =
+        players
+            .where((p) => p['seat_index'] == 0 || p['seat_index'] == 1)
+            .map(
+              (p) => <String, dynamic>{
+                'seat_index': p['seat_index'],
+                'username': p['users']?['username'] ?? 'Oyuncu',
+                'wins': 0,
+                'losses': 0,
+              },
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                (a['seat_index'] as int).compareTo(b['seat_index'] as int),
+          );
+    return rows;
+  }
+
   Future<void> _load() async {
     await FeedbackSettingsService.load();
     final t = await supabase
@@ -199,9 +288,13 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         .eq('table_id', widget.tableId)
         .order('created_at');
 
-    spectatorChannel = supabase.channel('spectators:${widget.tableId}');
+    if (!mounted) return;
 
-    spectatorChannel
+    spectatorChannel?.unsubscribe();
+    final channel = supabase.channel('spectators:${widget.tableId}');
+    spectatorChannel = channel;
+
+    channel
         /// ğŸ‘€ BÄ°RÄ° GÄ°RÄ°NCE
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -280,6 +373,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           ),
           callback: (payload) async {
             final row = payload.newRecord;
+            unawaited(_refreshPlayerScores());
             final turnStartedAt = _parseServerTime(row['turn_started_at']);
             final turnSeconds = (row['turn_seconds'] as int?) ?? _turnSeconds;
             final currentTurnSeat =
@@ -314,7 +408,18 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             }
           },
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,schema: 'public',table: 'table_players',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq,column: 'table_id',value: widget.tableId),
+          callback: (_) => unawaited(_refreshScoreMembers()),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,schema: 'public',table: 'table_players',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq,column: 'table_id',value: widget.tableId),
+          callback: (_) => unawaited(_refreshScoreMembers()),
+        )
         .subscribe((status, err) {
+          if (mounted && status==RealtimeSubscribeStatus.subscribed) unawaited(_refreshScoreMembers());
           if (err != null) {
             print("SPECTATOR ERROR: $err");
           }
@@ -331,6 +436,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       _currentTurnSeat = currentTurnSeat;
       if (!_tableChatEnabled) chatOpen = false;
     });
+    unawaited(_refreshPlayerScores());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scrollToBottom();
@@ -413,6 +519,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          const Positioned.fill(child: SpectatorBackdrop()),
           /// MASA (FLAME)
           Center(
             child: AspectRatio(
@@ -505,6 +612,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 ),
               ),
             ),
+
+          if (table != null)
+            Positioned(top: 62,left: 14,child: SpectatorTableScores(players: _visibleScores)),
 
           /// OYUNCULAR: iki koltukta da ayni dikey avatar/isim yerlesimi.
           if (top != null)
@@ -1785,6 +1895,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   @override
   void dispose() {
+    _scoresRefresh.dispose();
+    _scoreMembersRefresh.dispose();
     _messageBannerTimer?.cancel();
     for (final timer in _spectatorBubbleTimers.values) {
       timer.cancel();
@@ -1795,7 +1907,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     _avatarChatTimers.clear();
     _turnTicker?.cancel();
     _chatScrollController.dispose();
-    spectatorChannel.unsubscribe();
+    spectatorChannel?.unsubscribe();
     _leaveSpectator();
     super.dispose();
   }
@@ -1819,6 +1931,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         'table_id': widget.tableId,
         'user_id': user.id,
       });
+      if (!mounted) return;
+      unawaited(_refreshPlayerScores());
       await _refreshSpectators();
     } catch (e) {
       print("JOIN ERROR: $e");

@@ -13,9 +13,11 @@ class GameViewDataSource {
   final Future<ViewRows> Function() fetchPlayers;
   final Future<ViewRows> Function(List<String>) fetchUsers, fetchProfiles;
   final Future<ViewRows> Function(String) fetchLeague;
+  final Future<ViewRow> Function()? fetchSessionScore;
   final DateTime Function() now;
   late final _ReadSlot<ViewRow?> _table;
   late final _ReadSlot<ViewRows> _players;
+  late final _ReadSlot<ViewRow> _sessionScore;
   final Map<String, _ReadSlot<ViewRows>> _users = {},
       _profiles = {},
       _leagues = {};
@@ -33,9 +35,16 @@ class GameViewDataSource {
     required this.fetchUsers,
     required this.fetchProfiles,
     required this.fetchLeague,
+    this.fetchSessionScore,
     DateTime Function()? now,
   }) : now = now ?? DateTime.now {
     _user = currentUser();
+    _sessionScore = _ReadSlot(
+      fetchSessionScore ??
+          () async => <String, dynamic>{'wins': 0, 'losses': 0},
+      this.now,
+      const Duration(milliseconds: 200),
+    );
     _table = _ReadSlot(fetchTable, this.now, const Duration(milliseconds: 200));
     _players = _ReadSlot(
       fetchPlayers,
@@ -54,6 +63,13 @@ class GameViewDataSource {
     final source = GameViewDataSource(
       tableId: tableId,
       currentUser: () => client.auth.currentUser?.id,
+      fetchSessionScore: () async => ViewRow.from(
+        await client.rpc(
+              'okeyix_my_table_score',
+              params: {'p_table_id': tableId},
+            )
+            as Map,
+      ),
       fetchTable: () async {
         try {
           return await client
@@ -137,6 +153,7 @@ class GameViewDataSource {
   }
 
   Future<ViewRow?> table() => _guard(() => _table.read());
+  Future<ViewRow> sessionScore() => _guard(() => _sessionScore.read());
   Future<ViewRows> players() => _guard(() async {
     final result = await _players.read();
     final key = _key(
@@ -208,6 +225,7 @@ class GameViewDataSource {
   }
 
   void invalidateAll() {
+    _sessionScore.invalidate();
     _table.invalidate();
     _players.invalidate();
     _clear(_users);
@@ -227,6 +245,7 @@ class GameViewDataSource {
 
   void dispose() {
     _disposed = true;
+    _sessionScore.dispose();
     _authSubscription?.cancel();
     _table.dispose();
     _players.dispose();

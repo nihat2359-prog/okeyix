@@ -418,7 +418,7 @@ class OkeyixLogo extends StatelessWidget {
             ],
           ),
           child: Image.asset(
-            "assets/images/logo/okeyix_logo_new.png",
+            "assets/images/logo/okeyix_logo.png",
             width: 280,
             filterQuality: FilterQuality.high,
           ),

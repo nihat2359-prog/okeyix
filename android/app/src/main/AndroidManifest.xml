@@ -8,6 +8,14 @@
         android:label="Okeyix"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <provider
+            android:name=".ComparisonFileProvider"
+            android:authorities="${applicationId}.comparison_share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/comparison_share_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true"

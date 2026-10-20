@@ -33,6 +33,8 @@ import 'package:okeyix/services/auth_service.dart';
 import 'okey_game_screen.dart';
 import 'login_screen.dart';
 import 'store_screen.dart';
+import 'friend_invite_screen.dart';
+import 'package:okeyix/ui/invite_strings.dart';
 import 'leaderboard_screen.dart';
 import 'banned_screen.dart';
 import '../ui/lobby/lobby_avatar.dart';
@@ -4838,6 +4840,17 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Row(
       children: [
         _coinBuyDockButton(),
+        const SizedBox(width: 2),
+        LobbyDockAction(
+          label: InviteStrings.of(context).t('Davet', 'Invite'),
+          emblem: LobbyDockEmblemKind.invite,
+          onTap: () async {
+            await Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const FriendInviteScreen(),
+            ));
+            if (mounted) await _loadUser();
+          },
+        ),
         const SizedBox(width: 2),
         LobbyDockAction(
           label: 'Sıralama',

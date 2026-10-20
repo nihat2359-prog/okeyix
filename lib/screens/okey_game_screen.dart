@@ -1,5 +1,6 @@
 import 'package:okeyix/ui/game_finish_presentation.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
+import 'package:okeyix/ui/table_session_score.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
@@ -48,6 +49,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   late final GameViewDataSource _viewData;
   final _tableViewRefresh = CoalescedViewRefresh();
   final _playersViewRefresh = CoalescedViewRefresh();
+  int _sessionWins = 0;
+  int _sessionLosses = 0;
+  String? _scoreUserId;
 
   late final OkeyGame _game;
   final TextEditingController _chatController = TextEditingController();
@@ -1233,6 +1237,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   Future<void> _loadTableOnce() async {
+    unawaited(_loadSessionScore());
     try {
       final row = await _viewData.table();
       if (!mounted) return;
@@ -1288,6 +1293,30 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   Future<void> _loadPlayers() => _playersViewRefresh.run(_loadPlayersOnce);
+
+  Future<void> _loadSessionScore() async {
+    final user = _supabase.auth.currentUser?.id;
+    final table = widget.tableId;
+    if (user == null || _viewData.tableId != table) return;
+    try {
+      final score = await _viewData.sessionScore();
+      if (!mounted || widget.tableId != table || _viewData.tableId != table ||
+          _supabase.auth.currentUser?.id != user || score['table_id'] != table) {
+        return;
+      }
+      final wins = (score['wins'] as num?)?.toInt() ?? 0;
+      final losses = (score['losses'] as num?)?.toInt() ?? 0;
+      if (_scoreUserId == user && _sessionWins == wins && _sessionLosses == losses) return;
+      setState(() {
+        _scoreUserId = user;
+        _sessionWins = wins;
+        _sessionLosses = losses;
+      });
+    } catch (_) {
+      // Keep the last confirmed result on transient read failures; the existing
+      // table refresh retries. No extra timer, writer call or client-side win count.
+    }
+  }
 
   Future<void> _loadPlayersOnce() async {
     try {
@@ -2077,93 +2106,116 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     return Positioned(
       top: 10,
       left: 6,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0x661A2622), Color(0x66101714)],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0x66DAB971), width: 1.0),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x29000000),
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            /// ğŸ”¥ EXIT (gold minimal)
-            _exitButton(),
-            const SizedBox(width: 8),
-
-            _voiceButton(),
-            _divider(),
-
-            /// ğŸ”¥ ROUND
-            Row(
-              children: [
-                const Icon(Icons.flag_rounded, size: 18, color: Colors.white70),
-                const SizedBox(width: 4),
-                Text(
-                  "$round",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0x661A2622), Color(0x66101714)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0x66DAB971), width: 1.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x29000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
-
-            _divider(),
-
-            /// ğŸ”¥ POT (Ã‡ANAK - PREMIUM)
-            Row(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                /// ğŸ”¥ COIN ICON (bÃ¼yÃ¼k, sade)
-                const Icon(
-                  Icons.monetization_on,
-                  size: 20,
-                  color: Color(0xFFFFC107), // hafif gold ama glow yok
-                ),
+                /// ğŸ”¥ EXIT (gold minimal)
+                _exitButton(),
+                const SizedBox(width: 8),
 
-                const SizedBox(width: 6),
+                _voiceButton(),
+                _divider(),
 
-                /// ğŸ”¥ VALUE
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(end: pot.toDouble()),
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return Text(
-                      Format.coin(value.round()),
+                /// ğŸ”¥ ROUND
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.flag_rounded,
+                      size: 18,
+                      color: Colors.white70,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      "$round",
                       style: const TextStyle(
-                        fontFamily: "Orbitron",
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFFFD56A),
-                        fontSize: 15,
-                        letterSpacing: 0.6,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
                       ),
-                    );
-                  },
+                    ),
+                  ],
+                ),
+
+                _divider(),
+
+                /// ğŸ”¥ POT (Ã‡ANAK - PREMIUM)
+                Row(
+                  children: [
+                    /// ğŸ”¥ COIN ICON (bÃ¼yÃ¼k, sade)
+                    const Icon(
+                      Icons.monetization_on,
+                      size: 20,
+                      color: Color(0xFFFFC107), // hafif gold ama glow yok
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    /// ğŸ”¥ VALUE
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(end: pot.toDouble()),
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return Text(
+                          Format.coin(value.round()),
+                          style: const TextStyle(
+                            fontFamily: "Orbitron",
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFFFD56A),
+                            fontSize: 15,
+                            letterSpacing: 0.6,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          TableSessionScore(
+            wins:
+                _scoreUserId == _supabase.auth.currentUser?.id &&
+                    _viewData.tableId == widget.tableId
+                ? _sessionWins
+                : 0,
+            losses:
+                _scoreUserId == _supabase.auth.currentUser?.id &&
+                    _viewData.tableId == widget.tableId
+                ? _sessionLosses
+                : 0,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildVoiceCoachmark() {
     return Positioned(
-      top: 54,
+      top: 90,
       left: 8,
       child: Container(
         width: 340,

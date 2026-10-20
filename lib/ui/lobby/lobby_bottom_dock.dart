@@ -142,7 +142,7 @@ class LobbyDockAction extends StatelessWidget {
   );
 }
 
-enum LobbyDockEmblemKind { store, ranking, social, messages, menu }
+enum LobbyDockEmblemKind { store, invite, ranking, social, messages, menu }
 
 class LobbyDockEmblem extends StatelessWidget {
   final LobbyDockEmblemKind kind;
@@ -169,6 +169,18 @@ class _DockEmblemPainter extends CustomPainter {
     canvas.scale(size.width / 32, size.height / 32);
     final symbol = Path();
     switch (kind) {
+      case LobbyDockEmblemKind.invite:
+        symbol.moveTo(5, 14);
+        symbol.lineTo(27, 5);
+        symbol.lineTo(20, 27);
+        symbol.lineTo(15, 18);
+        symbol.close();
+        symbol.moveTo(15, 18);
+        symbol.lineTo(27, 5);
+        symbol.moveTo(15, 18);
+        symbol.lineTo(12, 25);
+        symbol.lineTo(12, 17);
+        break;
       case LobbyDockEmblemKind.menu:
         for (final y in [8.0, 16.0, 24.0]) {
           symbol.moveTo(6, y);

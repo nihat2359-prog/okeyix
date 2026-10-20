@@ -13,6 +13,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:ui' as ui;
 
 class SpectatorGame extends FlameGame {
+  @override
+  Color backgroundColor() => const Color(0x00000000);
   final String tableId;
   final VoidCallback? onTableClosed;
   SpectatorGame({required this.tableId, this.onTableClosed, SupabaseClient? realtimeClient})
@@ -98,7 +100,8 @@ class SpectatorGame extends FlameGame {
     add(cameraComponent);
 
     /// 1️⃣ BACKGROUND
-    await _loadTableSurface();
+    // The full-screen Flutter layer owns the lobby background, including areas
+    // outside the fixed game viewport. Keep tile/camera coordinates unchanged.
 
     /// 3️⃣ DECK (üstüne text gelecek)
     await _loadDeck();
@@ -150,19 +153,6 @@ class SpectatorGame extends FlameGame {
   // =========================
   // TABLE
   // =========================
-
-  Future<void> _loadTableSurface() async {
-    final img = await images.load("lobby/table_surface.png");
-
-    world.add(
-      SpriteComponent(
-        sprite: Sprite(img),
-        size: Vector2(1600, 900),
-        position: Vector2(800, 450),
-        anchor: Anchor.center,
-      ),
-    );
-  }
 
   // =========================
   // DECK

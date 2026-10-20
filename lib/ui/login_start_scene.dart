@@ -137,7 +137,7 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                             horizontal: 12,
                                           ),
                                           child: Image.asset(
-                                            'assets/images/logo/okeyix_log_1000.png',
+                                            'assets/images/logo/okeyix_logo.png',
                                             fit: BoxFit.contain,
                                             filterQuality: FilterQuality.high,
                                             semanticLabel: 'Okeyix',
