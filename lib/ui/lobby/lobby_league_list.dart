@@ -164,17 +164,12 @@ class LobbyLeagueList extends StatelessWidget {
                                       ),
                                     ),
                                     const SizedBox(width: 4),
-                                    Icon(
-                                      !unlocked
-                                          ? Icons.lock_outline_rounded
-                                          : selected
-                                          ? Icons.check_circle_rounded
-                                          : Icons.chevron_right_rounded,
-                                      size: 13,
-                                      color: selected
-                                          ? theme.light
-                                          : const Color(0xFF9EAEA4),
-                                    ),
+                                    if (!unlocked)
+                                      const Icon(
+                                        Icons.lock_outline_rounded,
+                                        size: 13,
+                                        color: Color(0xFF9EAEA4),
+                                      ),
                                   ],
                                 ),
                               ),

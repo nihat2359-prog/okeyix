@@ -47,18 +47,18 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
     return PopScope(
       canPop: widget.canClose,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0C0F14),
+        backgroundColor: const Color(0xFF090E16),
         body: Stack(
           children: [
             Positioned(
               top: -120,
               left: -50,
-              child: _ambientOrb(const Color(0x663A4A66), 240),
+              child: _ambientOrb(const Color(0x28344050), 240),
             ),
             Positioned(
               bottom: -140,
               right: -40,
-              child: _ambientOrb(const Color(0x66E9C46A), 280),
+              child: _ambientOrb(const Color(0x20C6A66A), 280),
             ),
             SafeArea(
               child: Container(
@@ -69,16 +69,16 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xEE232A33), Color(0xEE131820)],
+                    colors: [Color(0xED1D252E), Color(0xF00C131D)],
                   ),
                   border: Border.all(
-                    color: const Color(0xE0D0A14A),
+                    color: const Color(0x66C8AC75),
                     width: 0.7,
                   ),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0xC0000000),
-                      blurRadius: 34,
+                      color: Color(0x66000000),
+                      blurRadius: 18,
                       offset: Offset(0, 14),
                     ),
                   ],
@@ -128,9 +128,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [color, Colors.transparent],
-          ),
+          gradient: RadialGradient(colors: [color, Colors.transparent]),
         ),
       ),
     );
@@ -151,9 +149,9 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0x20FFFFFF), Color(0x10000000)],
+          colors: [Color(0x101D2938), Color(0x08101823)],
         ),
-        border: Border.all(color: const Color(0x55E9C46A)),
+        border: Border.all(color: const Color(0x307F8D9D)),
       ),
       child: Row(
         children: [
@@ -162,12 +160,12 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
             height: isLandscape ? 32 : 44,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0x332A313C),
-              border: Border.all(color: const Color(0x66E9C46A)),
+              color: const Color(0x12DABF82),
+              border: Border.all(color: const Color(0x40C8AC75)),
             ),
             child: Icon(
               Icons.face_retouching_natural_rounded,
-              color: Color(0xFFFFE0A8),
+              color: Color(0xFFE4C98D),
               size: isLandscape ? 18 : 24,
             ),
           ),
@@ -181,9 +179,9 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFFF0E7D4),
                       fontSize: isLandscape ? 13 : 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
                     ),
                   ),
@@ -192,9 +190,9 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                   const Text(
                     '(Premium seçilebilir)',
                     style: TextStyle(
-                      color: Color(0xFFD5EADB),
+                      color: Color(0xFF9EAABA),
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
               ],
@@ -220,9 +218,9 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
+        color: const Color(0x15141E2B),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x33BFC7D8)),
+        border: Border.all(color: const Color(0x247F8D9D)),
       ),
       child: ListView(
         children: [
@@ -237,23 +235,23 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: Color(0xFFF6F9F8),
-                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFE2D4B6),
+                        fontWeight: FontWeight.w600,
                         fontSize: 14.5,
                         letterSpacing: 0.2,
                       ),
                     ),
                     _tagChip(
                       text: 'Standart',
-                      bg: const Color(0x2A55627A),
-                      border: const Color(0x7A7387A8),
-                      fg: const Color(0xFFE8FFF2),
+                      bg: const Color(0x0A8895A5),
+                      border: const Color(0x287F8D9D),
+                      fg: const Color(0xFF9EACBC),
                     ),
                     _tagChip(
                       text: 'Ücretsiz',
-                      bg: const Color(0x334B647F),
-                      border: const Color(0x8D6F8DB3),
-                      fg: const Color(0xFFEFFFF8),
+                      bg: const Color(0x0CDABF82),
+                      border: const Color(0x30C8AC75),
+                      fg: const Color(0xFFCDB98F),
                     ),
                   ],
                 ),
@@ -314,7 +312,7 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
         style: TextStyle(
           color: fg,
           fontSize: 10.5,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0.15,
         ),
       ),
@@ -432,23 +430,23 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
               ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0x9A4F2E10), Color(0x7635160B)],
+                  colors: [Color(0x39392F21), Color(0x18101926)],
                 )
               : null,
-          color: preset.isPremium ? null : const Color(0x4F243B33),
+          color: preset.isPremium ? null : const Color(0x201C2938),
           border: Border.all(
             color: selected
-                ? const Color(0xFFE8C36A)
+                ? const Color(0xFFE4C98D)
                 : (preset.isPremium
-                      ? const Color(0x66FFD27D)
-                      : const Color(0x447A8EA8)),
+                      ? const Color(0x66C8AC75)
+                      : const Color(0x387F8D9D)),
             width: selected ? 2.2 : 1.0,
           ),
           boxShadow: selected
               ? const [
                   BoxShadow(
-                    color: Color(0x66E9C46A),
-                    blurRadius: 12,
+                    color: Color(0x28DABF82),
+                    blurRadius: 8,
                     offset: Offset(0, 4),
                   ),
                 ]
@@ -462,7 +460,13 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  color: const Color(0xFF1A212B),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF1C2633), Color(0xFF0C131D)],
+                    ),
+                  ),
                   padding: const EdgeInsets.all(4),
                   child: Image.asset(
                     preset.imageUrl,

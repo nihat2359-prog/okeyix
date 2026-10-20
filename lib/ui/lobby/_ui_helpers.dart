@@ -295,12 +295,6 @@ Widget lobbySideMenuButton({
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: 15,
-            color: danger ? const Color(0x997F5550) : const Color(0x886C7889),
-          ),
         ],
       ),
     ),

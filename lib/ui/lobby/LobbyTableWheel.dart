@@ -86,15 +86,14 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
     /// ğŸ”¥ EMPTY
     if (widget.tables.isEmpty) {
-      if (widget.onCreateTable == null) {
-        return const Center(
-          child: Text(
-            "Masa bulunmamaktadï¿½r.",
-            style: TextStyle(color: Colors.white70),
+      return LayoutBuilder(
+        builder: (context, bounds) => Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(width: bounds.maxWidth, child: _buildEmptyCta()),
           ),
-        );
-      }
-      return SingleChildScrollView(child: _buildEmptyCta());
+        ),
+      );
     }
     return LayoutBuilder(
       builder: (context, bounds) {
@@ -167,62 +166,82 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
         constraints: const BoxConstraints(maxWidth: 430),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 18),
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xDD1E232A), Color(0xDD12161C)],
+              colors: [Color(0x8020252E), Color(0x99101319)],
             ),
-            border: Border.all(color: const Color(0x88E7C66A), width: 1.1),
+            border: Border.all(color: const Color(0x38CBD0DC), width: .7),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.table_restaurant_rounded,
-                size: 34,
-                color: Color(0xFFE7C66A),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0x10DABF82),
+                  border: Border.all(color: const Color(0x33DABF82), width: .7),
+                ),
+                child: const Icon(
+                  Icons.table_restaurant_outlined,
+                  size: 26,
+                  color: Color(0xFFEAD6A5),
+                ),
               ),
               const SizedBox(height: 10),
               const Text(
                 'Bu ligde şu an açık masa yok',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFFF2F6F3),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFECE5D5),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
               const Text(
-                'İlk masayı sen aç, oyuncular katıldıkça oyun hemen başlasın.',
+                'Masayı sen aç, ilk el seninle başlasın.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xC7E0ECE5), fontSize: 13.2),
+                style: TextStyle(
+                  color: Color(0xFFA9B3BF),
+                  fontSize: 11,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 14),
-              SizedBox(
-                width: 210,
-                height: 44,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await widget.onCreateTable?.call();
-                  },
-                  icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                  label: const Text(
-                    'Masa Aç',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE7C66A),
-                    foregroundColor: const Color(0xFF1A241F),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              if (widget.onCreateTable != null)
+                SizedBox(
+                  width: 160,
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await widget.onCreateTable?.call();
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text(
+                      'Masa Aç',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: const Color(0x14DABF82),
+                      foregroundColor: const Color(0xFFEAD6A5),
+                      side: const BorderSide(
+                        color: Color(0x88DABF82),
+                        width: .8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

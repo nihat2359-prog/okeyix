@@ -53,7 +53,7 @@ class LobbySideMenu extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
-                    maxWidth: 340,
+                    maxWidth: 290,
                     maxHeight: 520,
                   ),
                   child: Material(

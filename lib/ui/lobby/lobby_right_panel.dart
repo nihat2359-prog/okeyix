@@ -1,94 +1,79 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class LobbyRightPanel extends StatelessWidget {
   final bool open;
   final VoidCallback onClose;
-
   final Widget panelContent;
-  final double widthFactor;
-  final double minWidth;
-  final double maxWidth;
-
+  final double widthFactor, minWidth, maxWidth;
   const LobbyRightPanel({
     super.key,
     required this.open,
     required this.onClose,
     required this.panelContent,
-    this.widthFactor = 0.46,
-    this.minWidth = 340,
-    this.maxWidth = 660,
+    this.widthFactor = .46,
+    this.minWidth = 280,
+    this.maxWidth = 350,
   });
+
+  void _close() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    onClose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!open) {
-      return const SizedBox();
-    }
-    final mq = MediaQuery.of(context);
-    final media = mq.size;
-    final keyboardInset = mq.viewInsets.bottom;
-    final panelWidth = media.width * widthFactor;
-    final effectiveWidth = panelWidth.clamp(minWidth, maxWidth).toDouble();
-    final effectiveHeight = (media.height - 16 - keyboardInset).clamp(
-      260.0,
-      media.height - 16,
-    );
+    if (!open) return const SizedBox.shrink();
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     return Positioned.fill(
       child: Stack(
         children: [
-          /// BACKDROP
-          IgnorePointer(
-            ignoring: !open,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 220),
-              opacity: open ? 1 : 0,
-              child: GestureDetector(
-                onTap: onClose,
-                child: Container(color: const Color(0x7A000000)),
-              ),
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('lobby-social-outside'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _close,
+              child: const SizedBox.expand(),
             ),
           ),
-
-          /// PANEL
-          AnimatedPadding(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            padding: EdgeInsets.only(bottom: keyboardInset),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: IgnorePointer(
-                ignoring: !open,
-                child: AnimatedSlide(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeOutCubic,
-                  offset: open ? Offset.zero : const Offset(1.2, 0),
-                  child: SafeArea(
-                    child: Container(
-                      width: effectiveWidth,
-                      height: effectiveHeight.toDouble(),
-                      margin: const EdgeInsets.fromLTRB(0, 8, 10, 8),
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        color: const Color(0xFF12171D).withOpacity(0.84),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xDD1F252D), Color(0xDD12161C)],
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x8A000000),
-                            blurRadius: 24,
-                            offset: Offset(-3, 8),
-                          ),
-                        ],
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, limits) {
+                final width = math.min(
+                  limits.maxWidth - 16,
+                  (limits.maxWidth * widthFactor).clamp(minWidth, maxWidth),
+                );
+                final height = math.min(
+                  440.0,
+                  math.max(0.0, limits.maxHeight - keyboard - 16),
+                );
+                return Align(
+                  alignment: Alignment.topRight,
+                  child: Container(
+                    key: const ValueKey('lobby-social-panel'),
+                    width: width,
+                    height: height,
+                    margin: const EdgeInsets.only(top: 8, right: 8),
+                    padding: EdgeInsets.all(height < 150 ? 4 : 10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xF01D252E), Color(0xED0B121B)],
                       ),
-                      child: Column(children: [Expanded(child: panelContent)]),
+                      border: Border.all(
+                        color: const Color(0x55C8AC75),
+                        width: .7,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: panelContent,
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
