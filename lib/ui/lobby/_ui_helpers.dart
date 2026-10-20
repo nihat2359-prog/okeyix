@@ -249,21 +249,57 @@ Widget lobbySideMenuButton({
   bool danger = false,
 }) {
   return InkWell(
+    key: ValueKey('menu-$label'),
     borderRadius: BorderRadius.circular(12),
     onTap: onTap,
     child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: danger ? const Color(0x33FF4A4A) : const Color(0x22111111),
+        color: danger ? const Color(0x147E4540) : Colors.transparent,
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: danger
+                    ? const [Color(0x226F4440), Color(0x006F4440)]
+                    : const [Color(0x22C4A469), Color(0x00C4A469)],
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 21,
+              color: danger ? const Color(0xFFC79891) : const Color(0xFFE0C38B),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: danger
+                    ? const Color(0xFFD3ABA5)
+                    : const Color(0xFFD6DCE5),
+                fontSize: 12,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 15,
+            color: danger ? const Color(0x997F5550) : const Color(0x886C7889),
           ),
         ],
       ),

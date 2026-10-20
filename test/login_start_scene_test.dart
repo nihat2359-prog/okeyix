@@ -79,7 +79,7 @@ void visible(WidgetTester tester, Size size) {
   expect(apple.height, google.height);
   expect(apple.top, google.top);
   expect(apple.right, lessThan(google.left));
-  expect(guest.bottom, lessThan(apple.top));
+  expect(apple.bottom, lessThan(guest.top));
 }
 
 void main() {

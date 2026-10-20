@@ -1,18 +1,14 @@
-﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:okeyix/screens/game_rules_screen.dart';
 
 class LobbySideMenu extends StatelessWidget {
   final bool open;
-
-  final VoidCallback onClose;
-
-  final VoidCallback onSupport;
-  final VoidCallback onAnnouncements;
-  final VoidCallback onProfileCard;
-  final VoidCallback onSettings;
-  final VoidCallback onLogout;
-
+  final VoidCallback onClose,
+      onSupport,
+      onAnnouncements,
+      onProfileCard,
+      onSettings,
+      onLogout;
   final Widget Function({
     required IconData icon,
     required String label,
@@ -20,7 +16,6 @@ class LobbySideMenu extends StatelessWidget {
     bool danger,
   })
   menuButtonBuilder;
-
   final Color goldBorderColor;
   final double goldBorderWidth;
 
@@ -40,160 +35,161 @@ class LobbySideMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!open) return const SizedBox();
-
+    if (!open) return const SizedBox.shrink();
     return Positioned.fill(
       child: Stack(
         children: [
-          /// MENU PANEL
-          Align(
-            alignment: Alignment.centerLeft,
-            child: AnimatedSlide(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              offset: open ? Offset.zero : const Offset(-1.2, 0),
-
-              child: SafeArea(
-                child: Container(
-                  width: 320,
-                  margin: const EdgeInsets.fromLTRB(10, 8, 0, 8),
-
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-
-                    border: Border.all(
-                      color: goldBorderColor,
-                      width: goldBorderWidth,
-                    ),
-
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x8A000000),
-                        blurRadius: 26,
-                        offset: Offset(4, 10),
-                      ),
-                    ],
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('menu-backdrop'),
+              onTap: onClose,
+              child: const ColoredBox(color: Color(0x77050A11)),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 340,
+                    maxHeight: 520,
                   ),
-
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-
-                    child: BackdropFilter(
-                      /// blur biraz dÃ¼ÅŸÃ¼rÃ¼ldÃ¼
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-
-                        decoration: BoxDecoration(
-                          /// daha transparan glass panel
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFF173A2C).withOpacity(0.05),
-                              const Color(0xFF0A1511).withOpacity(0.05),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xF21D232C), Color(0xED0A1018)],
+                        ),
+                        border: Border.all(
+                          color: goldBorderColor.withValues(alpha: .5),
+                          width: goldBorderWidth.clamp(.7, 1),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'OKEYIX',
+                                      style: TextStyle(
+                                        color: Color(0xFFDABF82),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 2.4,
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                    Text(
+                                      'Oyun Menüsü',
+                                      style: TextStyle(
+                                        color: Color(0xFFF0E5D0),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                key: const ValueKey('menu-close'),
+                                tooltip: 'Menüyü kapat',
+                                onPressed: onClose,
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  color: Color(0xFFAEB9C9),
+                                  size: 21,
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            /// HEADER
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.menu_rounded,
-                                  color: Color(0xFFE2B650),
-                                  size: 20,
-                                ),
-
-                                const Expanded(
-                                  child: Text(
-                                    "MENÜ",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
-
-                                IconButton(
-                                  onPressed: onClose,
-                                  icon: const Icon(
-                                    Icons.close_rounded,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(height: 4),
+                          Container(
+                            height: .7,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0x77C5A56B), Color(0x007A8290)],
+                              ),
                             ),
-
-                            /// DIVIDER
-                            Container(
-                              height: 1,
-                              color: Colors.white.withOpacity(0.12),
+                          ),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, bounds) => Column(
+                                children:
+                                    [
+                                          menuButtonBuilder(
+                                            icon: Icons.support_agent_outlined,
+                                            label: 'Destek / Şikayet Gönder',
+                                            onTap: onSupport,
+                                          ),
+                                          menuButtonBuilder(
+                                            icon: Icons
+                                                .notifications_none_rounded,
+                                            label: 'Sistem Duyuruları',
+                                            onTap: onAnnouncements,
+                                          ),
+                                          menuButtonBuilder(
+                                            icon: Icons.badge_outlined,
+                                            label: 'Profil Kartım',
+                                            onTap: onProfileCard,
+                                          ),
+                                          menuButtonBuilder(
+                                            icon: Icons.menu_book_outlined,
+                                            label: 'Oyun Rehberi',
+                                            onTap: () => Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const GameRulesScreen(),
+                                              ),
+                                            ),
+                                          ),
+                                          menuButtonBuilder(
+                                            icon: Icons.tune_rounded,
+                                            label: 'Ayarlar',
+                                            onTap: onSettings,
+                                          ),
+                                        ]
+                                        .map(
+                                          (button) => Expanded(
+                                            child: SizedBox.expand(
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerLeft,
+                                                child: SizedBox(
+                                                  width: bounds.maxWidth,
+                                                  child: button,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                              ),
                             ),
-
-                            /// MENU BUTTONS
-                            menuButtonBuilder(
-                              icon: Icons.support_agent_rounded,
-                              label: 'Destek / Şikayet Gönder',
-                              onTap: onSupport,
-                            ),
-
-                            menuButtonBuilder(
-                              icon: Icons.notifications_active_rounded,
-                              label: 'Sistem Duyuruları',
-                              onTap: onAnnouncements,
-                            ),
-
-                            menuButtonBuilder(
-                              icon: Icons.person_rounded,
-                              label: 'Profil Kartım',
-                              onTap: onProfileCard,
-                            ),
-
-                            menuButtonBuilder(
-                              icon: Icons.menu_book,
-                              label: 'Oyun Rehberi',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => GameRulesScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-
-                            menuButtonBuilder(
-                              icon: Icons.settings_rounded,
-                              label: 'Ayarlar',
-                              onTap: onSettings,
-                            ),
-
-                            const Spacer(),
-
-                            /// DIVIDER
-                            Container(
-                              height: 1,
-                              color: Colors.white.withOpacity(0.12),
-                            ),
-
-                            const SizedBox(height: 5),
-
-                            /// LOGOUT
-                            menuButtonBuilder(
-                              icon: Icons.logout_rounded,
-                              label: 'Çıkış Yap',
-                              onTap: onLogout,
-                              danger: true,
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Divider(color: Color(0x227C8798), height: 1),
+                          const SizedBox(height: 6),
+                          menuButtonBuilder(
+                            icon: Icons.logout_rounded,
+                            label: 'Çıkış Yap',
+                            onTap: onLogout,
+                            danger: true,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -206,4 +202,3 @@ class LobbySideMenu extends StatelessWidget {
     );
   }
 }
-

@@ -142,24 +142,26 @@ class LobbyDockAction extends StatelessWidget {
   );
 }
 
-enum LobbyDockEmblemKind { store, ranking, social, messages }
+enum LobbyDockEmblemKind { store, ranking, social, messages, menu }
 
 class LobbyDockEmblem extends StatelessWidget {
   final LobbyDockEmblemKind kind;
-  const LobbyDockEmblem({super.key, required this.kind});
+  final bool active;
+  const LobbyDockEmblem({super.key, required this.kind, this.active = false});
 
   @override
   Widget build(BuildContext context) => RepaintBoundary(
     child: CustomPaint(
       size: const Size(32, 32),
-      painter: _DockEmblemPainter(kind),
+      painter: _DockEmblemPainter(kind, active),
     ),
   );
 }
 
 class _DockEmblemPainter extends CustomPainter {
   final LobbyDockEmblemKind kind;
-  const _DockEmblemPainter(this.kind);
+  final bool active;
+  const _DockEmblemPainter(this.kind, this.active);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -167,6 +169,17 @@ class _DockEmblemPainter extends CustomPainter {
     canvas.scale(size.width / 32, size.height / 32);
     final symbol = Path();
     switch (kind) {
+      case LobbyDockEmblemKind.menu:
+        for (final y in [8.0, 16.0, 24.0]) {
+          symbol.moveTo(6, y);
+          symbol.lineTo(22, y);
+          symbol.moveTo(25, y - 2);
+          symbol.lineTo(27, y);
+          symbol.lineTo(25, y + 2);
+          symbol.lineTo(23, y);
+          symbol.close();
+        }
+        break;
       case LobbyDockEmblemKind.store:
         // Treasure chest with a domed lid, bands and a central clasp.
         symbol.addRRect(
@@ -258,12 +271,22 @@ class _DockEmblemPainter extends CustomPainter {
         detail,
       );
     }
+    if (active) {
+      canvas.drawLine(
+        const Offset(10, 30),
+        const Offset(22, 30),
+        Paint()
+          ..color = const Color(0xFFFFE6AB)
+          ..strokeWidth = 1.5
+          ..strokeCap = StrokeCap.round,
+      );
+    }
     canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _DockEmblemPainter oldDelegate) =>
-      kind != oldDelegate.kind;
+      kind != oldDelegate.kind || active != oldDelegate.active;
 }
 
 class LobbyDockCreate extends StatefulWidget {

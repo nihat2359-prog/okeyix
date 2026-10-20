@@ -1,3 +1,4 @@
+import 'package:okeyix/services/reward_audio.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +21,11 @@ void main() {
             textScaler: TextScaler.linear(textScale),
           ),
           child: Scaffold(
-            body: DailyBonusDialog(amount: 2500, onClaim: onClaim),
+            body: DailyBonusDialog(
+              onSound: _ignoreSound,
+              amount: 2500,
+              onClaim: onClaim,
+            ),
           ),
         ),
       ),
@@ -118,7 +123,9 @@ void main() {
             size: Size(320, 568),
             textScaler: TextScaler.linear(2),
           ),
-          child: const Scaffold(body: WelcomeRewardDialog(amount: 10000)),
+          child: const Scaffold(
+            body: WelcomeRewardDialog(onSound: _ignoreSound, amount: 10000),
+          ),
         ),
       ),
     );
@@ -129,3 +136,5 @@ void main() {
     expect(tester.binding.transientCallbackCount, 0);
   });
 }
+
+void _ignoreSound(RewardSound _) {}

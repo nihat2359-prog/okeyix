@@ -1,3 +1,4 @@
+import 'package:okeyix/services/reward_audio.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,8 +23,8 @@ Future<void> _open(
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(fontFamily: 'Montserrat'),
+    MaterialApp(
+      theme: ThemeData(fontFamily: 'Montserrat'),
       builder: (context, child) => RepaintBoundary(
         key: const ValueKey('capture'),
         child: MediaQuery(
@@ -82,7 +83,11 @@ void main() {
         var response = Completer<bool>();
         await _open(
           tester,
-          DailyBonusDialog(amount: 2500, onClaim: () => response.future),
+          DailyBonusDialog(
+            onSound: _ignoreSound,
+            amount: 2500,
+            onClaim: () => response.future,
+          ),
           size,
           scale,
         );
@@ -119,7 +124,11 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
         await _open(
           tester,
-          DailyBonusDialog(amount: 2500, onClaim: () async => true),
+          DailyBonusDialog(
+            onSound: _ignoreSound,
+            amount: 2500,
+            onClaim: () async => true,
+          ),
           size,
           scale,
         );
@@ -136,7 +145,7 @@ void main() {
         (tester) async {
           await _open(
             tester,
-            const WelcomeRewardDialog(amount: 10000),
+            const WelcomeRewardDialog(onSound: _ignoreSound, amount: 10000),
             size,
             scale,
           );
@@ -155,8 +164,12 @@ void main() {
       await _open(
         tester,
         welcome
-            ? const WelcomeRewardDialog(amount: 10000)
-            : DailyBonusDialog(amount: 2500, onClaim: () async => true),
+            ? const WelcomeRewardDialog(onSound: _ignoreSound, amount: 10000)
+            : DailyBonusDialog(
+                onSound: _ignoreSound,
+                amount: 2500,
+                onClaim: () async => true,
+              ),
         const Size(800, 360),
         1,
       );
@@ -169,3 +182,5 @@ void main() {
     });
   }
 }
+
+void _ignoreSound(RewardSound _) {}

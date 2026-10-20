@@ -1,14 +1,15 @@
-﻿import 'dart:ui';
+import 'finish_tile_layout.dart';
+import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import 'package:okeyix/core/format.dart';
+
 import 'package:okeyix/engine/models/tile.dart';
 
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
-import 'package:okeyix/services/celebration_service.dart';
+
 import 'package:okeyix/services/feedback_settings_service.dart';
 import 'package:audioplayers/audioplayers.dart' as jo;
 
@@ -70,40 +71,20 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       sprite: Sprite(image),
       size: Vector2(rackWidth, rackHeight),
       anchor: Anchor.center,
-      position: Vector2(0, -vp.y * 0.20), // yukarÄ±
+      position: Vector2(0, -vp.y * 0.08), // yukarÄ±
     );
 
     add(rack);
-
-    rack.add(
-      TextComponent(
-        text: _getResultText(),
-        position: Vector2(150, -20),
-        anchor: Anchor.center,
-        textRenderer: TextPaint(style: _getResultStyle()),
-      ),
-    );
 
     _buildTiles();
     _buildFinishTile();
   }
 
-  @override
-  void onMount() {
-    super.onMount();
-
-    Future.microtask(() {
-      _playResultSound();
-    });
-  }
-
   void _buildTiles() {
-    final vp = gameRef.camera.viewport.size;
-
     // ğŸ”¥ rack ile aynÄ± offset (Ã¼stte konum)
 
     // ğŸ”¥ rack boyutuna baÄŸlÄ± hesap
-    final rackWidth = vp.x * 0.65;
+    final rackWidth = rack.size.x;
     final rackHeight = rackWidth * (400 / 1380);
 
     // ğŸ”¥ slotlarÄ± sÄ±rala
@@ -117,8 +98,8 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       final isTop = i >= 13;
 
       // X yerleşimi: rack içinde 13 kolona dengeli dağıt.
-      const scaleX = 0.74;
-      const offsetX = 0.44;
+      const scaleX = 0.80;
+      const offsetX = 0.50;
 
       // Y yerleşimi: iki sıra arası sabit.
       const centerY = 0.35;
@@ -144,8 +125,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       final t = TileComponent(tile: model, position: Vector2(x, y));
       final slotWidthPx = (rackWidth * scaleX) / 13;
       final baseTileWidth = t.size.x <= 0 ? 100.0 : t.size.x;
-      final fitScale = (slotWidthPx * 0.88) / baseTileWidth;
-      final clampedScale = fitScale.clamp(0.34, 0.43).toDouble();
+      final clampedScale = finishTileScale(slotWidthPx, baseTileWidth);
       t.scale = Vector2.all(clampedScale);
       rack.add(t);
     }
@@ -159,12 +139,10 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     if (model == null) return;
 
     final t = TileComponent(tile: model, position: Vector2(0, 60));
-    final vp = gameRef.camera.viewport.size;
-    final rackWidth = vp.x * 0.65;
-    final slotWidthPx = (rackWidth * 0.74) / 13;
+    final rackWidth = rack.size.x;
+    final slotWidthPx = (rackWidth * 0.80) / 13;
     final baseTileWidth = t.size.x <= 0 ? 100.0 : t.size.x;
-    final fitScale = (slotWidthPx * 0.95) / baseTileWidth;
-    t.scale = Vector2.all(fitScale.clamp(0.36, 0.46).toDouble());
+    t.scale = Vector2.all(finishTileScale(slotWidthPx, baseTileWidth));
 
     // ğŸ”¥ glow efekti
     t.add(
@@ -180,53 +158,6 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     rack.add(t);
   }
 
-  String _getResultText() {
-    final amountText =
-        "${winAmount >= 0 ? '+' : '-'}${Format.coin(winAmount.abs())}";
-
-    if (isSpectator) {
-      return "$winnerName $amountText KAZANDI";
-    }
-
-    if (isWinner) {
-      if (isOkeyFinish) return "OKEY $amountText";
-      if (isDoubleFinish) return "CIFT $amountText";
-
-      return "KAZANDIN $amountText";
-    }
-
-    return "KAYBETTIN $amountText";
-  }
-
-  TextStyle _getResultStyle() {
-    if (isSpectator) {
-      return const TextStyle(
-        color: Colors.white70,
-        fontSize: 48,
-        fontWeight: FontWeight.w800,
-      );
-    }
-
-    if (isWinner) {
-      return TextStyle(
-        fontSize: 30,
-        fontWeight: FontWeight.w900,
-        foreground: Paint()
-          ..shader = const LinearGradient(
-            colors: [Color(0xFFFFF176), Color(0xFFFFC107), Color(0xFFFF8F00)],
-          ).createShader(const Rect.fromLTWH(0, 0, 300, 80)),
-        shadows: [Shadow(color: Colors.amber.withOpacity(0.9), blurRadius: 30)],
-      );
-    }
-
-    return TextStyle(
-      fontSize: 30,
-      fontWeight: FontWeight.w900,
-      color: Colors.redAccent,
-      shadows: [Shadow(color: Colors.red.withOpacity(0.8), blurRadius: 20)],
-    );
-  }
-
   Future<void> _playResultSound() async {
     if (!FeedbackSettingsService.soundEnabled) return;
     if (_isPlayingSound) return; // ğŸ”¥ Ã‡AKIÅMA ENGEL
@@ -239,14 +170,6 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       );
 
       await _player.play(source);
-
-      Future.delayed(const Duration(milliseconds: 80), () {
-        if (isOkeyFinish || isDoubleFinish) {
-          CelebrationService.showCoinCelebration();
-        } else if (isSpectator || isWinner) {
-          CelebrationService.showConfetti();
-        }
-      });
     } catch (e) {
       // ğŸ”¥ ARTIK STREAM BOZULMAZ
       debugPrint("Sound error ignored: $e");

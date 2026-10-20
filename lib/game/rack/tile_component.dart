@@ -35,7 +35,11 @@ extension TileColorTypeStyle on TileColorType {
 }
 
 class TileComponent extends PositionComponent
-    with HasGameReference<FlameGame>, DragCallbacks, TapCallbacks, ActivityLifecycleObservation {
+    with
+        HasGameReference<FlameGame>,
+        DragCallbacks,
+        TapCallbacks,
+        ActivityLifecycleObservation {
   bool renderInDragOverlay = false;
   bool _paintingDragOverlay = false;
 
@@ -89,10 +93,12 @@ class TileComponent extends PositionComponent
 
   @override
   Future<void> onLoad() async {
+    final gameRef = findGame();
+    if (gameRef == null) return;
     await super.onLoad();
-    final gameRef = game;
     final baseImage = await gameRef.images.load('tile_base.png');
     final backImage = await gameRef.images.load('tile_back.png');
+    if (parent == null || isRemoving) return;
 
     // BACK SPRITE (ters yüz)
     backSprite = SpriteComponent(
@@ -112,8 +118,12 @@ class TileComponent extends PositionComponent
     );
 
     // Eğer gerçek okeyse ters başlat
-    if (isJoker) {
-      isFaceDown = true;
+    isFaceDown = isJoker && !isFakeJoker;
+    _buildFace();
+  }
+
+  void _buildFace() {
+    if (isJoker && isFaceDown) {
       add(backSprite);
       add(backFrameFx);
       if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
@@ -326,32 +336,52 @@ class TileComponent extends PositionComponent
     add(_InvalidFinishFx(size: size, position: size / 2));
 
     add(
-      observeGameEffect(SequenceEffect(
-        [
-          observeGameEffect(MoveEffect.by(
-            Vector2(0, -16),
-            EffectController(duration: 0.11, curve: Curves.easeOutCubic),
-          ), activityProbeFor(this), 'tile_component.dart:2'),
-          observeGameEffect(ScaleEffect.to(
-            Vector2(1.08, 1.08),
-            EffectController(duration: 0.11, curve: Curves.easeOutBack),
-          ), activityProbeFor(this), 'tile_component.dart:3'),
-          observeGameEffect(MoveEffect.to(
-            startPos,
-            EffectController(duration: 0.15, curve: Curves.easeInCubic),
-          ), activityProbeFor(this), 'tile_component.dart:4'),
-          observeGameEffect(ScaleEffect.to(
-            startScale,
-            EffectController(duration: 0.12, curve: Curves.easeInOut),
-          ), activityProbeFor(this), 'tile_component.dart:5'),
-        ],
-        onComplete: () {
-          if (!isMounted) return;
-          if (priority == 120) {
-            priority = startPriority;
-          }
-        },
-      ), activityProbeFor(this), 'tile_component.dart:1'),
+      observeGameEffect(
+        SequenceEffect(
+          [
+            observeGameEffect(
+              MoveEffect.by(
+                Vector2(0, -16),
+                EffectController(duration: 0.11, curve: Curves.easeOutCubic),
+              ),
+              activityProbeFor(this),
+              'tile_component.dart:2',
+            ),
+            observeGameEffect(
+              ScaleEffect.to(
+                Vector2(1.08, 1.08),
+                EffectController(duration: 0.11, curve: Curves.easeOutBack),
+              ),
+              activityProbeFor(this),
+              'tile_component.dart:3',
+            ),
+            observeGameEffect(
+              MoveEffect.to(
+                startPos,
+                EffectController(duration: 0.15, curve: Curves.easeInCubic),
+              ),
+              activityProbeFor(this),
+              'tile_component.dart:4',
+            ),
+            observeGameEffect(
+              ScaleEffect.to(
+                startScale,
+                EffectController(duration: 0.12, curve: Curves.easeInOut),
+              ),
+              activityProbeFor(this),
+              'tile_component.dart:5',
+            ),
+          ],
+          onComplete: () {
+            if (!isMounted) return;
+            if (priority == 120) {
+              priority = startPriority;
+            }
+          },
+        ),
+        activityProbeFor(this),
+        'tile_component.dart:1',
+      ),
     );
   }
 
@@ -366,22 +396,13 @@ class TileComponent extends PositionComponent
   }
 
   void toggleFace() {
-    if (!isJoker) return;
+    if (!isJoker || isFakeJoker || !isLoaded) return;
 
     isFaceDown = !isFaceDown;
 
     removeAll(children);
 
-    if (isFaceDown) {
-      add(backSprite);
-      add(backFrameFx);
-      if (ThemeFlags.useCinematicTheme && ThemeFlags.useCinematicTiles) {
-        add(TileBackCinematicFx(size: size, position: size / 2));
-      }
-    } else {
-      add(baseSprite);
-      onLoad(); // tekrar ön yüzü çiz
-    }
+    _buildFace();
   }
 
   @override

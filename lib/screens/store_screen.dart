@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:okeyix/core/format.dart';
+import 'package:okeyix/ui/store/coin_store_scene.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/services/auth_service.dart';
@@ -430,14 +431,6 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (products.isEmpty) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0E0F12),
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFE7C06A)),
-        ),
-      );
-    }
     ProductDetails? packBaslangic;
     ProductDetails? packStandart;
     ProductDetails? packElit;
@@ -467,161 +460,26 @@ class _StoreScreenState extends State<StoreScreen> {
       );
     } catch (_) {}
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0E0F12),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              "assets/images/lobby/lobby.png",
-              fit: BoxFit.cover,
-            ),
-          ),
-
-          Positioned.fill(child: Container(color: const Color(0xCC000000))),
-
-          SafeArea(
-            child: Column(
-              children: [
-                /// HEADER
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(30),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1A2328), Color(0xFF11181C)],
-                          ),
-                          border: Border.all(color: const Color(0x55E7C06A)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.monetization_on,
-                              color: Color(0xFFE7C06A),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              Format.coin(widget.initialCoin),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-
-                /// HERO
-                const Text(
-                  "COIN MAĞAZASI",
-                  style: TextStyle(
-                    color: Color(0xFFE7C06A),
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                /// CARDS
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: CoinCard(
-                            title: "BAŞLANGIÇ",
-                            coins: Format.coin(80000),
-                            price: packBaslangic?.price ?? "...",
-                            asset: "assets/images/coins/coins_small.png",
-                            onTap: () {
-                              if (packBaslangic != null) {
-                                buy(packBaslangic);
-                              }
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: CoinCard(
-                            title: "STANDART",
-                            coins: Format.coin(200000),
-                            price: packStandart?.price ?? "...",
-                            asset: "assets/images/coins/coins_medium.png",
-                            onTap: () {
-                              if (packStandart != null) {
-                                buy(packStandart);
-                              }
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: CoinCard(
-                            title: "ELİT",
-                            coins: Format.coin(600000),
-                            price: packElit?.price ?? "...",
-                            best: true,
-                            asset: "assets/images/coins/coins_large.png",
-                            onTap: () {
-                              if (packElit != null) {
-                                buy(packElit);
-                              }
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: CoinCard(
-                            title: "MEGA",
-                            coins: Format.coin(2000000),
-                            price: packMega?.price ?? "...",
-                            asset: "assets/images/coins/coins_huge.png",
-                            onTap: () {
-                              if (packMega != null) {
-                                buy(packMega);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return CoinStoreScene(
+      balance: widget.initialCoin,
+      onClose: () => Navigator.pop(context),
+      offers: [
+        CoinStoreOffer(id: 'coin_pack_baslangic', title: 'BAŞLANGIÇ',
+          coins: 80000, price: packBaslangic?.price ?? '...',
+          onBuy: packBaslangic == null ? null : () => buy(packBaslangic!)),
+        CoinStoreOffer(id: 'coin_pack_standart', title: 'STANDART',
+          coins: 200000, price: packStandart?.price ?? '...',
+          onBuy: packStandart == null ? null : () => buy(packStandart!)),
+        CoinStoreOffer(id: 'coin_pack_elit', title: 'ELİT',
+          coins: 600000, price: packElit?.price ?? '...',
+          onBuy: packElit == null ? null : () => buy(packElit!)),
+        CoinStoreOffer(id: 'coin_pack_mega', title: 'MEGA',
+          coins: 2000000, price: packMega?.price ?? '...',
+          onBuy: packMega == null ? null : () => buy(packMega!)),
+      ],
     );
   }
 }
-
 class _PurchaseSuccessCard extends StatelessWidget {
   final int coins;
 
@@ -702,142 +560,6 @@ class _PurchaseSuccessCard extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class CoinCard extends StatefulWidget {
-  final String title;
-  final String coins;
-  final String price;
-  final String asset;
-  final bool best;
-  final VoidCallback? onTap;
-
-  const CoinCard({
-    super.key,
-    required this.title,
-    required this.coins,
-    required this.price,
-    required this.asset,
-    this.best = false,
-    this.onTap,
-  });
-
-  @override
-  State<CoinCard> createState() => _CoinCardState();
-}
-
-class _CoinCardState extends State<CoinCard> {
-  double scale = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: (_) {
-        setState(() => scale = 0.96);
-      },
-      onTapUp: (_) {
-        setState(() => scale = 1);
-      },
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 120),
-        scale: scale,
-        child: Stack(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1A2328), Color(0xFF11181C)],
-                ),
-                border: Border.all(
-                  color: widget.best
-                      ? const Color(0xFFE7C06A)
-                      : const Color(0x33E7C06A),
-                  width: 2,
-                ),
-                boxShadow: widget.best
-                    ? [
-                        const BoxShadow(
-                          color: Color(0x55E7C06A),
-                          blurRadius: 20,
-                        ),
-                      ]
-                    : [],
-              ),
-
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-
-                    Image.asset(widget.asset, height: 70),
-
-                    const SizedBox(height: 6),
-
-                    Text(
-                      widget.coins,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-
-                    Text(
-                      widget.title,
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-
-                    const Spacer(),
-
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE7C06A),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(
-                        child: Text(
-                          widget.price,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            if (widget.best)
-              Positioned(
-                top: 0,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE7C06A),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    "EN İYİ FİYAT",
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ),
           ],
         ),
       ),

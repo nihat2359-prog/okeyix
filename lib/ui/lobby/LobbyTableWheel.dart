@@ -67,11 +67,19 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     }
 
     if (widget.isLocked) {
-      return SingleChildScrollView(
-        child: _buildLockedLeagueCard(
-          league: widget.lockedLeague,
-          playerCoin: widget.playerCoin,
-          playerRating: widget.playerRating,
+      return LayoutBuilder(
+        builder: (context, bounds) => Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: bounds.maxWidth,
+              child: _buildLockedLeagueCard(
+                league: widget.lockedLeague,
+                playerCoin: widget.playerCoin,
+                playerRating: widget.playerRating,
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -235,30 +243,17 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: const BoxConstraints(maxWidth: 520),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xDD1E232A), Color(0xDD12161C)],
+              colors: [Color(0x8020252E), Color(0x99101319)],
             ),
-            border: Border.all(color: const Color(0xBFE7C66A), width: 1.2),
-
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xAA000000).withOpacity(0.9),
-                blurRadius: 26,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: const Color(0x44E7C66A),
-                blurRadius: 18,
-                spreadRadius: -2,
-              ),
-            ],
+            border: Border.all(color: const Color(0x38CBD0DC), width: .7),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -270,24 +265,16 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFD77A), Color(0xFFC98A2D)],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0x66F0C878),
-                          blurRadius: 8,
-                        ),
-                      ],
+                      color: const Color(0x14DABF82),
                     ),
                     child: const Icon(
                       Icons.lock,
                       size: 18,
-                      color: Colors.black,
+                      color: Color(0xFFEAD6A5),
                     ),
                   ),
 
-                  const SizedBox(height: 4),
+                  const SizedBox(width: 10),
 
                   Expanded(
                     child: Text(
@@ -295,7 +282,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                       style: const TextStyle(
                         color: Color(0xFFF3EFE3),
                         fontSize: 17,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -314,11 +301,11 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                       ),
                     ),
                     child: const Text(
-                      "Kilitli",
+                      "LİG KİLİTLİ",
                       style: TextStyle(
                         color: Color(0xFFECC983),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 9,
                       ),
                     ),
                   ),
@@ -338,7 +325,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                       ok: coinOk,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: _premiumReqItem(
                       icon: Icons.star,
@@ -353,7 +340,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               const SizedBox(height: 18),
 
               const Text(
-                "Oynadıkça kazan, kazandıkça üst liglere katıl.",
+                "Bu lig için gereken coin ve seviyeye ulaşmalısın.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xB7DCE6DF),
@@ -384,14 +371,10 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
 
-        gradient: LinearGradient(
-          colors: ok
-              ? [const Color(0xFF232932), const Color(0xFF121720)]
-              : [const Color(0xFF3A2318), const Color(0xFF130D09)],
-        ),
+        color: const Color(0x30191E26),
 
         border: Border.all(
-          color: ok ? const Color(0xAA8B96A8) : const Color(0xCCB17254),
+          color: ok ? const Color(0x557C9A8B) : const Color(0x38DABF82),
         ),
       ),
 
@@ -410,16 +393,16 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: ok ? const Color(0x33343C4A) : const Color(0x334A2820),
+                  color: const Color(0x10DABF82),
                 ),
                 child: Icon(
                   icon,
                   size: 16,
-                  color: ok ? const Color(0xFFC5CEDD) : const Color(0xFFE3A27F),
+                  color: ok ? const Color(0xFF9BBCAF) : const Color(0xFFEAD6A5),
                 ),
               ),
 
-              const SizedBox(height: 4),
+              const SizedBox(width: 8),
 
               /// ğŸ”¥ TEXTLER
               Column(
@@ -470,31 +453,21 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
           borderRadius: BorderRadius.circular(14),
 
           /// ğŸ”¥ GOLD GRADIENT
-          gradient: const LinearGradient(
-            colors: [Color(0xFFE8C77A), Color(0xFFB17833)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: const Color(0x14DABF82),
+          border: Border.all(color: const Color(0x88DABF82), width: .8),
 
           /// ğŸ”¥ GLOW
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xAA5A391A).withOpacity(0.75),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center, // ğŸ”¥ ORTALA
           children: const [
-            Icon(Icons.monetization_on, color: Colors.black, size: 18),
+            Icon(Icons.toll_rounded, color: Color(0xFFEAD6A5), size: 18),
             SizedBox(width: 6),
             Text(
               "Coin Al",
               style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w800,
+                color: Color(0xFFEAD6A5),
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
               ),
             ),

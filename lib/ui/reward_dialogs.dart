@@ -1,12 +1,15 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:okeyix/services/reward_audio.dart';
 
 const _gold = Color(0xFFFFDA83);
 
 class WelcomeRewardDialog extends StatelessWidget {
   final int amount;
-  const WelcomeRewardDialog({super.key, required this.amount});
+  final ValueChanged<RewardSound>? onSound;
+  const WelcomeRewardDialog({super.key, required this.amount, this.onSound});
   @override
   Widget build(BuildContext context) => _RewardCard(
     amount: amount,
@@ -14,6 +17,7 @@ class WelcomeRewardDialog extends StatelessWidget {
     message: 'İlk masanın heyecanı seni bekliyor. Oyun başlasın!',
     badge: 'HOŞ GELDİN HEDİYESİ',
     button: 'Harika, başlayalım',
+    onSound: onSound,
     onPressed: () => Navigator.of(context).pop(),
   );
 }
@@ -24,10 +28,12 @@ class DailyBonusDialog extends StatefulWidget {
   final int amount;
   // A win is shown only after a confirmed server credit.
   final Future<bool> Function() onClaim;
+  final ValueChanged<RewardSound>? onSound;
   const DailyBonusDialog({
     super.key,
     required this.amount,
     required this.onClaim,
+    this.onSound,
   });
   @override
   State<DailyBonusDialog> createState() => _DailyBonusDialogState();
@@ -88,6 +94,7 @@ class _DailyBonusDialogState extends State<DailyBonusDialog> {
           ? 'Bonus alınamadı. Lütfen tekrar deneyin.'
           : null,
       onPressed: _claim,
+      onSound: widget.onSound,
     );
   }
 }
@@ -98,6 +105,7 @@ class _RewardCard extends StatefulWidget {
   final String? error;
   final bool loading, success, alreadyClaimed;
   final VoidCallback onPressed;
+  final ValueChanged<RewardSound>? onSound;
   const _RewardCard({
     required this.amount,
     required this.title,
@@ -105,6 +113,7 @@ class _RewardCard extends StatefulWidget {
     required this.badge,
     required this.button,
     required this.onPressed,
+    this.onSound,
     this.error,
     this.loading = false,
     this.success = false,
@@ -115,7 +124,28 @@ class _RewardCard extends StatefulWidget {
 }
 
 class _RewardCardState extends State<_RewardCard>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  RewardAudio? _audio;
+  void _sound(RewardSound sound) {
+    if (widget.onSound != null) {
+      widget.onSound!(sound);
+    } else {
+      unawaited((_audio ??= RewardAudio()).play(sound));
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sound(RewardSound.opening);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _audio?.stop();
+  }
+
   late final AnimationController _entrance = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 380),
@@ -141,6 +171,7 @@ class _RewardCardState extends State<_RewardCard>
   @override
   void didUpdateWidget(covariant _RewardCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.success && !oldWidget.success) _sound(RewardSound.won);
     if (widget.success &&
         !oldWidget.success &&
         !MediaQuery.disableAnimationsOf(context)) {
@@ -150,6 +181,8 @@ class _RewardCardState extends State<_RewardCard>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _audio?.dispose();
     _entrance.dispose();
     _win.dispose();
     super.dispose();

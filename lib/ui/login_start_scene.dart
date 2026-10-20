@@ -230,23 +230,6 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                               ),
                                               SizedBox(
                                                 height: buttonHeight,
-                                                child: _StartButton(
-                                                  id: 'guest',
-                                                  label: 'Hızlı Başla',
-                                                  loading:
-                                                      _active == 'guest' ||
-                                                      widget.loadingGuest,
-                                                  enabled: !busy,
-                                                  reduced: reduced,
-                                                  onPressed: () => _signIn(
-                                                    'guest',
-                                                    widget.onGuest,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              SizedBox(
-                                                height: buttonHeight,
                                                 child: Row(
                                                   children: [
                                                     Expanded(
@@ -293,6 +276,24 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                                       ),
                                                     ),
                                                   ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 10),
+                                              SizedBox(
+                                                height: 44,
+                                                child: _StartButton(
+                                                  id: 'guest',
+                                                  label:
+                                                      'Misafir olarak devam et',
+                                                  loading:
+                                                      _active == 'guest' ||
+                                                      widget.loadingGuest,
+                                                  enabled: !busy,
+                                                  reduced: reduced,
+                                                  onPressed: () => _signIn(
+                                                    'guest',
+                                                    widget.onGuest,
+                                                  ),
                                                 ),
                                               ),
                                               if (error != null) ...[
@@ -375,8 +376,37 @@ class _StartButtonState extends State<_StartButton> {
   @override
   Widget build(BuildContext context) {
     final guest = widget.id == 'guest';
-    final google = widget.id == 'google';
-    final foreground = guest || google ? const Color(0xFF252725) : Colors.white;
+    const foreground = Color(0xFFF1EEE5);
+    if (guest) {
+      return TextButton(
+        key: const ValueKey('login-guest'),
+        onPressed: widget.enabled ? widget.onPressed : null,
+        style: TextButton.styleFrom(foregroundColor: const Color(0xFFB9C0B8)),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.loading) ...[
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                widget.loading ? 'Bağlanıyor...' : widget.label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -392,23 +422,22 @@ class _StartButtonState extends State<_StartButton> {
               ? Duration.zero
               : const Duration(milliseconds: 100),
           child: CustomPaint(
+            foregroundPainter: const _StartButtonTrim(),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: guest
-                    ? null
-                    : google
-                    ? const Color(0xFFF2F2F2)
-                    : const Color(0xFF080909),
+                borderRadius: BorderRadius.circular(9),
+                color: guest ? null : const Color(0xD910191A),
                 gradient: guest
                     ? const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                         colors: [
-                          Color(0xFFF2D894),
-                          Color(0xFFD7AF57),
-                          Color(0xFFC2923D),
+                          Color(0xFFFFEAB1),
+                          Color(0xFFE4C075),
+                          Color(0xFFC3994D),
+                          Color(0xFFE2BF76),
                         ],
+                        stops: [0, .38, .72, 1],
                       )
                     : null,
                 border: Border.all(
@@ -416,15 +445,13 @@ class _StartButtonState extends State<_StartButton> {
                       ? const Color(0xFFFFE5A2)
                       : guest
                       ? const Color(0xFFF2D28B)
-                      : google
-                      ? const Color(0xFFDADCE0)
-                      : const Color(0xFF555A54),
+                      : const Color(0xBBD5B676),
                 ),
                 boxShadow: [
                   const BoxShadow(
-                    color: Color(0x33000000),
-                    blurRadius: 5,
-                    offset: Offset(0, 2),
+                    color: Color(0x66000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 5),
                   ),
                 ],
               ),
@@ -435,11 +462,11 @@ class _StartButtonState extends State<_StartButton> {
                   foregroundColor: foreground,
                   disabledForegroundColor: foreground.withValues(alpha: .6),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
+                    horizontal: 12,
                     vertical: 4,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(9),
                   ),
                 ),
                 child: SizedBox.expand(
@@ -455,7 +482,9 @@ class _StartButtonState extends State<_StartButton> {
                           ),
                         )
                       else if (widget.icon != null)
-                        widget.icon!,
+                        widget.icon!
+                      else if (guest)
+                        const Icon(Icons.play_arrow_rounded, size: 23),
                       if (widget.loading || widget.icon != null)
                         const SizedBox(width: 6),
                       Expanded(
@@ -467,12 +496,15 @@ class _StartButtonState extends State<_StartButton> {
                             style: TextStyle(
                               fontSize: guest ? 15 : 13,
                               fontWeight: guest
-                                  ? FontWeight.w800
+                                  ? FontWeight.w700
                                   : FontWeight.w600,
+                              letterSpacing: guest ? .5 : .1,
                             ),
                           ),
                         ),
                       ),
+                      if (guest)
+                        const Icon(Icons.chevron_right_rounded, size: 20),
                     ],
                   ),
                 ),
@@ -483,6 +515,38 @@ class _StartButtonState extends State<_StartButton> {
       ),
     );
   }
+}
+
+class _StartButtonTrim extends CustomPainter {
+  const _StartButtonTrim();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = (Offset.zero & size).deflate(3);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(inset, const Radius.circular(6)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .6
+        ..color = const Color(0x887D5823),
+    );
+    canvas.drawLine(
+      Offset(12, 1.5),
+      Offset(size.width - 12, 1.5),
+      Paint()
+        ..color = const Color(0xBBFFF3D0)
+        ..strokeWidth = 1,
+    );
+    canvas.drawLine(
+      Offset(12, size.height - 1.5),
+      Offset(size.width - 12, size.height - 1.5),
+      Paint()
+        ..color = const Color(0x886B461B)
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _StartButtonTrim oldDelegate) => false;
 }
 
 class _OpeningTiles extends CustomPainter {

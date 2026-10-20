@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -15,6 +15,9 @@ import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
+import 'package:okeyix/ui/lobby/lobby_utility_scenes.dart';
+import 'package:okeyix/services/reward_audio.dart';
+import 'package:okeyix/ui/coin_transfer_overlay.dart';
 import 'package:okeyix/ui/lobby/lobby_columns.dart';
 import 'package:okeyix/ui/lobby/create_table_scene.dart';
 
@@ -81,6 +84,14 @@ class _LobbyScreenState extends State<LobbyScreen>
   late final AnimationController _ratingCountController;
   Animation<int>? _coinCountAnimation;
   Animation<int>? _ratingCountAnimation;
+  final _coinTargetKey = GlobalKey();
+  final _lobbySceneKey = GlobalKey();
+  RewardAudio? _rewardAudio;
+  late final AnimationController _rewardFlight = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+  Offset _flightSource = Offset.zero, _flightDestination = Offset.zero;
   Timer? _coinFxTimer;
   bool _coinFxActive = false;
   int _coinDisplayValue = 0;
@@ -316,6 +327,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     _chatController.dispose();
     _bgController.dispose();
     _coinFxController.dispose();
+    _rewardFlight.dispose();
+    _rewardAudio?.dispose();
     _coinCountController.dispose();
     _ratingCountController.dispose();
     _audioPlayer.dispose();
@@ -369,6 +382,8 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   void _stopLobbyLoops() {
     _lobbyLoopsRunning = false;
+    _rewardFlight.reset();
+    _rewardAudio?.stop();
     _leagueActivityTimer?.cancel();
     _leagueActivityTimer = null;
     _socialRefreshTimer?.cancel();
@@ -435,6 +450,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final dailyAvailable = await _isDailyBonusAvailable(user.id);
       if (!dailyAvailable || !mounted) return;
 
+      var credited = false;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -457,11 +473,14 @@ class _LobbyScreenState extends State<LobbyScreen>
             }
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('daily_bonus_claimed_${user.id}', dayKey);
+            credited = true;
             return true;
           },
         ),
       );
-      await _loadUser();
+      await _loadUser(
+        rewardPresentation: credited ? _dailyBonusCoinAmount : null,
+      );
     } catch (e) {
       debugPrint('REWARD FLOW ERROR: $e');
     } finally {
@@ -480,7 +499,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (_) => const WelcomeRewardDialog(amount: _welcomeCoinAmount),
     );
     await prefs.setBool(key, true);
-    await _loadUser();
+    await _loadUser(rewardPresentation: _welcomeCoinAmount);
   }
 
   Future<bool> _isDailyBonusAvailable(String userId) async {
@@ -921,7 +940,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
-  Future<bool> _loadUser() async {
+  Future<bool> _loadUser({int? rewardPresentation}) async {
     final user = supabase.auth.currentUser;
     if (user == null) return false;
     await ProfileService.ensureUserRow();
@@ -1020,13 +1039,26 @@ class _LobbyScreenState extends State<LobbyScreen>
           _allowGameInvites = allowGameInvites;
         });
       }
-      if (profileCoin != previousCoin) {
+      final presentReward =
+          rewardPresentation != null &&
+          rewardPresentation > 0 &&
+          profile != null &&
+          profileCoin >= rewardPresentation;
+      if (presentReward) {
+        _animateCoinCount(
+          profileCoin - rewardPresentation,
+          profileCoin,
+          reward: true,
+        );
+        _startRewardTransfer();
+        _triggerCoinFx();
+      } else if (profileCoin != previousCoin) {
         _animateCoinCount(previousCoin, profileCoin);
       }
       if (profileRating != previousRating) {
         _animateRatingCount(previousRating, profileRating);
       }
-      if (profileCoin > previousCoin) {
+      if (profileCoin > previousCoin && !presentReward) {
         _triggerCoinFx();
       }
       return true;
@@ -1038,6 +1070,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   void _triggerCoinFx() {
     if (!mounted) return;
+    if (MediaQuery.disableAnimationsOf(context)) return;
     _coinFxTimer?.cancel();
     setState(() => _coinFxActive = true);
     _coinFxController
@@ -1051,11 +1084,47 @@ class _LobbyScreenState extends State<LobbyScreen>
     });
   }
 
-  void _animateCoinCount(int from, int to) {
+  void _startRewardTransfer() {
+    if (!mounted || !_lobbyLoopsRunning) return;
+    unawaited((_rewardAudio ??= RewardAudio()).play(RewardSound.deposit));
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_lobbyLoopsRunning) return;
+      final scene = _lobbySceneKey.currentContext?.findRenderObject();
+      final target = _coinTargetKey.currentContext?.findRenderObject();
+      if (scene is! RenderBox ||
+          target is! RenderBox ||
+          !scene.hasSize ||
+          !target.hasSize) {
+        return;
+      }
+      setState(() {
+        _flightSource = Offset(scene.size.width * .5, scene.size.height * .42);
+        _flightDestination = scene.globalToLocal(
+          target.localToGlobal(
+            Offset(target.size.width * .18, target.size.height / 2),
+          ),
+        );
+      });
+      _rewardFlight.forward(from: 0);
+    });
+  }
+
+  void _animateCoinCount(int from, int to, {bool reward = false}) {
     if (!mounted) return;
     _coinCountController.stop();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      setState(() => _coinDisplayValue = to);
+      return;
+    }
+    _coinCountController.duration = Duration(milliseconds: reward ? 1100 : 900);
     _coinCountAnimation = IntTween(begin: from, end: to).animate(
-      CurvedAnimation(parent: _coinCountController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+        parent: _coinCountController,
+        curve: reward
+            ? const Interval(.65, 1, curve: Curves.easeOutCubic)
+            : Curves.easeOutCubic,
+      ),
     );
     _coinDisplayValue = from;
     _coinCountController
@@ -2159,13 +2228,8 @@ class _LobbyScreenState extends State<LobbyScreen>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setLocalState) {
-            final media = MediaQuery.of(context).size;
-            final isSmallLandscape =
-                media.width > media.height && media.height < 620;
-            final messageMinLines = isSmallLandscape ? 3 : 5;
-            final messageMaxLines = isSmallLandscape ? 4 : 7;
-
             Future<void> submit() async {
+              if (sending) return;
               final message = messageController.text.trim();
               if (message.length < 8) {
                 setLocalState(() {
@@ -2186,174 +2250,26 @@ class _LobbyScreenState extends State<LobbyScreen>
                   'status': 'open',
                   'reported_user_id': '',
                 });
-                if (!mounted) return;
+                if (!mounted || !context.mounted) return;
                 Navigator.pop(context);
                 _msg('Talebiniz alınmıştır.');
               } catch (_) {
+                if (!context.mounted) return;
                 setLocalState(() {
                   sending = false;
-                  errorText =
-                      'Talep g\u00F6nderilemedi. support_requests tablosunu kontrol et.';
+                  errorText = 'Mesajın gönderilemedi. Lütfen tekrar dene.';
                 });
               }
             }
 
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.all(18),
-              child: Container(
-                width: 560,
-                constraints: BoxConstraints(maxHeight: media.height * 0.86),
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF222932), Color(0xFF131922)],
-                  ),
-                  border: Border.all(
-                    color: const Color(0xCCB07A1A),
-                    width: 1.8,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x66000000),
-                      blurRadius: 20,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.support_agent_rounded,
-                            color: Color(0xFFFFE0A8),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Destek Şikayet Gönder',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: sending
-                                ? null
-                                : () => Navigator.pop(context),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: category,
-                        dropdownColor: const Color(0xFF232A34),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'talep',
-                            child: Text('Talep'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'sikayet',
-                            child: Text('\u015Eikayet'),
-                          ),
-                          DropdownMenuItem(value: 'hata', child: Text('Hata')),
-                        ],
-                        onChanged: sending
-                            ? null
-                            : (v) => setLocalState(
-                                () => category = (v ?? 'talep').trim(),
-                              ),
-                        decoration: InputDecoration(
-                          labelText: 'Kategori',
-                          labelStyle: const TextStyle(color: Color(0xFFD8DEE8)),
-                          filled: true,
-                          fillColor: const Color(0x33303844),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      TextField(
-                        controller: messageController,
-                        minLines: messageMinLines,
-                        maxLines: messageMaxLines,
-                        enabled: !sending,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Mesaj',
-                          labelStyle: const TextStyle(color: Color(0xFFD8DEE8)),
-                          hintText:
-                              'Talep / \u015Fikayet detay\u0131n\u0131 yaz\u0131n.',
-                          hintStyle: const TextStyle(color: Color(0x99D8DEE8)),
-                          filled: true,
-                          fillColor: const Color(0x33303844),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                      if (errorText != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          errorText!,
-                          style: const TextStyle(
-                            color: Color(0xFFFF8A8A),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: sending
-                                ? null
-                                : () => Navigator.pop(context),
-                            child: const Text('Vazgeç'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: sending ? null : submit,
-                            icon: sending
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.send_rounded),
-                            label: Text(sending ? 'Gonderiliyor' : 'Gönder'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2C3542),
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            return GameSupportScene(
+              message: messageController,
+              category: category,
+              sending: sending,
+              error: errorText,
+              onCategory: (value) => setLocalState(() => category = value),
+              onSend: submit,
+              onClose: () => Navigator.pop(context),
             );
           },
         );
@@ -3210,6 +3126,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
+        key: _lobbySceneKey,
         children: [
           Positioned.fill(
             child: Container(
@@ -3316,6 +3233,13 @@ class _LobbyScreenState extends State<LobbyScreen>
             goldBorderWidth: _goldBorderWidth,
           ),
 
+          Positioned.fill(
+            child: CoinTransferOverlay(
+              progress: _rewardFlight,
+              source: _flightSource,
+              destination: _flightDestination,
+            ),
+          ),
           _rightPanelOverlay(),
           if (_showGuestBanner)
             Positioned(top: 12, right: 12, child: _guestBanner()),
@@ -3341,6 +3265,21 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _rightPanelOverlay() {
+    if (_rightPanelType == _RightPanelType.settings) {
+      return Positioned.fill(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _closeRightPanel,
+                child: const ColoredBox(color: Color(0x88000000)),
+              ),
+            ),
+            _settingsPanel(),
+          ],
+        ),
+      );
+    }
     final isMessagesPanel = _rightPanelType == _RightPanelType.messages;
     return LobbyRightPanel(
       open: _rightPanelType != _RightPanelType.none,
@@ -4722,151 +4661,49 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _settingsPanel() {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1D242D),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0x335C6878)),
-          ),
-          child: Column(
-            children: [
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF2B3441),
-                activeTrackColor: const Color(0xFFE7C06A),
-                inactiveThumbColor: const Color(0xFF8EA79A),
-                inactiveTrackColor: const Color(0x334E6A5D),
-                title: const Text(
-                  'Ses',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Oyun ve mesaj sesleri',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                value: _soundEnabled,
-                onChanged: (value) async {
-                  await FeedbackSettingsService.setSoundEnabled(value);
-                  if (!mounted) return;
-                  setState(() => _soundEnabled = value);
-                },
-              ),
-              const Divider(color: Color(0x335C6878), height: 1),
-
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF2B3441),
-                activeTrackColor: const Color(0xFFE7C06A),
-                inactiveThumbColor: const Color(0xFF8EA79A),
-                inactiveTrackColor: const Color(0x334E6A5D),
-                title: const Text(
-                  'Titreşim',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Sesle birlikte haptic geri bildirim',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                value: _vibrationEnabled,
-                onChanged: (value) async {
-                  await FeedbackSettingsService.setVibrationEnabled(value);
-                  if (!mounted) return;
-                  setState(() => _vibrationEnabled = value);
-                },
-              ),
-              const Divider(color: Color(0x335C6878), height: 1),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF2B3441),
-                activeTrackColor: const Color(0xFFE7C06A),
-                inactiveThumbColor: const Color(0xFF8EA79A),
-                inactiveTrackColor: const Color(0x334E6A5D),
-                title: const Text(
-                  'Renk Körü Modu',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Açıksa sarı taşlar yeşil görünür',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                value: _colorBlindMode,
-                onChanged: (value) async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('color_blind_mode', value);
-                  UserState.colorBlindMode = value;
-                  if (!mounted) return;
-                  setState(() => _colorBlindMode = value);
-                },
-              ),
-              const Divider(color: Color(0x335C6878), height: 1),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                activeColor: const Color(0xFF2B3441),
-                activeTrackColor: const Color(0xFFE7C06A),
-                inactiveThumbColor: const Color(0xFF8EA79A),
-                inactiveTrackColor: const Color(0x334E6A5D),
-                title: const Text(
-                  'Oyun Davetleri',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Kapalıysa hiç davet almazsın',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                value: _allowGameInvites,
-                onChanged: (value) async {
-                  final prev = _allowGameInvites;
-                  setState(() => _allowGameInvites = value);
-                  try {
-                    final uid = supabase.auth.currentUser?.id;
-                    if (uid == null) throw Exception('AUTH_REQUIRED');
-                    await supabase
-                        .from('profiles')
-                        .update({'allow_game_invites': value})
-                        .eq('id', uid);
-                  } catch (e) {
-                    if (!mounted) return;
-                    setState(() => _allowGameInvites = prev);
-                    _msg('Davet ayarı kaydedilemedi.');
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 7),
-
-        // ?? YEN? EKLED?Ğ?M?Z
-        lobbySideMenuButton(
-          icon: Icons.delete_forever_rounded,
-          label: 'Hesabı Sil',
-          danger: true,
-          onTap: () async {
-            _closeRightPanel();
-            await _confirmDeleteAccount();
-          },
-        ),
-      ],
+    return GameSettingsScene(
+      sound: _soundEnabled,
+      vibration: _vibrationEnabled,
+      colorBlind: _colorBlindMode,
+      invites: _allowGameInvites,
+      onClose: _closeRightPanel,
+      onSound: (value) async {
+        await FeedbackSettingsService.setSoundEnabled(value);
+        if (!mounted) return;
+        setState(() => _soundEnabled = value);
+      },
+      onVibration: (value) async {
+        await FeedbackSettingsService.setVibrationEnabled(value);
+        if (!mounted) return;
+        setState(() => _vibrationEnabled = value);
+      },
+      onColorBlind: (value) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('color_blind_mode', value);
+        UserState.colorBlindMode = value;
+        if (!mounted) return;
+        setState(() => _colorBlindMode = value);
+      },
+      onInvites: (value) async {
+        final prev = _allowGameInvites;
+        setState(() => _allowGameInvites = value);
+        try {
+          final uid = supabase.auth.currentUser?.id;
+          if (uid == null) throw Exception('AUTH_REQUIRED');
+          await supabase
+              .from('profiles')
+              .update({'allow_game_invites': value})
+              .eq('id', uid);
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _allowGameInvites = prev);
+          _msg('Davet ayarı kaydedilemedi.');
+        }
+      },
+      onDelete: () async {
+        _closeRightPanel();
+        await _confirmDeleteAccount();
+      },
     );
   }
 
@@ -5523,6 +5360,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       clipBehavior: Clip.none,
       children: [
         AnimatedContainer(
+          key: coin ? _coinTargetKey : null,
           duration: const Duration(milliseconds: 260),
           padding: coin
               ? chipPadding
@@ -5676,11 +5514,9 @@ class _LobbyScreenState extends State<LobbyScreen>
         LobbyDockAction(
           label: 'Menü',
           onTap: _toggleSideMenu,
-          child: Image.asset(
-            "assets/images/lobby/menu_bar.png",
-            width: 24,
-            height: 24,
-            filterQuality: FilterQuality.high,
+          child: LobbyDockEmblem(
+            kind: LobbyDockEmblemKind.menu,
+            active: _isSideMenuOpen,
           ),
         ),
         const SizedBox(width: 9),
