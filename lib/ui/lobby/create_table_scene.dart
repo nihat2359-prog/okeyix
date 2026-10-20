@@ -33,36 +33,6 @@ class CreateTableScene extends StatefulWidget {
 
 class _CreateTableSceneState extends State<CreateTableScene> {
   static const gold = Color(0xFFE8CC8D);
-  final _scroll = ScrollController();
-  void _changed() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_changed);
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_changed);
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _move(int direction, double step) {
-    if (!_scroll.hasClients) return;
-    _scroll.animateTo(
-      (_scroll.offset + direction * step * 2).clamp(
-        0.0,
-        _scroll.position.maxScrollExtent,
-      ),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   Widget _choice(
     String key,
     String label,
@@ -120,78 +90,49 @@ class _CreateTableSceneState extends State<CreateTableScene> {
 
   Widget _chips() => LayoutBuilder(
     builder: (context, bounds) {
-      final diameter = (bounds.maxHeight - 20).clamp(60.0, 112.0);
-      final itemWidth = diameter + 14;
-      const gap = 10.0;
-      final viewport = math.max(0.0, bounds.maxWidth - 88);
-      final extent = math.max(
-        0.0,
-        widget.stakes.length * (itemWidth + gap) - gap - viewport,
+      final count = widget.stakes.length;
+      if (count == 0) return const SizedBox.shrink();
+      final gap = bounds.maxWidth < 500 ? 4.0 : 8.0;
+      final width = math.max(
+        1.0,
+        (bounds.maxWidth - gap * (count - 1)) / count,
       );
-      final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-      Widget arrow(bool next) => SizedBox(
-        width: 44,
-        child: IconButton(
-          key: ValueKey(next ? 'stake-next' : 'stake-previous'),
-          tooltip: next ? 'Sonraki giriş bedelleri' : 'Önceki giriş bedelleri',
-          onPressed: (next ? offset < extent - .5 : offset > .5)
-              ? () => _move(next ? 1 : -1, itemWidth + gap)
-              : null,
-          color: gold,
-          disabledColor: const Color(0xFF486052),
-          icon: Icon(
-            next ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
-          ),
-        ),
-      );
+      final diameter = math
+          .min(width, math.max(1.0, bounds.maxHeight - 6))
+          .clamp(1.0, 112.0);
       return Row(
         children: [
-          arrow(false),
-          Expanded(
-            child: ListView.separated(
-              controller: _scroll,
-              scrollDirection: Axis.horizontal,
-              itemCount: widget.stakes.length,
-              separatorBuilder: (_, _) => const SizedBox(width: gap),
-              itemBuilder: (context, index) {
-                final selected = index == widget.selectedIndex;
-                return Semantics(
-                  selected: selected,
-                  button: true,
-                  label: '${widget.stakes[index]} coin',
-                  child: InkWell(
-                    key: ValueKey('stake-$index'),
-                    onTap: () => widget.onStake(index),
-                    borderRadius: BorderRadius.circular(70),
+          for (var index = 0; index < count; index++) ...[
+            if (index > 0) SizedBox(width: gap),
+            Expanded(
+              child: Semantics(
+                selected: index == widget.selectedIndex,
+                button: true,
+                label: '${widget.stakes[index]} coin',
+                child: InkWell(
+                  key: ValueKey('stake-$index'),
+                  onTap: () => widget.onStake(index),
+                  borderRadius: BorderRadius.circular(70),
+                  child: Center(
                     child: SizedBox(
-                      width: itemWidth,
-                      child: Center(
-                        child: Transform.translate(
-                          offset: Offset(0, selected ? -2 : 2),
-                          child: SizedBox(
-                            width: diameter,
-                            height: diameter,
-                            child: RepaintBoundary(
-                              child: CustomPaint(
-                                painter: _EntryToken(selected),
-                                child: Center(
-                                  child: FractionallySizedBox(
-                                    widthFactor: .63,
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        widget.formatStake(
-                                          widget.stakes[index],
-                                        ),
-                                        style: TextStyle(
-                                          color: selected
-                                              ? const Color(0xFF3F2A0C)
-                                              : gold,
-                                          fontSize: selected ? 21 : 18,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
+                      width: diameter,
+                      height: diameter,
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _EntryToken(index == widget.selectedIndex),
+                          child: Center(
+                            child: FractionallySizedBox(
+                              widthFactor: .68,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  widget.formatStake(widget.stakes[index]),
+                                  style: TextStyle(
+                                    color: index == widget.selectedIndex
+                                        ? const Color(0xFF3F2A0C)
+                                        : gold,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
@@ -201,16 +142,14 @@ class _CreateTableSceneState extends State<CreateTableScene> {
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
-          arrow(true),
+          ],
         ],
       );
     },
   );
-
   @override
   Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.transparent,

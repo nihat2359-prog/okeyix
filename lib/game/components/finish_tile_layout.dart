@@ -2,3 +2,7 @@
 /// Leave a small, real gap instead; do not change slot indices or ordering.
 double finishTileScale(double slotWidth, double baseWidth) =>
     ((slotWidth - 1.6).clamp(1.0, slotWidth) / baseWidth).toDouble();
+
+/// Shelf contacts measured on rack.png, with tile anchors at their centres.
+double finishTileCenterY(bool topRow, double rackHeight, double tileHeight) =>
+    rackHeight * (topRow ? 160 / 424 : 303 / 424) - tileHeight / 2;

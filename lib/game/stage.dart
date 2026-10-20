@@ -11,6 +11,7 @@ import 'okey_game.dart';
 class Stage extends Component with HasGameReference<OkeyGame> {
   late final PositionComponent _rack;
   bool _buttonsShown = false;
+  Component? _actionMenu;
 
   @override
   Future<void> onLoad() async {
@@ -41,61 +42,69 @@ class Stage extends Component with HasGameReference<OkeyGame> {
   @override
   void update(double dt) {
     super.update(dt);
+    if (_actionMenu != null && (!game.gameStarted || game.isFinishOpen)) {
+      _closeActionMenu();
+    }
     if (_buttonsShown || !game.gameStarted) return;
     _buttonsShown = true;
     _spawnAnimatedRackButtons();
   }
 
   Future<void> _spawnAnimatedRackButtons() async {
-    final rackTop = _rack.position.y - (_rack.size.y / 2);
-    final rackLeft = _rack.position.x - (_rack.size.x / 2);
-    final rackRight = _rack.position.x + (_rack.size.x / 2);
-    const sideGap = 4.0;
-    const leftInset = 22.0;
-    const rightInset = 22.0;
+    final position = Vector2(
+      _rack.position.x + _rack.size.x / 2 - 58,
+      _rack.position.y - 60,
+    );
+    add(RackActionButton(
+      label: 'Diz',
+      icon: Icons.sort_rounded,
+      targetPosition: position,
+      startPosition: position,
+      size: Vector2(120, 96),
+      onTap: _toggleActionMenu,
+    ));
+  }
 
-    final seriSize = Vector2(96, 200);
-    final rightSize = Vector2(88, 90);
-    const rightGap = 14.0;
+  void _closeActionMenu() {
+    _actionMenu?.removeFromParent();
+    _actionMenu = null;
+  }
 
-    final seriTarget = Vector2(
-      rackLeft - seriSize.x - sideGap + leftInset,
-      rackTop + 18,
-    );
-    final rightTopTarget = Vector2(
-      rackRight + sideGap - rightInset,
-      rackTop + 18,
-    );
-    final rightBottomTarget = Vector2(
-      rackRight + sideGap - rightInset,
-      rackTop + 18 + rightSize.y + rightGap,
-    );
-
-    final seri = RackActionButton(
-      label: 'Seri Diz',
-      targetPosition: seriTarget,
-      startPosition: Vector2(rackLeft + 24, seriTarget.y),
-      size: seriSize,
-      onTap: () => game.arrangeSerial(),
-    );
-    final cifte = RackActionButton(
-      label: 'Çifte Diz',
-      targetPosition: rightTopTarget,
-      startPosition: Vector2(rackRight - rightSize.x - 24, rightTopTarget.y),
-      size: rightSize,
-      onTap: () => game.arrangePairs(),
-    );
-    final git = RackActionButton(
-      label: 'Çifte Git',
-      targetPosition: rightBottomTarget,
-      startPosition: Vector2(rackRight - rightSize.x - 24, rightBottomTarget.y),
-      size: rightSize,
-      onTap: () => game.requestDoubleMode(),
-    );
-
-    add(seri);
-    add(cifte);
-    add(git);
+  void _toggleActionMenu() {
+    if (_actionMenu != null) {
+      _closeActionMenu();
+      return;
+    }
+    final menu = Component(priority: 20);
+    _actionMenu = menu;
+    final actions = <(String, VoidCallback)>[
+      ('Seri Diz', () => game.arrangeSerial()),
+      ('Çifte Diz', () => game.arrangePairs()),
+      ('Çifte Git', () => game.requestDoubleMode()),
+    ];
+    for (var i = 0; i < actions.length; i++) {
+      final action = actions[i];
+      final position = Vector2(
+        _rack.position.x + _rack.size.x / 2 - 138,
+        _rack.position.y - 60 - (3 - i) * 102,
+      );
+      menu.add(RackActionButton(
+        label: action.$1,
+        icon: const [
+          Icons.view_week_rounded,
+          Icons.filter_2_rounded,
+          Icons.double_arrow_rounded,
+        ][i],
+        targetPosition: position,
+        startPosition: position + Vector2(0, 8),
+        size: Vector2(200, 96),
+        onTap: () {
+          _closeActionMenu();
+          action.$2();
+        },
+      ));
+    }
+    add(menu);
   }
 }
 
@@ -138,16 +147,20 @@ class RackCinematicFx extends PositionComponent {
 
 class RackActionButton extends PositionComponent with TapCallbacks, ActivityLifecycleObservation {
   final String label;
+  final IconData? icon;
   final Vector2 targetPosition;
   final Vector2 startPosition;
   final VoidCallback onTap;
   bool _pressed = false;
   final List<TextPainter> _labels = [];
+  TextPainter? _iconPainter;
   double? _labelWidth;
   double? _labelHeight;
   int textMeasurements = 0;
 
   void _clearLabels() {
+    _iconPainter?.dispose();
+    _iconPainter = null;
     for (final painter in _labels) {
       painter.dispose();
     }
@@ -159,15 +172,30 @@ class RackActionButton extends PositionComponent with TapCallbacks, ActivityLife
   void _prepareLabels() {
     if (_labelWidth == size.x && _labelHeight == size.y) return;
     _clearLabels();
-    for (final line in label.split(' ')) {
+    final glyph = icon;
+    if (glyph != null) {
+      _iconPainter = TextPainter(
+        text: TextSpan(
+          text: String.fromCharCode(glyph.codePoint),
+          style: TextStyle(
+            fontFamily: glyph.fontFamily,
+            package: glyph.fontPackage,
+            fontSize: 32,
+            color: const Color(0xFFE5D3AA),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+    }
+    for (final line in size.x >= 180 ? [label] : label.split(' ')) {
       _labels.add(
         TextPainter(
           text: TextSpan(
             text: line,
             style: TextStyle(
-              color: const Color(0xFFF6D783),
-              fontSize: size.y >= 150 ? 30 : 22,
-              fontWeight: FontWeight.w700,
+              color: const Color(0xFFE5D3AA),
+              fontSize: size.x >= 180 ? 27 : 23,
+              fontWeight: FontWeight.w600,
               height: 1.0,
             ),
           ),
@@ -188,6 +216,7 @@ class RackActionButton extends PositionComponent with TapCallbacks, ActivityLife
 
   RackActionButton({
     required this.label,
+    this.icon,
     required this.targetPosition,
     required this.startPosition,
     required Vector2 size,
@@ -215,36 +244,23 @@ class RackActionButton extends PositionComponent with TapCallbacks, ActivityLife
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-    final r = RRect.fromRectAndRadius(rect, const Radius.circular(16));
+    final rect = Rect.fromLTWH(5, 5, size.x - 10, size.y - 10);
+    final r = RRect.fromRectAndRadius(rect, const Radius.circular(22));
 
     final body = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF2A352E), Color(0xFF0F1612)],
+        colors: [Color(0x992A342C), Color(0x9913211C)],
       ).createShader(rect);
     final border = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFF0CC7D), Color(0xFFB8842D)],
+        colors: [Color(0xCCCFB878), Color(0x667F713E)],
       ).createShader(rect)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2;
-
-    final inner = Paint()
-      ..color = const Color(0x33FFF6D8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    final gloss = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0x44FFF2CD), Color(0x00FFF2CD)],
-        stops: [0.0, 0.65],
-      ).createShader(Rect.fromLTWH(0, 0, size.x, size.y * 0.55));
+      ..strokeWidth = 1.2;
 
     if (_pressed) {
       canvas.save();
@@ -255,17 +271,23 @@ class RackActionButton extends PositionComponent with TapCallbacks, ActivityLife
       canvas.translate(-cx, -cy);
     }
     canvas.drawRRect(r, body);
-    canvas.drawRRect(r, gloss);
     canvas.drawRRect(r, border);
-    canvas.drawRRect(r.deflate(5), inner);
     renderLabels(canvas);
     if (_pressed) canvas.restore();
   }
 
   void renderLabels(Canvas canvas) {
     _prepareLabels();
-    final lineHeight = size.y >= 150 ? 34.0 : 24.0;
-    var y = (size.y - _labels.length * lineHeight) / 2 + lineHeight / 2;
+    const lineHeight = 27.0;
+    var y = (size.y - _labels.length * lineHeight) / 2;
+    final iconPainter = _iconPainter;
+    if (iconPainter != null) {
+      iconPainter.paint(
+        canvas,
+        Offset((size.x - iconPainter.width) / 2, 14),
+      );
+      y = size.y - 14 - _labels.length * lineHeight;
+    }
     for (final painter in _labels) {
       painter.paint(canvas, Offset((size.x - painter.width) / 2, y));
       y += lineHeight;

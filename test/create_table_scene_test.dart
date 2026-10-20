@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/ui/lobby/create_table_scene.dart';
 
 class Draft {
-  final stakes = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200];
+  final stakes = [100, 200, 400, 800, 1600, 3200];
   int selected = 0, speed = 20, created = 0, closed = 0;
   bool spectator = true, chat = true;
 }
@@ -105,8 +105,8 @@ void main() {
             'speed-normal',
             'setting-spectator',
             'setting-chat',
-            'stake-next',
-            'stake-previous',
+            'stake-0',
+            'stake-5',
           ]) {
             expect(find.byKey(ValueKey(key)).hitTestable(), findsOneWidget);
             final rect = tester.getRect(find.byKey(ValueKey(key)));
@@ -129,63 +129,33 @@ void main() {
       );
     }
   }
-  testWidgets(
-    'arrows reach last stake without changing selection; low coins disable create',
-    (tester) async {
-      final draft = Draft();
-      await scene(tester, const Size(640, 360), draft);
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const ValueKey('stake-previous')))
-            .onPressed,
-        isNull,
-      );
-      for (var i = 0; i < 10; i++) {
-        if (tester
-                .widget<IconButton>(find.byKey(const ValueKey('stake-next')))
-                .onPressed ==
-            null) {
-          break;
-        }
-        await tester.tap(find.byKey(const ValueKey('stake-next')));
-        await tester.pumpAndSettle();
-      }
-      expect(draft.selected, 0);
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const ValueKey('stake-next')))
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.byKey(const ValueKey('stake-9')));
-      await tester.pumpAndSettle();
-      expect(draft.selected, 9);
-      expect(
-        tester.widget<Text>(find.byKey(const ValueKey('preview-stake'))).data,
-        '51200',
-      );
-      expect(
-        tester
-            .widget<TextButton>(find.byKey(const ValueKey('create-confirm')))
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.byKey(const ValueKey('create-confirm')));
-      expect(draft.created, 0);
-      await tester.pumpWidget(const SizedBox.shrink());
-      final next = Draft();
-      await scene(tester, const Size(640, 360), next);
-      expect(next.selected, 0);
-      expect(next.speed, 20);
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const ValueKey('stake-previous')))
-            .onPressed,
-        isNull,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('all stakes fit without arrows; low coins still disable create', (
+    tester,
+  ) async {
+    final draft = Draft();
+    draft.stakes.addAll([6400, 12800, 25600, 51200]);
+    await scene(tester, const Size(640, 360), draft);
+    expect(find.byKey(const ValueKey('stake-next')), findsNothing);
+    expect(find.byKey(const ValueKey('stake-previous')), findsNothing);
+    for (var i = 0; i < draft.stakes.length; i++) {
+      expect(find.byKey(ValueKey('stake-$i')).hitTestable(), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const ValueKey('stake-9')));
+    await tester.pumpAndSettle();
+    expect(draft.selected, 9);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('preview-stake'))).data,
+      '51200',
+    );
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const ValueKey('create-confirm')))
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.byKey(const ValueKey('create-confirm')));
+    expect(draft.created, 0);
+  });
   for (final size in [const Size(640, 360), const Size(932, 430)]) {
     testWidgets('preparation scene golden $size', (tester) async {
       await scene(tester, size, Draft());

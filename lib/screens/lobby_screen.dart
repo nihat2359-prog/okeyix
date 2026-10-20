@@ -4599,7 +4599,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ? const EdgeInsets.symmetric(horizontal: 4, vertical: 4)
         : const EdgeInsets.symmetric(horizontal: 8, vertical: 3);
     final iconSize = coin ? 15.0 : 14.0;
-    final textSize = coin ? 11.5 : 14.0;
+    final textSize = 14.0;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -4679,7 +4679,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                       },
                       child: const Icon(
                         Icons.monetization_on,
-                        size: 15,
+                        size: 18,
                         color: Color(0xFFC9A86C),
                       ),
                     ),

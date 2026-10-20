@@ -141,6 +141,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   bool _showIndicatorRewardFx = false;
   bool _showVoiceCoachmark = false;
   int? _lastTurnTickSecond;
+  bool _localTurnWasActive = false;
+  final _turnNoticeVisible = ValueNotifier<bool>(false);
+  final jo.AudioPlayer _turnNoticePlayer = jo.AudioPlayer();
+  Timer? _turnNoticeTimer;
   static const String _voiceCoachmarkKey = 'voice_coachmark_seen_v1';
   static const List<String> _chatEmojis = <String>[
     '\u{1F44D}',
@@ -372,6 +376,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _tileSfxPlayer.dispose();
     _startGameSfxPlayer.dispose();
     _turnTickSfxPlayer.dispose();
+    _turnNoticeTimer?.cancel();
+    _turnNoticeVisible.dispose();
+    _turnNoticePlayer.dispose();
     _audioPlayer.dispose();
     _hourglassCtrl.dispose();
     _voiceFeedbackTimer?.cancel();
@@ -384,6 +391,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _decorationsForeground = state == AppLifecycleState.resumed;
+    if (!_decorationsForeground) {
+      _turnNoticeTimer?.cancel();
+      _turnNoticeVisible.value = false;
+      unawaited(_turnNoticePlayer.stop());
+    }
     _syncDecorations();
     if (state == AppLifecycleState.resumed) {
       _viewData.invalidateAll();
@@ -899,7 +911,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _lastTileSound = now;
 
     _tileSfxPlayer.stop();
-    _tileSfxPlayer.play(jo.AssetSource('sounds/drop_tile.wav'), volume: 0.42);
+    _tileSfxPlayer.play(jo.AssetSource('sounds/tile_wood_contact.wav'), volume: 0.50);
 
     FeedbackSettingsService.triggerHaptic();
   }
@@ -1156,6 +1168,21 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         !_hideTopHudForFinish &&
         _game.isMyTurnForLocalUser;
 
+    if (turnActive != _localTurnWasActive) {
+      _localTurnWasActive = turnActive;
+      _turnNoticeTimer?.cancel();
+      _turnNoticeVisible.value = turnActive;
+      if (turnActive && _decorationsForeground) {
+        unawaited(FeedbackSettingsService.triggerHaptic());
+        if (FeedbackSettingsService.soundEnabled) {
+          unawaited(_playTurnNotice());
+        }
+        _turnNoticeTimer = Timer(const Duration(milliseconds: 1800), () {
+          if (mounted) _turnNoticeVisible.value = false;
+        });
+      }
+    }
+
     if (!turnActive || !FeedbackSettingsService.soundEnabled) {
       _lastTurnTickSecond = null;
       _turnTickSfxPlayer.stop();
@@ -1186,18 +1213,24 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     _turnTickSfxPlayer.stop();
     if (remaining <= 5) {
       _turnTickSfxPlayer.play(
-        jo.AssetSource('sounds/tick_urgent.wav'),
-        volume: 0.40,
-      );
-    } else {
-      _turnTickSfxPlayer.play(
-        jo.AssetSource('sounds/tick_normal.wav'),
-        volume: 0.28,
+        jo.AssetSource('sounds/turn_soft_tick.wav'),
+        volume: 0.16,
       );
     }
   }
 
   Future<void> _loadTable() => _tableViewRefresh.run(_loadTableOnce);
+
+  Future<void> _playTurnNotice() async {
+    try {
+      await _turnNoticePlayer.play(
+        jo.AssetSource('sounds/turn_notice.wav'),
+        volume: 0.30,
+      );
+    } catch (error) {
+      debugPrint('Turn notice audio: $error');
+    }
+  }
 
   Future<void> _loadTableOnce() async {
     try {
@@ -1936,6 +1969,39 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                     if (!finishOverlayOpen && _menuOpen) _buildMenuPanel(),
                     if (_showFinishFx) _buildFinishFx(),
                     if (_showIndicatorRewardFx) _buildIndicatorRewardFx(),
+                    if (!finishOverlayOpen)
+                      Positioned(
+                        top: 56,
+                        left: 0,
+                        right: 0,
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: _turnNoticeVisible,
+                            builder: (_, visible, _) => visible
+                                ? Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18, vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xED15221F),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: const Color(0x99C9A86C)),
+                                      ),
+                                      child: const Text(
+                                        'Sıra sende',
+                                        style: TextStyle(
+                                          color: Color(0xFFFFE4AA),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
 
                     if (!finishOverlayOpen && _visibleSpectators.isNotEmpty)
                       Positioned(top: 89, right: 8, child: _spectatorStrip()),

@@ -27,17 +27,17 @@ class SampleTree extends Component {
   }) => observed;
 }
 
-void legacyLabels(Canvas canvas, Vector2 size, String label) {
+void uncachedLabels(Canvas canvas, Vector2 size, String label) {
   final style = TextStyle(
-    color: const Color(0xFFF6D783),
-    fontSize: size.y >= 150 ? 30 : 22,
-    fontWeight: FontWeight.w700,
+    color: const Color(0xFFE5D3AA),
+    fontSize: 23,
+    fontWeight: FontWeight.w600,
     height: 1,
   );
   final paint = TextPaint(style: style);
   final lines = label.split(' ');
-  final lineHeight = size.y >= 150 ? 34.0 : 24.0;
-  var y = (size.y - lines.length * lineHeight) / 2 + lineHeight / 2;
+  const lineHeight = 27.0;
+  var y = (size.y - lines.length * lineHeight) / 2;
   for (final line in lines) {
     final measure = TextPainter(
       text: TextSpan(text: line, style: style),
@@ -85,7 +85,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
   test(
-    'button retains text measurements; original pixels match; resize and cleanup',
+    'button retains text measurements; uncached pixels match; resize and cleanup',
     () async {
       final button = RackActionButton(
         label: 'Seri Diz',
@@ -105,7 +105,7 @@ void main() {
         button.size.setFrom(size);
         expect(
           await pixels(button.renderLabels),
-          await pixels((c) => legacyLabels(c, size, button.label)),
+          await pixels((c) => uncachedLabels(c, size, button.label)),
         );
       }
       expect(button.textMeasurements, 4);

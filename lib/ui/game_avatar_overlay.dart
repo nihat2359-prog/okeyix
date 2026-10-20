@@ -52,6 +52,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   int _lastSeenTurnSeat = -1;
   DateTime? _turnStartedAt;
   bool _hasLoadedPlayersOnce = false;
+  bool get _turnClockActive =>
+      _tableStatus == 'playing' &&
+      widget.game.gameStarted &&
+      widget.game.getCountdown() == 0 &&
+      !widget.game.isFinishOpen;
   final List<_FlyAwayFx> _flyAwayFx = <_FlyAwayFx>[];
 
   @override
@@ -388,7 +393,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         ?.toString();
     final isDoubleMode = row['is_double_mode'] == true;
     final activeTurnSeat = widget.game.currentTurn;
-    final isSeatActive = _tableStatus == 'playing' && seatIndex == activeTurnSeat;
+    final isSeatActive = _turnClockActive && seatIndex == activeTurnSeat;
 
     return _SeatPlayer(
       seatIndex: seatIndex,
@@ -406,6 +411,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   }
 
   double _remainingTurnSeconds() {
+    if (!_turnClockActive) return _turnSeconds.toDouble();
     if (_turnStartedAt == null) return _turnSeconds.toDouble();
     final elapsed =
         DateTime.now().difference(_turnStartedAt!).inMilliseconds / 1000.0;
@@ -421,6 +427,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   }
 
   double _ringProgressForSeat(int seatIndex) {
+    if (!_turnClockActive) return 1.0;
     if (_turnSeconds <= 0) return 1.0;
     if (seatIndex != _currentTurnSeat) return 1.0;
     final remain = _remainingTurnSeconds();
@@ -612,7 +619,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             position: position,
             progress: progressReader(),
             progressReader: progressReader,
-            animateProgress: _tableStatus == 'playing',
+            animateProgress: _turnClockActive,
             showRating: false,
             showRatingProgress: true,
             onTap: onTap,

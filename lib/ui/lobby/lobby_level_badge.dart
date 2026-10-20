@@ -16,8 +16,8 @@ class LobbyLevelBadge extends StatelessWidget {
       child: Semantics(
         label: 'Seviye $level. Seviye $next için $remaining puan.',
         child: SizedBox(
-          width: 92,
-          height: 26,
+          width: 106,
+          height: 28,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -31,7 +31,7 @@ class LobbyLevelBadge extends StatelessWidget {
                         'Seviye $level',
                         style: const TextStyle(
                           color: Color(0xFFE5D3AA),
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -40,7 +40,7 @@ class LobbyLevelBadge extends StatelessWidget {
                         '→ $next',
                         style: const TextStyle(
                           color: Color(0xFF8997A8),
-                          fontSize: 9,
+                          fontSize: 10,
                         ),
                       ),
                     ],
@@ -51,7 +51,7 @@ class LobbyLevelBadge extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: progress,
-                  minHeight: 3,
+                  minHeight: 4,
                   backgroundColor: const Color(0xFF28323F),
                   color: const Color(0xFFC9A86C),
                 ),

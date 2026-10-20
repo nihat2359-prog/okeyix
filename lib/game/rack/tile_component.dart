@@ -29,7 +29,7 @@ extension TileColorTypeStyle on TileColorType {
         if (UserState.colorBlindMode) {
           return const Color(0xFF2E8B57);
         }
-        return const Color(0xFFE3BB00);
+        return const Color(0xFFAA7B12);
     }
   }
 }
@@ -664,7 +664,7 @@ class TileComponent extends PositionComponent
         if (UserState.colorBlindMode) {
           return const Color(0xFF2E8B57);
         }
-        return const Color(0xFFE3BB00);
+        return const Color(0xFFAA7B12);
     }
   }
 
@@ -744,6 +744,10 @@ class TileGemBadge extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
+    if (mellow) {
+      canvas.drawCircle(Offset.zero, radius, Paint()..color = coreColor);
+      return;
+    }
     final double outerCoreOpacity = mellow ? 0.84 : 0.96;
     final double ringOpacity = mellow ? 0.36 : 0.53;
     final double gleamOpacity = mellow ? 0.34 : 0.65;
