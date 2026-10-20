@@ -87,10 +87,10 @@ class LobbyLeagueList extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, box) {
-        final padding = box.maxWidth < 150 || box.maxHeight < 70 ? 6.0 : 10.0;
-        final trophySize = (box.maxWidth * (wide ? .16 : .18)).clamp(
-          22.0,
-          (box.maxHeight * .64).clamp(22.0, wide ? 56.0 : 40.0),
+        final padding = box.maxWidth < 150 || box.maxHeight < 70 ? 7.0 : 11.0;
+        final trophySize = (box.maxHeight * .72).clamp(
+          24.0,
+          wide ? 50.0 : (box.maxWidth * .27).clamp(30.0, 46.0),
         );
         return Semantics(
           selected: selected,
@@ -106,27 +106,27 @@ class LobbyLeagueList extends StatelessWidget {
               color: Colors.transparent,
               child: Ink(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
                       selected
-                          ? const Color(0x8C202127)
-                          : const Color(0x7013161D),
-                      const Color(0x99101319),
+                          ? const Color(0xE0313030)
+                          : const Color(0xE0202731),
+                      const Color(0xE0101721),
                     ],
                   ),
                   border: Border.all(
                     color: selected
-                        ? const Color(0xCCD8B877)
-                        : const Color(0x38CBD0DC),
+                        ? const Color(0xCCD6B57A)
+                        : const Color(0x387F8D9D),
                     width: 1,
                   ),
                 ),
                 child: InkWell(
                   onTap: () => onSelect(Map<String, dynamic>.from(league)),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Padding(
                     padding: EdgeInsets.all(padding),
                     child: Row(
@@ -134,11 +134,29 @@ class LobbyLeagueList extends StatelessWidget {
                         SizedBox(
                           width: trophySize,
                           height: trophySize,
-                          child: CustomPaint(
-                            painter: _LeagueCupPainter(theme, wide),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  theme.base.withValues(alpha: .22),
+                                  const Color(0x00101823),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: theme.light.withValues(alpha: .18),
+                                width: .6,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: CustomPaint(
+                                painter: _LeagueCupPainter(theme, wide),
+                              ),
+                            ),
                           ),
                         ),
-                        SizedBox(width: wide ? 12 : 6),
+                        SizedBox(width: wide ? 12 : 8),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -155,10 +173,11 @@ class LobbyLeagueList extends StatelessWidget {
                                         child: Text(
                                           league['name']?.toString() ?? '',
                                           style: TextStyle(
-                                            color: const Color(0xFFF1E9D8),
-                                            fontSize: wide ? 17 : 13,
+                                            color: const Color(0xFFF0E5D0),
+                                            fontSize: wide ? 17 : 14,
                                             height: 1.15,
-                                            fontWeight: FontWeight.w700,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: .1,
                                           ),
                                         ),
                                       ),
@@ -173,7 +192,7 @@ class LobbyLeagueList extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 5),
+                              const SizedBox(height: 4),
                               Flexible(
                                 flex: 2,
                                 child: FittedBox(
@@ -184,29 +203,29 @@ class LobbyLeagueList extends StatelessWidget {
                                     children: [
                                       Icon(
                                         Icons.people_alt_outlined,
-                                        size: 12,
-                                        color: theme.light,
+                                        size: 11,
+                                        color: const Color(0xFFB6A17A),
                                       ),
                                       const SizedBox(width: 3),
                                       Text(
                                         '$players',
                                         style: const TextStyle(
-                                          color: Color(0xFFC3D0C9),
-                                          fontSize: 11,
+                                          color: Color(0xFFA8B3BF),
+                                          fontSize: 10.5,
                                         ),
                                       ),
-                                      SizedBox(width: wide ? 16 : 8),
+                                      const SizedBox(width: 10),
                                       Icon(
                                         Icons.table_restaurant_outlined,
-                                        size: 12,
-                                        color: theme.light,
+                                        size: 11,
+                                        color: const Color(0xFFB6A17A),
                                       ),
                                       const SizedBox(width: 3),
                                       Text(
                                         '$tables',
                                         style: const TextStyle(
-                                          color: Color(0xFFC3D0C9),
-                                          fontSize: 11,
+                                          color: Color(0xFFA8B3BF),
+                                          fontSize: 10.5,
                                         ),
                                       ),
                                     ],

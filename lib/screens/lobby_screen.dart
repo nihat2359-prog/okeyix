@@ -36,6 +36,7 @@ import 'store_screen.dart';
 import 'leaderboard_screen.dart';
 import 'banned_screen.dart';
 import '../ui/lobby/lobby_avatar.dart';
+import '../ui/lobby/lobby_level_badge.dart';
 import '../ui/lobby/lobby_league_list.dart';
 import '../ui/lobby/lobby_bottom_dock.dart';
 import '../ui/lobby/lobby_side_menu.dart';
@@ -4593,93 +4594,24 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget statChip(IconData icon, int value, bool coin) {
     final t = _coinFxActive ? _coinFxController.value : 0.0;
     final spin = t * 6.28318;
-    if (!coin) {
-      final levelValue = Format.ratingLevel(_ratingDisplayValue);
-      final ratingProgress = Format.ratingLevelProgress(
-        _ratingDisplayValue,
-      ).clamp(0.0, 1.0);
-      final ratingDisplayProgress = ratingProgress > 0
-          ? ratingProgress.clamp(0.08, 1.0).toDouble()
-          : 0.0;
-      return SizedBox(
-        width: 92,
-        height: 24,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF26332E), Color(0xFF111C1B)],
-            ),
-            border: Border.all(color: const Color(0x77D9B675)),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(color: const Color(0x664A5C53)),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: ratingDisplayProgress,
-                    heightFactor: 1,
-                    child: const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFF7E6B5),
-                            Color(0xFFE2BE73),
-                            Color(0xFFB7893F),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Text(
-                  'Seviye $levelValue',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.0,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    if (!coin) return LobbyLevelBadge(rating: _ratingDisplayValue);
     final chipPadding = coin
-        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+        ? const EdgeInsets.symmetric(horizontal: 4, vertical: 4)
         : const EdgeInsets.symmetric(horizontal: 8, vertical: 3);
     final iconSize = coin ? 15.0 : 14.0;
-    final textSize = coin ? 14.5 : 14.0;
+    final textSize = coin ? 11.5 : 14.0;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         AnimatedContainer(
           key: coin ? _coinTargetKey : null,
           duration: const Duration(milliseconds: 260),
+          constraints: const BoxConstraints(minHeight: 26),
           padding: coin
               ? chipPadding
               : const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(
-              colors: coin && _coinFxActive
-                  ? const [Color(0xFF242A31), Color(0xFF141920)]
-                  : const [Color(0xFF26332E), Color(0xFF111C1B)],
-            ),
-            border: Border.all(
-              color: coin && _coinFxActive
-                  ? const Color(0x99E7C06A)
-                  : const Color(0x33E7C06A),
-            ),
             boxShadow: coin && _coinFxActive
                 ? const [
                     BoxShadow(
@@ -4747,17 +4679,17 @@ class _LobbyScreenState extends State<LobbyScreen>
                       },
                       child: const Icon(
                         Icons.monetization_on,
-                        size: 17,
-                        color: Color(0xFFE7C06A),
+                        size: 15,
+                        color: Color(0xFFC9A86C),
                       ),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       Format.coin(_coinDisplayValue),
                       style: TextStyle(
-                        color: Colors.white,
+                        color: const Color(0xFFE5D3AA),
                         fontSize: textSize,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         height: 1.0,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
@@ -4848,13 +4780,13 @@ class _LobbyScreenState extends State<LobbyScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFFFFEDB4),
-                  Color(0xFFD6A74C),
-                  Color(0xFF80551F),
+                  Color(0xFF293440),
+                  Color(0xFF111A26),
+                  Color(0xFF0C131D),
                 ],
               ),
               boxShadow: const [
-                BoxShadow(color: Color(0x55E7B95A), blurRadius: 9),
+                BoxShadow(color: Color(0x55000000), blurRadius: 5),
               ],
             ),
             child: LobbyAvatar(
