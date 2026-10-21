@@ -27,7 +27,17 @@ class InviteStrings {
     '1. Send your code to a friend.\n2. Your friend redeems it in Okeyix.\n3. They complete 10 hands with real players.\n4. You both receive 1,000,000 coins!',
   );
   String shareMessage(String code) =>
-      '${t('Okeyix’te birlikte oynayalım! Davet kodum: $code. Kodu oyunda doğrula; gerçek oyuncularla 10 el tamamladığında ikimiz de 1.000.000 coin kazanalım!', 'Join me in Okeyix! My invite code: $code. Redeem it in the game and complete 10 hands with real players so we each earn 1,000,000 coins!')}\n\nAndroid: $androidDownloadUrl\niPhone / iPad: $iosDownloadUrl';
+      '${t('*OKEYIX | Masada yerin hazır.*\n\n'
+          'Seni Okeyix’e davet ediyorum. Birlikte oynayalım, birlikte kazanalım!\n\n'
+          '*Davet kodum*\n$code\n\n'
+          '*İkimize de 1.000.000 coin*\n'
+          'Kodu oyundaki *Davet* bölümünde doğrula, ardından gerçek oyuncularla 10 el tamamla. Ödülü ikimiz de kazanalım!\n\n'
+          '*Oyunu indir*', '*OKEYIX | Your seat is ready.*\n\n'
+          'Join me in Okeyix. Let’s play together and win together!\n\n'
+          '*My invite code*\n$code\n\n'
+          '*1,000,000 coins for each of us*\n'
+          'Redeem the code in the game’s *Invite* section, then complete 10 hands with real players. We both earn the reward!\n\n'
+          '*Get the game*')}\nAndroid: $androidDownloadUrl\niPhone / iPad: $iosDownloadUrl';
   String status(String value) => switch (value) {
     'accepted' => t(
       'Kod doğrulandı! 10 el yolculuğun başladı.',

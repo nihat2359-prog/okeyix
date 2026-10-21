@@ -14,6 +14,7 @@ import 'package:okeyix/core/format.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
 import '../game/spectator_game.dart';
+import 'package:okeyix/ui/table_gift_layer.dart';
 
 class SpectatorScreen extends StatefulWidget {
   final String tableId;
@@ -222,7 +223,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     try {
       final rows = await supabase
           .from('table_players')
-          .select('user_id,seat_index,users(username,avatar_url)')
+          .select('id,user_id,seat_index,users(username,avatar_url)')
           .eq('table_id', tableId);
       if (!mounted ||
           widget.tableId != tableId ||
@@ -272,7 +273,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
     final p = await supabase
         .from('table_players')
-        .select('user_id,seat_index,users(username,avatar_url)')
+        .select('id,user_id,seat_index,users(username,avatar_url)')
         .eq('table_id', widget.tableId);
 
     final s = await supabase
@@ -694,6 +695,15 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             ),
 
           /// CHAT BUTTON
+          Positioned.fill(child: TableGiftLayer(
+            key: ValueKey('spectator-gifts:${widget.tableId}:${supabase.auth.currentUser?.id}:${players.map((p) => p['id'] ?? p['user_id']).join(':')}'),
+            tableId: widget.tableId,
+            spectator: true,
+            anchors: [
+              if (top != null) TableGiftAnchor(top['user_id'].toString(), top['users']['username']?.toString() ?? '', topAvatarKey),
+              if (bottom != null) TableGiftAnchor(bottom['user_id'].toString(), bottom['users']['username']?.toString() ?? '', bottomAvatarKey),
+            ],
+          )),
           if (_tableChatEnabled)
             Positioned(
               right: 20,

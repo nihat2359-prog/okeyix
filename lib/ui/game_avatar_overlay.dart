@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/player_model.dart';
 import 'avatar_card.dart';
 import 'avatar_preset.dart';
+import 'table_gift_layer.dart';
 
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
@@ -58,6 +59,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       widget.game.getCountdown() == 0 &&
       !widget.game.isFinishOpen;
   final List<_FlyAwayFx> _flyAwayFx = <_FlyAwayFx>[];
+  final Map<String, GlobalKey> _giftAnchors = {};
+  final Map<String, GlobalKey> _giftOrigins = {};
+  String _giftMembersKey = '';
 
   @override
   void initState() {
@@ -239,6 +243,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
       setState(() {
         players = mapped;
+        _giftMembersKey = playerRows.map((r) => '${r['id'] ?? r['user_id']}').join(':');
         _mySeatIndex = mySeat;
         _hasLoadedPlayersOnce = true;
       });
@@ -560,6 +565,13 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       return Stack(
         children: [
           ...items,
+          Positioned.fill(child: TableGiftLayer(
+            key: ValueKey('gifts:${widget.tableId}:$_myUserId:$_giftMembersKey'),
+            tableId: widget.tableId,
+            anchors: [for (final p in players) if (_giftAnchors[p.player.id] != null)
+              TableGiftAnchor(p.player.id, p.player.name, _giftAnchors[p.player.id]!, originKey: _giftOrigins[p.player.id])],
+            onBalance: (_) { _viewData.invalidateAll(); unawaited(_loadPlayers()); },
+          )),
           ..._flyAwayFx
               .map((fx) => _buildFlyAwayFx(size: size, fx: fx))
               .toList(growable: false),
@@ -614,15 +626,19 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       children: [
         _ActiveAvatarBubbleMotion(
           active: player.isActive,
-          child: AvatarCard(
-            player: player,
-            position: position,
-            progress: progressReader(),
-            progressReader: progressReader,
-            animateProgress: _turnClockActive,
-            showRating: false,
-            showRatingProgress: true,
-            onTap: onTap,
+          child: SizedBox(
+            key: _giftAnchors.putIfAbsent(player.id, () => GlobalKey()),
+            child: AvatarCard(
+              giftOriginKey: _giftOrigins.putIfAbsent(player.id, () => GlobalKey()),
+              player: player,
+              position: position,
+              progress: progressReader(),
+              progressReader: progressReader,
+              animateProgress: _turnClockActive,
+              showRating: false,
+              showRatingProgress: true,
+              onTap: onTap,
+            ),
           ),
         ),
         if (text != null && text.trim().isNotEmpty)

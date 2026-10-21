@@ -91,7 +91,7 @@ class GameViewDataSource {
           return rows(
             await client
                 .from('table_players')
-                .select('seat_index,user_id,is_double_mode')
+                .select('id,seat_index,user_id,is_double_mode')
                 .eq('table_id', tableId)
                 .order('seat_index'),
           );
@@ -102,7 +102,7 @@ class GameViewDataSource {
           return rows(
             await client
                 .from('table_players')
-                .select('seat_index,user_id')
+                .select('id,seat_index,user_id')
                 .eq('table_id', tableId)
                 .order('seat_index'),
           );

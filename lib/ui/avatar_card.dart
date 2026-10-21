@@ -16,6 +16,7 @@ class AvatarCard extends StatelessWidget {
   final bool showRating;
   final bool showRatingProgress;
   final VoidCallback? onTap;
+  final GlobalKey? giftOriginKey;
   const AvatarCard({
     super.key,
     required this.player,
@@ -26,6 +27,7 @@ class AvatarCard extends StatelessWidget {
     this.showRating = true,
     this.showRatingProgress = true,
     this.onTap,
+    this.giftOriginKey,
   });
 
   @override
@@ -62,9 +64,10 @@ class AvatarCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildAvatarWithTimer(),
+          SizedBox(key: giftOriginKey, child: _buildAvatarWithTimer()),
           const SizedBox(width: 10),
           _buildInfo(crossAxis: CrossAxisAlignment.start),
+          if (giftOriginKey != null) const SizedBox(width: 42),
         ],
       ),
     );
@@ -79,7 +82,7 @@ class AvatarCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildAvatarWithTimer(),
+          SizedBox(key: giftOriginKey, child: _buildAvatarWithTimer()),
           const SizedBox(height: 6),
           _buildInfo(crossAxis: CrossAxisAlignment.center),
         ],
