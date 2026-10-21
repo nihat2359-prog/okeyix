@@ -90,3 +90,13 @@ not a full-scale digital twin. Bridges use approximate coastal anchors.
 asset build. Then `node tool/build_journey_geography.cjs` produces the small
 bundled `geography.js` and license files. Raw downloads remain in ignored
 `.dart_tool/journey_sources/`; they are not included in APK/IPA assets.
+
+## Kız Kulesi ayrıntılı model (yeni doğrudan giriş)
+
+This work is based on "Maiden's Tower"
+(https://sketchfab.com/3d-models/maidens-tower-398a52c016914328bf88e273823db6c1)
+by oblo.3d (https://sketchfab.com/oblo.3d), licensed under CC-BY-4.0
+(https://creativecommons.org/licenses/by/4.0/). Static mesh batching, texture
+resizing, scale normalization and replacement of the flat sea were performed.
+See MAIDEN-LICENSE.txt and docs/journey_maiden.md. The older map models above
+are independent; they are not the architecture used in maiden.html.

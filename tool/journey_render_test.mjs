@@ -6,6 +6,7 @@ import {pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
 const out = resolve('.dart_tool/journey');
 const mapOnly = process.argv.includes('--map-only');
+const maiden = process.argv.includes('--maiden');
 const world = process.argv.includes('--world') || mapOnly;
 await mkdir(out, {recursive: true});
 const browser = spawn(process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -51,13 +52,42 @@ try {
   await call('Runtime.enable'); await call('Page.enable');
   await call('Page.addScriptToEvaluateOnNewDocument', {source: 'window.journeyMessages=[];window.Journey={postMessage:m=>window.journeyMessages.push(m)};'});
   await call('Emulation.setDeviceMetricsOverride', {width: 1000, height: 560, deviceScaleFactor: 1, mobile: false});
-  await call('Page.navigate', {url: pathToFileURL(resolve(`assets/journey/${world ? 'index' : 'demo'}.html`)).href});
+  await call('Page.navigate', {url: pathToFileURL(resolve(`assets/journey/${maiden ? 'maiden' : world ? 'index' : 'demo'}.html`)).href});
   for (let i = 0; i < 100; i++) {
     if (await evaluate('!!window.journeyDiagnostics')) break;
     await new Promise(ok => setTimeout(ok, 100));
   }
   await new Promise(ok => setTimeout(ok, 2500));
-  if (world) {
+  if (maiden) {
+    for(let i=0;i<300;i++) {
+      if(await evaluate('window.journeyDiagnostics?.().loaded'))break;
+      if(errors.length)throw Error(JSON.stringify(errors));
+      await new Promise(ok=>setTimeout(ok,100));
+    }
+    assert(await evaluate('window.journeyDiagnostics().loaded'),'Textured architecture must load');
+    await new Promise(ok=>setTimeout(ok,1500));
+    const d=await evaluate('window.journeyDiagnostics()');console.log(d);
+    assert(d.triangles>260000);assert(d.calls<100,'Static architecture must be batched');
+    for(const [width,height]of [[1000,560],[480,270],[844,390]]){
+      await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+      await evaluate('window.dispatchEvent(new Event("resize"))');await new Promise(ok=>setTimeout(ok,400));
+      const {data}=await call('Page.captureScreenshot',{format:'png'});await writeFile(`${out}/premium_maiden_${width}x${height}.png`,Buffer.from(data,'base64'));
+      assert(await evaluate('document.documentElement.scrollWidth===innerWidth&&document.documentElement.scrollHeight===innerHeight'));
+    }
+    await call('Input.dispatchMouseEvent',{type:'mouseWheel',x:250,y:150,deltaX:0,deltaY:-100000});
+    await new Promise(ok=>setTimeout(ok,800));
+    assert.equal(await evaluate('window.journeyDiagnostics().wantedRadius'),48);
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',x:300,y:150,button:'left',clickCount:1});
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:500,y:-200,button:'left',buttons:1});
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:500,y:10,button:'left',clickCount:1});
+    assert(await evaluate('window.journeyDiagnostics().wantedPitch>=.08'));
+    await evaluate('window.journey.pause(true)');const before=await evaluate('window.journeyDiagnostics().elapsed');
+    await new Promise(ok=>setTimeout(ok,200));assert.equal(await evaluate('window.journeyDiagnostics().elapsed'),before);
+    await evaluate('window.journey.pause(false);window.journey.reset();window.journey.back()');
+    assert(await evaluate('window.journeyMessages.includes("exit")'));
+    await evaluate('window.journey.dispose()');assert(await evaluate('window.journeyDiagnostics().disposed'));
+    assert.equal(errors.length,0,JSON.stringify(errors));console.log('PASS: premium model, batching, landscape sizes, camera bounds, pause, exit and disposal.');
+  } else if (world) {
     const wait = async predicate => {
       for (let i=0;i<240;i++) {
         if(await evaluate(predicate))return;

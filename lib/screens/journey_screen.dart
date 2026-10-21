@@ -65,6 +65,7 @@ class _JourneyScreenState extends State<JourneyScreen>
   WebViewController? _web;
   Timer? _timeout;
   bool _ready = false, _failed = false, _demo = false, _demoPanel = false;
+  int _progress = 0;
   JourneyLocation _location = const JourneyLocation();
   bool get _supported =>
       !kIsWeb &&
@@ -97,6 +98,14 @@ class _JourneyScreenState extends State<JourneyScreen>
               _ready = true;
               _failed = false;
             });
+          } else if (value.startsWith('progress:')) {
+            final progress = int.tryParse(value.substring(9));
+            if (!_ready &&
+                progress != null &&
+                progress >= 0 &&
+                progress <= 100) {
+              setState(() => _progress = progress);
+            }
           } else if (value == 'error') {
             _timeout?.cancel();
             setState(() => _failed = true);
@@ -149,15 +158,16 @@ class _JourneyScreenState extends State<JourneyScreen>
     setState(() {
       _demo = demo;
       _ready = _failed = _demoPanel = false;
+      _progress = 0;
       _location = const JourneyLocation();
     });
     _timeout?.cancel();
-    _timeout = Timer(const Duration(seconds: 30), () {
+    _timeout = Timer(const Duration(seconds: 90), () {
       if (mounted && !_ready) setState(() => _failed = true);
     });
     try {
       await _web?.loadFlutterAsset(
-        'assets/journey/${demo ? 'demo' : 'index'}.html',
+        'assets/journey/${demo ? 'demo' : 'maiden'}.html',
       );
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -200,6 +210,12 @@ class _JourneyScreenState extends State<JourneyScreen>
       ),
       content: const SingleChildScrollView(
         child: Text(
+          'Kız Kulesi: “Maiden’s Tower”, oblo.3d — CC BY 4.0.\n'
+          'sketchfab.com/3d-models/maidens-tower-398a52c016914328bf88e273823db6c1\n'
+          'sketchfab.com/oblo.3d · creativecommons.org/licenses/by/4.0/\n'
+          'Modelde statik parçalar birleştirildi, dokular küçültüldü; düz deniz kaldırıldı. '
+          'Uzak kıyı ve tekneler temsili çevre geometrisidir. Three.js: MIT.\n\n'
+          'Arşiv harita prototipi kaynakları:\n'
           'Türkiye sınırı: Natural Earth 1:10m (kamu malı).\n'
           'Yükselti: Mapzen Terrarium; USGS / NOAA ve Copernicus EU-DEM kaynakları. Türkiye görünümünde yükseklik 12× abartılır.\n'
           'İl konumları: Open Admin Data, CC BY 4.0; Türkçe adlar düzenlendi. İstanbul giriş noktası şehir merkezine alındı.\n\n'
@@ -247,7 +263,7 @@ class _JourneyScreenState extends State<JourneyScreen>
                           ? 'Yolculuk 3D dünyasını Android veya iOS uygulamasında açın.'
                           : _failed
                           ? '3D sahne yüklenemedi. Güncel bir sistem WebView ile tekrar deneyin.'
-                          : '${_demo ? 'Boğaz Kahvesi' : 'Türkiye'} hazırlanıyor…',
+                          : '${_demo ? 'Boğaz Kahvesi' : 'Kız Kulesi'} hazırlanıyor…${_progress > 0 ? ' %$_progress' : ''}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: _gold),
                     ),
@@ -299,7 +315,7 @@ class _JourneyScreenState extends State<JourneyScreen>
                                 ),
                               ),
                               Text(
-                                _demo ? 'Boğaz Kahvesi' : _location.title,
+                                _demo ? 'Boğaz Kahvesi' : 'Kız Kulesi',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -354,7 +370,7 @@ class _JourneyScreenState extends State<JourneyScreen>
                   textStyle: const TextStyle(fontSize: 9),
                 ),
                 icon: const Icon(Icons.info_outline, size: 13),
-                label: const Text('Natural Earth · DEM · Veri kaynakları'),
+                label: const Text('3D varlıklar · Kaynaklar'),
               ),
             ),
           ),

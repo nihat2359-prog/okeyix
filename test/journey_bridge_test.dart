@@ -112,7 +112,7 @@ void main() {
   });
   for (final size in [const Size(480, 270), const Size(844, 390)]) {
     testWidgets(
-      'native bridge back chain, source dialog and demo at $size',
+      'maiden bridge, source attribution and preserved café at $size',
       (tester) async {
         final platform = _Platform();
         WebViewPlatform.instance = platform;
@@ -139,32 +139,16 @@ void main() {
         );
         await tester.tap(find.text('Aç'));
         await tester.pumpAndSettle();
-        expect(find.text('Türkiye'), findsOneWidget);
+        expect(find.text('Kız Kulesi'), findsOneWidget);
         final controller = platform.controller;
-        expect(controller.assets.last, 'assets/journey/index.html');
-        await tester.tap(find.text('Natural Earth · DEM · Veri kaynakları'));
+        expect(controller.assets.last, 'assets/journey/maiden.html');
+        expect(find.text('Meydan Oku'), findsNothing);
+        await tester.tap(find.text('3D varlıklar · Kaynaklar'));
         await tester.pumpAndSettle();
         expect(find.text('Yolculuk · Veri kaynakları'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.tap(find.text('Kapat'));
         await tester.pumpAndSettle();
-        controller.go('city');
-        controller.go('place');
-        await tester.pumpAndSettle();
-        expect(find.text('Şampiyon: Henüz belirlenmedi'), findsOneWidget);
-        final challenge = find.text('Meydan Oku');
-        expect(challenge, findsOneWidget);
-        expect(
-          tester.getRect(challenge).bottom,
-          lessThanOrEqualTo(size.height),
-        );
-        expect(tester.takeException(), isNull);
-        await tester.tap(find.byTooltip('Önceki görünüm'));
-        await tester.pumpAndSettle();
-        expect(controller.level, 'city');
-        await tester.binding.handlePopRoute();
-        await tester.pumpAndSettle();
-        expect(controller.level, 'turkey');
         await tester.tap(find.byTooltip('Boğaz Kahvesi demosu'));
         await tester.pumpAndSettle();
         expect(controller.assets.last, 'assets/journey/demo.html');
@@ -173,13 +157,13 @@ void main() {
         expect(find.text('Meydan Oku'), findsOneWidget);
         await tester.tap(find.byTooltip('Önceki görünüm'));
         await tester.pumpAndSettle();
-        expect(controller.assets.last, 'assets/journey/index.html');
+        expect(controller.assets.last, 'assets/journey/maiden.html');
         await tester.tap(find.byTooltip('Lobiye dön'));
         await tester.pumpAndSettle();
         expect(find.byType(JourneyScreen), findsNothing);
         expect(
           controller.commands.where((s) => s.contains('.dispose()')).length,
-          greaterThanOrEqualTo(3),
+          greaterThanOrEqualTo(2),
         );
         expect(tester.takeException(), isNull);
       },
