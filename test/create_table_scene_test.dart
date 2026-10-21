@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/ui/lobby/create_table_scene.dart';
@@ -32,23 +34,31 @@ Future<void> scene(
           child: SafeArea(
             child: Scaffold(
               backgroundColor: const Color(0xFF071210),
-              body: StatefulBuilder(
-                builder: (context, refresh) => CreateTableScene(
-                  leagueName: 'Şampiyonlar',
-                  stakes: draft.stakes,
-                  selectedIndex: draft.selected,
-                  turnSeconds: draft.speed,
-                  spectator: draft.spectator,
-                  chat: draft.chat,
-                  canCreate: draft.stakes[draft.selected] <= 1000,
-                  formatStake: (n) => '$n',
-                  onStake: (n) => refresh(() => draft.selected = n),
-                  onSpeed: (n) => refresh(() => draft.speed = n),
-                  onSpectator: () =>
-                      refresh(() => draft.spectator = !draft.spectator),
-                  onChat: () => refresh(() => draft.chat = !draft.chat),
-                  onCreate: () => draft.created++,
-                  onClose: () => draft.closed++,
+              body: DecoratedBox(
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/lobby/lobby.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: StatefulBuilder(
+                  builder: (context, refresh) => CreateTableScene(
+                    leagueName: 'Şampiyonlar',
+                    stakes: draft.stakes,
+                    selectedIndex: draft.selected,
+                    turnSeconds: draft.speed,
+                    spectator: draft.spectator,
+                    chat: draft.chat,
+                    canCreate: draft.stakes[draft.selected] <= 1000,
+                    formatStake: (n) => '$n',
+                    onStake: (n) => refresh(() => draft.selected = n),
+                    onSpeed: (n) => refresh(() => draft.speed = n),
+                    onSpectator: () =>
+                        refresh(() => draft.spectator = !draft.spectator),
+                    onChat: () => refresh(() => draft.chat = !draft.chat),
+                    onCreate: () => draft.created++,
+                    onClose: () => draft.closed++,
+                  ),
                 ),
               ),
             ),
@@ -61,6 +71,79 @@ Future<void> scene(
 }
 
 void main() {
+  testWidgets('real dialog route preserves the backdrop through its face', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(932, 430));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final capture = GlobalKey();
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: capture,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const Positioned.fill(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: ColoredBox(color: Color(0xFFFF0000))),
+                        Expanded(child: ColoredBox(color: Color(0xFF0000FF))),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      barrierColor: const Color(0x33020507),
+                      builder: (_) => CreateTableScene(
+                        leagueName: 'Acemiler',
+                        stakes: const [1000, 2000, 4000],
+                        selectedIndex: 0,
+                        turnSeconds: 20,
+                        spectator: true,
+                        chat: true,
+                        canCreate: true,
+                        formatStake: (n) => '$n',
+                        onStake: (_) {},
+                        onSpeed: (_) {},
+                        onSpectator: () {},
+                        onChat: () {},
+                        onCreate: () {},
+                        onClose: () {},
+                      ),
+                    ),
+                    child: const Text('Open'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final data = await tester.runAsync(() async {
+      final image =
+          await (capture.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary)
+              .toImage(pixelRatio: 1);
+      try {
+        return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      } finally {
+        image.dispose();
+      }
+    });
+    final left = (240 * 932 + 70) * 4, right = (240 * 932 + 862) * 4;
+    // The darker face requested for readability still preserves the backdrop.
+    expect(data!.getUint8(left) - data.getUint8(left + 2), greaterThan(15));
+    expect(data.getUint8(right + 2) - data.getUint8(right), greaterThan(15));
+    expect(tester.takeException(), isNull);
+  });
   setUpAll(() async {
     await (FontLoader('Montserrat')
           ..addFont(rootBundle.load('assets/fonts/Montserrat-Regular.ttf'))

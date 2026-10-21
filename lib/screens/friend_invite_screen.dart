@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui/lobby/lobby_metal_surface.dart';
 import 'package:flutter/services.dart';
 import 'package:okeyix/services/friend_invite_service.dart';
 import 'package:okeyix/ui/invite_strings.dart';
@@ -148,7 +149,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
     final s = InviteStrings.of(context);
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
-      backgroundColor: const Color(0xFF081719),
+      backgroundColor: const Color(0xFF10161E),
       body: Stack(
         children: [
           Positioned.fill(
@@ -161,7 +162,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xD5071B18), Color(0xEF08111A)],
+                  colors: [Color(0x66151B22), Color(0x99101822)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -286,18 +287,9 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
     );
   }
 
-  Widget _invitation(InviteStrings s) => Container(
+  Widget _invitation(InviteStrings s) => LobbyMetalSurface(
+    radius: 22,
     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(22),
-      gradient: const LinearGradient(
-        colors: [Color(0x991E3428), Color(0xBB0B1C1D)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      border: Border.all(color: _gold.withValues(alpha: .35)),
-      boxShadow: const [BoxShadow(color: Color(0x22111105), blurRadius: 24)],
-    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -366,7 +358,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
         Container(
           padding: const EdgeInsets.only(left: 12),
           decoration: BoxDecoration(
-            color: const Color(0x88061012),
+            color: const Color(0x66141B24),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0x446D7254)),
           ),
@@ -477,7 +469,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
                         fontSize: 12,
                       ),
                       filled: true,
-                      fillColor: const Color(0x77051012),
+                      fillColor: const Color(0x77121922),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 12,
@@ -630,7 +622,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
     decoration: BoxDecoration(
-      color: const Color(0xAA0B1C1E),
+      color: const Color(0x8818202A),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: _gold.withValues(alpha: .23)),
     ),
@@ -678,7 +670,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
           gradient: LinearGradient(
             colors: primary
                 ? const [Color(0xFFF3DBA5), Color(0xFFB99A58)]
-                : const [Color(0xCC263A34), Color(0xDD102321)],
+                : const [Color(0x88303943), Color(0x99101822)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -796,7 +788,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
   Future<void> _dialog(String title, Widget body) => showDialog<void>(
     context: context,
     builder: (context) => Dialog(
-      backgroundColor: const Color(0xF00C2021),
+      backgroundColor: const Color(0xC018202A),
       insetPadding: const EdgeInsets.all(14),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),

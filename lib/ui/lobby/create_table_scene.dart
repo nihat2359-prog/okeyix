@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'lobby_metal_surface.dart';
 
 /// Presentation only: league rules and table creation stay with the caller.
 class CreateTableScene extends StatefulWidget {
@@ -153,6 +154,9 @@ class _CreateTableSceneState extends State<CreateTableScene> {
   @override
   Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.transparent,
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
     insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     child: LayoutBuilder(
       builder: (context, bounds) => Center(
@@ -160,21 +164,12 @@ class _CreateTableSceneState extends State<CreateTableScene> {
           width: math.min(bounds.maxWidth, 940),
           height: math.min(bounds.maxHeight, 430),
           child: Material(
-            color: Colors.transparent,
+            type: MaterialType.transparency,
             borderRadius: BorderRadius.circular(22),
             clipBehavior: Clip.antiAlias,
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0, -.15),
-                  radius: 1.1,
-                  colors: [
-                    Color(0xA6244D38),
-                    Color(0xA6102C23),
-                    Color(0xA6071914),
-                  ],
-                ),
-              ),
+            child: LobbyMetalSurface(
+              radius: 22,
+              surfaceOpacity: 2.2,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                 child: Column(
@@ -397,7 +392,7 @@ class _EntryToken extends CustomPainter {
       center + const Offset(0, 5),
       r,
       Paint()
-        ..color = selected ? const Color(0xFF805424) : const Color(0xFF0A1B14),
+        ..color = selected ? const Color(0xFF805424) : const Color(0xFF10161E),
     );
     canvas.drawCircle(
       center,
@@ -432,7 +427,7 @@ class _EntryToken extends CustomPainter {
           end: Alignment.bottomRight,
           colors: selected
               ? const [Color(0xFFFFE7AD), Color(0xFFD6AD58)]
-              : const [Color(0xFF315440), Color(0xFF102B22)],
+              : const [Color(0xFF303944), Color(0xFF111A24)],
         ).createShader(face),
     );
     canvas.drawCircle(

@@ -9,6 +9,7 @@ class LobbyAvatar extends StatelessWidget {
   final double size;
   final bool blocked;
   final bool enablePreview;
+  final bool premium;
   const LobbyAvatar({
     super.key,
     required this.username,
@@ -16,6 +17,7 @@ class LobbyAvatar extends StatelessWidget {
     this.size = 30,
     this.blocked = false,
     this.enablePreview = false,
+    this.premium = false,
   });
 
   @override
@@ -44,7 +46,21 @@ class LobbyAvatar extends StatelessWidget {
           height: size * 2,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE2B650), width: 1.6),
+            border: Border.all(
+              color: premium
+                  ? const Color(0xFFFFDE91)
+                  : const Color(0xFFE2B650),
+              width: premium ? 2 : 1.6,
+            ),
+            boxShadow: premium
+                ? const [
+                    BoxShadow(
+                      color: Color(0xAA000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
             image: image != null
                 ? DecorationImage(
                     image: image,
@@ -158,7 +174,7 @@ class LobbyAvatar extends StatelessWidget {
       child: Text(
         username.isEmpty ? '?' : username[0].toUpperCase(),
         style: TextStyle(
-          color: const Color(0xFF1A241F),
+          color: premium ? const Color(0xFFE2E5EB) : const Color(0xFF1A241F),
           fontSize: size * 0.85,
           fontWeight: FontWeight.w900,
         ),

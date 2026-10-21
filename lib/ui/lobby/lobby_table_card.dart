@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
+import 'lobby_metal_surface.dart';
 
 class LobbyTableCard extends StatelessWidget {
   final Map<String, dynamic> table;
@@ -36,23 +37,8 @@ class LobbyTableCard extends StatelessWidget {
     final isFake = table['is_fake'] == true;
     final spectatorsEnabled = (table['spectators_enabled'] as bool?) ?? true;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x661B222B), Color(0x2210151B)],
-        ),
-        border: Border.all(color: goldBorderColor, width: 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return LobbyMetalSurface(
+      padding: const EdgeInsets.all(7),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardWidth = constraints.maxWidth;

@@ -97,7 +97,8 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     }
     return LayoutBuilder(
       builder: (context, bounds) {
-        final cardHeight = ((bounds.maxHeight - 40 - 12) / 3).clamp(0.0, 92.0);
+        // Short phones scroll rather than compress avatar/name rows to nothing.
+        final cardHeight = ((bounds.maxHeight - 40 - 12) / 3).clamp(52.0, 92.0);
         return Column(
           children: [
             SizedBox(

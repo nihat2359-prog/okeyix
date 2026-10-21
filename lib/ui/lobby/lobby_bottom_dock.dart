@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'lobby_metal_surface.dart';
 
 class LobbyBottomDock extends StatelessWidget {
   final Widget left;
@@ -19,7 +20,7 @@ class LobbyBottomDock extends StatelessWidget {
     top: false,
     minimum: const EdgeInsets.only(bottom: 4),
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: SizedBox(
         height: 78,
         child: LayoutBuilder(
@@ -373,11 +374,20 @@ class _CreateMedallion extends CustomPainter {
     final r = size.shortestSide / 2;
     final bounds = Offset.zero & size;
     canvas.drawCircle(
+      c,
+      r - 4,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-.3, -.5),
+          colors: [Color(0xC0333A3C), Color(0xD9070B10)],
+        ).createShader(bounds),
+    );
+    canvas.drawCircle(
       c.translate(0, 2),
       r - 3,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 5
+        ..strokeWidth = 4
         ..color = const Color(0xAA030609),
     );
     canvas.drawCircle(
@@ -385,15 +395,15 @@ class _CreateMedallion extends CustomPainter {
       r - 3,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 5
+        ..strokeWidth = 2.8
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFEDBC),
+            Color(0xFFE4CE9A),
             Color(0xFFC99B48),
             Color(0xFF72501F),
-            Color(0xFFE2BE72),
+            Color(0xFFAF8A49),
           ],
           stops: [0, .4, .76, 1],
         ).createShader(bounds),
@@ -404,16 +414,8 @@ class _CreateMedallion extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = .7
-        ..color = const Color(0xFFFFE6A6),
+        ..color = const Color(0xFFC7AE75),
     );
-    final notch = Paint()
-      ..strokeWidth = .8
-      ..color = const Color(0x99734C21);
-    for (var i = 0; i < 28; i++) {
-      final angle = i * math.pi * 2 / 28;
-      final direction = Offset(math.cos(angle), math.sin(angle));
-      canvas.drawLine(c + direction * (r - 3), c + direction * (r - 5), notch);
-    }
     canvas.drawCircle(
       c,
       r - 6,
@@ -468,46 +470,13 @@ class _GameRail extends CustomPainter {
   const _GameRail();
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height, mid = size.width / 2;
-    final rail = Path()
-      ..moveTo(18, 16)
-      ..lineTo(w - 18, 16)
-      ..quadraticBezierTo(w, 16, w, 34)
-      ..lineTo(w, h - 16)
-      ..quadraticBezierTo(w, h, w - 16, h)
-      ..lineTo(16, h)
-      ..quadraticBezierTo(0, h, 0, h - 16)
-      ..lineTo(0, 34)
-      ..quadraticBezierTo(0, 16, 18, 16)
-      ..close();
-    // The 56 px button and its surround share the same centre. Use a real
-    // circle instead of a Bezier approximation that flattens above the button.
-    final surround = Path()
-      ..addOval(Rect.fromCircle(center: Offset(mid, 31), radius: 30.5));
-    final body = Path.combine(PathOperation.union, rail, surround);
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x8020252E), Color(0x9912151D), Color(0xB3090C12)],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      body,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = .8
-        ..shader = const LinearGradient(
-          colors: [Color(0x507F8999), Color(0x99D1B879), Color(0x507F8999)],
-        ).createShader(Offset.zero & size),
-    );
-    final line = Paint()
-      ..color = const Color(0x24EAD6A5)
-      ..strokeWidth = .7;
-    canvas.drawLine(const Offset(20, 19), Offset(mid - 47, 19), line);
-    canvas.drawLine(Offset(mid + 47, 19), Offset(w - 20, 19), line);
+    canvas.save();
+    canvas.translate(0, 16);
+    const LobbyMetalPainter(
+      metal: Color(0xFF8D805F),
+      radius: 20,
+    ).paint(canvas, Size(size.width, size.height - 16));
+    canvas.restore();
   }
 
   @override

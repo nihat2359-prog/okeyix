@@ -34,7 +34,7 @@ import 'okey_game_screen.dart';
 import 'login_screen.dart';
 import 'store_screen.dart';
 import 'friend_invite_screen.dart';
-import 'journey_screen.dart';
+import 'package:okeyix/ui/lobby/lobby_metal_surface.dart';
 import 'package:okeyix/ui/invite_strings.dart';
 import 'leaderboard_screen.dart';
 import 'banned_screen.dart';
@@ -286,18 +286,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _guestBanner() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.75),
-        borderRadius: BorderRadius.circular(14),
-
-        border: Border.all(color: Colors.amber.withOpacity(0.4)),
-
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.7), blurRadius: 12),
-        ],
-      ),
+    return LobbyMetalSurface(
+      radius: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2956,7 +2947,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     await showDialog<void>(
       context: context,
-      barrierColor: const Color(0xDD020507),
+      barrierColor: const Color(0x33020507),
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, refresh) => CreateTableScene(
           leagueName: '${league['name']}',
@@ -3182,13 +3173,10 @@ class _LobbyScreenState extends State<LobbyScreen>
                 const SizedBox(height: 7),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        Expanded(child: _connectedLeagueAndTables()),
-                      ],
-                    ),
+                    // SafeArea above already reserves the device cutouts.
+                    // Keep only a small, symmetric gutter inside that area.
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: _connectedLeagueAndTables(),
                   ),
                 ),
 
@@ -4295,73 +4283,14 @@ class _LobbyScreenState extends State<LobbyScreen>
             borderRadius: BorderRadius.circular(22),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(4, 2, 6, 8),
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-
-                  /// ?? ANA BORDER (daha koyu + classy)
-                  border: Border.all(
-                    color: const Color(0x33FFEBC6), // ?? opacity d???r?ld?
-                    width: 1.0,
-                  ),
-
-                  /// ?? SOFT SHADOW SYSTEM
-                  boxShadow: [
-                    /// ?ok hafif d?? glow
-                    BoxShadow(
-                      color: const Color(0xFFFFD76A).withOpacity(0.10),
-                      blurRadius: 10,
-                      spreadRadius: 0,
-                    ),
-
-                    /// ambient shadow
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.35),
-                      blurRadius: 12,
-                    ),
-
-                    /// i? derinlik
-                  ],
-                ),
+              child: LobbyMetalSurface(
+                metal: const Color(0xFFAD8B55),
+                padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
                 child: Column(
                   children: [
                     const SizedBox(height: 2),
-                    Column(
-                      children: [
-                        const Text(
-                          "Adil Dağıtım • Gerçek Rekabet",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color(0xFFD4A24C),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    /// ?? GOLD DIVIDER
-                    Container(
-                      height: 1,
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            Color(0x66F2C14E),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-
+                    const LobbyMotto(),
+                    const SizedBox(height: 6),
                     /// ?? L?G L?STES?
                     Expanded(
                       child: Stack(
@@ -4793,6 +4722,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               ],
             ),
             child: LobbyAvatar(
+              premium: true,
               username: UserState.userName,
               avatarUrl: UserState.userAvatarUrl,
             ),
@@ -4841,14 +4771,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Row(
       children: [
         _coinBuyDockButton(),
-        const SizedBox(width: 2),
-        LobbyDockAction(
-          label: 'Yolculuk',
-          icon: Icons.explore_outlined,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-            builder: (_) => const JourneyScreen(),
-          )),
-        ),
         const SizedBox(width: 2),
         LobbyDockAction(
           label: InviteStrings.of(context).t('Davet', 'Invite'),

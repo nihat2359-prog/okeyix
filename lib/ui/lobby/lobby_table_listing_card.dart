@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
+import 'lobby_metal_surface.dart';
 
 /// Two-seat table listing. Callbacks retain the lobby's server-side checks.
 class LobbyTableListingCard extends StatelessWidget {
@@ -51,20 +52,13 @@ class LobbyTableListingCard extends StatelessWidget {
         : 'OYUNDA';
     return Material(
       color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xED171C25), Color(0xD9090E16)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x448E929C), width: .7),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      child: LobbyMetalSurface(
+        metal: const Color(0xFFAA9B7D),
+        pattern: true,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         child: LayoutBuilder(
           builder: (context, bounds) {
-            final radius = ((bounds.maxHeight - 16) / 2).clamp(7.0, 19.0);
+            final radius = ((bounds.maxHeight - 16) / 2).clamp(7.0, 28.0);
             return Row(
               children: [
                 Expanded(
@@ -152,16 +146,12 @@ class LobbyTableListingCard extends StatelessWidget {
                         : playing
                         ? 'Oyun devam ediyor'
                         : 'Masa dolu',
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: Colors.transparent,
-                        border: Border.all(
-                          color: canJoin || canWatch
-                              ? const Color(0x80E6CC91)
-                              : const Color(0x335F6875),
-                        ),
-                      ),
+                    child: LobbyMetalSurface(
+                      metal: canJoin || canWatch
+                          ? gold
+                          : const Color(0xFF62686D),
+                      radius: 22,
+
                       child: InkWell(
                         key: ValueKey(
                           '${canWatch ? 'spectate' : 'join'}-${table['id']}',
@@ -221,6 +211,7 @@ class LobbyTableListingCard extends StatelessWidget {
         children: [
           if (player != null)
             LobbyAvatar(
+              premium: true,
               username: name,
               avatarUrl: player['avatar_url']?.toString(),
               size: radius,

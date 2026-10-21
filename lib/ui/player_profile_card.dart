@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'lobby/lobby_metal_surface.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/models/profile_statistics.dart';
 
@@ -87,23 +88,8 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
     insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 610, maxHeight: 370),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0x998E7546), width: .8),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xDA24312F), Color(0xD90D1C1C), Color(0xE0101720)],
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x77000000),
-              blurRadius: 24,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
+      child: LobbyMetalSurface(
+        radius: 24,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: Stack(
@@ -288,7 +274,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
         ),
         child: ClipOval(
           child: ColoredBox(
-            color: const Color(0xFF152420),
+            color: const Color(0x66151B22),
             child: widget.avatar,
           ),
         ),
@@ -366,7 +352,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                   height: _compact ? 32 : 41,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF263230),
+                    color: const Color(0x99262D36),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0x667D704B)),
                   ),
@@ -557,7 +543,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
             margin: const EdgeInsets.symmetric(horizontal: 3),
             padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0x223B5043),
+              color: const Color(0x222B333D),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
@@ -636,7 +622,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0x554D5340), Color(0x33232F2D)],
+              colors: [Color(0x55303943), Color(0x33161E27)],
             ),
             border: Border.all(color: const Color(0x667D704B), width: .7),
           ),
@@ -688,7 +674,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
               PopupMenuButton<ProfileCardAction>(
                 tooltip: 'Diğer işlemler',
                 padding: EdgeInsets.zero,
-                color: const Color(0xFF182925),
+                color: const Color(0xFF182029),
                 onSelected: (action) => action.onPressed?.call(),
                 itemBuilder: (_) => [
                   for (final action in extra)
@@ -723,7 +709,7 @@ class _ProfileInlay extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0x147C956E)
+      ..color = const Color(0x107B8794)
       ..strokeWidth = .6;
     for (double y = 7; y < size.height; y += 7) {
       canvas.drawLine(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/ui/lobby/lobby_columns.dart';
+import 'package:okeyix/ui/lobby/lobby_metal_surface.dart';
 import 'package:okeyix/ui/lobby/lobby_league_list.dart';
 import 'package:okeyix/ui/lobby/lobby_bottom_dock.dart';
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
@@ -85,23 +86,31 @@ Future<void> lobby(
                   const SizedBox(height: 7),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: LobbyColumns(
-                        leagues: Padding(
+                        leagues: LobbyMetalSurface(
                           padding: const EdgeInsets.all(8),
-                          child: LobbyLeagueList(
-                            leagues: leagues,
-                            selectedLeagueId: selected,
-                            leagueActivePlayers: {
-                              for (var i = 0; i < 5; i++) 'l$i': 24 + i,
-                            },
-                            leagueActiveTables: {
-                              for (var i = 0; i < 5; i++) 'l$i': 12 + i,
-                            },
-                            onSelect: (l) => calls.add(l['id']),
-                            userCoin: 10000,
-                            userRating: 1200,
-                            loading: false,
+                          child: Column(
+                            children: [
+                              const LobbyMotto(),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: LobbyLeagueList(
+                                  leagues: leagues,
+                                  selectedLeagueId: selected,
+                                  leagueActivePlayers: {
+                                    for (var i = 0; i < 5; i++) 'l$i': 24 + i,
+                                  },
+                                  leagueActiveTables: {
+                                    for (var i = 0; i < 5; i++) 'l$i': 12 + i,
+                                  },
+                                  onSelect: (l) => calls.add(l['id']),
+                                  userCoin: 10000,
+                                  userRating: 1200,
+                                  loading: false,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         tables: LobbyTableWheel(
@@ -188,6 +197,28 @@ Future<void> lobby(
 }
 
 void main() {
+  for (final safe in [
+    const EdgeInsets.fromLTRB(59, 0, 59, 21),
+    const EdgeInsets.fromLTRB(44, 0, 0, 21),
+    EdgeInsets.zero,
+  ]) {
+    testWidgets('lobby uses safe width once: $safe', (tester) async {
+      await lobby(tester, const Size(852, 393), 1, [], insets: safe);
+      final content = tester.getRect(find.byType(LobbyColumns));
+      expect(content.left, closeTo(safe.left + 6, .01));
+      expect(content.right, closeTo(852 - safe.right - 6, .01));
+      final dock = find
+          .descendant(
+            of: find.byType(LobbyBottomDock),
+            matching: find.byType(LayoutBuilder),
+          )
+          .first;
+      final rail = tester.getRect(dock);
+      expect(rail.left, closeTo(safe.left + 6, .01));
+      expect(rail.right, closeTo(852 - safe.right - 6, .01));
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets(
     'game dock actions retain callbacks and settle without a repeating ticker',
     (tester) async {
@@ -291,7 +322,7 @@ void main() {
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await Future.wait([font.load(), icons.load()]);
   });
-  for (final size in sizes) {
+  for (final size in [const Size(480, 270), const Size(568, 320), ...sizes]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('lobby $size scale $scale selection spectate and dock', (
         tester,

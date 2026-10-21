@@ -247,12 +247,22 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 40));
     final before = tester.getTopLeft(
-      find.byIcon(Icons.airplanemode_active_rounded).first,
+      find
+          .byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is SkyAirlinerPainter,
+          )
+          .first,
     );
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump(const Duration(seconds: 1));
     expect(
-      tester.getTopLeft(find.byIcon(Icons.airplanemode_active_rounded).first),
+      tester.getTopLeft(
+        find
+            .byWidgetPredicate(
+              (w) => w is CustomPaint && w.painter is SkyAirlinerPainter,
+            )
+            .first,
+      ),
       before,
     );
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);

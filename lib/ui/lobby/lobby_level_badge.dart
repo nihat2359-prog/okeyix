@@ -51,9 +51,9 @@ class LobbyLevelBadge extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: progress,
-                  minHeight: 4,
-                  backgroundColor: const Color(0xFF28323F),
-                  color: const Color(0xFFC9A86C),
+                  minHeight: 5,
+                  backgroundColor: const Color(0xFF131820),
+                  color: const Color(0xFFFFCE68),
                 ),
               ),
               const SizedBox(height: 2),

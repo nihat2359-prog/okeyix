@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'lobby/lobby_metal_surface.dart';
 
 /// Stateless game presentation; the existing dialog owns all account operations.
 class ProfileEditorScene extends StatelessWidget {
@@ -40,16 +41,8 @@ class ProfileEditorScene extends StatelessWidget {
             height: height,
             child: Material(
               color: Colors.transparent,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xF01C222B), Color(0xED0B1119)],
-                  ),
-                  border: Border.all(color: const Color(0x668D7951), width: .8),
-                ),
+              child: LobbyMetalSurface(
+                radius: 24,
                 child: CustomPaint(
                   painter: const _IdentityFrame(),
                   child: Padding(
