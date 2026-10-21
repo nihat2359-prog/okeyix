@@ -473,6 +473,7 @@ class _GameRail extends CustomPainter {
     canvas.save();
     canvas.translate(0, 16);
     const LobbyMetalPainter(
+      flatBorder: true,
       metal: Color(0xFF8D805F),
       radius: 20,
     ).paint(canvas, Size(size.width, size.height - 16));

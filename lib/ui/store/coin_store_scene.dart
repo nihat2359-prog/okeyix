@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'coin_store_artwork.dart';
+import '../../services/store_diagnostics.dart';
 
 class CoinStoreOffer {
   const CoinStoreOffer({
@@ -29,7 +30,7 @@ class CoinStoreScene extends StatelessWidget {
   static const gold = Color(0xFFE6C98B);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => StorePaintProbe(child: Scaffold(
     backgroundColor: const Color(0xFF080D15),
     body: Stack(
       children: [
@@ -59,6 +60,10 @@ class CoinStoreScene extends StatelessWidget {
         SafeArea(
           child: LayoutBuilder(
             builder: (context, limits) {
+              StoreDiagnostics.once('scene_layout', {
+                'width': limits.maxWidth, 'height': limits.maxHeight,
+                'offers': offers.length,
+              });
               final compact = limits.maxHeight < 370;
               return Padding(
                 padding: EdgeInsets.fromLTRB(
@@ -198,7 +203,7 @@ class CoinStoreScene extends StatelessWidget {
         ),
       ],
     ),
-  );
+  ));
 }
 
 class _Offer extends StatelessWidget {
@@ -208,6 +213,9 @@ class _Offer extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
+      StoreDiagnostics.once('offer_layout_$tier', {
+        'width': bounds.maxWidth, 'height': bounds.maxHeight,
+      });
       final small = bounds.maxHeight < 240;
       final best = tier == 2;
       return Container(

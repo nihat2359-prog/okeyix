@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import '../../services/store_diagnostics.dart';
 
 /// Static compositions made from the original high resolution gold engraving.
 /// No animation, blur or network assets. All tiers share the same coin material.
@@ -29,6 +30,7 @@ class _CoinStoreArtworkState extends State<CoinStoreArtwork> {
   }
 
   void _resolve() {
+    StoreDiagnostics.once('artwork_resolve_${widget.tier}');
     final path = widget.tier == 3
         ? 'assets/images/coins/coins_huge.png'
         : 'assets/images/coins/coins_small.png';
@@ -39,6 +41,9 @@ class _CoinStoreArtworkState extends State<CoinStoreArtwork> {
     _path = path;
     _stream = AssetImage(path).resolve(createLocalImageConfiguration(context));
     _listener = ImageStreamListener((info, _) {
+      StoreDiagnostics.once('artwork_loaded_${widget.tier}', {
+        'width': info.image.width, 'height': info.image.height,
+      });
       if (!mounted) {
         info.dispose();
         return;
@@ -47,6 +52,10 @@ class _CoinStoreArtworkState extends State<CoinStoreArtwork> {
         _info?.dispose();
         _info = info;
       });
+    }, onError: (Object error, StackTrace? stack) {
+      StoreDiagnostics.error('artwork_asset_error_${widget.tier}', error, stack);
+      FlutterError.reportError(FlutterErrorDetails(exception: error,
+        stack: stack, library: 'Okeyix store artwork'));
     });
     _stream!.addListener(_listener!);
   }
@@ -123,6 +132,9 @@ class _GoldComposition extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    StoreDiagnostics.once('artwork_paint_$tier', {
+      'width': size.width, 'height': size.height, 'image_ready': image != null,
+    });
     if (size.isEmpty || image == null) return;
     final scale = math.min(size.width / 240, size.height / 205);
     canvas.save();

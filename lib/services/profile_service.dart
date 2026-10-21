@@ -1,3 +1,4 @@
+import 'package:okeyix/ui/incoming_friend_request_dialog.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -269,7 +270,7 @@ class ProfileService {
                 label: 'Çıkar',
                 onPressed: () async {
                   navigatorKey.currentState?.pop();
-                  await removeFriend(otherId);
+                  await removeFriend(otherId, onSuccess: onRefresh);
                 },
               ),
             ],
@@ -619,68 +620,33 @@ class ProfileService {
         : user!['username'].toString();
     final avatarUrl = user?['avatar_url']?.toString();
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xCC121826),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: Color(0xCCB07A1A), width: 0.3),
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: const Color(0x8005090E),
+        builder: (dialogContext) => IncomingFriendRequestDialog(
+          username: username,
+          avatarUrl: avatarUrl,
+          onClose: () => Navigator.of(dialogContext).pop(),
+          onReject: () async {
+            Navigator.of(dialogContext).pop();
+            await rejectFriendRequest(otherUserId, onSuccess: onRefresh);
+          },
+          onBlock: () async {
+            Navigator.of(dialogContext).pop();
+            await blockUser(otherUserId, onSuccess: onRefresh);
+          },
+          onAccept: () async {
+            Navigator.of(dialogContext).pop();
+            await acceptFriendRequest(otherUserId, onSuccess: onRefresh);
+          },
         ),
-        title: const Text(
-          'Yeni arkadaşlık isteği',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-        ),
-        content: Row(
-          children: [
-            LobbyAvatar(username: username, avatarUrl: avatarUrl, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$username sana arkadaşlık isteği gönderdi.',
-                style: const TextStyle(color: Color(0xFFE6EDF7)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          _modalActionButton(
-            label: 'Reddet',
-            danger: true,
-            onPressed: () async {
-              final navigator = navigatorKey.currentState;
-              navigator?.pop();
-              await rejectFriendRequest(otherUserId, onSuccess: onRefresh);
-            },
-          ),
-          _modalActionButton(
-            label: 'Engelle',
-            danger: true,
-            onPressed: () async {
-              final navigator = navigatorKey.currentState;
-              navigator?.pop();
-              await blockUser(otherUserId, onSuccess: onRefresh);
-            },
-          ),
-          _modalActionButton(
-            label: 'Kabul Et',
-            primary: true,
-            onPressed: () async {
-              final navigator = navigatorKey.currentState;
-              navigator?.pop();
-              await acceptFriendRequest(otherUserId, onSuccess: onRefresh);
-            },
-          ),
-        ],
-      ),
-    );
-
-    // if (mounted) {
-    //   _friendRequestPromptOpen = false;
-    // }
+      );
+    } finally {
+      _friendRequestPromptOpen = false;
+    }
   }
-
   static void msg(String text) {
     final context = navigatorKey.currentContext;
 

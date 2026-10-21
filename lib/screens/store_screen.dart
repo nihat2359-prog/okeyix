@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:okeyix/services/store_diagnostics.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -116,11 +117,23 @@ Future<bool?> openStoreScreen(
     return false;
   }
 
+  StoreDiagnostics.begin();
+  try {
+  StoreDiagnostics.log('route_push_begin');
   final result = await Navigator.push<bool>(
     context,
-    MaterialPageRoute(builder: (_) => StoreScreen(initialCoin: initialCoin)),
+    MaterialPageRoute(builder: (_) {
+      StoreDiagnostics.log('route_builder');
+      return StoreScreen(initialCoin: initialCoin);
+    }),
   );
   return result;
+  } catch (error, stack) {
+    StoreDiagnostics.error('route_error', error, stack);
+    rethrow;
+  } finally {
+    StoreDiagnostics.end();
+  }
 }
 
 class StoreScreen extends StatefulWidget {
@@ -129,7 +142,19 @@ class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key, required this.initialCoin});
 
   @override
-  State<StoreScreen> createState() => _StoreScreenState();
+  // Diagnostic boundary: field initializers can throw before initState runs.
+  // ignore: no_logic_in_create_state
+  State<StoreScreen> createState() {
+    StoreDiagnostics.log('create_state_begin');
+    try {
+      final state = _StoreScreenState();
+      StoreDiagnostics.log('create_state_complete');
+      return state;
+    } catch (error, stack) {
+      StoreDiagnostics.error('create_state_error', error, stack);
+      rethrow;
+    }
+  }
 }
 
 class _StoreScreenState extends State<StoreScreen> {
@@ -170,12 +195,20 @@ class _StoreScreenState extends State<StoreScreen> {
   @override
   void initState() {
     super.initState();
+    StoreDiagnostics.log('init_state_begin');
     loadProducts();
+    StoreDiagnostics.log('purchase_listener_begin');
     listenPurchases();
+    StoreDiagnostics.log('init_state_complete');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      StoreDiagnostics.log('first_post_frame', {'mounted': mounted});
+    });
   }
 
   @override
   void dispose() {
+    StoreDiagnostics.log('store_dispose');
     _subscription.cancel();
     super.dispose();
   }
@@ -195,7 +228,9 @@ class _StoreScreenState extends State<StoreScreen> {
             'coin_pack_mega',
           };
 
+    StoreDiagnostics.log('product_query_begin');
     final response = await _iap.queryProductDetails(ids);
+    StoreDiagnostics.log('product_query_complete');
 
     setState(() {
       products = response.productDetails;
@@ -431,6 +466,10 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    StoreDiagnostics.once('store_build', {
+      'width': MediaQuery.sizeOf(context).width,
+      'height': MediaQuery.sizeOf(context).height,
+    });
     ProductDetails? packBaslangic;
     ProductDetails? packStandart;
     ProductDetails? packElit;

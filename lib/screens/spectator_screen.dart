@@ -11,6 +11,7 @@ import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:okeyix/core/format.dart';
+import 'package:okeyix/core/spectator_presentation.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/feedback_settings_service.dart';
 import '../game/spectator_game.dart';
@@ -35,9 +36,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   RealtimeChannel? spectatorChannel;
   final _scoresRefresh = CoalescedViewRefresh();
   final _scoreMembersRefresh = CoalescedViewRefresh();
+  final _liveDetailsRefresh = CoalescedViewRefresh();
+  final Map<String, int> _playerCoins = {};
+  final DateTime _watchStartedAt = DateTime.now();
+  Timer? _finishOverlayTimer;
   List<Map<String,dynamic>> _playerScores = [];
   String? _scoresViewer;
   String? _scoresTable;
+  bool _scoresUnavailable = false;
   Map<String, dynamic>? table;
   List players = [];
   int spectators = 0;
@@ -45,9 +51,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   Map<String, dynamic>? _lastIncomingMessage;
   bool _showMessageBanner = false;
   Timer? _messageBannerTimer;
-  List<Map<String, dynamic>> _visibleSpectators = [];
-  final Map<String, String> _spectatorBubbles = {};
-  final Map<String, Timer> _spectatorBubbleTimers = {};
   bool chatOpen = false;
   final TextEditingController chatController = TextEditingController();
   List messages = [];
@@ -62,6 +65,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   DateTime? _turnStartedAt;
   int _turnSeconds = 20;
   Timer? _turnTicker;
+  bool _sendingMessage = false;
+  bool _turnRefreshInFlight = false;
 
   bool _isPressing = false;
   bool _isRecording = false;
@@ -176,8 +181,118 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         }
       },
     );
-    _joinSpectator();
-    _load();
+    unawaited(_initializeSpectator());
+    _turnTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (mounted && table != null) setState(() {});
+    });
+    _safetyTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      unawaited(_refreshTurnState());
+      unawaited(_refreshLiveDetails());
+    });
+  }
+
+  Future<void> _initializeSpectator() async {
+    await _joinSpectator();
+    if (!mounted) return;
+    try {
+      await _load();
+      await _refreshLiveDetails();
+    } catch (_) {
+      if (mounted) _msg('Masa bilgileri yüklenemedi. Lütfen yeniden deneyin.');
+    }
+  }
+
+  Future<void> _refreshLiveDetails() => _liveDetailsRefresh.run(() async {
+    await Future.wait([
+      _refreshPlayerScores(),
+      _refreshCoins(),
+      _refreshFinishSnapshot(),
+    ]);
+  });
+
+  Future<void> _refreshCoins() async {
+    final ids = players.map((p) => p['user_id']?.toString())
+        .whereType<String>().toSet().toList();
+    if (ids.isEmpty) return;
+    try {
+      final rows = await supabase.from('profiles').select('id,coins')
+          .inFilter('id', ids);
+      if (!mounted) return;
+      final coins = <String, int>{
+        for (final row in rows)
+          if (row['coins'] is num) row['id'].toString(): (row['coins'] as num).toInt(),
+      };
+      if (jsonEncode(coins) != jsonEncode(_playerCoins)) {
+        setState(() { _playerCoins.clear(); _playerCoins.addAll(coins); });
+      }
+    } catch (_) {
+      // Do not invent balances when profile access is unavailable.
+    }
+  }
+
+  Future<void> _refreshFinishSnapshot() async {
+    try {
+      final snapshot = await supabase.from('table_finish_snapshots').select()
+          .eq('table_id', widget.tableId).order('finished_at', ascending: false)
+          .limit(1).maybeSingle();
+      if (!mounted || snapshot == null) return;
+      final finishedAt = _parseServerTime(snapshot['finished_at']);
+      if (finishedAt == null || finishedAt.isBefore(_watchStartedAt) ||
+          (_lastFinishAt != null && !finishedAt.isAfter(_lastFinishAt!))) return;
+      final winner = spectatorSnapshotWinner(snapshot);
+      if (winner == null) return;
+      _lastFinishAt = finishedAt;
+      final id = (winner['user_id'] ?? winner['id'])?.toString();
+      final seated = players.where((p) => p['user_id']?.toString() == id);
+      dynamic name = winner['username'];
+      if (seated.isNotEmpty) {
+        final user = seated.first['users'];
+        if (user is Map) name = user['username'] ?? name;
+      }
+      _openFinishOverlay(name?.toString() ?? 'Oyuncu');
+    } catch (_) {
+      // The table update path remains available if snapshot reads are denied.
+    }
+  }
+
+  Future<void> _refreshTurnState() async {
+    if (!mounted || _turnRefreshInFlight) return;
+    _turnRefreshInFlight = true;
+    final previousStart = _turnStartedAt;
+    final previousSeat = _currentTurnSeat;
+    try {
+      final row = await supabase.from('tables')
+          .select('status,current_turn,turn_started_at,turn_seconds,chat_enabled,last_finish_at,last_winner_user_id')
+          .eq('id', widget.tableId).maybeSingle();
+      if (!mounted || row == null) return;
+      _observeTableFinish(row);
+      if (previousStart != _turnStartedAt || previousSeat != _currentTurnSeat) return;
+      setState(() {
+        table = {...?table, ...row};
+        _turnStartedAt = _parseServerTime(row['turn_started_at']);
+        _turnSeconds = (row['turn_seconds'] as num?)?.toInt() ?? 20;
+        _currentTurnSeat = (row['current_turn'] as num?)?.toInt() ?? 0;
+        _tableChatEnabled = row['chat_enabled'] != false;
+      });
+    } catch (_) {
+      // Keep Realtime active and retry on the next safety tick.
+    } finally {
+      _turnRefreshInFlight = false;
+    }
+  }
+
+  void _observeTableFinish(Map<String, dynamic> row) {
+    final at = _parseServerTime(row['last_finish_at']);
+    final winnerId = row['last_winner_user_id']?.toString();
+    if (!mounted || at == null || winnerId == null ||
+        at.isBefore(_watchStartedAt) ||
+        (_lastFinishAt != null && !at.isAfter(_lastFinishAt!))) return;
+    final seated = players.where((p) => p['user_id']?.toString() == winnerId);
+    if (seated.isEmpty) return;
+    final user = seated.first['users'];
+    final name = user is Map ? user['username']?.toString() : null;
+    _lastFinishAt = at;
+    _openFinishOverlay(name ?? 'Oyuncu');
   }
 
   Future<void> _refreshPlayerScores() => _scoresRefresh.run(() async {
@@ -205,17 +320,20 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           .toList();
       if (_scoresViewer == viewer &&
           _scoresTable == tableId &&
+          !_scoresUnavailable &&
           jsonEncode(rows) == jsonEncode(_playerScores)) {
         return;
       }
       setState(() {
+        _scoresUnavailable = false;
         _playerScores = rows;
         _scoresViewer = viewer;
         _scoresTable = tableId;
       });
     } catch (_) {
-      // Existing Realtime updates/reconnect and the successful spectator join retry.
-      // No extra polling; late replies never carry over to another viewer/table.
+      if (mounted && supabase.auth.currentUser?.id == viewer && !_scoresUnavailable) {
+        setState(() => _scoresUnavailable = true);
+      }
     }
   });
 
@@ -239,7 +357,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   List<Map<String, dynamic>> get _visibleScores {
     if (_scoresViewer == supabase.auth.currentUser?.id &&
-        _scoresTable == widget.tableId) {
+        _scoresTable == widget.tableId && !_scoresUnavailable) {
       return _playerScores;
     }
     final rows =
@@ -249,8 +367,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               (p) => <String, dynamic>{
                 'seat_index': p['seat_index'],
                 'username': p['users']?['username'] ?? 'Oyuncu',
-                'wins': 0,
-                'losses': 0,
+                'wins': null,
+                'losses': null,
               },
             )
             .toList()
@@ -283,13 +401,22 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         .select()
         .eq('table_id', widget.tableId);
 
-    await _refreshSpectators();
 
-    final m = await supabase
-        .from('table_messages')
-        .select('*,users(username)')
-        .eq('table_id', widget.tableId)
-        .order('created_at');
+
+    List<dynamic> m;
+    try {
+      m = await supabase.from('table_messages').select('*,users(username)')
+          .eq('table_id', widget.tableId).order('created_at');
+    } catch (_) {
+      // A missing users relationship must not prevent table/turn subscription.
+      try {
+        m = await supabase.from('table_messages').select()
+            .eq('table_id', widget.tableId).order('created_at');
+      } catch (_) {
+        m = [];
+        if (mounted) _msg('Masa sohbeti yüklenemedi.');
+      }
+    }
 
     if (!mounted) return;
 
@@ -313,7 +440,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
             setState(() {
               spectators++;
-              unawaited(_refreshSpectators());
+
             });
           },
         )
@@ -330,7 +457,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
               setState(() {
                 spectators = (spectators - 1).clamp(0, 9999);
-                unawaited(_refreshSpectators());
+  
               });
             }
           },
@@ -349,6 +476,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             final msg = Map<String, dynamic>.from(payload.newRecord);
             final senderId = msg['sender_id']?.toString();
             if (senderId != null) {
+              try {
               final u = await supabase
                   .from('users')
                   .select('username')
@@ -357,7 +485,11 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               if (u != null) {
                 msg['users'] = {'username': u['username'] ?? 'Oyuncu'};
               }
+              } catch (_) {
+                // Deliver the message even if sender enrichment is unavailable.
+              }
             }
+            if (!mounted) return;
             setState(() {
               _appendIncomingMessage(msg);
             });
@@ -377,6 +509,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           callback: (payload) async {
             final row = payload.newRecord;
             unawaited(_refreshPlayerScores());
+            unawaited(_refreshLiveDetails());
             final turnStartedAt = _parseServerTime(row['turn_started_at']);
             final turnSeconds = (row['turn_seconds'] as int?) ?? _turnSeconds;
             final currentTurnSeat =
@@ -389,26 +522,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 _currentTurnSeat = currentTurnSeat;
               });
             }
-            final finishAtRaw = row['last_finish_at']?.toString();
-            final finishAt = finishAtRaw == null
-                ? null
-                : DateTime.tryParse(finishAtRaw);
-            if (finishAt != null &&
-                (_lastFinishAt == null || finishAt.isAfter(_lastFinishAt!))) {
-              _lastFinishAt = finishAt;
-              final winnerId = row['last_winner_user_id']?.toString();
-              String winnerName = 'Oyuncu';
-              if (winnerId != null) {
-                final u = await supabase
-                    .from('users')
-                    .select('username')
-                    .eq('id', winnerId)
-                    .maybeSingle();
-                final name = u?['username']?.toString().trim() ?? '';
-                if (name.isNotEmpty) winnerName = name;
-              }
-              _openFinishOverlay(winnerName);
-            }
+            _observeTableFinish(row);
           },
         )
         .onPostgresChanges(
@@ -443,10 +557,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scrollToBottom();
-    });
-    _turnTicker?.cancel();
-    _turnTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (mounted) setState(() {});
     });
   }
 
@@ -486,23 +596,37 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> sendMessage() async {
-    if (!_tableChatEnabled) return;
-    if (chatController.text.isEmpty) return;
-
+    if (!_tableChatEnabled || _sendingMessage) return;
+    final content = chatController.text.trim();
     final user = supabase.auth.currentUser;
-
-    await supabase.from('table_messages').insert({
-      "table_id": widget.tableId,
-      "sender_id": user!.id,
-      "content": chatController.text,
-      "role": "spectator",
-      "type": "text", // ğŸ”¥ EKLENDÄ°
-    });
-
-    chatController.clear();
-    _scrollToBottom();
+    if (content.isEmpty || user == null) return;
+    _sendingMessage = true;
+    final message = <String, dynamic>{
+      'id': const Uuid().v4(), 'table_id': widget.tableId,
+      'sender_id': user.id, 'content': content,
+      'role': 'spectator', 'type': 'text',
+    };
+    try {
+      await supabase.from('table_messages').insert(message);
+      if (!mounted) return;
+      setState(() => _appendIncomingMessage({
+        ...message, 'created_at': DateTime.now().toUtc().toIso8601String(),
+        'users': {'username': 'Sen'},
+      }));
+      if (chatController.text.trim() == content) chatController.clear();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToBottom();
+      });
+    } on PostgrestException catch (e) {
+      if (mounted) _msg(e.code == '42501'
+          ? 'Bu masada mesaj gönderme izni yok.'
+          : 'Mesaj gönderilemedi. Tekrar deneyin.');
+    } catch (_) {
+      if (mounted) _msg('Mesaj gönderilemedi. Bağlantınızı kontrol edin.');
+    } finally {
+      _sendingMessage = false;
+    }
   }
-
   @override
   Widget build(BuildContext context) {
     final top = player(1);
@@ -617,7 +741,23 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             ),
 
           if (table != null)
-            Positioned(top: 62,left: 14,child: SpectatorTableScores(players: _visibleScores)),
+            Positioned(top: 62,left: 14,child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SpectatorTableScores(players: _visibleScores),
+                if (_lastFinishAt != null) Container(
+                  constraints: const BoxConstraints(maxWidth: 210),
+                  margin: const EdgeInsets.only(top: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: const Color(0xDD101A20),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: Text('Son eli kazanan: $_finishWinnerName',
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xFFE4C88D), fontSize: 11)),
+                ),
+              ],
+            )),
 
           /// OYUNCULAR: iki koltukta da ayni dikey avatar/isim yerlesimi.
           if (top != null)
@@ -641,19 +781,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                     avatarPath: top['users']['avatar_url']?.toString(),
                     avatarKey: topAvatarKey,
                     giftBoundsKey: topGiftBoundsKey,
-                  ),
-                  const SizedBox(height: 2),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      final id = top['user_id']?.toString();
-                      if (id != null && id.isNotEmpty) {
-                        ProfileService.showUserCard({'id': id});
-                      }
-                    },
-                    child: _buildSpectatorName(
-                      top['users']['username']?.toString() ?? '',
-                    ),
                   ),
                 ],
               ),
@@ -680,19 +807,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                     avatarPath: bottom['users']['avatar_url']?.toString(),
                     avatarKey: bottomAvatarKey,
                     giftBoundsKey: bottomGiftBoundsKey,
-                  ),
-                  const SizedBox(height: 2),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      final id = bottom['user_id']?.toString();
-                      if (id != null && id.isNotEmpty) {
-                        ProfileService.showUserCard({'id': id});
-                      }
-                    },
-                    child: _buildSpectatorName(
-                      bottom['users']['username']?.toString() ?? '',
-                    ),
                   ),
                 ],
               ),
@@ -1109,8 +1223,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 ),
               ),
             ),
-          if (_visibleSpectators.isNotEmpty)
-            Positioned(top: 76, right: 12, child: _spectatorStrip()),
+
           if (_showMessageBanner && _lastIncomingMessage != null)
             Positioned(
               top: 72,
@@ -1233,33 +1346,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     );
   }
 
-  Widget _buildSpectatorName(String name) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 112, maxWidth: 210),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xF01C392E), Color(0xF00C211B)],
-        ),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0x887C7050), width: 0.8),
-        boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 8)],
-      ),
-      child: Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFFF5EBDD),
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
-
   Widget _buildMessageBanner() {
     final msg = _lastIncomingMessage!;
     final name = (msg['users']?['username'] ?? 'İzleyici').toString();
@@ -1342,150 +1428,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     return players.any((p) => p['user_id']?.toString() == senderId);
   }
 
-  Future<void> _refreshSpectators() async {
-    try {
-      final rows = await supabase
-          .from('table_spectators')
-          .select('user_id,created_at,users(username,avatar_url)')
-          .eq('table_id', widget.tableId);
-      final list = (rows as List)
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-      list.sort(
-        (a, b) => (a['created_at'] ?? '').toString().compareTo(
-          (b['created_at'] ?? '').toString(),
-        ),
-      );
-      if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
-    } catch (e) {
-      // Some deployments do not expose created_at or the users relationship.
-      try {
-        final rows = await supabase
-            .from('table_spectators')
-            .select()
-            .eq('table_id', widget.tableId);
-        final list = (rows as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        list.sort(
-          (a, b) => (a['created_at'] ?? '').toString().compareTo(
-            (b['created_at'] ?? '').toString(),
-          ),
-        );
-        for (final item in list.take(3)) {
-          final u = await supabase
-              .from('users')
-              .select('username,avatar_url')
-              .eq('id', item['user_id'])
-              .maybeSingle();
-          item['users'] = u;
-        }
-        if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
-      } catch (_) {}
-    }
-  }
-
-  Widget _spectatorStrip() {
-    if (_visibleSpectators.isEmpty) return const SizedBox.shrink();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: _visibleSpectators.map((entry) {
-        final id = entry['user_id']?.toString() ?? '';
-        final user = entry['users'] is Map ? entry['users'] as Map : const {};
-        final name = (user['username'] ?? 'İzleyici').toString();
-        final path = (user['avatar_url'] ?? '').toString();
-        final message = _spectatorBubbles[id];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (message != null)
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 165),
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xF01A3029),
-                    borderRadius: BorderRadius.circular(11),
-                    border: Border.all(color: const Color(0x99E3BB62)),
-                  ),
-                  child: Text(
-                    message,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: Colors.white),
-                  ),
-                ),
-              Tooltip(
-                message: name,
-                child: Container(
-                  width: 33,
-                  height: 33,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF24342C),
-                    border: Border.all(
-                      color: const Color(0xFFD9B66B),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: ClipOval(
-                    child: path.isEmpty
-                        ? const Icon(
-                            Icons.person,
-                            color: Color(0xFFE8CD8D),
-                            size: 19,
-                          )
-                        : path.startsWith('http')
-                        ? Image.network(
-                            path,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.person, color: Colors.white),
-                          )
-                        : Image.asset(
-                            path,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.person, color: Colors.white),
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  void _showSpectatorBubble(Map<String, dynamic> msg) {
-    final id = msg['sender_id']?.toString() ?? '';
-    if (!_visibleSpectators.any((e) => e['user_id']?.toString() == id)) return;
-    final text =
-        (msg['type'] == 'voice'
-                ? 'Sesli mesaj'
-                : msg['content']?.toString() ?? '')
-            .trim();
-    if (text.isEmpty) return;
-    _spectatorBubbleTimers[id]?.cancel();
-    if (mounted)
-      setState(
-        () => _spectatorBubbles[id] = (text.length > 70
-            ? '${text.substring(0, 70)}...'
-            : text),
-      );
-    _spectatorBubbleTimers[id] = Timer(const Duration(seconds: 6), () {
-      if (mounted) setState(() => _spectatorBubbles.remove(id));
-      _spectatorBubbleTimers.remove(id);
-    });
-  }
-
   void _handleIncomingMessageEffects(Map<String, dynamic> msg) {
     final senderId = msg['sender_id']?.toString();
     if (senderId == null) return;
@@ -1511,12 +1453,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       return;
     }
 
-    if (role == 'spectator') {
-      _showSpectatorBubble(msg);
-    }
     if (!mine &&
-        role == 'spectator' &&
-        !_visibleSpectators.any((e) => e['user_id']?.toString() == senderId)) {
+        role == 'spectator') {
       setState(() {
         _lastIncomingMessage = msg;
         _showMessageBanner = true;
@@ -1534,7 +1472,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       _finishWinnerName = winnerName;
       _showFinishOverlay = true;
     });
-    Future.delayed(const Duration(seconds: 4), () {
+    _finishOverlayTimer?.cancel();
+    _finishOverlayTimer = Timer(const Duration(seconds: 4), () {
       if (!mounted) return;
       setState(() => _showFinishOverlay = false);
     });
@@ -1807,91 +1746,20 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     required Key avatarKey,
     required GlobalKey giftBoundsKey,
   }) {
-    final isTurn = _currentTurnSeat == seatIndex;
-    final progress = _turnProgress();
-    final remain = _turnRemaining();
-    return SizedBox(
+    final seated = player(seatIndex);
+    final name = seated?['users']?['username']?.toString() ?? 'Oyuncu';
+    return SpectatorPlayerCard(
       key: giftBoundsKey,
-      width: 168,
-      height: 70,
-      child: Center(child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: userId == null || userId.isEmpty
-          ? null
+      username: name,
+      coins: _playerCoins[userId],
+      avatar: avatar(avatarPath, key: avatarKey),
+      active: _currentTurnSeat == seatIndex,
+      progress: _turnProgress(),
+
+      onTap: userId == null || userId.isEmpty ? null
           : () => ProfileService.showUserCard({'id': userId}),
-      child: SizedBox(
-        width: 70,
-        height: 70,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            if (isTurn)
-              SizedBox(
-                width: 64,
-                height: 64,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 4,
-                  backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFFD4AF37),
-                  ),
-                ),
-              ),
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isTurn
-                      ? const Color(0xFF83CE9D)
-                      : const Color(0xFFCCAB67),
-                  width: 1.4,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isTurn
-                        ? const Color(0x6645C486)
-                        : const Color(0x443B2B14),
-                    blurRadius: isTurn ? 12 : 5,
-                    spreadRadius: isTurn ? 1 : 0,
-                  ),
-                ],
-              ),
-              child: Center(child: avatar(avatarPath, key: avatarKey)),
-            ),
-            if (isTurn)
-              Positioned(
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0x66D4AF37)),
-                  ),
-                  child: Text(
-                    '${remain}s',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      )),
     );
   }
-
   DateTime? _parseServerTime(dynamic raw) {
     if (raw == null) return null;
     final parsed = DateTime.tryParse(raw.toString());
@@ -1899,33 +1767,22 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   double _turnProgress() {
-    if (_turnStartedAt == null || _turnSeconds <= 0) return 0;
-    final elapsed = DateTime.now().difference(_turnStartedAt!).inMilliseconds;
-    final ratio = elapsed / (_turnSeconds * 1000);
-    return ratio.clamp(0.0, 1.0);
-  }
-
-  int _turnRemaining() {
-    if (_turnStartedAt == null || _turnSeconds <= 0) return 0;
-    final elapsed = DateTime.now().difference(_turnStartedAt!).inSeconds;
-    final remain = _turnSeconds - elapsed;
-    if (remain <= 0) return 0;
-    return remain;
+    return spectatorTurnProgress(_turnStartedAt, _turnSeconds, DateTime.now());
   }
 
   @override
   void dispose() {
+    _liveDetailsRefresh.dispose();
+    _finishOverlayTimer?.cancel();
     _scoresRefresh.dispose();
     _scoreMembersRefresh.dispose();
     _messageBannerTimer?.cancel();
-    for (final timer in _spectatorBubbleTimers.values) {
-      timer.cancel();
-    }
     for (final t in _avatarChatTimers.values) {
       t.cancel();
     }
     _avatarChatTimers.clear();
     _turnTicker?.cancel();
+    _safetyTimer?.cancel();
     _chatScrollController.dispose();
     spectatorChannel?.unsubscribe();
     _leaveSpectator();
@@ -1953,7 +1810,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       });
       if (!mounted) return;
       unawaited(_refreshPlayerScores());
-      await _refreshSpectators();
+  
     } catch (e) {
       print("JOIN ERROR: $e");
     }

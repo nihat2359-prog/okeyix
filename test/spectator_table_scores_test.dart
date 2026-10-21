@@ -7,6 +7,18 @@ import 'package:okeyix/ui/spectator_table_scores.dart';
 class _Client extends Fake implements SupabaseClient {}
 
 void main() {
+  testWidgets('player identity and balance share one compact card', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: Center(
+      child: SpectatorPlayerCard(username: 'Uzun oyuncu adı uzun oyuncu adı',
+        coins: 183000000, avatar: CircleAvatar(), active: true,
+        progress: .5),
+    ))));
+    expect(find.text('10s'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byIcon(Icons.monetization_on_outlined), findsOneWidget);
+    expect(tester.getSize(find.byType(SpectatorPlayerCard)), const Size(210, 68));
+    expect(tester.takeException(), isNull);
+  });
   test('Flame background is transparent outside and inside its viewport', () {
     final game = SpectatorGame(tableId: 'test', realtimeClient: _Client());
     expect(game.backgroundColor(), const Color(0x00000000));
@@ -50,12 +62,13 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Galibiyet'), findsNWidgets(2));
-      expect(find.text('Mağlubiyet'), findsNWidgets(2));
+      expect(find.text('GALİBİYET'), findsOneWidget);
+      expect(find.text('Mağlubiyet'), findsNothing);
       final panel = tester.getRect(find.byType(SpectatorTableScores));
       expect(panel.width, lessThanOrEqualTo(260));
       expect(panel.top, 62);
-      expect(panel.bottom, lessThan(130));
+      expect(panel.height, lessThanOrEqualTo(116));
+      expect(panel.bottom, lessThan(180));
       final backdrop = tester.getRect(find.byType(SpectatorBackdrop));
       expect(backdrop, Offset.zero & size);
       final image = tester.widget<Image>(find.byType(Image));

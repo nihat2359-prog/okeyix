@@ -8,6 +8,7 @@ class LobbyMetalSurface extends StatelessWidget {
   final bool selected, pattern;
   final double radius;
   final double surfaceOpacity;
+  final bool flatBorder;
   final EdgeInsetsGeometry padding;
   const LobbyMetalSurface({
     super.key,
@@ -17,6 +18,7 @@ class LobbyMetalSurface extends StatelessWidget {
     this.pattern = false,
     this.radius = 17,
     this.surfaceOpacity = 1,
+    this.flatBorder = false,
     this.padding = EdgeInsets.zero,
   });
   @override
@@ -28,6 +30,7 @@ class LobbyMetalSurface extends StatelessWidget {
         pattern: pattern,
         radius: radius,
         surfaceOpacity: surfaceOpacity,
+        flatBorder: flatBorder,
       ),
       child: Padding(padding: padding, child: child),
     ),
@@ -39,12 +42,14 @@ class LobbyMetalPainter extends CustomPainter {
   final bool selected, pattern;
   final double radius;
   final double surfaceOpacity;
+  final bool flatBorder;
   const LobbyMetalPainter({
     this.metal = const Color(0xFFB7A17A),
     this.selected = false,
     this.pattern = false,
     this.radius = 17,
     this.surfaceOpacity = 1,
+    this.flatBorder = false,
   });
   @override
   void paint(Canvas canvas, Size size) {
@@ -56,6 +61,20 @@ class LobbyMetalPainter extends CustomPainter {
       Radius.circular(math.max(2, r - inset)),
     );
     final outer = shape(0), face = shape(2.7);
+    if (flatBorder) {
+      canvas.drawRRect(outer, Paint()..shader = LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFF252B2D).withValues(alpha: .36 * surfaceOpacity),
+          const Color(0xFF060D12).withValues(alpha: .40 * surfaceOpacity),
+        ],
+      ).createShader(rect));
+      canvas.drawRRect(outer, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x99727977));
+      return;
+    }
     // Stroke-only bevels: no opaque full-size undercoat and no difference clip.
     // This also keeps the centre clear on Flutter Web/CanvasKit.
     canvas.drawRRect(
@@ -204,6 +223,7 @@ class LobbyMetalPainter extends CustomPainter {
       selected != old.selected ||
       pattern != old.pattern ||
       surfaceOpacity != old.surfaceOpacity ||
+      flatBorder != old.flatBorder ||
       radius != old.radius;
 }
 
@@ -211,6 +231,7 @@ class LobbyMotto extends StatelessWidget {
   const LobbyMotto({super.key});
   @override
   Widget build(BuildContext context) => const LobbyMetalSurface(
+    flatBorder: true,
     radius: 12,
     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     child: Center(

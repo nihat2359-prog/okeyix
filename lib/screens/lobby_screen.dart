@@ -2700,41 +2700,43 @@ class _LobbyScreenState extends State<LobbyScreen>
         }
       }
 
-      /// FRIEND TABLE MAP
+      /// Prefer a live player seat; otherwise follow the friend's watched table.
       final friendTables = <String, String>{};
+      final friendTableRoles = <String, String>{};
       final spectatorsEnabledByTableId = <String, bool>{};
-
       if (friendIds.isNotEmpty) {
-        final tableRows = await supabase
-            .from('table_players')
-            .select('user_id,table_id')
-            .inFilter('user_id', friendIds.toList());
-
-        for (final raw in (tableRows as List)) {
-          final row = Map<String, dynamic>.from(raw);
-          final userId = row['user_id']?.toString();
-          final tableId = row['table_id']?.toString();
-          if (userId != null && tableId != null) {
-            friendTables[userId] = tableId;
+        final seated = await supabase.from('table_players')
+            .select('user_id,table_id').inFilter('user_id', friendIds.toList());
+        List<dynamic> watching = [];
+        try {
+          watching = await supabase.from('table_spectators')
+              .select('user_id,table_id').inFilter('user_id', friendIds.toList());
+        } catch (_) {
+          // Preserve seated friends if spectator presence is not readable.
+        }
+        final ids = [...seated, ...watching].map((r) => r['table_id']?.toString())
+            .whereType<String>().toSet().toList();
+        final active = <String>{};
+        if (ids.isNotEmpty) {
+          final rows = await supabase.from('tables').select('id,status,spectators_enabled')
+              .inFilter('id', ids);
+          for (final row in rows) {
+            final id = row['id'].toString();
+            if (!{'waiting', 'start', 'starting', 'playing'}.contains(row['status'])) continue;
+            active.add(id);
+            spectatorsEnabledByTableId[id] = row['spectators_enabled'] == true;
           }
         }
-
-        final tableIds = friendTables.values.toSet().toList();
-        if (tableIds.isNotEmpty) {
-          final tableFlagRows = await supabase
-              .from('tables')
-              .select('id,spectators_enabled')
-              .inFilter('id', tableIds);
-          for (final raw in (tableFlagRows as List)) {
-            final row = Map<String, dynamic>.from(raw);
-            final tableId = row['id']?.toString();
-            if (tableId == null || tableId.isEmpty) continue;
-            spectatorsEnabledByTableId[tableId] =
-                (row['spectators_enabled'] as bool?) ?? true;
+        for (final role in ['player', 'spectator']) {
+          for (final row in role == 'player' ? seated : watching) {
+            final user = row['user_id']?.toString();
+            final id = row['table_id']?.toString();
+            if (user == null || id == null || !active.contains(id) || friendTables.containsKey(user)) continue;
+            friendTables[user] = id;
+            friendTableRoles[user] = role;
           }
         }
       }
-
       /// FRIEND LIST
       final friendList = <Map<String, dynamic>>[];
 
@@ -2755,6 +2757,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           /// EKLENEN
           'table_id': friendTables[friendId],
+          'table_role': friendTableRoles[friendId],
           'table_spectators_enabled': (() {
             final tableId = friendTables[friendId];
             if (tableId == null || tableId.isEmpty) return true;
@@ -3365,7 +3368,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _friendsPanel() => LobbyFriendsScene(
     friends: _friends,
     avatarBuilder: _socialAvatar,
-    statusText: (friend) => friend['is_online'] == true
+    statusText: (friend) => friend['table_id'] != null
+      ? (friend['table_role'] == 'spectator' ? 'Masayı izliyor' : 'Masada oynuyor')
+      : friend['is_online'] == true
       ? 'Çevrimiçi' : _formatLastSeen(friend['last_seen_at']),
     onClose: _closeRightPanel,
     onProfile: (friend) async {
@@ -3376,11 +3381,19 @@ class _LobbyScreenState extends State<LobbyScreen>
     },
     onMessage: (friend) => _openRightPanel(_RightPanelType.messages,
       initialChatUserId: friend['id']?.toString()),
-    onSpectate: (friend) {
-      final tableId = friend['table_id'];
-      if (tableId == null || friend['table_spectators_enabled'] == false) return;
-      Navigator.push(context, MaterialPageRoute(
+    onSpectate: (friend) async {
+      await _loadSocialData();
+      if (!mounted) return;
+      final current = _friends.where((f) => f['id'] == friend['id']);
+      if (current.isEmpty) return;
+      final tableId = current.first['table_id']?.toString();
+      if (tableId == null || current.first['table_spectators_enabled'] == false) {
+        _msg('Arkadaşının izlenebilir bir masası bulunamadı.');
+        return;
+      }
+      await Navigator.push(context, MaterialPageRoute(
         builder: (_) => SpectatorScreen(tableId: tableId)));
+      if (mounted) await _loadSocialData();
     },
   );
 

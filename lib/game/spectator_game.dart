@@ -307,7 +307,8 @@ class SpectatorGame extends FlameGame {
         switch (type) {
           case 'discard':
             _animateDiscard(parsed, seat);
-            _decreaseDeck();
+            // Discarding does not consume the closed pile. Its count is set
+            // from authoritative table updates, independent of event order.
             break;
 
           case 'draw_deck':
