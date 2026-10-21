@@ -624,9 +624,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        _ActiveAvatarBubbleMotion(
-          active: player.isActive,
-          child: SizedBox(
+        SizedBox(
             key: _giftAnchors.putIfAbsent(player.id, () => GlobalKey()),
             child: AvatarCard(
               giftOriginKey: _giftOrigins.putIfAbsent(player.id, () => GlobalKey()),
@@ -639,7 +637,6 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               showRatingProgress: true,
               onTap: onTap,
             ),
-          ),
         ),
         if (text != null && text.trim().isNotEmpty)
           Positioned(
@@ -1672,70 +1669,6 @@ class _InviteSeatCardState extends State<_InviteSeatCard>
       child: widget.vertical
           ? Column(mainAxisSize: MainAxisSize.min, children: content)
           : Row(mainAxisSize: MainAxisSize.min, children: content),
-    );
-  }
-}
-
-class _ActiveAvatarBubbleMotion extends StatefulWidget {
-  final bool active;
-  final Widget child;
-
-  const _ActiveAvatarBubbleMotion({required this.active, required this.child});
-
-  @override
-  State<_ActiveAvatarBubbleMotion> createState() =>
-      _ActiveAvatarBubbleMotionState();
-}
-
-class _ActiveAvatarBubbleMotionState extends State<_ActiveAvatarBubbleMotion>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    if (widget.active) {
-      _controller.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _ActiveAvatarBubbleMotion oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.active == oldWidget.active) return;
-    if (widget.active) {
-      _controller.repeat(reverse: true);
-    } else {
-      _controller.stop();
-      _controller.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.active) return widget.child;
-    return AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder: (context, child) {
-        final t = Curves.easeInOut.transform(_controller.value);
-        final dy = -3.0 * t;
-        final scale = 1.0 + (0.012 * t);
-        return Transform.translate(
-          offset: Offset(0, dy),
-          child: Transform.scale(scale: scale, child: child),
-        );
-      },
     );
   }
 }

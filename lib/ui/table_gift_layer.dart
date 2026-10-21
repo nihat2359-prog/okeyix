@@ -348,7 +348,7 @@ class _GiftPanelState extends State<_GiftPanel> {
     builder: (context, _) {
       final c = widget.controller;
       return Material(
-        color: const Color(0xF00D2220),
+        color: const Color(0xC91D252E),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.horizontal(left: Radius.circular(22)),
           side: BorderSide(color: Color(0x887D754F)),
@@ -432,7 +432,7 @@ class _GiftPanelState extends State<_GiftPanel> {
                         itemBuilder: (context, index) {
                           final g = c.catalog[index];
                           return Material(
-                            color: const Color(0x66364A39),
+                            color: const Color(0x553C454F),
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),

@@ -34,6 +34,7 @@ import 'okey_game_screen.dart';
 import 'login_screen.dart';
 import 'store_screen.dart';
 import 'friend_invite_screen.dart';
+import 'journey_screen.dart';
 import 'package:okeyix/ui/invite_strings.dart';
 import 'leaderboard_screen.dart';
 import 'banned_screen.dart';
@@ -4840,6 +4841,14 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Row(
       children: [
         _coinBuyDockButton(),
+        const SizedBox(width: 2),
+        LobbyDockAction(
+          label: 'Yolculuk',
+          icon: Icons.explore_outlined,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => const JourneyScreen(),
+          )),
+        ),
         const SizedBox(width: 2),
         LobbyDockAction(
           label: InviteStrings.of(context).t('Davet', 'Invite'),
