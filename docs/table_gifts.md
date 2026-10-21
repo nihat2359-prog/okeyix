@@ -48,8 +48,11 @@ Mevcut `gifts`/`gift_types` profil hediyesi sistemi değiştirilmez.
   ve alıcının `table_players.id` katılımına bağlıdır. Katılım veya masa silinince
   CASCADE ile temizlenir; el değişimi ve reconnect'te kaybolmaz. Eski bir
   katılıma ait hediye aynı kullanıcının yeniden katılımına taşınmaz.
-- Realtime yalnız sunucunun satın alma INSERT'lerini haber verir. İstemci payload'ı
-  doğrudan animasyon olarak kullanmaz: RLS ile korunan sıralı `seq` sorgusunu okur.
+- Realtime yalnız sunucunun satın alma INSERT'lerini haber verir. Doğrulanmış
+  Postgres Changes satırı ek sorgu beklenmeden görüntülenir; istemci broadcast'leri
+  kabul edilmez. Satın alan tarafta doğrulanmış RPC makbuzu da hemen işlenir.
+  Ardından RLS ile korunan sıralı `seq` sorgusuyla eksik olaylar uzlaştırılır;
+  aynı makbuzun tekrar okunması ikinci animasyon oluşturmaz.
   Tek masa satırı kilidi o masadaki commit sırasını korur; sequence boşlukları
   güvenlidir. Aynı seq tekrar oynatılmaz. Snapshot, cursor ve son hediyeleri tek
   SQL snapshot'ından döndürür. Reconnect geçmiş uçuşları oynatmadan son durumu alır.

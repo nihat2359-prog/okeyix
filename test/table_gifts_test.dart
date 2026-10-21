@@ -30,15 +30,17 @@ class GiftFake extends TableGiftService {
   bool insufficient = false, loseResponse = false;
   final List<String> requests = [];
   VoidCallback? change, reconnect;
+  void Function(TableGiftEvent?)? immediate;
   @override
   String get userId => identity;
   @override
   Future<void> Function() watch(
     String tableId,
-    VoidCallback changed,
+    void Function(TableGiftEvent?) changed,
     VoidCallback reconnected,
   ) {
-    change = changed;
+    change = () => changed(null);
+    immediate = changed;
     reconnect = reconnected;
     return () async {};
   }
@@ -127,6 +129,14 @@ class DelayedGiftFake extends GiftFake {
   Future<Map<String, dynamic>> snapshot(String tableId) => completion.future;
 }
 
+class HeldFeedGiftFake extends GiftFake {
+  HeldFeedGiftFake(super.store, super.identity);
+  Future<List<TableGiftEvent>>? gate;
+  @override
+  Future<List<TableGiftEvent>> events(String tableId, int after) =>
+      gate ?? super.events(tableId, after);
+}
+
 void main() {
   test('catalog references all 14 real PNGs without duplicates', () {
     expect(TableGiftItem.ids.length, 14);
@@ -134,6 +144,39 @@ void main() {
       expect(File('assets/images/hediyeler/$id.png').existsSync(), isTrue);
     }
   });
+  for (final spectator in [false, true]) {
+    test(
+      'verified realtime updates immediately while reconciliation waits; spectator=$spectator',
+      () async {
+        final store = GiftStore();
+        final service = HeldFeedGiftFake(store, spectator ? 'viewer' : 'a');
+        final sender = GiftFake(store, 'b');
+        final c = TableGiftController(
+          tableId: 'table',
+          service: service,
+          spectator: spectator,
+        );
+        addTearDown(c.dispose);
+        var flights = 0;
+        c.onEvents = (events) => flights += events.length;
+        c.start();
+        await c.restore();
+        final blocked = Completer<List<TableGiftEvent>>();
+        service.gate = blocked.future;
+        await sender.buy('table', 'a', 'pasta', 'immediate');
+        final event = TableGiftEvent.fromJson(store.events.single);
+        service.immediate!(event);
+        expect(c.latest['a']!.giftId, 'pasta');
+        expect(flights, spectator ? 0 : 1);
+        service.immediate!(event);
+        final pending = c.sync();
+        blocked.complete([event]);
+        await pending;
+        expect(c.latest['a']!.seq, event.seq);
+        expect(flights, spectator ? 0 : 1);
+      },
+    );
+  }
   test(
     'both viewers see ordered real sender/recipient, self and replacement gifts once',
     () async {
@@ -251,8 +294,22 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('last-gift:a:1')), findsOneWidget);
       expect(find.byKey(const ValueKey('last-gift:b:2')), findsOneWidget);
+      for (final entry in [(a, 'last-gift:a:1'), (b, 'last-gift:b:2')]) {
+        final bounds = t.getRect(find.byKey(entry.$1));
+        expect(
+          t.getCenter(find.byKey(ValueKey(entry.$2))),
+          Offset(bounds.right - 28, bounds.top + 25),
+        );
+      }
       expect(find.byType(GameWidget<TableGiftFlightGame>), findsNothing);
       expect(find.byIcon(Icons.card_giftcard_rounded), findsNothing);
+      await t.tap(
+        find.byKey(const ValueKey('last-gift:b:2')),
+        warnIfMissed: false,
+      );
+      await t.pumpAndSettle();
+      expect(find.text('Hediyeler'), findsNothing);
+      expect(store.debits, 2);
       await source.buy('table', 'b', 'kirmizi_gul', 'three');
       viewer.change!();
       await t.pumpAndSettle();

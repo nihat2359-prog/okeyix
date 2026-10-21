@@ -153,14 +153,8 @@ class _TableGiftLayerState extends State<TableGiftLayer>
   }
 
   Offset _slot(Rect rect, Size size) => Offset(
-    (widget.spectator ? rect.right + 26 : rect.right - 28).clamp(
-      24.0,
-      size.width - 24,
-    ),
-    (widget.spectator ? rect.center.dy : rect.top + 25).clamp(
-      24.0,
-      size.height - 24,
-    ),
+    (rect.right - 28).clamp(24.0, size.width - 24),
+    (rect.top + 25).clamp(24.0, size.height - 24),
   );
   Future<void> _drain() async {
     if (!mounted ||
@@ -274,18 +268,21 @@ class _TableGiftLayerState extends State<TableGiftLayer>
                       Positioned(
                         left: _slot(_rects[a.userId]!, bounds.biggest).dx - 24,
                         top: _slot(_rects[a.userId]!, bounds.biggest).dy - 24,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: widget.spectator ? null : () => _open(a),
-                          child: Tooltip(
-                            message: '${_t('Hediye', 'Gift')} · ${a.name}',
-                            child: Image.asset(
-                              gift.asset,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.contain,
-                              key: ValueKey(
-                                'last-gift:${a.userId}:${gift.seq}',
+                        child: IgnorePointer(
+                          ignoring: widget.spectator,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: widget.spectator ? null : () => _open(a),
+                            child: Tooltip(
+                              message: '${_t('Hediye', 'Gift')} · ${a.name}',
+                              child: Image.asset(
+                                gift.asset,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.contain,
+                                key: ValueKey(
+                                  'last-gift:${a.userId}:${gift.seq}',
+                                ),
                               ),
                             ),
                           ),

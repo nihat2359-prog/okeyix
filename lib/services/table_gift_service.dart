@@ -47,7 +47,7 @@ class TableGiftService {
   );
   Future<void> Function() watch(
     String tableId,
-    VoidCallback changed,
+    void Function(TableGiftEvent?) changed,
     VoidCallback reconnected,
   ) {
     final channel = client
@@ -61,7 +61,15 @@ class TableGiftService {
             column: 'table_id',
             value: tableId,
           ),
-          callback: (_) => changed(),
+          callback: (payload) {
+            TableGiftEvent? event;
+            try {
+              event = TableGiftEvent.fromJson(payload.newRecord);
+            } catch (_) {
+              /* Reconcile from the ordered server feed below. */
+            }
+            changed(event);
+          },
         )
         .subscribe((status, error) {
           if (status == RealtimeSubscribeStatus.subscribed) reconnected();
@@ -85,6 +93,8 @@ class TableGiftController extends ChangeNotifier {
   final bool spectator;
   List<TableGiftItem> catalog = [];
   final Map<String, TableLastGift> latest = {};
+  final Set<int> _earlyReceipts = {};
+  String? _readyIdentity;
   int? balance;
   bool ready = false, failed = false, buying = false;
   int _cursor = 0;
@@ -96,12 +106,30 @@ class TableGiftController extends ChangeNotifier {
   void Function(List<TableGiftEvent>)? onEvents;
 
   void start() {
-    _close = service.watch(
-      tableId,
-      () => unawaited(sync()),
-      () => unawaited(restore()),
-    );
+    _close = service.watch(tableId, (event) {
+      if (event != null && ready && _readyIdentity == service.userId) {
+        _receiveVerified(event);
+      }
+      unawaited(sync());
+    }, () => unawaited(restore()));
     unawaited(restore());
+  }
+
+  // Only committed RPC receipts or Postgres Changes rows enter here. Never
+  // accept client broadcasts. Keep the cursor for ordered gap reconciliation.
+  void _receiveVerified(TableGiftEvent event) {
+    if (_disposed ||
+        event.tableId != tableId ||
+        event.seq <= _cursor ||
+        !_earlyReceipts.add(event.seq)) {
+      return;
+    }
+    final old = latest[event.recipientId];
+    if (old == null || event.seq > old.seq) {
+      latest[event.recipientId] = TableLastGift(event.seq, event.giftId);
+      if (!spectator) onEvents?.call([event]);
+      notifyListeners();
+    }
   }
 
   Future<void> restore() {
@@ -149,6 +177,8 @@ class TableGiftController extends ChangeNotifier {
             );
           }
           _cursor = (data['cursor'] as num).toInt();
+          _earlyReceipts.clear();
+          _readyIdentity = identity;
           balance = (data['balance'] as num?)?.toInt();
           ready = true;
           failed = false;
@@ -164,11 +194,14 @@ class TableGiftController extends ChangeNotifier {
           for (final e in batch..sort((a, b) => a.seq.compareTo(b.seq))) {
             if (e.tableId != tableId || e.seq <= _cursor) continue;
             _cursor = e.seq;
+            final alreadyPresented = _earlyReceipts.remove(e.seq);
             final old = latest[e.recipientId];
             if (old == null || e.seq > old.seq) {
               latest[e.recipientId] = TableLastGift(e.seq, e.giftId);
             }
-            accepted.add(e);
+            if (!alreadyPresented && (old == null || e.seq >= old.seq)) {
+              accepted.add(e);
+            }
           }
           if (batch.length == 100) _dirty = true;
           if (accepted.isNotEmpty) {
@@ -215,10 +248,11 @@ class TableGiftController extends ChangeNotifier {
         throw const FormatException('Wrong purchase receipt');
       }
       balance = (result['balance'] as num?)?.toInt();
+      _receiveVerified(e);
       _request = null;
       _recipient = null;
       _gift = null;
-      await sync();
+      unawaited(sync());
     } on PostgrestException catch (e) {
       // Confirmed SQL rejection has no committed purchase. Transport failures
       // keep the exact same request for retry, even when the panel is reopened.

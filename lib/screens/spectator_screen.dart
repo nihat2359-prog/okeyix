@@ -29,6 +29,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   final supabase = Supabase.instance.client;
   final topAvatarKey = GlobalKey();
   final bottomAvatarKey = GlobalKey();
+  final topGiftBoundsKey = GlobalKey();
+  final bottomGiftBoundsKey = GlobalKey();
   late SpectatorGame game;
   RealtimeChannel? spectatorChannel;
   final _scoresRefresh = CoalescedViewRefresh();
@@ -638,6 +640,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                     userId: top['user_id']?.toString(),
                     avatarPath: top['users']['avatar_url']?.toString(),
                     avatarKey: topAvatarKey,
+                    giftBoundsKey: topGiftBoundsKey,
                   ),
                   const SizedBox(height: 2),
                   GestureDetector(
@@ -676,6 +679,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                     userId: bottom['user_id']?.toString(),
                     avatarPath: bottom['users']['avatar_url']?.toString(),
                     avatarKey: bottomAvatarKey,
+                    giftBoundsKey: bottomGiftBoundsKey,
                   ),
                   const SizedBox(height: 2),
                   GestureDetector(
@@ -700,8 +704,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             tableId: widget.tableId,
             spectator: true,
             anchors: [
-              if (top != null) TableGiftAnchor(top['user_id'].toString(), top['users']['username']?.toString() ?? '', topAvatarKey),
-              if (bottom != null) TableGiftAnchor(bottom['user_id'].toString(), bottom['users']['username']?.toString() ?? '', bottomAvatarKey),
+              if (top != null) TableGiftAnchor(top['user_id'].toString(), top['users']['username']?.toString() ?? '', topGiftBoundsKey),
+              if (bottom != null) TableGiftAnchor(bottom['user_id'].toString(), bottom['users']['username']?.toString() ?? '', bottomGiftBoundsKey),
             ],
           )),
           if (_tableChatEnabled)
@@ -1801,11 +1805,16 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     required String? userId,
     required String? avatarPath,
     required Key avatarKey,
+    required GlobalKey giftBoundsKey,
   }) {
     final isTurn = _currentTurnSeat == seatIndex;
     final progress = _turnProgress();
     final remain = _turnRemaining();
-    return GestureDetector(
+    return SizedBox(
+      key: giftBoundsKey,
+      width: 168,
+      height: 70,
+      child: Center(child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: userId == null || userId.isEmpty
           ? null
@@ -1879,6 +1888,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           ],
         ),
       ),
+      )),
     );
   }
 
