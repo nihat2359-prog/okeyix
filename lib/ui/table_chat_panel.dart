@@ -198,6 +198,10 @@ class TableChatPanel extends StatelessWidget {
                           ),
                         ),
                       SizedBox(
+                        // Keyboard insets remove the quick-message SizedBox
+                        // above. Keep this subtree's identity so its TextField
+                        // is not replaced (which would dismiss the iOS IME).
+                        key: const ValueKey('table-chat-composer'),
                         height: tiny ? 30 : 40,
                         child: Row(
                           children: [

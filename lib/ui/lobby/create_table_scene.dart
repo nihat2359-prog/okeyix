@@ -169,7 +169,7 @@ class _CreateTableSceneState extends State<CreateTableScene> {
             clipBehavior: Clip.antiAlias,
             child: LobbyMetalSurface(
               radius: 22,
-              surfaceOpacity: 2.2,
+              surfaceOpacity: 2.4,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                 child: Column(

@@ -42,6 +42,15 @@ class TileComponent extends PositionComponent
         ActivityLifecycleObservation {
   bool renderInDragOverlay = false;
   bool _paintingDragOverlay = false;
+  bool _awaitingDrawConfirmation = false;
+
+  void showAwaitingDrawConfirmation() {
+    _awaitingDrawConfirmation = true;
+    if (isLoaded) {
+      removeAll(children);
+      _buildFace();
+    }
+  }
 
   @override
   void renderTree(Canvas canvas) {
@@ -72,6 +81,7 @@ class TileComponent extends PositionComponent
   int? originalSlotIndex;
   bool isLocked = false;
   DateTime? _lastTap;
+  bool _doubleTapInProgress = false;
   async.Timer? _liftHoldTimer;
   Vector2? _liftHoldAnchor;
 
@@ -123,6 +133,18 @@ class TileComponent extends PositionComponent
   }
 
   void _buildFace() {
+    if (_awaitingDrawConfirmation) {
+      add(baseSprite);
+      add(TextComponent(
+        text: '…',
+        anchor: Anchor.center,
+        position: size / 2,
+        textRenderer: TextPaint(style: const TextStyle(
+          fontSize: 36, color: Color(0xFF6D716C),
+        )),
+      ));
+      return;
+    }
     if (isJoker && isFaceDown) {
       add(backSprite);
       add(backFrameFx);
@@ -301,10 +323,14 @@ class TileComponent extends PositionComponent
     gameRef?.clearGroupSelectionIfDifferent(this);
 
     final now = DateTime.now();
+    _doubleTapInProgress = false;
 
     if (_lastTap != null &&
         now.difference(_lastTap!) < const Duration(milliseconds: 320)) {
+      _doubleTapInProgress = true;
+      _lastTap = null;
       _onDoubleTap();
+      return;
     }
 
     _lastTap = now;
@@ -414,7 +440,11 @@ class TileComponent extends PositionComponent
     if (gameRef != null && gameRef.isGroupDragAnchor(this)) {
       gameRef.cancelActiveGroupDragSelection();
     }
-    if (isJoker) {
+    // Rebuilding a joker's face removes its children, including the automatic
+    // discard MoveEffect started by the second tap. Let that animation finish.
+    final wasDoubleTap = _doubleTapInProgress;
+    _doubleTapInProgress = false;
+    if (isJoker && !wasDoubleTap) {
       toggleFace();
     }
   }
@@ -445,6 +475,8 @@ class TileComponent extends PositionComponent
     gameRef.clearGroupSelectionIfDifferent(this);
 
     originalPosition = position.clone();
+    // Stop a previous slot/preview animation before the pointer takes control.
+    children.whereType<MoveEffect>().toList().forEach((e) => e.removeFromParent());
     dragOffset = event.localPosition;
     priority = 100;
     gameRef.showTileAboveAvatars(this);
@@ -582,6 +614,7 @@ class TileComponent extends PositionComponent
   }
 
   void _restoreToOriginalSlot() {
+    children.whereType<MoveEffect>().toList().forEach((e) => e.removeFromParent());
     final slot = originalSlotIndex;
     if (slot != null) {
       final gameRef = _tryGame();

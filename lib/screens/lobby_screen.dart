@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/core/table_creation_options.dart';
+import 'package:okeyix/core/message_contacts.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -124,10 +124,19 @@ class _LobbyScreenState extends State<LobbyScreen>
   _RightPanelType _rightPanelType = _RightPanelType.none;
   List<Map<String, dynamic>> _friends = [];
   Map<String, int> _unreadByUser = {};
+  Map<String, Map<String, dynamic>> _messageSenders = {};
+  String? _messageSendersUserId;
+  final Set<String> _loadingMessageSenders = {};
+  List<Map<String, dynamic>> get _messageContacts => messageContacts(
+    _friends, _unreadByUser,
+    senders: _messageSendersUserId == supabase.auth.currentUser?.id
+        ? _messageSenders.values : const [],
+  );
 
   final Set<String> _notifiedIncomingRequestIds = <String>{};
   final Set<String> _handledTableInviteIds = <String>{};
   List<Map<String, dynamic>> _activeChatMessages = [];
+  int _messageLoadGeneration = 0;
   String? _activeChatUserId;
   String? _activeChatUserTableId;
   RealtimeChannel? _tableInviteChannel;
@@ -603,6 +612,9 @@ class _LobbyScreenState extends State<LobbyScreen>
               _unreadByUser = Map<String, int>.from(_unreadByUser)
                 ..update(senderId, (v) => v + 1, ifAbsent: () => 1);
             });
+            if (_rightPanelType == _RightPanelType.messages) {
+              unawaited(_ensureMessageSender(senderId, myUserId));
+            }
           },
         )
         .subscribe();
@@ -2585,6 +2597,27 @@ class _LobbyScreenState extends State<LobbyScreen>
   int get _unreadTotal =>
       _unreadByUser.values.fold(0, (sum, value) => sum + value);
 
+  Future<void> _ensureMessageSender(String senderId, String uid) async {
+    if (_friends.any((f) => f['id']?.toString() == senderId) ||
+        (_messageSendersUserId == uid && _messageSenders.containsKey(senderId))) return;
+    final key = '$uid:$senderId';
+    if (!_loadingMessageSenders.add(key)) return;
+    try {
+      final rows = await supabase.from('users').select('id,username,avatar_url')
+          .eq('id', senderId).limit(1);
+      if (!mounted || supabase.auth.currentUser?.id != uid || rows.isEmpty) return;
+      setState(() {
+        if (_messageSendersUserId != uid) _messageSenders = {};
+        _messageSendersUserId = uid;
+        _messageSenders[senderId] = Map<String, dynamic>.from(rows.first);
+      });
+    } catch (_) {
+      // Keep the incoming conversation accessible even if identity lookup fails.
+    } finally {
+      _loadingMessageSenders.remove(key);
+    }
+  }
+
   Future<void> _loadSocialData() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
@@ -2751,7 +2784,24 @@ class _LobbyScreenState extends State<LobbyScreen>
         unread.update(senderId, (v) => v + 1, ifAbsent: () => 1);
       }
 
-      if (!mounted) return;
+      final senders = _messageSendersUserId == uid
+          ? Map<String, Map<String, dynamic>>.from(_messageSenders)
+          : <String, Map<String, dynamic>>{};
+      final missingSenders = unread.keys.where((id) =>
+          !friendIds.contains(id) && !senders.containsKey(id)).toList();
+      if (missingSenders.isNotEmpty) {
+        try {
+          final rows = await supabase.from('users').select('id,username,avatar_url')
+              .inFilter('id', missingSenders);
+          for (final row in rows) {
+            final sender = Map<String, dynamic>.from(row);
+            senders[sender['id'].toString()] = sender;
+          }
+        } catch (_) {
+          // Identity failure must not hide incoming unread conversations.
+        }
+      }
+      if (!mounted || supabase.auth.currentUser?.id != uid) return;
 
       setState(() {
         UserState.userId = uid;
@@ -2761,6 +2811,11 @@ class _LobbyScreenState extends State<LobbyScreen>
         UserState.incomingRequestIds = incomingRequestIds;
         UserState.outgoingRequestIds = outgoingRequestIds;
         _unreadByUser = unread;
+        _messageSenders = {
+          if (_messageSendersUserId == uid) ..._messageSenders,
+          ...senders,
+        };
+        _messageSendersUserId = uid;
       });
 
       _notifiedIncomingRequestIds.removeWhere(
@@ -2796,6 +2851,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     String? initialChatUserId,
   }) async {
     if (!mounted) return;
+    _messageLoadGeneration++;
     setState(() {
       _rightPanelType = type;
       _rightPanelLoading = false;
@@ -2804,11 +2860,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadSocialData();
 
     if (type == _RightPanelType.messages) {
-      final fallbackId = _friends.isNotEmpty
-          ? _friends.first['id'] as String
-          : null;
-      final targetUserId = initialChatUserId ?? _activeChatUserId ?? fallbackId;
-      final targetFriend = _friends.where((friend) => friend['id']?.toString() == targetUserId).firstOrNull;
+      final contacts = _messageContacts;
+      final targetUserId = initialMessageContact(contacts, _unreadByUser,
+          requested: initialChatUserId, active: _activeChatUserId);
+      final targetFriend = contacts.where((friend) => friend['id']?.toString() == targetUserId).firstOrNull;
       if (targetUserId != null) {
         await _loadMessagesWith(targetUserId, targetFriend?['friendid']?.toString() ?? '', markRead: true);
       }
@@ -2816,6 +2871,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   void _closeRightPanel() {
+    _messageLoadGeneration++;
     if (!mounted) return;
     FocusManager.instance.primaryFocus?.unfocus();
     _isPressing = false;
@@ -2835,9 +2891,13 @@ class _LobbyScreenState extends State<LobbyScreen>
     String friendtableid, {
     bool markRead = true,
   }) async {
-    final uid = UserState.userId ?? supabase.auth.currentUser?.id;
+    final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
     if (_rightPanelType != _RightPanelType.messages) return;
+    final generation = ++_messageLoadGeneration;
+    bool currentRequest() => mounted && generation == _messageLoadGeneration &&
+        _rightPanelType == _RightPanelType.messages && _activeChatUserId == otherUserId &&
+        supabase.auth.currentUser?.id == uid;
 
     setState(() {
       _rightPanelLoading = true;
@@ -2856,6 +2916,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           )
           .order('created_at', ascending: true);
 
+      if (!currentRequest()) return;
       if (markRead) {
         await supabase
             .from('messages')
@@ -2865,14 +2926,16 @@ class _LobbyScreenState extends State<LobbyScreen>
             .isFilter('read_at', null);
       }
 
-      if (!mounted) return;
+      if (!currentRequest()) return;
       setState(() {
         _activeChatMessages = (rows as List)
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
         _rightPanelLoading = false;
-        _unreadByUser = Map<String, int>.from(_unreadByUser)
-          ..remove(otherUserId);
+        if (markRead) {
+          _unreadByUser = Map<String, int>.from(_unreadByUser)
+            ..remove(otherUserId);
+        }
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2880,7 +2943,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       });
     } catch (e) {
       debugPrint('MESSAGE LOAD ERROR: $e');
-      if (!mounted) return;
+      if (!currentRequest()) return;
       setState(() => _rightPanelLoading = false);
     }
   }
@@ -3322,7 +3385,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   );
 
   Widget _messagesPanel() => LobbyMessagesScene(
-    friends: _friends,
+    friends: _messageContacts,
     activeId: _activeChatUserId,
     unread: _unreadByUser,
     avatarBuilder: _socialAvatar,
@@ -3418,7 +3481,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       final msg = _activeChatMessages[index];
       final mine = msg['sender_id'] == UserState.userId;
       final senderId = msg['sender_id']?.toString();
-      final friend = _friends.where((f) => f['id']?.toString() == senderId).firstOrNull;
+      final friend = _messageContacts.where((f) => f['id']?.toString() == senderId).firstOrNull;
       final name = mine ? (UserState.userName.isEmpty ? 'Sen' : UserState.userName)
         : friend?['username']?.toString() ?? 'Oyuncu';
       return Align(alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -4278,13 +4341,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _connectedLeagueAndTables() {
     return LobbyColumns(
       leagues:
-          /// ?? SOL PANEL (GLASS EFFECT)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-              child: LobbyMetalSurface(
-                metal: const Color(0xFFAD8B55),
+          Padding(
                 padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
                 child: Column(
                   children: [
@@ -4346,8 +4403,6 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                   ],
                 ),
-              ),
-            ),
           ),
 
       /// ?? MASALAR
@@ -4355,11 +4410,17 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
+  String get _selectedLeagueName => leagues
+      .where((league) => league['id'] == selectedLeague)
+      .map((league) => league['name']?.toString() ?? '')
+      .firstOrNull ?? '';
+
   Widget _buildTablesPanel() {
     final useWebGrid = kIsWeb && MediaQuery.of(context).size.width >= 1200;
 
     if (!useWebGrid || isLeagueLocked) {
       return LobbyTableWheel(
+        leagueName: _selectedLeagueName,
         tables: tables,
         loading: loadingTables,
         blockedUserIds: UserState.blockedUserIds,
@@ -4471,8 +4532,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                 size: 34,
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Bu ligde şu an açık masa yok',
+              Text(
+                '$_selectedLeagueName liginde açık masa yok',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xFFF2F6F3),

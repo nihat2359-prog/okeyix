@@ -215,7 +215,7 @@ void main() {
       await scene(tester, sizes[2], 1, calls, messages: true, keyboard: 216);
       await tester.tap(find.byTooltip('Arkadaş seç'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Oyuncu 1  •'));
+      await tester.tap(find.text('Oyuncu 1  (3 yeni)'));
       await tester.pumpAndSettle();
       expect(calls, ['select:1']);
       await tester.showKeyboard(find.byType(TextField));
@@ -237,6 +237,17 @@ void main() {
           .onPressed,
       isNull,
     );
+  });
+  testWidgets('unread sender is first and has a visible avatar badge', (tester) async {
+    final calls = <String>[];
+    await scene(tester, sizes[2], 1, calls, messages: true);
+    final unread = find.byKey(const ValueKey('message-contact-1'));
+    final read = find.byKey(const ValueKey('message-contact-0'));
+    expect(tester.getTopLeft(unread).dx, lessThan(tester.getTopLeft(read).dx));
+    expect(find.byKey(const ValueKey('message-unread-1')), findsOneWidget);
+    await tester.tap(unread);
+    await tester.pump();
+    expect(calls, ['select:1']);
   });
   for (final mode in ['friends', 'messages', 'keyboard']) {
     testWidgets('social golden $mode', (tester) async {

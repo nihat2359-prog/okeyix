@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:okeyix/core/message_contacts.dart';
 
 const _gold = Color(0xFFE4C98D);
 typedef FriendAvatarBuilder = Widget Function(Map<String, dynamic> friend);
@@ -222,7 +223,8 @@ class LobbyMessagesScene extends StatelessWidget {
     builder: (context, limits) {
       final compact = limits.maxHeight < 210;
       final tiny = limits.maxHeight < 90;
-      final selected = friends
+      final contacts = messageContacts(friends, unread);
+      final selected = contacts
           .where((f) => f['id']?.toString() == activeId)
           .firstOrNull;
       return Column(
@@ -237,17 +239,20 @@ class LobbyMessagesScene extends StatelessWidget {
                 tooltip: 'Arkadaş seç',
                 color: const Color(0xFF18212B),
                 onSelected: (id) => onSelect(
-                  friends.firstWhere((f) => f['id']?.toString() == id),
+                  contacts.firstWhere((f) => f['id']?.toString() == id),
                 ),
-                itemBuilder: (_) => friends
+                itemBuilder: (_) => contacts
                     .map(
                       (f) => PopupMenuItem<String>(
                         value: f['id']?.toString(),
                         child: Text(
-                          '${f['username']}  ${(unread[f['id']] ?? 0) > 0 ? '•' : ''}',
-                          style: const TextStyle(
+                          '${f['username']}  ${(unread[f['id']?.toString()] ?? 0) > 0 ? '(${unread[f['id']?.toString()]} yeni)' : ''}',
+                          style: TextStyle(
                             color: Color(0xFFE6D6B4),
                             fontSize: 12,
+                            fontWeight: (unread[f['id']?.toString()] ?? 0) > 0
+                                ? FontWeight.w700
+                                : FontWeight.w400,
                           ),
                         ),
                       ),
@@ -279,18 +284,19 @@ class LobbyMessagesScene extends StatelessWidget {
               ),
             ),
           ),
-          if (!compact && friends.isNotEmpty)
+          if (!compact && contacts.isNotEmpty)
             SizedBox(
               height: 62,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: friends.length,
+                itemCount: contacts.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 6),
                 itemBuilder: (context, index) {
-                  final friend = friends[index];
+                  final friend = contacts[index];
                   final active = friend['id']?.toString() == activeId;
-                  final count = unread[friend['id']] ?? 0;
+                  final count = unread[friend['id']?.toString()] ?? 0;
                   return InkWell(
+                    key: ValueKey('message-contact-${friend['id']}'),
                     onTap: () => onSelect(friend),
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
@@ -310,19 +316,44 @@ class LobbyMessagesScene extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              avatarBuilder(friend),
-                              if (count > 0)
-                                Text(
-                                  ' $count',
-                                  style: const TextStyle(
-                                    color: _gold,
-                                    fontSize: 10,
+                          SizedBox(
+                            width: 44,
+                            height: 32,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Center(child: avatarBuilder(friend)),
+                                if (count > 0)
+                                  Positioned(
+                                    right: -2,
+                                    top: -2,
+                                    child: Container(
+                                      key: ValueKey(
+                                        'message-unread-${friend['id']}',
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 16,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _gold,
+                                        borderRadius: BorderRadius.circular(9),
+                                      ),
+                                      child: Text(
+                                        count > 99 ? '99+' : '$count',
+                                        style: const TextStyle(
+                                          color: Color(0xFF231D11),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Expanded(
@@ -347,7 +378,7 @@ class LobbyMessagesScene extends StatelessWidget {
           Expanded(
             child: Stack(
               children: [
-                if (friends.isEmpty)
+                if (contacts.isEmpty)
                   const Center(
                     child: Text(
                       'Mesajlaşmak için arkadaş eklemelisin.',
@@ -375,7 +406,7 @@ class LobbyMessagesScene extends StatelessWidget {
                         ? messageBuilder(context, index)
                         : accessory ?? const SizedBox.shrink(),
                   ),
-                if (friends.isNotEmpty)
+                if (contacts.isNotEmpty)
                   Positioned(
                     right: 0,
                     top: 0,

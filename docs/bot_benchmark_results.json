@@ -1,0 +1,78 @@
+{
+    "main":  {
+                 "seed_start":  74219,
+                 "seed_pairs":  64,
+                 "games":  128,
+                 "new_wins":  80,
+                 "old_wins":  48,
+                 "draws":  0,
+                 "old":  {
+                             "decisions":  3006,
+                             "invalid":  0,
+                             "missed_finish":  12,
+                             "limited":  0,
+                             "finishes":  48,
+                             "mean_finish_turns":  12.125,
+                             "mean_us":  1511.4787092481704,
+                             "p95_us":  5805,
+                             "worst_us":  76931
+                         },
+                 "new":  {
+                             "decisions":  3038,
+                             "invalid":  0,
+                             "missed_finish":  0,
+                             "limited":  4,
+                             "finishes":  80,
+                             "mean_finish_turns":  12.425,
+                             "mean_us":  14273.644502962476,
+                             "p95_us":  43751,
+                             "worst_us":  99618
+                         },
+                 "elapsed_ms":  54380,
+                 "process_peak_rss_bytes":  230617088,
+                 "scope":  "Offline local-rule simulation; not live Supabase or human strength rating"
+             },
+    "holdout":  {
+                    "seed_start":  81000,
+                    "seed_pairs":  32,
+                    "games":  64,
+                    "new_wins":  44,
+                    "old_wins":  20,
+                    "draws":  0,
+                    "old":  {
+                                "decisions":  1468,
+                                "invalid":  0,
+                                "missed_finish":  2,
+                                "limited":  0,
+                                "finishes":  20,
+                                "mean_finish_turns":  11.65,
+                                "mean_us":  1795.4094005449592,
+                                "p95_us":  7444,
+                                "worst_us":  32604
+                            },
+                    "new":  {
+                                "decisions":  1492,
+                                "invalid":  0,
+                                "missed_finish":  0,
+                                "limited":  0,
+                                "finishes":  44,
+                                "mean_finish_turns":  12.25,
+                                "mean_us":  18505.448391420912,
+                                "p95_us":  55403,
+                                "worst_us":  134115
+                            },
+                    "elapsed_ms":  34596,
+                    "process_peak_rss_bytes":  230531072,
+                    "scope":  "Offline local-rule simulation; not live Supabase or human strength rating"
+                },
+    "combined":  {
+                     "games":  192,
+                     "new_wins":  124,
+                     "old_wins":  68,
+                     "new_invalid":  0,
+                     "new_missed_finish":  0,
+                     "new_decisions":  4530,
+                     "new_mean_ms":  15.667430684326711433112582781,
+                     "new_worst_ms":  134.115
+                 }
+}

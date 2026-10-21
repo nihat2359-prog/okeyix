@@ -79,6 +79,64 @@ Future<void> scene(
 }
 
 void main() {
+  testWidgets('keyboard transition retains focused chat input', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final input = TextEditingController();
+    final scroll = ScrollController();
+    final inset = ValueNotifier<double>(0);
+    addTearDown(input.dispose);
+    addTearDown(scroll.dispose);
+    addTearDown(inset.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<double>(
+          valueListenable: inset,
+        builder: (_, keyboard, _) => MediaQuery(
+            data: MediaQueryData(
+              size: const Size(844, 390),
+              viewInsets: EdgeInsets.only(bottom: keyboard),
+            ),
+            child: Scaffold(
+              resizeToAvoidBottomInset: false,
+              body: Stack(
+                children: [
+                  TableChatPanel(
+                    controller: input,
+                    scrollController: scroll,
+                    messageCount: 0,
+                    messageBuilder: (_, _) => const SizedBox(),
+                    onClose: () {},
+                    onSend: () {},
+                    onQuickMessage: (_) {},
+                    onEmoji: () {},
+                    microphone: const Icon(Icons.mic),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('table-chat-input')));
+    await tester.pump();
+    final original = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(original.widget.focusNode.hasFocus, true);
+    await tester.enterText(find.byType(TextField), 'Merhaba');
+    for (final keyboard in [80.0, 216.0, 300.0, 0.0, 216.0]) {
+      inset.value = keyboard;
+      await tester.pump();
+      expect(
+        tester.state<EditableTextState>(find.byType(EditableText)),
+        same(original),
+      );
+      expect(original.widget.focusNode.hasFocus, true);
+      expect(input.text, 'Merhaba');
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
   setUpAll(() async {
     await (FontLoader(
       'Montserrat',

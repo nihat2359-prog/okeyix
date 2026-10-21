@@ -1,16 +1,32 @@
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
+import 'package:flame/effects.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
 
+class LocalTurnGame extends OkeyGame {
+  LocalTurnGame() : super(tableId: 'joker-guard', isCreator: false);
+  @override
+  bool get isMyTurnForLocalUser => true;
+}
+
 class VisualGame extends OkeyGame {
+  int doubleTaps = 0;
+  bool discardAnimationCompleted = false;
+  @override
+  void onTileDoubleTap(TileComponent tile) {
+    doubleTaps++;
+    tile.add(MoveEffect.to(Vector2(350, 150), EffectController(duration: 0.18),
+      onComplete: () => discardAnimationCompleted = true));
+  }
   VisualGame() : super(tableId: 'visual-test', isCreator: false);
   @override
   Future<void> onLoad() async {
     world = World();
     add(world);
+    camera.world = world;
     for (var i = 0; i < 26; i++) {
       slotPositions.add(Vector2(100 + i * 30, 300));
     }
@@ -65,6 +81,108 @@ Future<void> settle(WidgetTester tester, VisualGame game) async {
 }
 
 void main() {
+  testWidgets('pending closed draw has a neutral face rather than an okey back', (tester) async {
+    final game = await mount(tester);
+    final pending = visual('__closed_draw_preview__', joker: true);
+    pending.showAwaitingDrawConfirmation();
+    game.world.add(pending);
+    await settle(tester, game);
+    expect(pending.children.contains(pending.backSprite), isFalse);
+    expect(pending.children.whereType<TextComponent>().single.text, '…');
+  });
+
+  testWidgets('clearing a preview stops its effect and pins tiles to slot centers', (tester) async {
+    final game = await mount(tester);
+    game.debugSyncVisualHand(List.generate(14, (i) => payload('snap-$i')), initial: true);
+    await settle(tester, game);
+    final tile = game.tileComponentMap['snap-0']!;
+    final slot = tile.currentSlotIndex!;
+    tile.position += Vector2(8, -13);
+    game.moveTileSmooth(tile, tile.position + Vector2(40, 20));
+    game.isTempShiftActive = true;
+    await tester.pump();
+    game.clearTemporaryShift();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tile.position.distanceTo(game.slotPositions[slot]), lessThan(0.01));
+    expect(tile.children.whereType<MoveEffect>(), isEmpty);
+  });
+  test('real okey cannot be discarded by double tap or rack drag', () async {
+    final game = LocalTurnGame();
+    final joker = visual('real-okey', joker: true);
+    // These paths must reject before turn lookup, animation or any RPC.
+    game.onTileDoubleTap(joker);
+    await game.autoDiscard(joker);
+    expect(await game.discardTile(joker), isFalse);
+    expect(joker.children.whereType<MoveEffect>(), isEmpty);
+  });
+  testWidgets('two rack taps reach the automatic discard handler', (tester) async {
+    final game = await mount(tester);
+    game.camera.viewfinder.anchor = Anchor.topLeft;
+    final tile = visual('tap-target', joker: true)..position = Vector2(150, 150);
+    game.world.add(tile);
+    await settle(tester, game);
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(game.componentsAtPoint(Vector2(150, 150)).contains(tile), isTrue);
+    await tester.tapAt(const Offset(150, 150));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(const Offset(150, 150));
+    expect(game.doubleTaps, 1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(game.discardAnimationCompleted, isTrue);
+    expect(tile.position.x, closeTo(350, 0.1));
+  });
+  test('source draw dropped between rack rows selects an empty slot', () {
+    final game = VisualGame();
+    game.slotPositions.addAll([
+      Vector2(100, 100), Vector2(192, 100),
+      Vector2(100, 236), Vector2(192, 236),
+    ]);
+    final gap = Vector2(146, 168);
+    expect(game.getNearestSlotIndex(gap), isNull);
+    game.occupySlot(0, visual('occupied'));
+    final slot = game.sourceDrawDropSlot(gap);
+    expect(slot, isNotNull);
+    expect(game.isSlotOccupied(slot!), isFalse);
+    expect(game.sourceDrawDropSlot(Vector2(146, 400)), isNull);
+    expect(game.sourceDrawDropSlot(Vector2(-100, 168)), isNull);
+    expect(game.sourceDrawDropSlot(Vector2(192, 100)), 1);
+    for (var i = 1; i < 4; i++) {
+      game.occupySlot(i, visual('occupied-$i'));
+    }
+    expect(game.sourceDrawDropSlot(gap), isNull);
+  });
+
+  test('draw response uses only the committed hand for the requested table', () {
+    final hand = List.generate(15, (i) => payload('draw-$i'));
+    final response = {'ok': true, 'table_id': 'visual-test', 'hand': hand};
+    expect(OkeyGame.committedDrawHand(response, 'visual-test'), same(hand));
+    expect(OkeyGame.committedDrawHand(response, 'other-table'), isNull);
+    expect(OkeyGame.committedDrawHand({...response, 'ok': false}, 'visual-test'), isNull);
+    expect(OkeyGame.committedDrawHand(null, 'visual-test'), isNull);
+    expect(OkeyGame.committedDrawHand({...response, 'hand': hand.take(14).toList()}, 'visual-test'), isNull);
+    expect(OkeyGame.committedDrawHand({...response, 'hand': [...hand.take(14), hand.first]}, 'visual-test'), isNull);
+  });
+
+  testWidgets('committed draw reveals its number on the next rack frame', (tester) async {
+    final game = await mount(tester);
+    final hand = List.generate(14, (i) => payload('hand-$i'));
+    game.debugSyncVisualHand(hand, initial: true);
+    await settle(tester, game);
+    final response = {
+      'ok': true, 'table_id': 'visual-test',
+      'hand': [...hand, payload('drawn', number: 9)],
+    };
+    game.debugSyncVisualHand(OkeyGame.committedDrawHand(response, 'visual-test')!);
+    await tester.runAsync(() => game.ready());
+    await tester.pump();
+    final drawn = game.world.children.whereType<TileComponent>().singleWhere((t) => t.id == 'drawn');
+    expect(drawn.isFaceDown, isFalse);
+    expect(drawn.children.whereType<TextComponent>().any((t) => t.text == '9'), isTrue);
+  });
+
   testWidgets(
     'repeated initial snapshots before mount create one component per physical ID',
     (tester) async {

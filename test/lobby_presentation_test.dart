@@ -88,7 +88,7 @@ Future<void> lobby(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: LobbyColumns(
-                        leagues: LobbyMetalSurface(
+                        leagues: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Column(
                             children: [
@@ -114,6 +114,11 @@ Future<void> lobby(
                           ),
                         ),
                         tables: LobbyTableWheel(
+                          leagueName:
+                              leagues.firstWhere(
+                                    (l) => l['id'] == selected,
+                                  )['name']
+                                  as String,
                           tables:
                               openTables ??
                               (state == 'empty' ? [] : [table(state)]),
@@ -197,6 +202,18 @@ Future<void> lobby(
 }
 
 void main() {
+  testWidgets('selected league marker and table labels follow the league', (
+    tester,
+  ) async {
+    await lobby(tester, const Size(640, 360), 1, [], selected: 'l0');
+    expect(find.byKey(const ValueKey('selected-league-l0')), findsOneWidget);
+    expect(find.text('Acemiler · 1'), findsOneWidget);
+    await lobby(tester, const Size(640, 360), 1, [], selected: 'l2', state: 'empty');
+    expect(find.byKey(const ValueKey('selected-league-l0')), findsNothing);
+    expect(find.byKey(const ValueKey('selected-league-l2')), findsOneWidget);
+    expect(find.text('Kalfalar liginde açık masa yok'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final safe in [
     const EdgeInsets.fromLTRB(59, 0, 59, 21),
     const EdgeInsets.fromLTRB(44, 0, 0, 21),

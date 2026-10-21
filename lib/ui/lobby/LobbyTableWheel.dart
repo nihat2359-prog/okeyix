@@ -14,6 +14,7 @@ class LobbyTableWheel extends StatefulWidget {
   final Function(Map<String, dynamic>) onUserTap;
   final Future<void> Function() onRefresh;
   final bool loading;
+  final String leagueName;
 
   final bool isLocked;
   final dynamic lockedLeague;
@@ -32,6 +33,7 @@ class LobbyTableWheel extends StatefulWidget {
     required this.onUserTap,
     required this.onRefresh,
     required this.loading,
+    this.leagueName = '',
     this.isLocked = false, // ğŸ”¥ BURASI KRÄ°TÄ°K
     this.lockedLeague,
     required this.playerCoin,
@@ -110,7 +112,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'AÇIK MASALAR · ${widget.tables.length}',
+                        '${widget.leagueName.isEmpty ? 'Masalar' : widget.leagueName} · ${widget.tables.length}',
                         style: const TextStyle(
                           color: Color(0xFFEAD6A5),
                           fontSize: 11,
@@ -194,8 +196,10 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Bu ligde şu an açık masa yok',
+              Text(
+                widget.leagueName.isEmpty
+                    ? 'Açık masa yok'
+                    : '${widget.leagueName} liginde açık masa yok',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Color(0xFFECE5D5),

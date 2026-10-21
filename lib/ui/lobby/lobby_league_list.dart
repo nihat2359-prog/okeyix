@@ -96,9 +96,18 @@ class LobbyLeagueList extends StatelessWidget {
               child: LobbyMetalSurface(
                 metal: metal,
                 selected: selected,
+                surfaceOpacity: 1.35,
                 child: Material(
                   key: ValueKey('league-${league['id']}'),
-                  color: Colors.transparent,
+                  color: selected
+                      ? metal.withValues(alpha: .18)
+                      : Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(17),
+                    side: selected
+                        ? BorderSide(color: metal, width: 2)
+                        : BorderSide.none,
+                  ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(17),
                     onTap: () => onSelect(Map<String, dynamic>.from(league)),
@@ -128,6 +137,17 @@ class LobbyLeagueList extends StatelessWidget {
                                   flex: 3,
                                   child: Row(
                                     children: [
+                                      if (selected) ...[
+                                        Icon(
+                                          Icons.check_circle_rounded,
+                                          key: ValueKey(
+                                            'selected-league-${league['id']}',
+                                          ),
+                                          size: 15,
+                                          color: metal,
+                                        ),
+                                        const SizedBox(width: 4),
+                                      ],
                                       Expanded(
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,

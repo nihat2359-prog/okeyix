@@ -1,7 +1,11 @@
 import 'dart:async' as async;
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'game_activity_probe.dart';
+import 'bot/bot_observation.dart';
+import 'bot/bot_runner.dart';
+import 'bot/bot_engine.dart';
 import 'observed_effect.dart';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
@@ -25,6 +29,8 @@ import 'package:okeyix/services/debug_event_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+part 'bot/okey_bot_turn.dart';
+
 class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHost {
   final GameActivityProbe? activityProbe = GameActivityProbe.enabled ? GameActivityProbe() : null;
   @override
@@ -37,6 +43,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   final String tableId;
   final bool isCreator;
   final SupabaseClient? _realtimeClient;
+  final SupabaseClient? _botClientOverride;
+  final Future<BotDecision> Function(BotObservation)? _botDecisionWorker;
+  SupabaseClient get _botClient => _botClientOverride ?? Supabase.instance.client;
   SupabaseClient get _tableRealtimeClient =>
       _realtimeClient ?? Supabase.instance.client;
   bool _lifecycleRemoved = false;
@@ -194,7 +203,10 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     this.onTileSfx,
     this.onStartDealSfx,
     SupabaseClient? realtimeClient,
-  }) : _realtimeClient = realtimeClient;
+    SupabaseClient? botClient,
+    Future<BotDecision> Function(BotObservation)? botDecisionWorker,
+  }) : _realtimeClient = realtimeClient, _botClientOverride = botClient,
+       _botDecisionWorker = botDecisionWorker;
 
   void _dbg(
     String tag,
@@ -656,19 +668,15 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void onTileDoubleTap(TileComponent tile) {
-    if (_actionInFlight) return;
-
-    if (!_isMyTurn()) return;
-
-    final virtualCount =
-        occupiedSlots.length + (tile.currentSlotIndex == null ? 1 : 0);
-    final canDiscardNow = hasDrawnThisTurn || virtualCount == 15;
-    if (!canDiscardNow) return;
+    if (!_allowTurnAction()) return;
+    if (tile.isJoker && !tile.isFakeJoker) return;
+    if (!canDiscardByVoice() || _networkInFlight || tile.isLocked) return;
 
     autoDiscard(tile);
   }
 
   Future<void> autoDiscard(TileComponent tile) async {
+    if (tile.isJoker && !tile.isFakeJoker) return;
     if (_uiLocked) return;
 
     _uiLocked = true;
@@ -681,15 +689,17 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         targetPos,
         EffectController(duration: 0.18, curve: Curves.easeOut),
         onComplete: () async {
-          final success = await _serverDiscard(tile);
-          _isAnimatingRemoteMove = false;
-          if (!success) {
-            tile.add(
-              observeGameEffect(MoveEffect.to(originalPos, EffectController(duration: 0.2)), activityProbe, 'okey_game.dart:2'),
-            );
+          try {
+            final success = await _serverDiscard(tile);
+            if (!success && tile.isMounted) {
+              tile.add(
+                observeGameEffect(MoveEffect.to(originalPos, EffectController(duration: 0.2)), activityProbe, 'okey_game.dart:2'),
+              );
+            }
+          } finally {
+            _isAnimatingRemoteMove = false;
+            _uiLocked = false;
           }
-
-          _uiLocked = false;
         },
       ), activityProbe, 'okey_game.dart:1'),
     );
@@ -1326,248 +1336,19 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     });
   }
 
-  Future<void> _playBotTurn() async {
-    final botPlayer = _playerSeatMap[currentTurn];
-    final botUserId = botPlayer?['user_id']?.toString();
+  bool _botPairsEndpointUnavailable = false;
+  Future<void> _playBotTurn() => _playStrategicBotTurn();
 
-    if (botUserId == null) return;
-
-    _actionInFlight = true;
-    final turnTokenAtStart =
-        '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
-
-    try {
-      var didDrawThisTurn = false;
-      var rows = await Supabase.instance.client
-          .from('table_players')
-          .select('hand')
-          .eq('table_id', tableId)
-          .eq('user_id', botUserId)
-          .limit(1)
-          .timeout(const Duration(seconds: 8));
-
-      if ((rows as List).isEmpty) return;
-
-      var hand = rows.first['hand'];
-
-      if (hand is! List) return;
-      if (hand.isEmpty || (hand.length != 14 && hand.length != 15)) {
-        _botNoHandRetryAfter = DateTime.now().add(const Duration(seconds: 2));
-        await _loadInitialState(forceHandSync: false);
-        return;
-      }
-      final strategy = decideStrategy(hand);
-
-      Map<String, dynamic>? drawnFromDiscardTile;
-      var drewFromDiscard = false;
-
-      /// draw
-      if (hand.length == 14) {
-        didDrawThisTurn = true;
-        final fromSeat = (currentTurn - 1 + _maxPlayers) % _maxPlayers;
-        final topDiscard = await _fetchDiscardTopForSeat(fromSeat);
-        _decayBotRecentDiscards(botUserId);
-
-        final canFinishWithTop = _canFinishAfterTakingTopDiscard(
-          hand,
-          topDiscard,
-        );
-
-        final topIsRecentOwnDiscard =
-            topDiscard != null &&
-            _botRecentDiscards[botUserId]?.containsKey(
-                  _tileMapKey(topDiscard),
-                ) ==
-                true;
-        final topIsFakeJoker =
-            topDiscard != null &&
-            (topDiscard['fake_joker'] == true ||
-                topDiscard['is_fake_joker'] == true);
-        final immediateMeldValue = _immediateMeldGainFromTopDiscard(
-          hand,
-          topDiscard,
-        );
-        final wouldThrowBackTop = _wouldDiscardTakenTop(
-          hand,
-          topDiscard,
-          strategy,
-        );
-
-        // Human-like rule:
-        // take from discard when it clearly improves immediate meld quality
-        // (especially completing/strengthening sets), otherwise draw closed.
-        final shouldTakeTop =
-            canFinishWithTop ||
-            (!topIsRecentOwnDiscard &&
-                !topIsFakeJoker &&
-                ((immediateMeldValue >= 4) ||
-                    (!wouldThrowBackTop && (immediateMeldValue >= 3))));
-
-        var source = (topDiscard != null && shouldTakeTop)
-            ? 'discard'
-            : 'closed';
-
-        try {
-          await Supabase.instance.client
-              .rpc(
-                'game_draw',
-                params: {
-                  'p_table_id': tableId,
-                  'p_user_id': botUserId,
-                  'p_source': source,
-                  'p_from_seat': source == 'discard' ? fromSeat : null,
-                },
-              )
-              .timeout(const Duration(seconds: 8));
-          drewFromDiscard = source == 'discard';
-          if (drewFromDiscard && topDiscard != null) {
-            drawnFromDiscardTile = Map<String, dynamic>.from(topDiscard);
-          }
-        } catch (e) {
-          // Fallback: if taking from discard fails for any reason, draw from closed
-          // so the bot does not freeze on its turn.
-          if (source == 'discard') {
-            source = 'closed';
-            await Supabase.instance.client
-                .rpc(
-                  'game_draw',
-                  params: {
-                    'p_table_id': tableId,
-                    'p_user_id': botUserId,
-                    'p_source': source,
-                    'p_from_seat': null,
-                  },
-                )
-                .timeout(const Duration(seconds: 8));
-            drewFromDiscard = false;
-          } else {
-            debugPrint('BOT DRAW ERROR (closed): $e');
-            return;
-          }
-        }
-
-        rows = await Supabase.instance.client
-            .from('table_players')
-            .select('hand')
-            .eq('table_id', tableId)
-            .eq('user_id', botUserId)
-            .limit(1)
-            .timeout(const Duration(seconds: 8));
-
-        if ((rows as List).isEmpty) return;
-
-        hand = rows.first['hand'];
-      }
-
-      if (hand is! List || hand.length != 15) return;
-      _botNoHandRetryAfter = null;
-
-      // Human-like pacing: after drawing, wait a bit before discard/finish.
-      if (didDrawThisTurn) {
-        final jitterMs = DateTime.now().millisecond % 420;
-        await Future<void>.delayed(Duration(milliseconds: 780 + jitterMs));
-      }
-
-      final finishPlan = _buildBotFinishPlan(hand);
-      final canFinish = finishPlan != null;
-      final finishDiscardTile = canFinish
-          ? Map<String, dynamic>.from(finishPlan['last_tile'] as Map)
-          : null;
-      final botSlots = canFinish
-          ? List<Map<String, dynamic>>.from(finishPlan['slots'] as List)
-          : _buildSlotsJsonFromHand(hand);
-
-      _decayBotKeepMemory(botUserId);
-      if (drewFromDiscard && drawnFromDiscardTile != null) {
-        _rememberBotTile(botUserId, drawnFromDiscardTile!);
-      }
-
-      Map<String, dynamic> tile;
-      if (canFinish) {
-        tile = finishDiscardTile!;
-      } else {
-        tile = pickBestDiscardTile(
-          hand,
-          strategy,
-          protectedKeys: _botProtectedTileKeys(botUserId),
-        );
-        if (_isJokerMap(tile)) {
-          tile = _pickNonJokerTileOrFallback(hand, strategy);
-        }
-      }
-      tile = _ensureLooseDiscardWhenPossible(hand, tile, strategy);
-
-      // Final guard against race/desync: never send discard if server hand is not 15.
-      final latestRows = await Supabase.instance.client
-          .from('table_players')
-          .select('hand')
-          .eq('table_id', tableId)
-          .eq('user_id', botUserId)
-          .limit(1)
-          .timeout(const Duration(seconds: 8));
-      if (latestRows is! List || latestRows.isEmpty) return;
-      final latestHand = latestRows.first['hand'];
-      if (latestHand is! List || latestHand.length != 15) {
-        return;
-      }
-
-      if (canFinish) {
-        try {
-          final res = await Supabase.instance.client
-              .rpc(
-                'game_finish',
-                params: {
-                  'p_table_id': tableId,
-                  'p_user_id': botUserId,
-                  'p_slots': botSlots,
-                  'p_last_tile': finishDiscardTile,
-                },
-              )
-              .timeout(const Duration(seconds: 8));
-        } catch (e) {
-          debugPrint("BOT FINISH ERROR: $e");
-          // Always fallback to discard if finish fails so bot turn cannot freeze.
-          await Supabase.instance.client
-              .rpc(
-                'game_discard_fast',
-                params: {
-                  'p_table_id': tableId,
-                  'p_user_id': botUserId,
-                  'p_tile': tile,
-                },
-              )
-              .timeout(const Duration(seconds: 8));
-        }
-      } else {
-        await Supabase.instance.client
-            .rpc(
-              'game_discard_fast',
-              params: {
-                'p_table_id': tableId,
-                'p_user_id': botUserId,
-                'p_tile': tile,
-              },
-            )
-            .timeout(const Duration(seconds: 8));
-      }
-
-      _rememberBotDiscard(botUserId, tile);
-    } catch (e) {
-      debugPrint("BOT TURN ERROR $e");
-      await _recoverBotStall(
-        botUserId: botUserId,
-        expectedTurnToken: turnTokenAtStart,
-      );
-    } finally {
-      final stillSameTurnToken =
-          '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
-      // If turn did not progress, clear token lock so bot can retry.
-      if (stillSameTurnToken == turnTokenAtStart &&
-          _botSeats.contains(currentTurn)) {
-        _lastBotTurnToken = null;
-      }
-      _actionInFlight = false;
-    }
+  @visibleForTesting
+  Future<void> debugRunBotTurn({required int seat, required DateTime startedAt,
+      int round = 1}) {
+    currentTurn = seat;
+    _round = round;
+    _turnStartedAt = startedAt;
+    _botSeats.add(seat);
+    _playerSeatMap[seat] = {'user_id': 'bot'};
+    _playerSeatMap[1 - seat] = {'user_id': 'human'};
+    return _playBotTurn();
   }
 
   Future<void> _recoverBotStall({
@@ -1595,19 +1376,24 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
   Future<Map<String, dynamic>?> _fetchDiscardTopForSeat(int seatIndex) async {
     try {
-      final rows = await Supabase.instance.client
-          .from('table_discard_tops')
+      final rows = await _botClient
+          .from('table_discards')
           .select('tile')
           .eq('table_id', tableId)
           .eq('seat_index', seatIndex)
-          .limit(1);
+          .isFilter('drawn_at', null)
+          .order('created_at', ascending: false)
+          .order('id', ascending: false)
+          .limit(1)
+          .timeout(const Duration(seconds: 2));
 
-      if (rows is! List || rows.isEmpty) return null;
+      if (rows.isEmpty) {
+        return null;
+      }
       final tile = rows.first['tile'];
       if (tile is! Map) return null;
       return Map<String, dynamic>.from(tile);
-    } catch (e) {
-      // Network/intermittent backend failures should not block bot turn logic.
+    } catch (_) {
       return null;
     }
   }
@@ -1622,8 +1408,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     )..add(Map<String, dynamic>.from(topDiscard));
 
     if (candidate.length != 15) return false;
-    final finishTiles = buildFinishTilesFromHand(candidate);
-    return _isValidFinishHand(finishTiles);
+    return _buildBotFinishPlan(candidate) != null;
   }
 
   bool _wouldDiscardTakenTop(
@@ -4848,9 +4633,13 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
     _actionInFlight = true;
+    final drawEpoch = _handStateEpoch;
+    final drawRound = _round;
+    bool currentDraw() => _lifecycleActive &&
+        drawEpoch == _handStateEpoch && drawRound == _round;
     try {
-      Future<void> callDraw({int? seat}) async {
-        await Supabase.instance.client.rpc(
+      Future<dynamic> callDraw({int? seat}) async {
+        return await Supabase.instance.client.rpc(
           'game_draw',
           params: {
             'p_table_id': tableId,
@@ -4861,29 +4650,41 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         );
       }
 
-      await callDraw(seat: fromSeat);
+      final response = await callDraw(seat: fromSeat);
+      if (!currentDraw()) return;
       // The right closes on this player's first committed draw, not a discard.
       _hasDrawnFromSourceThisRound = true;
-      // Read only our hand first: full table sync also fetches users, discards,
-      // and turn metadata and can delay revealing a successfully drawn tile.
-      try {
-        final handRows = await Supabase.instance.client
-            .from('table_players')
-            .select('hand')
-            .eq('table_id', tableId)
-            .eq('user_id', userId)
-            .limit(1);
-        if (handRows is List && handRows.isNotEmpty) {
-          final hand = handRows.first['hand'];
-          if (hand is List && hand.length == 15) {
-            _clearPendingDrawVisualTile();
-            _renderMyHand([
-              <String, dynamic>{'user_id': userId, 'hand': hand},
-            ], applyServerDiff: true);
+      // game_draw already returns the committed hand. Reveal it before any
+      // additional network read; the closed-pile preview is not a real joker.
+      final committedHand = committedDrawHand(response, tableId);
+      if (committedHand != null) {
+        _clearPendingDrawVisualTile();
+        _renderMyHand([
+          <String, dynamic>{'user_id': userId, 'hand': committedHand},
+        ], applyServerDiff: true);
+      }
+      // Compatibility with older RPC deployments which do not return a hand.
+      if (committedHand == null) {
+        try {
+          final handRows = await Supabase.instance.client
+              .from('table_players')
+              .select('hand')
+              .eq('table_id', tableId)
+              .eq('user_id', userId)
+              .limit(1);
+          if (!currentDraw()) return;
+          if (handRows is List && handRows.isNotEmpty) {
+            final hand = handRows.first['hand'];
+            if (hand is List && hand.length == 15) {
+              _clearPendingDrawVisualTile();
+              _renderMyHand([
+                <String, dynamic>{'user_id': userId, 'hand': hand},
+              ], applyServerDiff: true);
+            }
           }
+        } catch (e) {
+          debugPrint('FAST DRAW HAND SYNC ERROR: $e');
         }
-      } catch (e) {
-        debugPrint('FAST DRAW HAND SYNC ERROR: $e');
       }
       _clearPendingDrawVisualTile();
       _hasDrawnFromSourceThisRound = true;
@@ -4905,6 +4706,24 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     } finally {
       _actionInFlight = false;
     }
+  }
+
+  @visibleForTesting
+  static List<dynamic>? committedDrawHand(dynamic response, String tableId) {
+    if (response is! Map || response['ok'] != true ||
+        response['table_id'] != tableId) {
+      return null;
+    }
+    final hand = response['hand'];
+    if (hand is! List || hand.length != 15) return null;
+    final ids = <String>{};
+    for (final tile in hand) {
+      if (tile is! Map || tile['id'] is! String ||
+          (tile['id'] as String).isEmpty || !ids.add(tile['id'] as String)) {
+        return null;
+      }
+    }
+    return hand;
   }
 
   List<Map<String, dynamic>> _buildSlotsJson(Map<int, TileComponent> slotMap) {
@@ -5009,6 +4828,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   // }
 
   Future<bool> _serverDiscard(TileComponent tile, {bool finish = false}) async {
+    if (!finish && tile.isJoker && !tile.isFakeJoker) return false;
     if (_networkInFlight) return false;
 
     final client = Supabase.instance.client;
@@ -5515,6 +5335,42 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
   bool isSlotOccupied(int index) => occupiedSlots.containsKey(index);
 
+  // Source draws accept the continuous rack surface, including the gaps
+  // between rows/slots. Keep ordinary rack rearrangement hit testing unchanged.
+  @visibleForTesting
+  int? sourceDrawDropSlot(Vector2 pos) {
+    final nearest = getNearestSlotIndex(pos);
+    if (nearest != null) return nearest;
+    if (slotPositions.isEmpty) return null;
+    var left = slotPositions.first.x;
+    var right = left;
+    var top = slotPositions.first.y;
+    var bottom = top;
+    for (final slot in slotPositions) {
+      left = math.min(left, slot.x);
+      right = math.max(right, slot.x);
+      top = math.min(top, slot.y);
+      bottom = math.max(bottom, slot.y);
+    }
+    if (pos.x < left - RackConfig.tileWidth / 2 ||
+        pos.x > right + RackConfig.tileWidth / 2 ||
+        pos.y < top - RackConfig.tileHeight / 2 ||
+        pos.y > bottom + RackConfig.tileHeight / 2) {
+      return null;
+    }
+    int? empty;
+    var distance = double.infinity;
+    for (var i = 0; i < slotPositions.length; i++) {
+      if (isSlotOccupied(i)) continue;
+      final candidate = slotPositions[i].distanceToSquared(pos);
+      if (candidate < distance) {
+        distance = candidate;
+        empty = i;
+      }
+    }
+    return empty;
+  }
+
   bool isPointNearBottomDiscard(Vector2 worldPoint) {
     final center = bottomRightDiscard.position;
     final dx = (worldPoint.x - center.x).abs();
@@ -5540,6 +5396,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void drawFromClosedPile() {
+    if (!_allowTurnAction()) return;
     final now = DateTime.now();
     if (_lastDrawAttemptAt != null &&
         now.difference(_lastDrawAttemptAt!).inMilliseconds < 250) {
@@ -5556,6 +5413,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   bool drawFromClosedPileByVoice() {
+    if (!_allowTurnAction()) return false;
     if (!_canDrawNow()) return false;
     if (closedPile.length <= 1) return false;
     drawFromClosedPile();
@@ -5600,6 +5458,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void clearPreview() {
+    _cancelHover();
     previewBox.isVisible = false;
   }
 
@@ -6006,10 +5865,16 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void clearTemporaryShift() {
+    _lastPreviewIndex = null;
     if (!isTempShiftActive) return;
 
     for (final entry in occupiedSlots.entries) {
-      entry.value.position = slotPositions[entry.key];
+      final tile = entry.value;
+      tile.children.whereType<MoveEffect>().toList().forEach(
+        (effect) => effect.removeFromParent(),
+      );
+      tile.currentTarget = slotPositions[entry.key].clone();
+      tile.position = slotPositions[entry.key].clone();
     }
 
     isTempShiftActive = false;
@@ -6017,6 +5882,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   Future<bool> discardTile(TileComponent tile) async {
+    if (tile.isJoker && !tile.isFakeJoker) return false;
     if (!_isMyTurn()) {
       _pollLiveTableState();
       return false;
@@ -6171,6 +6037,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void drawFromClosedPileDrag(Vector2 startPosition) {
+    if (!_allowTurnAction()) return;
     if (!_isMyTurn()) {
       _pollLiveTableState();
       return;
@@ -6179,6 +6046,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void takeFromDiscard() {
+    if (!_allowTurnAction()) return;
     final expectedSeat = _expectedDiscardSeatForCurrentTurn();
     if (expectedSeat == null) return;
     final slotIndex = _slotIndexForAbsoluteSeat(expectedSeat);
@@ -6188,6 +6056,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   bool takeFromDiscardByVoice() {
+    if (!_allowTurnAction()) return false;
     if (!_canDrawNow()) return false;
     final expectedSeat = _expectedDiscardSeatForCurrentTurn();
     if (expectedSeat == null) return false;
@@ -6352,6 +6221,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void takeFromDiscardTap(DiscardSlotComponent slot) {
+    if (!_allowTurnAction()) return;
     final now = DateTime.now();
     if (_lastDrawAttemptAt != null &&
         now.difference(_lastDrawAttemptAt!).inMilliseconds < 250) {
@@ -6383,6 +6253,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     required Vector2 startPosition,
     DiscardSlotComponent? fromDiscardSlot,
   }) {
+    if (!_allowTurnAction()) return;
     if (_effectiveHandCount() >= 15) return;
     if (_actionInFlight) return;
     if (fromDiscardSlot == null && !_isMyTurn()) {
@@ -6441,6 +6312,19 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       showTileAboveAvatars(activeDraggedTile!);
     }
     updatePreview(_sourceDrawDragPosition!);
+  }
+
+  DateTime? _lastNotYourTurnNotice;
+
+  bool _allowTurnAction() {
+    if (isMyTurnForLocalUser) return true;
+    final now = DateTime.now();
+    if (_lastNotYourTurnNotice == null ||
+        now.difference(_lastNotYourTurnNotice!) >= const Duration(seconds: 2)) {
+      _lastNotYourTurnNotice = now;
+      AppMsg.show('Oyun sırası sende değil');
+    }
+    return false;
   }
 
   void updateSourceDrawDrag(Vector2 localDelta) {
@@ -6531,7 +6415,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     }
 
     final pos = _sourceDrawDragPosition;
-    final targetSlot = pos == null ? null : getNearestSlotIndex(pos);
+    final targetSlot = pos == null ? null : sourceDrawDropSlot(pos);
     final fromDiscardSlot = _sourceDrawFromDiscardSlot;
     _sourceDrawDragActive = false;
     _sourceDrawFromDiscardSlot = null;
@@ -6581,6 +6465,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
   void _showPendingDrawVisualTile(TileComponent tile, {int? preferredSlot}) {
     _clearPendingDrawVisualTile();
+    if (tile.id == '__closed_draw_preview__') {
+      tile.showAwaitingDrawConfirmation();
+    }
     var targetSlot = preferredSlot;
     if (targetSlot == null ||
         targetSlot < 0 ||

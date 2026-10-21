@@ -90,6 +90,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
       constraints: const BoxConstraints(maxWidth: 610, maxHeight: 370),
       child: LobbyMetalSurface(
         radius: 24,
+        surfaceOpacity: 2.5,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: Stack(
