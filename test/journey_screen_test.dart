@@ -48,7 +48,7 @@ void main() {
         await tester.tap(find.text('Yolculuk'));
         await tester.pumpAndSettle();
         expect(find.byType(JourneyScreen), findsOneWidget);
-        expect(find.text('Boğaz Kahvesi'), findsOneWidget);
+        expect(find.text('Türkiye'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('Lobiye dön'));
         await tester.pumpAndSettle();

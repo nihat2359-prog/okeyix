@@ -1,5 +1,9 @@
 # Okeyix Yolculuk — çevrimdışı 3D prototip
 
+> Bu dosya ilk Boğaz Kahvesi demosunu anlatır. Güncel Türkiye/İstanbul akışı
+> [journey_world.md](journey_world.md) içindedir. Eski demo `demo.html` ile
+> korunur ve Türkiye başlığındaki kahve simgesinden açılır.
+
 Lobinin alt barındaki **Yolculuk**, ayrı bir Flutter rotasını açar. Android
 WebView / iOS WKWebView içinde yerel Three.js r160, WebGL üzerinden gerçek
 perspektifli geometri çizer. Flame oyun masası ve Supabase kullanılmaz.
