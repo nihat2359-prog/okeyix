@@ -4,6 +4,7 @@ import 'package:okeyix/core/format.dart';
 import 'avatar_preset.dart';
 import '../models/player_model.dart';
 import 'periodic_ui_builder.dart';
+import 'bot_badge.dart';
 
 enum AvatarPosition { bottom, top, left, right }
 
@@ -98,7 +99,7 @@ class AvatarCard extends StatelessWidget {
       children: [
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 80),
-          child: Text(
+          child: Row(mainAxisSize: MainAxisSize.min, children: [Flexible(child: Text(
             player.name,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -106,6 +107,7 @@ class AvatarCard extends StatelessWidget {
               color: const Color(0xFFF4EBD7),
               fontWeight: FontWeight.w700,
             ),
+          )), if (player.isBot) ...[const SizedBox(width: 4), const BotBadge()]],
           ),
         ),
         const SizedBox(height: 4),

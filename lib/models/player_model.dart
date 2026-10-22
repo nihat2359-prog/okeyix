@@ -6,6 +6,7 @@ class PlayerModel {
   int coins;
   int rating;
   bool isDoubleMode;
+  final bool isBot;
 
   bool isActive;
   double remainingTime;
@@ -17,6 +18,7 @@ class PlayerModel {
     required this.coins,
     this.rating = 1000,
     this.isDoubleMode = false,
+    this.isBot = false,
     this.isActive = false,
     this.remainingTime = 15,
   });

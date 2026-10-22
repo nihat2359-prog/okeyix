@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/format.dart';
+import 'bot_badge.dart';
 
 class SpectatorTableScores extends StatelessWidget {
   final List<Map<String, dynamic>> players;
@@ -39,11 +40,12 @@ class SpectatorPlayerCard extends StatelessWidget {
   final int? coins;
   final Widget avatar;
   final bool active;
+  final bool isBot;
   final double progress;
   final VoidCallback? onTap;
   const SpectatorPlayerCard({super.key, required this.username, required this.coins,
     required this.avatar, required this.active, required this.progress,
-    this.onTap});
+    this.onTap, this.isBot = false});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -66,8 +68,9 @@ class SpectatorPlayerCard extends StatelessWidget {
         const SizedBox(width: 9),
         Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(username, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFF1F1E9))),
+            Row(children: [Expanded(child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFF1F1E9)))),
+              if (isBot) ...[const SizedBox(width: 4), const BotBadge()]]),
             const SizedBox(height: 4),
             Row(children: [
               const Icon(Icons.monetization_on_outlined, size: 13, color: Color(0xFFE4C88D)),

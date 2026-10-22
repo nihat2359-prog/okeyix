@@ -11,6 +11,7 @@ import '../models/player_model.dart';
 import 'avatar_card.dart';
 import 'avatar_preset.dart';
 import 'table_gift_layer.dart';
+import 'bot_badge.dart';
 
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
@@ -347,7 +348,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     try {
       final row = await _supabase
           .from('users')
-          .select('id, username, email, avatar_url')
+          .select('id, username, email, avatar_url, is_bot')
           .eq('email', email)
           .maybeSingle();
 
@@ -405,6 +406,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       player: PlayerModel(
         id: userId,
         name: username,
+        isBot: user?['is_bot'] == true,
         avatarPath: _resolveAvatarPath(avatarRaw, seatIndex),
         coins: coins,
         rating: rating,
@@ -910,7 +912,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                     final userId = p['id']?.toString();
                     final avatarUrl = p['avatar_url'];
                     final isOnline = p['is_online'] == true;
-                    final lastSeenText = _formatLastSeen(p['last_seen_at']);
+                    final lastSeenText = p['is_bot'] == true
+                        ? 'Otomatik oyuncu' : _formatLastSeen(p['last_seen_at']);
 
                     return Container(
                       padding: const EdgeInsets.symmetric(
@@ -967,7 +970,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                Row(children: [Expanded(child: Text(
                                   name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -976,7 +979,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
                                   ),
-                                ),
+                                )), if (p['is_bot'] == true) ...[
+                                  const SizedBox(width: 6), const BotBadge(),
+                                ]]),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [

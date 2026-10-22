@@ -111,7 +111,7 @@ class GameViewDataSource {
       fetchUsers: (ids) async => rows(
         await client
             .from('users')
-            .select('id,username,email,avatar_url')
+            .select('id,username,email,avatar_url,is_bot')
             .inFilter('id', ids),
       ),
       fetchProfiles: (ids) async => rows(

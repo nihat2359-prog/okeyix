@@ -20,6 +20,9 @@ import 'package:okeyix/services/reward_audio.dart';
 import 'package:okeyix/ui/coin_transfer_overlay.dart';
 import 'package:okeyix/ui/lobby/lobby_columns.dart';
 import 'package:okeyix/ui/lobby/create_table_scene.dart';
+import 'package:okeyix/ui/lobby/quick_play_panel.dart';
+import 'package:okeyix/services/quick_play_service.dart';
+import 'package:okeyix/core/table_invite_policy.dart';
 
 import 'package:okeyix/ui/lobby/LobbyTableWheel.dart';
 import 'package:okeyix/widgets/aaa_button.dart';
@@ -140,6 +143,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   String? _activeChatUserId;
   String? _activeChatUserTableId;
   RealtimeChannel? _tableInviteChannel;
+  bool _loadingPendingTableInvites = false;
+  bool _handlingTableInvite = false;
   String? _tableInviteBoundUserId;
   RealtimeChannel? _messagesChannel;
   String? _messagesBoundUserId;
@@ -688,24 +693,46 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _loadPendingTableInvites(String myUserId) async {
+    if (_loadingPendingTableInvites || _handlingTableInvite ||
+        ModalRoute.of(context)?.isCurrent != true) return;
+    _loadingPendingTableInvites = true;
     try {
+      final cutoff = DateTime.now().toUtc().subtract(tableInviteLifetime).toIso8601String();
+      try {
+        await supabase.from('table_invites').update({'status': 'rejected'})
+            .eq('to_user', myUserId).eq('status', 'pending').lt('created_at', cutoff);
+      } catch (_) {
+        // The read filter still prevents old dialogs if cleanup is denied.
+      }
       final rows = await supabase
           .from('table_invites')
           .select('id,table_id,from_user,to_user,status,created_at')
           .eq('to_user', myUserId)
           .eq('status', 'pending')
-          .order('created_at', ascending: true)
-          .limit(20);
+          .gte('created_at', cutoff)
+          .order('created_at', ascending: false)
+          .limit(1);
       for (final raw in (rows as List)) {
+        if (!mounted || supabase.auth.currentUser?.id != myUserId) return;
+        // Only the latest invitation is actionable on return to the lobby.
+        try {
+          await supabase.from('table_invites').update({'status': 'rejected'})
+              .eq('to_user', myUserId).eq('status', 'pending')
+              .lte('created_at', raw['created_at']).neq('id', raw['id']);
+        } catch (_) {}
         await _handleIncomingTableInvite(Map<String, dynamic>.from(raw));
       }
     } catch (e) {
       debugPrint('PENDING INVITE LOAD ERROR: $e');
+    } finally {
+      _loadingPendingTableInvites = false;
     }
   }
 
   Future<void> _handleIncomingTableInvite(Map<String, dynamic> invite) async {
     if (!mounted) return;
+    if (_handlingTableInvite || ModalRoute.of(context)?.isCurrent != true ||
+        invite['to_user']?.toString() != supabase.auth.currentUser?.id) return;
     final id = invite['id']?.toString();
     if (id == null || id.isEmpty) return;
     if (!_allowGameInvites) {
@@ -720,8 +747,34 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
     if (_handledTableInviteIds.contains(id)) return;
     if ((invite['status']?.toString() ?? 'pending') != 'pending') return;
-    _handledTableInviteIds.add(id);
-    await _showTableInviteDialog(invite);
+    _handlingTableInvite = true;
+    try {
+      final tableId = invite['table_id']?.toString();
+      var valid = isFreshTableInvite(invite, DateTime.now()) && tableId != null;
+      if (valid) {
+        final table = await supabase.from('tables').select('status,max_players')
+            .eq('id', tableId!).maybeSingle();
+        final seated = await supabase.from('table_players').select('user_id')
+            .eq('table_id', tableId);
+        valid = table != null && table['status'] == 'waiting' &&
+            seated.length < ((table['max_players'] as num?)?.toInt() ?? 2) &&
+            seated.any((p) => p['user_id']?.toString() == invite['from_user']?.toString());
+      }
+      if (!mounted) return;
+      if (!valid) {
+        _handledTableInviteIds.add(id);
+        await supabase.from('table_invites').update({'status': 'rejected'})
+            .eq('id', id).eq('to_user', supabase.auth.currentUser!.id).eq('status', 'pending');
+        return;
+      }
+      if (ModalRoute.of(context)?.isCurrent != true) return;
+      _handledTableInviteIds.add(id);
+      await _showTableInviteDialog(invite);
+    } catch (e) {
+      debugPrint('TABLE INVITE VALIDATION ERROR: $e');
+    } finally {
+      _handlingTableInvite = false;
+    }
   }
 
   Future<void> _showTableInviteDialog(Map<String, dynamic> invite) async {
@@ -916,6 +969,12 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (!mounted) return;
 
     try {
+      if (accepted == true && !isFreshTableInvite(invite, DateTime.now())) {
+        await supabase.from('table_invites').update({'status': 'rejected'})
+            .eq('id', inviteId).eq('status', 'pending');
+        if (mounted) _msg('Bu oyun davetinin süresi doldu.');
+        return;
+      }
       if (accepted == true) {
         await supabase
             .from('table_invites')
@@ -4428,7 +4487,47 @@ class _LobbyScreenState extends State<LobbyScreen>
       .map((league) => league['name']?.toString() ?? '')
       .firstOrNull ?? '';
 
+  bool _quickPlayBusy = false;
+
+  Future<void> _quickPlay() async {
+    if (_quickPlayBusy || leagues.isEmpty) return;
+    setState(() => _quickPlayBusy = true);
+    QuickPlayController? flow;
+    try {
+      await _loadUser();
+      if (!mounted) return;
+      flow = QuickPlayController(SupabaseQuickPlayBackend(supabase));
+      final result = await showDialog<Map<String, dynamic>>(
+        context: context, barrierDismissible: false, barrierColor: const Color(0x99050C12),
+        builder: (_) => QuickPlayWaitDialog(controller: flow!, leagueName: 'Tüm ligler'),
+      );
+      if (!mounted) return;
+      if (result != null && result['table_id'] is String) {
+        if (result['bot'] == true) _msg('Bot rakiple masaya geçiliyor.');
+        await _openGame(result['table_id'] as String, result['is_creator'] == true);
+      }
+      await _loadTables();
+    } catch (_) {
+      if (mounted) _msg('Hızlı Oyna başlatılamadı. Lütfen yeniden dene.');
+    } finally {
+      flow?.dispose();
+      if (mounted) setState(() => _quickPlayBusy = false);
+    }
+  }
+
   Widget _buildTablesPanel() {
+    if (loadingTables) return _buildTablesPanelContents();
+    if (tables.isEmpty && !isLeagueLocked) return QuickPlayPanel(
+      leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay);
+    return Column(children: [
+      SizedBox(height: 55, child: QuickPlayPanel(compact: true,
+        leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay)),
+      const SizedBox(height: 4),
+      Expanded(child: _buildTablesPanelContents()),
+    ]);
+  }
+
+  Widget _buildTablesPanelContents() {
     final useWebGrid = kIsWeb && MediaQuery.of(context).size.width >= 1200;
 
     if (!useWebGrid || isLeagueLocked) {

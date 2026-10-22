@@ -24,7 +24,10 @@ Future<bool?> openStoreScreen(
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 520),
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
@@ -70,7 +73,7 @@ Future<bool?> openStoreScreen(
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                        'Coin satın alma işlemleri şu anda sadece mobil uygulamada aktiftir.',
+                  'Coin satın alma işlemleri şu anda sadece mobil uygulamada aktiftir.',
                   style: TextStyle(
                     color: Color(0xFFE4ECE7),
                     fontSize: 14.5,
@@ -104,7 +107,10 @@ Future<bool?> openStoreScreen(
                     ),
                     child: const Text(
                       'Anladım',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
@@ -119,15 +125,17 @@ Future<bool?> openStoreScreen(
 
   StoreDiagnostics.begin();
   try {
-  StoreDiagnostics.log('route_push_begin');
-  final result = await Navigator.push<bool>(
-    context,
-    MaterialPageRoute(builder: (_) {
-      StoreDiagnostics.log('route_builder');
-      return StoreScreen(initialCoin: initialCoin);
-    }),
-  );
-  return result;
+    StoreDiagnostics.log('route_push_begin');
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) {
+          StoreDiagnostics.log('route_builder');
+          return StoreScreen(initialCoin: initialCoin);
+        },
+      ),
+    );
+    return result;
   } catch (error, stack) {
     StoreDiagnostics.error('route_error', error, stack);
     rethrow;
@@ -503,22 +511,39 @@ class _StoreScreenState extends State<StoreScreen> {
       balance: widget.initialCoin,
       onClose: () => Navigator.pop(context),
       offers: [
-        CoinStoreOffer(id: 'coin_pack_baslangic', title: 'BAŞLANGIÇ',
-          coins: 80000, price: packBaslangic?.price ?? '...',
-          onBuy: packBaslangic == null ? null : () => buy(packBaslangic!)),
-        CoinStoreOffer(id: 'coin_pack_standart', title: 'STANDART',
-          coins: 200000, price: packStandart?.price ?? '...',
-          onBuy: packStandart == null ? null : () => buy(packStandart!)),
-        CoinStoreOffer(id: 'coin_pack_elit', title: 'ELİT',
-          coins: 600000, price: packElit?.price ?? '...',
-          onBuy: packElit == null ? null : () => buy(packElit!)),
-        CoinStoreOffer(id: 'coin_pack_mega', title: 'MEGA',
-          coins: 2000000, price: packMega?.price ?? '...',
-          onBuy: packMega == null ? null : () => buy(packMega!)),
+        CoinStoreOffer(
+          id: 'coin_pack_baslangic',
+          title: 'BAŞLANGIÇ',
+          coins: 500000,
+          price: packBaslangic?.price ?? '...',
+          onBuy: packBaslangic == null ? null : () => buy(packBaslangic!),
+        ),
+        CoinStoreOffer(
+          id: 'coin_pack_standart',
+          title: 'STANDART',
+          coins: 1500000,
+          price: packStandart?.price ?? '...',
+          onBuy: packStandart == null ? null : () => buy(packStandart!),
+        ),
+        CoinStoreOffer(
+          id: 'coin_pack_elit',
+          title: 'ELİT',
+          coins: 4000000,
+          price: packElit?.price ?? '...',
+          onBuy: packElit == null ? null : () => buy(packElit!),
+        ),
+        CoinStoreOffer(
+          id: 'coin_pack_mega',
+          title: 'MEGA',
+          coins: 20000000,
+          price: packMega?.price ?? '...',
+          onBuy: packMega == null ? null : () => buy(packMega!),
+        ),
       ],
     );
   }
 }
+
 class _PurchaseSuccessCard extends StatelessWidget {
   final int coins;
 

@@ -343,7 +343,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     try {
       final rows = await supabase
           .from('table_players')
-          .select('id,user_id,seat_index,users(username,avatar_url)')
+          .select('id,user_id,seat_index,users(username,avatar_url,is_bot)')
           .eq('table_id', tableId);
       if (!mounted ||
           widget.tableId != tableId ||
@@ -393,7 +393,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
     final p = await supabase
         .from('table_players')
-        .select('id,user_id,seat_index,users(username,avatar_url)')
+        .select('id,user_id,seat_index,users(username,avatar_url,is_bot)')
         .eq('table_id', widget.tableId);
 
     final s = await supabase
@@ -1749,6 +1749,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     final seated = player(seatIndex);
     final name = seated?['users']?['username']?.toString() ?? 'Oyuncu';
     return SpectatorPlayerCard(
+      isBot: seated?['users']?['is_bot'] == true,
       key: giftBoundsKey,
       username: name,
       coins: _playerCoins[userId],
