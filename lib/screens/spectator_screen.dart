@@ -61,6 +61,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   DateTime? _lastFinishAt;
   bool _showFinishOverlay = false;
   String _finishWinnerName = 'Oyuncu';
+  String? _finishTypeLabel;
   bool _tableChatEnabled = true;
   int _currentTurnSeat = 0;
   DateTime? _turnStartedAt;
@@ -207,7 +208,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     await Future.wait([
       _refreshPlayerScores(),
       _refreshCoins(),
-      _refreshFinishSnapshot(),
+      _refreshLastFinish(),
     ]);
   });
 
@@ -231,31 +232,30 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     }
   }
 
-  Future<void> _refreshFinishSnapshot() async {
+  Future<void> _refreshLastFinish() async {
     try {
-      final snapshot = await supabase.from('table_finish_snapshots').select()
-          .eq('table_id', widget.tableId).order('finished_at', ascending: false)
-          .limit(1).maybeSingle();
-      if (!mounted || snapshot == null) return;
-      final finishedAt = _parseServerTime(snapshot['finished_at']);
-      if (finishedAt == null || finishedAt.isBefore(_watchStartedAt) ||
-          (_lastFinishAt != null && !finishedAt.isAfter(_lastFinishAt!))) return;
-      final winner = spectatorSnapshotWinner(snapshot);
-      if (winner == null) return;
-      _lastFinishAt = finishedAt;
-      final id = (winner['user_id'] ?? winner['id'])?.toString();
-      final seated = players.where((p) => p['user_id']?.toString() == id);
-      dynamic name = winner['username'];
-      if (seated.isNotEmpty) {
-        final user = seated.first['users'];
-        if (user is Map) name = user['username'] ?? name;
+      final raw = await supabase.rpc('okeyix_spectator_last_finish',
+        params: {'p_table_id': widget.tableId});
+      if (!mounted || raw is! Map) return;
+      final result = Map<String, dynamic>.from(raw);
+      final finishedAt = _parseServerTime(result['finished_at']);
+      if (finishedAt == null || finishedAt.isBefore(_watchStartedAt)) return;
+      final label = spectatorFinishLabel(result);
+      if (_lastFinishAt != null && !finishedAt.isAfter(_lastFinishAt!)) {
+        // The table Realtime event can arrive before the durable finish details.
+        // Enrich that same notice without replaying it or resetting its timer.
+        if (finishedAt.isAtSameMomentAs(_lastFinishAt!) && label != _finishTypeLabel) {
+          setState(() => _finishTypeLabel = label);
+        }
+        return;
       }
-      _openFinishOverlay(name?.toString() ?? 'Oyuncu');
-    } catch (_) {
-      // The table update path remains available if snapshot reads are denied.
+      _lastFinishAt = finishedAt;
+      _openFinishOverlay(result['username']?.toString() ?? 'Oyuncu', finishLabel: label);
+    } catch (e) {
+      // Keep the winner-only fallback, but expose missing RPC/access failures.
+      debugPrint('SPECTATOR FINISH DETAILS ERROR: $e');
     }
   }
-
   Future<void> _refreshTurnState() async {
     if (!mounted || _turnRefreshInFlight) return;
     _turnRefreshInFlight = true;
@@ -1393,7 +1393,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     );
   }
 
-  Widget _buildFinishOverlay() => SpectatorFinishNotice(winnerName: _finishWinnerName);
+  Widget _buildFinishOverlay() => SpectatorFinishNotice(winnerName: _finishWinnerName, finishLabel: _finishTypeLabel);
 
   bool _isPlayerSender(String? senderId) {
     if (senderId == null) return false;
@@ -1438,10 +1438,11 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     }
   }
 
-  void _openFinishOverlay(String winnerName) {
+  void _openFinishOverlay(String winnerName, {String? finishLabel}) {
     if (!mounted) return;
     setState(() {
       _finishWinnerName = winnerName;
+      _finishTypeLabel = finishLabel;
       _showFinishOverlay = true;
     });
     _finishOverlayTimer?.cancel();
@@ -1780,7 +1781,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       await supabase.from('table_spectators').upsert({
         'table_id': widget.tableId,
         'user_id': user.id,
-      });
+      }, onConflict: 'table_id,user_id', ignoreDuplicates: true);
       if (!mounted) return;
       unawaited(_refreshPlayerScores());
   

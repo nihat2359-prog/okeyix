@@ -4729,7 +4729,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
         const SizedBox(width: 2),
         LobbyDockAction(
-          label: 'Sosyal',
+          label: 'Arkadaşlarım',
           emblem: LobbyDockEmblemKind.social,
           onTap: () => _openRightPanel(_RightPanelType.friends),
         ),

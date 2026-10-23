@@ -527,7 +527,10 @@ class SpectatorGame extends FlameGame {
   Vector2 _nextDiscardPosition(int seat) {
     final base = seat == 0 ? discardRightPos : discardLeftPos;
     final stack = seat == 0 ? discardRightStack : discardLeftStack;
-    return base + Vector2(0, -2.0 * stack.length);
+    // Keep the entire discard history, but expose only a shallow pile edge.
+    // A long round must not grow a tower into the player avatars and HUD.
+    final visibleDepth = stack.length.clamp(0, 3);
+    return base + Vector2(0, -2.0 * visibleDepth);
   }
 
   // =========================

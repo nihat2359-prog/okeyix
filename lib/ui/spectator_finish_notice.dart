@@ -4,7 +4,12 @@ import 'lobby/lobby_metal_surface.dart';
 /// Brief spectator result notice. Timing remains owned by SpectatorScreen.
 class SpectatorFinishNotice extends StatelessWidget {
   final String winnerName;
-  const SpectatorFinishNotice({super.key, required this.winnerName});
+  final String? finishLabel;
+  const SpectatorFinishNotice({
+    super.key,
+    required this.winnerName,
+    this.finishLabel,
+  });
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -75,9 +80,9 @@ class SpectatorFinishNotice extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'Bu eli kazandı',
-                            style: TextStyle(
+                          Text(
+                            finishLabel ?? 'Bu eli kazandı',
+                            style: const TextStyle(
                               color: Color(0xFFCBD6D0),
                               fontSize: 13,
                             ),
