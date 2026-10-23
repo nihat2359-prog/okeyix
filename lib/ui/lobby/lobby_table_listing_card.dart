@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
 import '../bot_badge.dart';
+import '../display_okey_tile.dart';
 
 /// Two-seat table listing. Callbacks retain the lobby's server-side checks.
 class LobbyTableListingCard extends StatelessWidget {
@@ -58,75 +59,15 @@ class LobbyTableListingCard extends StatelessWidget {
                 painter: _TableStagePainter(active: canJoin),
                 child: Stack(
                   children: [
-                    Positioned.fill(
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 29,
+                      height: 34,
                       child: IgnorePointer(
                         child: ExcludeSemantics(
-                          child: LayoutBuilder(
-                            builder: (context, surface) {
-                              return Stack(
-                                children: [
-                                  for (final tile in const [
-                                    (.74, 0.22, '3', Color(0xFFB62824)),
-                                    (.86, 0.08, '6', Color(0xFF24282B)),
-                                  ])
-                                    Positioned(
-                                      left: surface.maxWidth * tile.$1 - 10,
-                                      bottom: 37,
-                                      child: Transform.rotate(
-                                        angle: tile.$2,
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 26,
-                                          child: Stack(
-                                            children: [
-                                              Positioned.fill(
-                                                child: Image.asset(
-                                                  'assets/images/tile_base.png',
-                                                  fit: BoxFit.fill,
-                                                ),
-                                              ),
-                                              Positioned.fill(
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        bottom: 3,
-                                                      ),
-                                                  child: Center(
-                                                    child: Text(
-                                                      tile.$3,
-                                                      textScaler:
-                                                          TextScaler.noScaling,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        height: 1,
-                                                        fontWeight:
-                                                            FontWeight.w900,
-                                                        color: tile.$4,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Positioned(
-                                                bottom: 4,
-                                                left: 9,
-                                                child: Container(
-                                                  width: 2,
-                                                  height: 2,
-                                                  decoration: BoxDecoration(
-                                                    color: tile.$4,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
+                          child: CustomPaint(
+                            painter: OpeningOkeyTilesPainter(),
                           ),
                         ),
                       ),
@@ -227,26 +168,26 @@ class LobbyTableListingCard extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 7),
                             child: Row(
-                            children: [
-                              Expanded(
-                                child: _detail(
-                                  Icons.emoji_events_outlined,
-                                  Format.coin(
-                                    (table['pot_amount'] as int?) ?? 0,
+                              children: [
+                                Expanded(
+                                  child: _detail(
+                                    Icons.emoji_events_outlined,
+                                    Format.coin(
+                                      (table['pot_amount'] as int?) ?? 0,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _fit(
-                                    '${table['round_count'] ?? 0}. el',
-                                    12,
+                                const SizedBox(width: 12),
+                                Flexible(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: _fit(
+                                      '${table['round_count'] ?? 0}. el',
+                                      12,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
                             ),
                           ),
                         ],

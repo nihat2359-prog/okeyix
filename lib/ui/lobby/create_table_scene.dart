@@ -101,6 +101,8 @@ class _CreateTableSceneState extends State<CreateTableScene> {
       final diameter = math
           .min(width, math.max(1.0, bounds.maxHeight - 6))
           .clamp(1.0, 112.0);
+      double tokenDiameter(int index) =>
+          diameter * (count == 1 ? 1 : .72 + .28 * index / (count - 1));
       return Row(
         children: [
           for (var index = 0; index < count; index++) ...[
@@ -116,8 +118,8 @@ class _CreateTableSceneState extends State<CreateTableScene> {
                   borderRadius: BorderRadius.circular(70),
                   child: Center(
                     child: SizedBox(
-                      width: diameter,
-                      height: diameter,
+                      width: tokenDiameter(index),
+                      height: tokenDiameter(index),
                       child: RepaintBoundary(
                         child: CustomPaint(
                           painter: _EntryToken(index == widget.selectedIndex),
