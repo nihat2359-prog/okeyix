@@ -13,6 +13,7 @@ import 'rack_config.dart';
 import '../components/cached_decoration.dart';
 import 'dart:math' as math;
 import 'dart:async' as async;
+import 'package:okeyix/services/tile_theme_service.dart';
 
 enum TileColorType { red, blue, black, yellow }
 
@@ -43,6 +44,9 @@ class TileComponent extends PositionComponent
   bool renderInDragOverlay = false;
   bool _paintingDragOverlay = false;
   bool _awaitingDrawConfirmation = false;
+  Object? _faceTheme;
+  TextComponent? _numberGlow;
+  TileGemBadge? _gemBadge;
 
   void showAwaitingDrawConfirmation() {
     _awaitingDrawConfirmation = true;
@@ -117,6 +121,7 @@ class TileComponent extends PositionComponent
       anchor: Anchor.center,
       position: size / 2,
     );
+    backSprite.paint.colorFilter = TileThemeService.palette.filter;
     backFrameFx = TileBackFrameFx(size: size, position: size / 2);
 
     // BASE SPRITE
@@ -126,13 +131,59 @@ class TileComponent extends PositionComponent
       anchor: Anchor.center,
       position: size / 2,
     );
+    baseSprite.paint.colorFilter = TileThemeService.palette.filter;
 
     // Eğer gerçek okeyse ters başlat
     isFaceDown = isJoker && !isFakeJoker;
+    _faceTheme = (TileThemeService.selected.value, UserState.colorBlindMode);
     _buildFace();
   }
 
+  @override
+  void onMount() {
+    super.onMount();
+    TileThemeService.selected.addListener(_refreshTheme);
+    _refreshTheme();
+  }
+
+  void _refreshTheme() {
+    if (!isLoaded || isRemoving) return;
+    final key = (TileThemeService.selected.value, UserState.colorBlindMode);
+    if (_faceTheme == key) return;
+    _faceTheme = key;
+    baseSprite.paint.colorFilter = TileThemeService.palette.filter;
+    backSprite.paint.colorFilter = TileThemeService.palette.filter;
+    // Update only presentation paints. Keep children, cached ui.Pictures,
+    // movement/scale effects, joker state and geometry intact.
+    if (!_awaitingDrawConfirmation && !isFakeJoker && !(isJoker && isFaceDown)) {
+      final ink = _getInkColor();
+      final renderer = numberText.textRenderer as TextPaint;
+      numberText.textRenderer = TextPaint(style: renderer.style.copyWith(color: ink,
+        shadows: _inkShadows()));
+      final glow = _numberGlow;
+      if (glow != null) {
+        final glowStyle = (glow.textRenderer as TextPaint).style;
+        glow.textRenderer = TextPaint(style: glowStyle.copyWith(
+          color: ink.withValues(alpha: .28),
+          shadows: [Shadow(blurRadius: 4, color: ink.withValues(alpha: .30))],
+        ));
+      }
+      _gemBadge?.coreColor = ink;
+      _gemBadge?.rimColor = ink;
+      _gemBadge?.outlineColor = TileThemeService.palette.inkOutline(tile.color,
+        colorBlind: UserState.colorBlindMode);
+    }
+  }
+
+  @override
+  void onRemove() {
+    TileThemeService.selected.removeListener(_refreshTheme);
+    super.onRemove();
+  }
+
   void _buildFace() {
+    _numberGlow = null;
+    _gemBadge = null;
     if (_awaitingDrawConfirmation) {
       add(baseSprite);
       add(TextComponent(
@@ -252,6 +303,7 @@ class TileComponent extends PositionComponent
         priority: 1,
       );
       add(glowText);
+      _numberGlow = glowText;
     }
 
     // Main number fill (crisp foreground).
@@ -266,37 +318,7 @@ class TileComponent extends PositionComponent
 
           color: inkColor,
 
-          shadows: isYellowInk
-              ? [
-                  // Thin dark contour so yellow stays readable on warm tile base.
-                  Shadow(
-                    offset: const Offset(-0.65, 0),
-                    blurRadius: 0.0,
-                    color: const Color(0xFF6A5600).withOpacity(0.72),
-                  ),
-                  Shadow(
-                    offset: const Offset(0.65, 0),
-                    blurRadius: 0.0,
-                    color: const Color(0xFF6A5600).withOpacity(0.72),
-                  ),
-                  Shadow(
-                    offset: const Offset(0, -0.65),
-                    blurRadius: 0.0,
-                    color: const Color(0xFF6A5600).withOpacity(0.65),
-                  ),
-                  Shadow(
-                    offset: const Offset(0, 0.6),
-                    blurRadius: 0.0,
-                    color: const Color(0xFF6A5600).withOpacity(0.70),
-                  ),
-                ]
-              : [
-                  Shadow(
-                    offset: const Offset(0, 0),
-                    blurRadius: 0.7,
-                    color: Colors.black.withOpacity(0.18),
-                  ),
-                ],
+          shadows: _inkShadows(),
         ),
       ),
       anchor: Anchor.center,
@@ -307,12 +329,14 @@ class TileComponent extends PositionComponent
 
     // Color gem instead of a flat dot.
     add(
-      TileGemBadge(
+      _gemBadge = TileGemBadge(
         radius: 10.5,
         center: Vector2(size.x / 2, size.y * 0.71),
         coreColor: badgeColors,
         rimColor: badgeColors,
         mellow: isYellowInk,
+        outlineColor: TileThemeService.palette.inkOutline(tile.color,
+          colorBlind: UserState.colorBlindMode),
       ),
     );
   }
@@ -682,23 +706,46 @@ class TileComponent extends PositionComponent
   }
 
   // =============================
+  List<Shadow> _inkShadows() {
+    final themed = TileThemeService.palette.inkShadows(tile.color,
+      colorBlind: UserState.colorBlindMode);
+    if (themed != null) return themed;
+    final isYellowInk = tile.color == TileColor.yellow;
+    return isYellowInk
+              ? [
+                  // Thin dark contour so yellow stays readable on warm tile base.
+                  Shadow(
+                    offset: const Offset(-0.65, 0),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.72),
+                  ),
+                  Shadow(
+                    offset: const Offset(0.65, 0),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.72),
+                  ),
+                  Shadow(
+                    offset: const Offset(0, -0.65),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.65),
+                  ),
+                  Shadow(
+                    offset: const Offset(0, 0.6),
+                    blurRadius: 0.0,
+                    color: const Color(0xFF6A5600).withOpacity(0.70),
+                  ),
+                ]
+              : [
+                  Shadow(
+                    offset: const Offset(0, 0),
+                    blurRadius: 0.7,
+                    color: Colors.black.withOpacity(0.18),
+                  ),
+                ];
+  }
   Color _getInkColor() {
-    switch (tile.color) {
-      case TileColor.red:
-        return const Color(0xFFD12B3F);
-
-      case TileColor.blue:
-        return const Color(0xFF1F5BFF);
-
-      case TileColor.black:
-        return const Color(0xFF1A1A1A);
-
-      case TileColor.yellow:
-        if (UserState.colorBlindMode) {
-          return const Color(0xFF2E8B57);
-        }
-        return const Color(0xFFAA7B12);
-    }
+    return TileThemeService.palette.ink(tile.color,
+        colorBlind: UserState.colorBlindMode);
   }
 
   Map<String, dynamic> toJson() {
@@ -760,8 +807,9 @@ class TileBackFrameFx extends PositionComponent {
 class TileGemBadge extends PositionComponent {
   final double radius;
   final Vector2 center;
-  final Color coreColor;
-  final Color rimColor;
+  Color coreColor;
+  Color rimColor;
+  Color? outlineColor;
   final bool mellow;
 
   TileGemBadge({
@@ -770,6 +818,7 @@ class TileGemBadge extends PositionComponent {
     required this.coreColor,
     required this.rimColor,
     this.mellow = false,
+    this.outlineColor,
   }) {
     position = center;
     anchor = Anchor.center;
@@ -777,6 +826,10 @@ class TileGemBadge extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
+    final edge = outlineColor;
+    if (edge != null) {
+      canvas.drawCircle(Offset.zero, radius + 1.5, Paint()..color = edge);
+    }
     if (mellow) {
       canvas.drawCircle(Offset.zero, radius, Paint()..color = coreColor);
       return;

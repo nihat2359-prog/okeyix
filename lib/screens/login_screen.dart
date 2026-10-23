@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:okeyix/services/device_identity_service.dart';
+import 'package:okeyix/services/guest_identity_service.dart';
 import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/ui/login_start_scene.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -138,10 +138,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<String> getDeviceId() async {
-    return DeviceIdentityService.getStableInstallId();
+    return GuestIdentityService.getInstallId();
   }
 
   Future<void> _playAsGuest() async {
+    if (GuestIdentityService.missingDebugWebKey) {
+      setState(() => _error = 'Sabit test hesabı anahtarı bu çalıştırmaya yüklenmedi. '
+          'Uygulamayı durdurup VS Code’dan F5 ile veya tool/run_chrome.ps1 ile başlat. '
+          'Yeni misafir hesabı oluşturulmadı.');
+      return;
+    }
     final rawDeviceId = await getDeviceId();
 
     final deviceHash = hashDeviceId(rawDeviceId);

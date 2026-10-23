@@ -40,9 +40,11 @@ class ProfileEditorScene extends StatelessWidget {
           return SizedBox(
             height: height,
             child: Material(
-              color: Colors.transparent,
+              color: const Color(0x80141B23),
+              borderRadius: BorderRadius.circular(24),
               child: LobbyMetalSurface(
                 radius: 24,
+                surfaceOpacity: 2.5,
                 child: CustomPaint(
                   painter: const _IdentityFrame(),
                   child: Padding(

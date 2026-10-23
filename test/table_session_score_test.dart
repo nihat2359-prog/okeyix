@@ -121,6 +121,7 @@ void main() {
   });
 
   for (final size in [
+    const Size(480, 270),
     const Size(568, 320),
     const Size(667, 375),
     const Size(844, 390),
@@ -137,10 +138,12 @@ void main() {
           home: MediaQuery(
             data: MediaQueryData(
               size: size,
+              padding: const EdgeInsets.symmetric(horizontal: 44),
+              viewPadding: const EdgeInsets.symmetric(horizontal: 44),
               textScaler: const TextScaler.linear(1.4),
             ),
             child: const Scaffold(
-              body: Stack(
+              body: SafeArea(child: Stack(
                 children: [
                   Positioned(
                     top: 10,
@@ -151,22 +154,35 @@ void main() {
                       children: [
                         SizedBox(width: 220, height: 46),
                         SizedBox(height: 4),
-                        TableSessionScore(wins: 1234, losses: 5678),
+                        Padding(
+                          padding: EdgeInsets.only(left: 18),
+                          child: TableSessionScore(wins: 1234, losses: 5678),
+                        ),
                       ],
                     ),
                   ),
                 ],
-              ),
+              )),
             ),
           ),
         ),
       );
-      expect(find.text('Galibiyet'), findsOneWidget);
-      expect(find.text('Mağlubiyet'), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.cancel_outlined), findsOneWidget);
+      expect(find.text('Galibiyet'), findsNothing);
+      expect(find.text('Mağlubiyet'), findsNothing);
+      expect(find.text('Toplam'), findsNothing);
+      expect(find.text('6912'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('6912')).dy,
+        greaterThan(tester.getTopLeft(find.text('5678')).dy),
+      );
       final rect = tester.getRect(find.byType(TableSessionScore));
-      expect(rect.width, lessThanOrEqualTo(220));
+      expect(rect.width, 72);
       expect(rect.top, 60);
-      expect(rect.bottom, lessThan(90));
+      expect(rect.left, 44 + 6 + 18);
+      expect(find.byType(Table), findsOneWidget);
+      expect(rect.bottom, lessThan(150));
       expect(tester.takeException(), isNull);
     });
   }

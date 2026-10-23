@@ -86,8 +86,12 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
   Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.transparent,
     insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-    child: ConstrainedBox(
+    child: Container(
       constraints: const BoxConstraints(maxWidth: 610, maxHeight: 370),
+      decoration: BoxDecoration(
+        color: const Color(0x80141B23),
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: LobbyMetalSurface(
         radius: 24,
         surfaceOpacity: 2.5,

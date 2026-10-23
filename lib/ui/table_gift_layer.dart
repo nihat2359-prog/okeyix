@@ -153,8 +153,8 @@ class _TableGiftLayerState extends State<TableGiftLayer>
   }
 
   Offset _slot(Rect rect, Size size) => Offset(
-    (rect.right - 28).clamp(24.0, size.width - 24),
-    (rect.top + 25).clamp(24.0, size.height - 24),
+    (rect.right - 16).clamp(24.0, size.width - 24),
+    (rect.top + 14).clamp(24.0, size.height - 24),
   );
   Future<void> _drain() async {
     if (!mounted ||
@@ -213,7 +213,6 @@ class _TableGiftLayerState extends State<TableGiftLayer>
                 height: double.infinity,
                 child: _GiftPanel(
                   controller: _gifts,
-                  recipient: recipient.name,
                   onBuy: (gift) async {
                     await _gifts.buy(recipient.userId, gift);
                     if (context.mounted) Navigator.pop(context);
@@ -328,13 +327,8 @@ String _t(String tr, String en) =>
     : en;
 
 class _GiftPanel extends StatefulWidget {
-  const _GiftPanel({
-    required this.controller,
-    required this.recipient,
-    required this.onBuy,
-  });
+  const _GiftPanel({required this.controller, required this.onBuy});
   final TableGiftController controller;
-  final String recipient;
   final Future<void> Function(String) onBuy;
   @override
   State<_GiftPanel> createState() => _GiftPanelState();
@@ -380,17 +374,6 @@ class _GiftPanelState extends State<_GiftPanel> {
                     ),
                   ),
                 ],
-              ),
-              Text(
-                '${_t('Alıcı', 'To')}: ${widget.recipient}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${_t('Bakiyen', 'Your balance')}: ${c.balance == null ? '—' : Format.coin(c.balance!)} coin',
-                style: const TextStyle(color: _gold, fontSize: 11),
               ),
               if (error != null)
                 Padding(

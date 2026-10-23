@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/core/table_creation_options.dart';
 import 'package:okeyix/core/message_contacts.dart';
+import 'package:okeyix/core/league_player_counts.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -14,6 +15,7 @@ import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
+import 'package:okeyix/services/ready_table_service.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
 import 'package:okeyix/ui/lobby/lobby_utility_scenes.dart';
 import 'package:okeyix/services/reward_audio.dart';
@@ -38,6 +40,7 @@ import 'login_screen.dart';
 import 'store_screen.dart';
 import 'friend_invite_screen.dart';
 import 'package:okeyix/ui/lobby/lobby_metal_surface.dart';
+import 'package:okeyix/ui/profile_action_scenes.dart';
 import 'package:okeyix/ui/invite_strings.dart';
 import 'leaderboard_screen.dart';
 import 'banned_screen.dart';
@@ -49,7 +52,7 @@ import '../ui/lobby/lobby_side_menu.dart';
 import '../ui/lobby/lobby_right_panel.dart';
 import '../ui/lobby/lobby_social_scenes.dart';
 import '../ui/lobby/_ui_helpers.dart';
-import '../ui/lobby/lobby_table_card.dart';
+import '../ui/lobby/lobby_table_listing_card.dart';
 import '../ui/ambient/sky_planes_overlay.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
@@ -1283,53 +1286,29 @@ class _LobbyScreenState extends State<LobbyScreen>
       final activeTables = await supabase
           .from('tables')
           .select('id, league_id, status')
-          .inFilter('status', ['waiting', 'playing']);
+          .inFilter('status', lobbyTableStatuses);
 
       final tableRows = (activeTables as List)
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
 
-      final usersByLeague = <String, Set<String>>{};
-      final tableCountByLeague = <String, int>{};
+      final seatedPlayers = <Map<String, dynamic>>[];
+
 
       if (tableRows.isNotEmpty) {
         final tableIds = tableRows.map((e) => e['id'] as String).toList();
-
-        for (final row in tableRows) {
-          final leagueId = row['league_id']?.toString();
-          if (leagueId == null) continue;
-          tableCountByLeague[leagueId] =
-              (tableCountByLeague[leagueId] ?? 0) + 1;
-        }
 
         final players = await supabase
             .from('table_players')
             .select('table_id,user_id')
             .inFilter('table_id', tableIds);
 
-        final leagueByTable = <String, String>{};
-        for (final row in tableRows) {
-          final tableId = row['id']?.toString();
-          final leagueId = row['league_id']?.toString();
-          if (tableId == null || leagueId == null) continue;
-          leagueByTable[tableId] = leagueId;
-        }
-
-        for (final row in (players as List)) {
-          final map = Map<String, dynamic>.from(row);
-          final tableId = map['table_id']?.toString();
-          final userId = map['user_id']?.toString();
-          if (tableId == null || userId == null) continue;
-
-          final leagueId = leagueByTable[tableId];
-          if (leagueId == null) continue;
-
-          usersByLeague.putIfAbsent(leagueId, () => <String>{}).add(userId);
-        }
+        seatedPlayers.addAll((players as List).map((p) => Map<String, dynamic>.from(p)));
       }
 
       // Online users by league (based on rating ranges).
-      final playersResult = <String, int>{};
+
+      final tableCountByLeague = listedLeagueTableCounts(tableRows, seatedPlayers);
       final tablesResult = <String, int>{};
 
       for (final league in leagues) {
@@ -1348,48 +1327,22 @@ class _LobbyScreenState extends State<LobbyScreen>
           .map((e) => Map<String, dynamic>.from(e))
           .toList(growable: false);
 
-      // Build deterministic league rating ranges.
-      final sortedLeagues =
-          leagues.map((e) => Map<String, dynamic>.from(e)).toList()
-            ..sort((a, b) {
-              final aMin = (a['min_rating'] as int?) ?? 0;
-              final bMin = (b['min_rating'] as int?) ?? 0;
-              return aMin.compareTo(bMin);
-            });
-
-      final ranges = <Map<String, dynamic>>[];
-      for (int i = 0; i < sortedLeagues.length; i++) {
-        final league = sortedLeagues[i];
-        final leagueId = league['id']?.toString();
-        if (leagueId == null || leagueId.isEmpty) continue;
-
-        final minRating = (league['min_rating'] as int?) ?? 0;
-        final explicitMax = league['max_rating'] as int?;
-        final nextMin = (i + 1 < sortedLeagues.length)
-            ? ((sortedLeagues[i + 1]['min_rating'] as int?) ?? 9999999)
-            : 9999999;
-        final inferredMax = nextMin - 1;
-        final maxRating = explicitMax == null || explicitMax <= 0
-            ? inferredMax
-            : explicitMax;
-
-        ranges.add({'id': leagueId, 'min': minRating, 'max': maxRating});
-        playersResult[leagueId] = 0;
+      final accountIds = <String>{
+        for (final row in onlineRows) if (row['id'] != null) row['id'].toString(),
+        for (final row in seatedPlayers) if (row['user_id'] != null) row['user_id'].toString(),
+      }.toList();
+      final botIds = <String>{};
+      // Bound IN clauses; this uses the existing activity refresh, not a new loop.
+      for (var i = 0; i < accountIds.length; i += 200) {
+        final chunk = accountIds.sublist(i, min(i + 200, accountIds.length));
+        final bots = await supabase.from('users').select('id')
+            .eq('is_bot', true).inFilter('id', chunk);
+        botIds.addAll((bots as List).map((b) => b['id'].toString()));
       }
-
-      for (final row in onlineRows) {
-        final rating = (row['rating'] as int?) ?? 1200;
-        for (final range in ranges) {
-          final min = range['min'] as int;
-          final max = range['max'] as int;
-          if (rating >= min && rating <= max) {
-            final id = range['id'] as String;
-            playersResult[id] = (playersResult[id] ?? 0) + 1;
-            break;
-          }
-        }
-      }
-
+      final playersResult = leaguePlayerCounts(
+        leagues: leagues, onlineProfiles: onlineRows,
+        tables: tableRows, seats: seatedPlayers, botIds: botIds,
+      );
       if (!mounted) return;
 
       setState(() {
@@ -1418,6 +1371,13 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
 
     tables.removeWhere((t) => !newIds.contains(t['id'].toString()));
+    bool hasHuman(Map<String, dynamic> table) =>
+        ((table['_players'] as List?) ?? const []).any((p) => p['is_bot'] != true);
+    tables.sort((a, b) {
+      final humanOrder = (hasHuman(a) ? 0 : 1).compareTo(hasHuman(b) ? 0 : 1);
+      if (humanOrder != 0) return humanOrder;
+      return (b['created_at']?.toString() ?? '').compareTo(a['created_at']?.toString() ?? '');
+    });
   }
 
   Future<void> _cleanupOrphanTables(List<String> orphanTableIds) async {
@@ -1479,7 +1439,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           .from('tables')
           .select()
           .eq('league_id', league['id'])
-          .inFilter('status', ['waiting', 'playing'])
+          .inFilter('status', lobbyTableStatuses)
           .order('created_at', ascending: false);
 
       final fetchedRows = (response as List)
@@ -1582,6 +1542,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ? 'Oyuncu'
                   : (usernameById[uid] ?? 'Oyuncu'),
               'avatar_url': uid == null ? null : avatarById[uid],
+              'is_bot': uid != null && isBotById[uid] == true,
               'rating': uid == null ? 1200 : (ratingById[uid] ?? 1200),
               'blocked': uid != null && UserState.blockedUserIds.contains(uid),
             });
@@ -1700,10 +1661,20 @@ class _LobbyScreenState extends State<LobbyScreen>
       // If fetch fails, keep current fallback status.
     }
 
+    var serverManaged = false;
+    if (status == 'waiting' && createdBy != null && createdBy != user.id) {
+      try {
+        serverManaged = await ReadyTableService(supabase).isManaged(tableId);
+      } catch (_) {
+        _msg('Masa bilgisi doğrulanamadı. Lütfen tekrar dene.');
+        return;
+      }
+    }
     // Fast stale-owner guard:
     // If table owner is stale/offline, close waiting table immediately
     // so users do not get stuck trying to join a dead table.
     if (status == 'waiting' &&
+        !serverManaged &&
         createdBy != null &&
         createdBy!.isNotEmpty &&
         createdBy != user.id) {
@@ -1737,6 +1708,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (status == 'playing') {
       _msg('Bu masa şu anda oyunda. İzlemek için İZLE butonunu kullan.');
       await _loadTables();
+      return;
+    }
+    if (status != 'waiting') {
+      _msg('Bu masa oyuna hazırlanıyor.');
       return;
     }
     final entry = (table['entry_coin'] as int?) ?? 100;
@@ -1924,256 +1899,44 @@ class _LobbyScreenState extends State<LobbyScreen>
     final shouldBuy = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.75),
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(18),
-          child: TweenAnimationBuilder<double>(
-            duration: const Duration(milliseconds: 220),
-            tween: Tween(begin: 0.92, end: 1),
-            curve: Curves.easeOut,
-            builder: (context, scale, child) {
-              return Transform.scale(scale: scale, child: child);
-            },
-
-            child: Container(
-              width: 560,
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-
-                /// ?? GLASS + DEPTH
-                color: const Color(0xFF0F1B17).withOpacity(0.92),
-
-                border: Border.all(
-                  color: const Color(0xFFE7C06A).withOpacity(0.7),
-                  width: 1.3,
+      builder: (context) => ProfileActionScene(
+        title: 'Genel Seyirci Geçişi',
+        subtitle: '24 saat boyunca tüm masaları keşfet',
+        icon: Icons.visibility_rounded,
+        action: 'SATIN AL · ${Format.coin(_globalSpectatorPassCost)} COIN',
+        onClose: () => Navigator.pop(context, false),
+        onSubmit: () => Navigator.pop(context, true),
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0x66232B34),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0x447D8993)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.access_time_rounded,
+                      color: Color(0xFFE5C585), size: 22),
+                  SizedBox(width: 10),
+                  Expanded(child: Text('24 SAAT · TÜM MASALAR',
+                    style: TextStyle(color: Color(0xFFF3E7D0),
+                      fontSize: 16, fontWeight: FontWeight.w700))),
+                ]),
+                SizedBox(height: 14),
+                Text(
+                  'Arkadaşlarının masalarını ücretsiz izleyebilirsin. '
+                  'Genel Seyirci Geçişi ile 24 saat boyunca tüm masaları izleyebilirsin.',
+                  style: TextStyle(color: Color(0xFFBAC2CC),
+                    fontSize: 13, height: 1.5),
                 ),
-
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.75),
-                    blurRadius: 30,
-                    offset: const Offset(0, 14),
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFFE7C06A).withOpacity(0.15),
-                    blurRadius: 20,
-                  ),
-                ],
-              ),
-
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  /// ?? HEADER
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFE7C06A), Color(0xFFB9932F)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFE7C06A).withOpacity(0.6),
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.visibility_rounded,
-                          color: Colors.black,
-                          size: 18,
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      const Expanded(
-                        child: Text(
-                          'Genel Seyirci Geçişi',
-                          style: TextStyle(
-                            color: Color(0xFFE7C06A),
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: .4,
-                          ),
-                        ),
-                      ),
-
-                      InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => Navigator.pop(context, false),
-                        child: const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.close_rounded,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  /// ?? INFO BOX
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      color: Colors.white.withOpacity(0.03),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
-                    ),
-                    child: const Text(
-                      'Sadece arkadaşlarının masasını ücretsiz izleyebilirsin.\n\n'
-                      '24 saat boyunca tüm masaları izlemek için bu geçişi açabilirsin.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        height: 1.4,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  /// ?? PRICE CARD (?OK ?NEML?)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1F4D3A), Color(0xFF153B2D)],
-                      ),
-                      border: Border.all(
-                        color: const Color(0xFFE7C06A).withOpacity(0.5),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(
-                          Icons.access_time_filled,
-                          color: Color(0xFFE7C06A),
-                          size: 14,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          '24 Saat',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Spacer(),
-                        Icon(
-                          Icons.monetization_on,
-                          color: Colors.amber,
-                          size: 14,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '10.000',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  /// ?? BUTTONS
-                  Row(
-                    children: [
-                      /// CANCEL
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () => Navigator.pop(context, false),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.white.withOpacity(0.03),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.08),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "Vazgeç",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      /// ?? BUY BUTTON
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE7C06A), Color(0xFFB9932F)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFE7C06A).withOpacity(0.6),
-                                blurRadius: 14,
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () => Navigator.pop(context, true),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Center(
-                                  child: Text(
-                                    "Satın Al",
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
     if (shouldBuy != true) return;
     final ok = await _purchaseGlobalSpectatorPass();
@@ -4584,12 +4347,13 @@ class _LobbyScreenState extends State<LobbyScreen>
               crossAxisCount: crossAxisCount,
               mainAxisSpacing: 14,
               crossAxisSpacing: 14,
-              childAspectRatio: 2.35,
+              mainAxisExtent: 140,
             ),
             itemCount: tables.length,
             itemBuilder: (context, i) {
               final table = tables[i];
-              return LobbyTableCard(
+              return LobbyTableListingCard(
+                number: i + 1,
                 table: table,
                 blockedUserIds: UserState.blockedUserIds,
                 onJoin: _joinTable,

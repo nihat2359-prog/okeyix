@@ -2,6 +2,7 @@ import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import 'dart:io';
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/models/table_gift.dart';
@@ -9,6 +10,16 @@ import 'package:okeyix/services/table_gift_service.dart';
 import 'package:okeyix/ui/table_gift_layer.dart';
 import 'package:okeyix/game/table_gift_flight.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+class ReversedGiftCatalog extends GiftFake {
+  ReversedGiftCatalog(super.store, super.identity);
+  @override
+  Future<Map<String, dynamic>> snapshot(String tableId) async {
+    final data = await super.snapshot(tableId);
+    data['catalog'] = (data['catalog'] as List).reversed.toList();
+    return data;
+  }
+}
 
 class GiftStore {
   final List<Map<String, dynamic>> events = [];
@@ -138,12 +149,69 @@ class HeldFeedGiftFake extends GiftFake {
 }
 
 void main() {
-  test('catalog references all 14 real PNGs without duplicates', () {
-    expect(TableGiftItem.ids.length, 14);
-    for (final id in TableGiftItem.ids) {
-      expect(File('assets/images/hediyeler/$id.png').existsSync(), isTrue);
+  test(
+    'new gifts follow coffee and retired gift stays out of selectable catalog',
+    () async {
+      final service = ReversedGiftCatalog(GiftStore(), 'a');
+      final c = TableGiftController(
+        tableId: 'table',
+        service: service,
+        spectator: false,
+      );
+      addTearDown(c.dispose);
+      await c.restore();
+      expect(c.catalog.map((gift) => gift.id), TableGiftItem.catalogIds);
+      expect(c.catalog.any((gift) => gift.id == 'hediye_paketi'), isFalse);
+      await service.buy('table', 'b', 'hediye_paketi', 'old-receipt');
+      await c.restore();
+      expect(c.latest['b']?.giftId, 'hediye_paketi');
+      for (final id in ['emzik', 'soguk_su', 'sigara']) {
+        expect(
+          TableGiftItem.fromJson({
+            'id': id,
+            'filename': '$id.png',
+            'price': 250,
+            'name_tr': id,
+            'name_en': id,
+          }).asset,
+          'assets/images/hediyeler/$id.png',
+        );
+      }
+    },
+  );
+  test('new gift PNGs decode at 512px with transparent backgrounds', () async {
+    for (final id in ['emzik', 'soguk_su', 'sigara']) {
+      final bytes = await File('assets/images/hediyeler/$id.png').readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final image = (await codec.getNextFrame()).image;
+      expect(image.width, 512);
+      expect(image.height, 512);
+      final rgba = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      expect(rgba.getUint8(3), 0);
+      image.dispose();
+      codec.dispose();
     }
   });
+  test(
+    'catalog has 16 choices and retains the retired gift asset for history',
+    () {
+      expect(TableGiftItem.catalogIds.length, 16);
+      expect(TableGiftItem.ids.length, 17);
+      expect(TableGiftItem.catalogIds.take(5), [
+        'cay',
+        'kahve',
+        'emzik',
+        'soguk_su',
+        'sigara',
+      ]);
+      expect(TableGiftItem.catalogIds, isNot(contains('hediye_paketi')));
+      for (final id in TableGiftItem.ids) {
+        expect(File('assets/images/hediyeler/$id.png').existsSync(), isTrue);
+      }
+    },
+  );
   for (final spectator in [false, true]) {
     test(
       'verified realtime updates immediately while reconciliation waits; spectator=$spectator',
@@ -298,7 +366,7 @@ void main() {
         final bounds = t.getRect(find.byKey(entry.$1));
         expect(
           t.getCenter(find.byKey(ValueKey(entry.$2))),
-          Offset(bounds.right - 28, bounds.top + 25),
+          Offset(bounds.right - 16, bounds.top + 14),
         );
       }
       expect(find.byType(GameWidget<TableGiftFlightGame>), findsNothing);
@@ -435,7 +503,8 @@ void main() {
       expect(cardRect.contains(t.getBottomRight(giftButton)), isTrue);
       await t.tap(find.byTooltip('Hediye · B'));
       await t.pumpAndSettle();
-      expect(find.text('Alıcı: B'), findsOneWidget);
+      expect(find.textContaining('Alıcı:'), findsNothing);
+      expect(find.textContaining('Bakiyen:'), findsNothing);
       expect(find.text('Çay'), findsOneWidget);
       service.insufficient = true;
       await t.tap(find.text('Çay'));
@@ -473,7 +542,8 @@ void main() {
       expect(game.paused, isTrue);
       await t.tap(delivered);
       await t.pumpAndSettle();
-      expect(find.text('Alıcı: B'), findsOneWidget);
+      expect(find.textContaining('Alıcı:'), findsNothing);
+      expect(find.textContaining('Bakiyen:'), findsNothing);
       await t.tap(find.byTooltip('Kapat'));
       await t.pumpAndSettle();
       await t.pump(const Duration(milliseconds: 300));

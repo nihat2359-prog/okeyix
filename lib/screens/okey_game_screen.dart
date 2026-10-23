@@ -1,6 +1,7 @@
 import 'package:okeyix/ui/game_finish_presentation.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
 import 'package:okeyix/ui/table_session_score.dart';
+import 'package:okeyix/ui/game_settings_dialog.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
@@ -78,6 +79,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   int _maxPlayers = 2;
   int _playerCount = 0;
   bool _tableChatEnabled = true;
+  bool _settingsOpen = false;
   bool _tableSpectatorsEnabled = true;
 
   DateTime? _readySince;
@@ -2099,18 +2101,27 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     );
   }
 
+  double get _topBarWidth {
+    final media = MediaQuery.of(context);
+    final avatarWidth = (media.size.width * .30).clamp(196.0, 224.0);
+    final usableWidth = media.size.width - media.padding.horizontal;
+    return ((usableWidth - avatarWidth - 32) / 2).clamp(100.0, 210.0);
+  }
+
   Widget _buildTopLeftPanel() {
-    final round = _game.getRound();
     final pot = _game.getPot();
 
     return Positioned(
       top: 10,
       left: 6,
+      width: _topBarWidth,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
+            width: double.infinity,
+            height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -2128,75 +2139,73 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                /// ğŸ”¥ EXIT (gold minimal)
-                _exitButton(),
-                const SizedBox(width: 8),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  /// ğŸ”¥ EXIT (gold minimal)
+                  _exitButton(),
+                  const SizedBox(width: 8),
 
-                _voiceButton(),
-                _divider(),
+                  _settingsButton(),
+                  _divider(),
 
-                /// ğŸ”¥ ROUND
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.flag_rounded,
-                      size: 18,
-                      color: Colors.white70,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$round",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                  /// ğŸ”¥ ROUND
+                  Row(
+                    children: [
+                      _infoPill(
+                        icon: Icons.monetization_on_rounded,
+                        text: Format.coin(_game.getTableEntry()),
+                        textColor: const Color(0xFFE7C77B),
+                        colors: const [Color(0xFF253129), Color(0xFF141B17)],
+                        fontFamily: 'Orbitron',
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
-                _divider(),
+                  _divider(),
 
-                /// ğŸ”¥ POT (Ã‡ANAK - PREMIUM)
-                Row(
-                  children: [
-                    /// ğŸ”¥ COIN ICON (bÃ¼yÃ¼k, sade)
-                    const Icon(
-                      Icons.monetization_on,
-                      size: 20,
-                      color: Color(0xFFFFC107), // hafif gold ama glow yok
-                    ),
+                  /// ğŸ”¥ POT (Ã‡ANAK - PREMIUM)
+                  Row(
+                    children: [
+                      /// ğŸ”¥ COIN ICON (bÃ¼yÃ¼k, sade)
+                      const Icon(
+                        Icons.monetization_on,
+                        size: 20,
+                        color: Color(0xFFFFC107), // hafif gold ama glow yok
+                      ),
 
-                    const SizedBox(width: 6),
+                      const SizedBox(width: 6),
 
-                    /// ğŸ”¥ VALUE
-                    TweenAnimationBuilder<double>(
-                      tween: Tween<double>(end: pot.toDouble()),
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) {
-                        return Text(
-                          Format.coin(value.round()),
-                          style: const TextStyle(
-                            fontFamily: "Orbitron",
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFFFD56A),
-                            fontSize: 15,
-                            letterSpacing: 0.6,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
+                      /// ğŸ”¥ VALUE
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(end: pot.toDouble()),
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Text(
+                            Format.coin(value.round()),
+                            style: const TextStyle(
+                              fontFamily: "Orbitron",
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFFD56A),
+                              fontSize: 15,
+                              letterSpacing: 0.6,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 4),
-          TableSessionScore(
+          Padding(
+            padding: const EdgeInsets.only(left: 18),
+            child: TableSessionScore(
             wins:
                 _scoreUserId == _supabase.auth.currentUser?.id &&
                     _viewData.tableId == widget.tableId
@@ -2207,7 +2216,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                     _viewData.tableId == widget.tableId
                 ? _sessionLosses
                 : 0,
-          ),
+          )),
         ],
       ),
     );
@@ -2300,6 +2309,48 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         ),
       ),
     );
+  }
+
+  Widget _settingsButton() => Tooltip(
+    message: 'Ayarlar',
+    child: InkWell(
+      key: const ValueKey('game-settings'),
+      onTap: _openGameSettings,
+      borderRadius: BorderRadius.circular(11),
+      child: Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(11),
+          gradient: const LinearGradient(colors: [Color(0xFF2E3A33), Color(0xFF171F1B)]),
+          border: Border.all(color: const Color(0xB3D7B366)),
+        ),
+        child: const Icon(Icons.settings_outlined, color: Color(0xFFE8C774), size: 17),
+      ),
+    ),
+  );
+
+  Future<void> _openGameSettings() async {
+    if (_settingsOpen) return;
+    _settingsOpen = true;
+    try {
+      final uid = _supabase.auth.currentUser?.id;
+      if (uid == null) return;
+      final profile = await _supabase.from('profiles')
+        .select('allow_game_invites').eq('id', uid).maybeSingle();
+      if (!mounted) return;
+      await showDialog<void>(context: context, builder: (_) => GameSettingsDialog(
+        initialInvites: profile?['allow_game_invites'] != false,
+        saveInvites: (value) async {
+          if (_supabase.auth.currentUser?.id != uid) throw StateError('Auth changed');
+          await _supabase.from('profiles').update({'allow_game_invites': value}).eq('id', uid);
+        },
+      ));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ayarlar açılamadı. Tekrar dene.')));
+    } finally {
+      _settingsOpen = false;
+    }
   }
 
   Widget _voiceButton() {
@@ -2505,7 +2556,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   Widget _divider() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 5),
       width: 1,
       height: 18,
       color: Colors.white.withOpacity(0.22),
@@ -2518,17 +2569,19 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       return const SizedBox();
     }
 
-    final entry = _game.getTableEntry();
     final name = league['id'];
     final fullname = league['name'];
     final turn = _game.getTurnSeconds();
     return Positioned(
       top: 10,
       right: 6,
+      width: _topBarWidth,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
+            width: double.infinity,
+            height: 48,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
@@ -2547,128 +2600,127 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _infoPill(
-                    icon: Icons.monetization_on_rounded,
-                    text: Format.coin(entry),
-                    textColor: const Color(0xFFE7C77B),
-                    colors: const [Color(0xFF253129), Color(0xFF141B17)],
-                    fontFamily: 'Orbitron',
-                  ),
-                  const SizedBox(width: 6),
-                  _infoPill(
-                    icon: Icons.timer_outlined,
-                    text: '${turn}s',
-                    textColor: const Color(0xFFE7C77B),
-                    colors: const [Color(0xFF253129), Color(0xFF141B17)],
-                  ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () {
-                      openStoreScreen(context, initialCoin: UserState.userCoin);
-                    },
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF253129), Color(0xFF141B17)],
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _infoPill(
+                      icon: Icons.timer_outlined,
+                      text: '${turn}s',
+                      textColor: const Color(0xFFE7C77B),
+                      colors: const [Color(0xFF253129), Color(0xFF141B17)],
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () {
+                        openStoreScreen(
+                          context,
+                          initialCoin: UserState.userCoin,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
                         ),
-                        border: Border.all(
-                          color: const Color(0x88D8B86D),
-                          width: 1,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF253129), Color(0xFF141B17)],
+                          ),
+                          border: Border.all(
+                            color: const Color(0x88D8B86D),
+                            width: 1,
+                          ),
                         ),
-                      ),
-                      child: AnimatedBuilder(
-                        animation: _hourglassCtrl,
-                        builder: (context, child) {
-                          final t = _hourglassCtrl.value;
-                          final slide = (t * 2.2) - 0.6;
-                          return ShaderMask(
-                            blendMode: BlendMode.srcATop,
-                            shaderCallback: (bounds) {
-                              return LinearGradient(
-                                begin: Alignment(-1.2 + slide, 0),
-                                end: Alignment(-0.2 + slide, 0),
-                                colors: const [
-                                  Color(0xFFE7C77B),
-                                  Color(0xFFFFF3C8),
-                                  Color(0xFFE7C77B),
-                                ],
-                                stops: const [0.15, 0.5, 0.85],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              'COIN AL',
-                              style: TextStyle(
-                                color: Color(0xFFE7C77B),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.2,
+                        child: AnimatedBuilder(
+                          animation: _hourglassCtrl,
+                          builder: (context, child) {
+                            final t = _hourglassCtrl.value;
+                            final slide = (t * 2.2) - 0.6;
+                            return ShaderMask(
+                              blendMode: BlendMode.srcATop,
+                              shaderCallback: (bounds) {
+                                return LinearGradient(
+                                  begin: Alignment(-1.2 + slide, 0),
+                                  end: Alignment(-0.2 + slide, 0),
+                                  colors: const [
+                                    Color(0xFFE7C77B),
+                                    Color(0xFFFFF3C8),
+                                    Color(0xFFE7C77B),
+                                  ],
+                                  stops: const [0.15, 0.5, 0.85],
+                                ).createShader(bounds);
+                              },
+                              child: const Text(
+                                'MAĞAZA',
+                                style: TextStyle(
+                                  color: Color(0xFFE7C77B),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Material(
-                    color: Colors.transparent,
-                    child: _tableChatEnabled
-                        ? InkWell(
-                            key: _quickChatBtnKey,
-                            borderRadius: BorderRadius.circular(11),
-                            onTap: () {
-                              _closeQuickChat();
-                              setState(() {
-                                _chatOpen = true;
-                                _showEmojiPicker = false;
-                              });
-                              _scrollToBottom();
-                            },
-                            child: Ink(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(11),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF2E3A33),
-                                    Color(0xFF171F1B),
+                    const SizedBox(width: 4),
+                    Material(
+                      color: Colors.transparent,
+                      child: _tableChatEnabled
+                          ? InkWell(
+                              key: _quickChatBtnKey,
+                              borderRadius: BorderRadius.circular(11),
+                              onTap: () {
+                                _closeQuickChat();
+                                setState(() {
+                                  _chatOpen = true;
+                                  _showEmojiPicker = false;
+                                });
+                                _scrollToBottom();
+                              },
+                              child: Ink(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(11),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xFF2E3A33),
+                                      Color(0xFF171F1B),
+                                    ],
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(0xB3D7B366),
+                                    width: 1,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x66200F00),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 3),
+                                    ),
                                   ],
                                 ),
-                                border: Border.all(
-                                  color: const Color(0xB3D7B366),
-                                  width: 1,
+                                child: const Icon(
+                                  Icons.chat_bubble_rounded,
+                                  color: Color(0xFFE8C774),
+                                  size: 15,
                                 ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x66200F00),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 3),
-                                  ),
-                                ],
                               ),
-                              child: const Icon(
-                                Icons.chat_bubble_rounded,
-                                color: Color(0xFFE8C774),
-                                size: 15,
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  if (_tableChatEnabled) ...[] else ...[],
-                ],
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(width: 4),
+                    _voiceButton(),
+                  ],
+                ),
               ),
             ),
           ),

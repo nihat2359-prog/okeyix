@@ -7,9 +7,12 @@ class TableGiftItem {
   });
   final String id, nameTr, nameEn;
   final int price;
-  static const ids = {
+  static const catalogIds = [
     'cay',
     'kahve',
+    'emzik',
+    'soguk_su',
+    'sigara',
     'pasta',
     'kirmizi_gul',
     'limon',
@@ -21,8 +24,9 @@ class TableGiftItem {
     'yuzuk',
     'dort_yaprakli_yonca',
     'saat',
-    'hediye_paketi',
-  };
+  ];
+  // Keep historical receipts/last-gift images readable after retirement.
+  static const ids = {...catalogIds, 'hediye_paketi'};
   String get asset => 'assets/images/hediyeler/$id.png';
   factory TableGiftItem.fromJson(Map<String, dynamic> row) {
     final id = row['id'] as String;

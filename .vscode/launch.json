@@ -7,7 +7,7 @@
       "type": "dart",
       "deviceId": "chrome",
       "program": "lib/main.dart",
-      "toolArgs": ["--web-hostname=localhost", "--web-port=7357"]
+      "toolArgs": ["--web-hostname=localhost", "--web-port=7357", "--dart-define-from-file=${workspaceFolder}/.vscode/dev-guest.local.json"]
     },
     {
       "name": "Flutter (Web - Normal Chrome profili)",
@@ -15,20 +15,22 @@
       "type": "dart",
       "deviceId": "web-server",
       "program": "lib/main.dart",
-      "toolArgs": ["--web-hostname=localhost", "--web-port=7357"]
+      "toolArgs": ["--web-hostname=localhost", "--web-port=7357", "--dart-define-from-file=${workspaceFolder}/.vscode/dev-guest.local.json"]
     },
     {
       "name": "Flutter (Android Emulator)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "deviceId": "emulator-5554"
+      "deviceId": "emulator-5554",
+      "toolArgs": ["--dart-define-from-file=${workspaceFolder}/.vscode/dev-guest.local.json"]
     },
     {
       "name": "Flutter (Auto Device)",
       "request": "launch",
       "type": "dart",
-      "program": "lib/main.dart"
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=${workspaceFolder}/.vscode/dev-guest.local.json"]
     }
   ]
 }

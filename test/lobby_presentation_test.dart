@@ -460,7 +460,7 @@ void main() {
     expect(find.text('5 K'), findsWidgets);
     expect(find.text('3 el · 20 sn'), findsWidgets);
 
-    await tester.tap(find.byKey(const ValueKey('join-waiting')));
+    await tester.tap(find.byKey(const ValueKey('seat-waiting-1')));
     await tester.tap(find.byKey(const ValueKey('seat-waiting-0')));
     expect(calls, containsAll(['join-waiting', 'user-a']));
     await tester.drag(
@@ -473,19 +473,20 @@ void main() {
     expect(calls, contains('watch-full'));
 
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('join-closed')));
-    await tester.tap(find.byKey(const ValueKey('join-closed')));
+    expect(find.byKey(const ValueKey('join-closed')), findsNothing);
     expect(calls, isNot(contains('watch-closed')));
     expect(calls, isNot(contains('join-closed')));
 
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('join-fake')));
-    await tester.tap(find.byKey(const ValueKey('join-fake')));
+    expect(find.byKey(const ValueKey('join-fake')), findsNothing);
     expect(calls, isNot(contains('watch-fake')));
     expect(calls, isNot(contains('join-fake')));
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Masaları yenile'));
+    await tester.drag(find.byKey(const ValueKey('vertical-tables')), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byKey(const ValueKey('vertical-tables')), const Offset(0, 400));
+    await tester.pumpAndSettle();
     expect(calls, contains('refresh'));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

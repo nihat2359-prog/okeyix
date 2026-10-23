@@ -38,7 +38,7 @@ class AvatarCard extends StatelessWidget {
     switch (position) {
       case AvatarPosition.bottom:
       case AvatarPosition.top:
-        content = _buildHorizontal();
+        content = _buildHorizontal(context);
         break;
       case AvatarPosition.left:
       case AvatarPosition.right:
@@ -56,8 +56,12 @@ class AvatarCard extends StatelessWidget {
     );
   }
 
-  Widget _buildHorizontal() {
+  Widget _buildHorizontal(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final width = (screenWidth * .30).clamp(196.0, 224.0);
     return AnimatedContainer(
+      // Equal seat cards, with room for the 48px gift at the upper right.
+      width: width,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -67,8 +71,11 @@ class AvatarCard extends StatelessWidget {
         children: [
           SizedBox(key: giftOriginKey, child: _buildAvatarWithTimer()),
           const SizedBox(width: 10),
-          _buildInfo(crossAxis: CrossAxisAlignment.start),
-          if (giftOriginKey != null) const SizedBox(width: 42),
+          Padding(
+            padding: EdgeInsets.only(top: giftOriginKey != null ? 6 : 0),
+            child: _buildInfo(crossAxis: CrossAxisAlignment.start,
+              nameWidth: giftOriginKey != null ? width - 128 : 80),
+          ),
         ],
       ),
     );
@@ -91,23 +98,23 @@ class AvatarCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfo({required CrossAxisAlignment crossAxis}) {
+  Widget _buildInfo({required CrossAxisAlignment crossAxis, double nameWidth = 80}) {
     final alignStart = crossAxis == CrossAxisAlignment.start;
     return Column(
       crossAxisAlignment: crossAxis,
       mainAxisSize: MainAxisSize.min,
       children: [
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 80),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [Flexible(child: Text(
+          constraints: BoxConstraints(maxWidth: nameWidth),
+          child: Text(
             player.name,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 12,
               color: const Color(0xFFF4EBD7),
               fontWeight: FontWeight.w700,
             ),
-          )), if (player.isBot) ...[const SizedBox(width: 4), const BotBadge()]],
           ),
         ),
         const SizedBox(height: 4),
@@ -317,6 +324,8 @@ class AvatarCard extends StatelessWidget {
               child: SizedBox(width: 54, height: 54, child: _avatarImage()),
             ),
           ),
+          if (player.isBot)
+            const Positioned(bottom: 7, child: BotBadge()),
           if (player.isDoubleMode)
             Positioned(
               right: -2,

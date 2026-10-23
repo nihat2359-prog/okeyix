@@ -99,65 +99,32 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     }
     return LayoutBuilder(
       builder: (context, bounds) {
-        // Short phones scroll rather than compress avatar/name rows to nothing.
-        final cardHeight = ((bounds.maxHeight - 40 - 12) / 3).clamp(52.0, 92.0);
-        return Column(
-          children: [
-            SizedBox(
-              height: 40,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${widget.leagueName.isEmpty ? 'Masalar' : widget.leagueName} · ${widget.tables.length}',
-                        style: const TextStyle(
-                          color: Color(0xFFEAD6A5),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: .8,
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Masaları yenile',
-                    onPressed: widget.onRefresh,
-                    icon: const Icon(
-                      Icons.refresh_rounded,
-                      size: 19,
-                      color: Color(0xFFEAD6A5),
-                    ),
-                  ),
-                ],
-              ),
+        final cardHeight = ((bounds.maxHeight - 12) / 2).clamp(1.0, 140.0);
+        return RefreshIndicator(
+          onRefresh: widget.onRefresh,
+          child: GridView.builder(
+            key: const ValueKey('vertical-tables'),
+            controller: _controller,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(2),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: cardHeight,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
             ),
-            Expanded(
-              child: ListView.separated(
-                key: const ValueKey('vertical-tables'),
-                controller: _controller,
-                scrollDirection: Axis.vertical,
-                padding: const EdgeInsets.fromLTRB(2, 2, 2, 2),
-                itemCount: widget.tables.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 4),
-                itemBuilder: (context, index) => SizedBox(
-                  height: cardHeight,
-                  child: LobbyTableListingCard(
-                    key: ValueKey(widget.tables[index]['id'].toString()),
-                    table: widget.tables[index],
-                    number: index + 1,
-                    blockedUserIds: widget.blockedUserIds,
-                    onJoin: widget.onJoin,
-                    onSpectate: widget.onSpectate,
-                    canSpectateAll: widget.canSpectateAll,
-                    onUserTap: widget.onUserTap,
-                  ),
-                ),
-              ),
+            itemCount: widget.tables.length,
+            itemBuilder: (context, index) => LobbyTableListingCard(
+              key: ValueKey(widget.tables[index]['id'].toString()),
+              table: widget.tables[index],
+              number: index + 1,
+              blockedUserIds: widget.blockedUserIds,
+              onJoin: widget.onJoin,
+              onSpectate: widget.onSpectate,
+              canSpectateAll: widget.canSpectateAll,
+              onUserTap: widget.onUserTap,
             ),
-          ],
+          ),
         );
       },
     );

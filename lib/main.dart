@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:okeyix/services/tile_theme_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,7 @@ const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await TileThemeService.load();
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

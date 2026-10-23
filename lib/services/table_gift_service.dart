@@ -158,12 +158,20 @@ class TableGiftController extends ChangeNotifier {
           if (data['table_id'] != tableId) {
             throw const FormatException('Wrong table');
           }
-          catalog = (data['catalog'] as List)
-              .map(
-                (e) =>
-                    TableGiftItem.fromJson(Map<String, dynamic>.from(e as Map)),
-              )
-              .toList();
+          catalog =
+              (data['catalog'] as List)
+                  .map(
+                    (e) => TableGiftItem.fromJson(
+                      Map<String, dynamic>.from(e as Map),
+                    ),
+                  )
+                  .where((gift) => TableGiftItem.catalogIds.contains(gift.id))
+                  .toList()
+                ..sort(
+                  (a, b) => TableGiftItem.catalogIds
+                      .indexOf(a.id)
+                      .compareTo(TableGiftItem.catalogIds.indexOf(b.id)),
+                );
           latest.clear();
           for (final raw in data['last_gifts'] as List) {
             final row = Map<String, dynamic>.from(raw as Map);

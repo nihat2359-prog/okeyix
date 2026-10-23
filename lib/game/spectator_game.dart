@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'components/themed_tile_back.dart';
 import 'dart:async';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
@@ -163,7 +164,7 @@ class SpectatorGame extends FlameGame {
 
     for (int i = 0; i < 6; i++) {
       world.add(
-        SpriteComponent(
+        ThemedTileBack(
           sprite: Sprite(img),
           size: Vector2(RackConfig.tileWidth, RackConfig.tileHeight),
           position: deckPos + Vector2(i * 2, -i * 2),
@@ -173,17 +174,15 @@ class SpectatorGame extends FlameGame {
     }
 
     /// 🔥 SADECE COMPONENT OLUŞTUR
-    deckCountText = TextComponent(
+    deckCountText = ThemedDeckCount(
       text: "0",
-      position: deckPos + Vector2(5, -10),
+      position: deckPos + Vector2(10, -10),
       anchor: Anchor.center,
       priority: 999,
-      textRenderer: TextPaint(
-        style: const TextStyle(
+      classicStyle: const TextStyle(
           color: Color.fromARGB(255, 0, 12, 78),
-          fontSize: 46,
+          fontSize: 48,
           fontWeight: FontWeight.bold,
-        ),
       ),
     );
 
@@ -256,20 +255,7 @@ class SpectatorGame extends FlameGame {
         continue;
       }
 
-      final pos = seat == 0 ? discardRightPos : discardLeftPos;
-
-      final stack = seat == 0 ? discardRightStack : discardLeftStack;
-
-      final newTile = _createTileFromModel(model, pos);
-
-      /// 🔥 STACK OFFSET (üst üste dizilim)
-      final offset = Vector2(0, -2.0 * stack.length.toDouble());
-      newTile.position = pos + offset;
-
-      newTile.priority = 100 + stack.length;
-
-      stack.add(newTile);
-      world.add(newTile);
+      _setDiscard(model, seat);
     }
   }
 
@@ -465,6 +451,7 @@ class SpectatorGame extends FlameGame {
     /// ✅ EN ÜSTTEKİ TAŞI AL (KRİTİK)
     if (stack.isNotEmpty) {
       final topTile = stack.removeLast();
+      start = topTile.position.clone();
 
       topTile.removeFromParent(); // sadece üstteki gider
     }
@@ -487,7 +474,7 @@ class SpectatorGame extends FlameGame {
 
   void _animateDiscard(Map tile, int seat) {
     final start = seat == 0 ? bottomAvatarPos : topAvatarPos;
-    final end = seat == 0 ? discardRightPos : discardLeftPos;
+    final end = _nextDiscardPosition(seat);
 
     // 🔥 önce parse et
     final model = _tileModelFromPayload(Map<String, dynamic>.from(tile));
@@ -498,6 +485,7 @@ class SpectatorGame extends FlameGame {
 
     // 🔥 artık model ile çalış
     final t = _createTileFromModel(model, start.clone());
+    t.priority = 300;
 
     world.add(t);
 
@@ -520,7 +508,7 @@ class SpectatorGame extends FlameGame {
   // =========================
 
   void _setDiscard(TileModel tile, int seat) {
-    final pos = seat == 0 ? discardRightPos : discardLeftPos;
+    final pos = _nextDiscardPosition(seat);
 
     final newTile = _createTileFromModel(tile, pos);
 
@@ -534,6 +522,12 @@ class SpectatorGame extends FlameGame {
     }
 
     world.add(newTile);
+  }
+
+  Vector2 _nextDiscardPosition(int seat) {
+    final base = seat == 0 ? discardRightPos : discardLeftPos;
+    final stack = seat == 0 ? discardRightStack : discardLeftStack;
+    return base + Vector2(0, -2.0 * stack.length);
   }
 
   // =========================

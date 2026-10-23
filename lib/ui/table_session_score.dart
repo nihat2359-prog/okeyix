@@ -5,60 +5,56 @@ class TableSessionScore extends StatelessWidget {
   final int wins;
   final int losses;
 
-  const TableSessionScore({
-    super.key,
-    required this.wins,
-    required this.losses,
-  });
+  const TableSessionScore({super.key, required this.wins, required this.losses});
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 220),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0x80101917),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: const Color(0x44B99B61), width: .6),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _value('Galibiyet', wins, const Color(0xFFE4C88D)),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 9),
-                width: .6,
-                height: 12,
-                color: const Color(0x44B99B61),
+    child: SizedBox(
+      width: 72,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xB3101917),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: const Color(0x66B99B61), width: .7),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Table(
+              columnWidths: const {0: FixedColumnWidth(24), 1: FlexColumnWidth()},
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              border: const TableBorder(
+                horizontalInside: BorderSide(color: Color(0x33B99B61), width: .5),
+                verticalInside: BorderSide(color: Color(0x33B99B61), width: .5),
               ),
-              _value('Mağlubiyet', losses, const Color(0xFFCDA59C)),
-            ],
-          ),
+              children: [
+                _row(Icons.emoji_events_rounded, 'Galibiyet', wins, const Color(0xFFE4C88D)),
+                _row(Icons.cancel_outlined, 'Mağlubiyet', losses, const Color(0xFFCDA59C)),
+              ],
+            ),
+            const Divider(height: 1, thickness: .5, color: Color(0x55B99B61)),
+            Semantics(label: 'Toplam el', child: _number(wins + losses, const Color(0xFFE4C88D))),
+          ]),
         ),
       ),
     ),
   );
 
-  Widget _value(String label, int count, Color color) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(color: Color(0xFFC5C6BC), fontSize: 10),
+  TableRow _row(IconData icon, String label, int count, Color color) => TableRow(children: [
+    Semantics(label: label, child: SizedBox(height: 19, child: Icon(icon, size: 14, color: color))),
+    _number(count, color),
+  ]);
+
+  Widget _number(int count, Color color) => SizedBox(
+    height: 19,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text('$count', maxLines: 1, style: TextStyle(
+          color: color, fontSize: 10, fontWeight: FontWeight.w600,
+        )),
       ),
-      const SizedBox(width: 5),
-      Text(
-        '$count',
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ],
+    ),
   );
 }

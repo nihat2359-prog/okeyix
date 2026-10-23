@@ -616,14 +616,19 @@ class _OpeningTiles extends CustomPainter {
           text: i == 2 ? '12' : '13',
           style: TextStyle(
             fontFamily: 'Montserrat',
-            fontSize: 34,
-            fontWeight: FontWeight.w800,
+            fontSize: 46,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -2,
             color: color,
+            shadows: const [
+              Shadow(color: Color(0xAAFFFFFF), offset: Offset(0, 1)),
+              Shadow(color: Color(0x33000000), offset: Offset(0, -0.6)),
+            ],
           ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      text.paint(canvas, Offset(-text.width / 2, -31));
+      text.paint(canvas, Offset(-text.width / 2, -36));
       canvas.drawCircle(const Offset(0, 25), 5, Paint()..color = color);
       canvas.restore();
     }

@@ -1,4 +1,5 @@
 import 'dart:async' as async;
+import 'components/themed_tile_back.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -3773,7 +3774,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (pile == null || !pile.isMounted) return;
 
     final backImage = await images.load('tile_back.png');
-    final transient = SpriteComponent(
+    final transient = ThemedTileBack(
       sprite: Sprite(backImage),
       position: pile.position.clone(),
       size: Vector2(RackConfig.tileWidth, RackConfig.tileHeight),

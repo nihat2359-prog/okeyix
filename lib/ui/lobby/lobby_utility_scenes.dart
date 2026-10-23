@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../tile_themes_dialog.dart';
 
 const _gold = Color(0xFFE5C585);
 
@@ -206,11 +207,15 @@ class GameSupportScene extends StatelessWidget {
 }
 
 class GameSettingsScene extends StatelessWidget {
+  final VoidCallback? onTileThemes;
+  final bool showAccountActions;
   final bool sound, vibration, colorBlind, invites;
   final ValueChanged<bool> onSound, onVibration, onColorBlind, onInvites;
   final VoidCallback onClose, onDelete;
   const GameSettingsScene({
     super.key,
+    this.showAccountActions = true,
+    this.onTileThemes,
     required this.sound,
     required this.vibration,
     required this.colorBlind,
@@ -301,22 +306,24 @@ class GameSettingsScene extends StatelessWidget {
           height: 44,
           child: Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Tercihlerin otomatik kaydedilir.',
-                  maxLines: 2,
-                  style: TextStyle(color: Color(0xFF929CAC), fontSize: 10),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: onTileThemes ?? () => showTileThemes(context),
+                  icon: const Icon(Icons.style_outlined, color: _gold, size: 20),
+                  label: const Text('Taş Temaları', style: TextStyle(color: _gold, fontSize: 12)),
                 ),
               ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: _GameAction(
-                  'Hesabı Sil',
-                  Icons.delete_outline_rounded,
-                  onDelete,
-                  danger: true,
+              if (showAccountActions) ...[
+                const SizedBox(width: 12),
+                Flexible(
+                  child: _GameAction(
+                    'Hesabı Sil',
+                    Icons.delete_outline_rounded,
+                    onDelete,
+                    danger: true,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

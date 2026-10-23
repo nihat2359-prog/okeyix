@@ -1,5 +1,8 @@
 {
   "files.encoding": "utf8",
   "dart.flutterDeviceId": "android",
-  "dart.openDevTools": "flutter"
+  "dart.openDevTools": "flutter",
+  "dart.flutterAdditionalArgs": [
+    "--dart-define-from-file=.vscode/dev-guest.local.json"
+  ]
 }
