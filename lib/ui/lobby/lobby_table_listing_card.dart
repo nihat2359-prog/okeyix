@@ -40,10 +40,8 @@ class LobbyTableListingCard extends StatelessWidget {
     final starting = table['status'] == 'start';
     final fake = table['is_fake'] == true;
     final spectators = table['spectators_enabled'] != false;
-    final chat = table['chat_enabled'] != false;
     final canWatch = full && playing && !fake && spectators && canSpectateAll;
     final canJoin = !full && table['status'] == 'waiting';
-    final seconds = (table['turn_seconds'] as int?) ?? 20;
     return LayoutBuilder(
       builder: (context, bounds) {
         final width = bounds.maxWidth < 220 ? 220.0 : bounds.maxWidth;
@@ -52,7 +50,7 @@ class LobbyTableListingCard extends StatelessWidget {
           child: SizedBox(
             width: width,
             height:
-                138 +
+                142 +
                 (MediaQuery.textScalerOf(context).scale(48) - 48).clamp(0, 72),
             child: Material(
               color: Colors.transparent,
@@ -68,19 +66,17 @@ class LobbyTableListingCard extends StatelessWidget {
                               return Stack(
                                 children: [
                                   for (final tile in const [
-                                    (.30, -0.16, '7', Color(0xFFB62824)),
-                                    (.39, -0.25, '12', Color(0xFF245689)),
-                                    (.66, 0.22, '3', Color(0xFFB62824)),
-                                    (.75, 0.08, '6', Color(0xFF24282B)),
+                                    (.74, 0.22, '3', Color(0xFFB62824)),
+                                    (.86, 0.08, '6', Color(0xFF24282B)),
                                   ])
                                     Positioned(
-                                      left: surface.maxWidth * tile.$1 - 8.5,
-                                      bottom: 34,
+                                      left: surface.maxWidth * tile.$1 - 10,
+                                      bottom: 37,
                                       child: Transform.rotate(
                                         angle: tile.$2,
                                         child: SizedBox(
-                                          width: 17,
-                                          height: 22,
+                                          width: 20,
+                                          height: 26,
                                           child: Stack(
                                             children: [
                                               Positioned.fill(
@@ -101,7 +97,7 @@ class LobbyTableListingCard extends StatelessWidget {
                                                       textScaler:
                                                           TextScaler.noScaling,
                                                       style: TextStyle(
-                                                        fontSize: 11,
+                                                        fontSize: 13,
                                                         height: 1,
                                                         fontWeight:
                                                             FontWeight.w900,
@@ -113,7 +109,7 @@ class LobbyTableListingCard extends StatelessWidget {
                                               ),
                                               Positioned(
                                                 bottom: 4,
-                                                left: 7.5,
+                                                left: 9,
                                                 child: Container(
                                                   width: 2,
                                                   height: 2,
@@ -136,7 +132,7 @@ class LobbyTableListingCard extends StatelessWidget {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(13, 12, 13, 18),
+                      padding: const EdgeInsets.fromLTRB(13, 16, 13, 18),
                       child: Column(
                         children: [
                           Expanded(
@@ -228,7 +224,9 @@ class LobbyTableListingCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 21),
-                          Row(
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 7),
+                            child: Row(
                             children: [
                               Expanded(
                                 child: _detail(
@@ -238,38 +236,18 @@ class LobbyTableListingCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 5),
+                              const SizedBox(width: 12),
                               Flexible(
-                                child: _fit(
-                                  '${table['round_count'] ?? 1} el · $seconds sn',
-                                  12,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Tooltip(
-                                message: spectators
-                                    ? 'Seyirci açık'
-                                    : 'Seyirci kapalı',
-                                child: Icon(
-                                  spectators
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: 16,
-                                  color: const Color(0xFFADBDB5),
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Tooltip(
-                                message: chat ? 'Sohbet açık' : 'Sohbet kapalı',
-                                child: Icon(
-                                  chat
-                                      ? Icons.chat_bubble_outline_rounded
-                                      : Icons.comments_disabled_outlined,
-                                  size: 15,
-                                  color: const Color(0xFFADBDB5),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _fit(
+                                    '${table['round_count'] ?? 0}. el',
+                                    12,
+                                  ),
                                 ),
                               ),
                             ],
+                            ),
                           ),
                         ],
                       ),
@@ -706,6 +684,5 @@ class _TableStagePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _TableStagePainter oldDelegate) =>
-      true;
+  bool shouldRepaint(covariant _TableStagePainter oldDelegate) => true;
 }

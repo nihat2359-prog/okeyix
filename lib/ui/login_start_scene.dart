@@ -151,8 +151,8 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                           'ADİL DAĞITIM · GERÇEK REKABET',
                                           style: TextStyle(
                                             color: Color(0xFFE6D3A4),
-                                            fontSize: 11,
-                                            letterSpacing: 1.1,
+                                            fontSize: 12,
+                                            letterSpacing: .9,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
@@ -171,9 +171,10 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                         child: Text(
                                           'Her el yeni bir hikâye.',
                                           style: TextStyle(
-                                            color: Color(0xFFCFD6CC),
-                                            fontSize: 11,
-                                            letterSpacing: 1.2,
+                                            color: Color(0xFFE1E5DC),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            letterSpacing: .9,
                                           ),
                                         ),
                                       ),
@@ -210,7 +211,7 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                             children: [
                                               const Padding(
                                                 padding: EdgeInsets.only(
-                                                  bottom: 16,
+                                                  bottom: 14,
                                                 ),
                                                 child: FittedBox(
                                                   fit: BoxFit.scaleDown,
@@ -278,9 +279,9 @@ class _LoginStartSceneState extends State<LoginStartScene>
                                                   ],
                                                 ),
                                               ),
-                                              const SizedBox(height: 10),
+                                              const SizedBox(height: 12),
                                               SizedBox(
-                                                height: 44,
+                                                height: buttonHeight,
                                                 child: _StartButton(
                                                   id: 'guest',
                                                   label:
@@ -331,15 +332,8 @@ class _LoginStartSceneState extends State<LoginStartScene>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height:
-                            MediaQuery.textScalerOf(context).scale(12) * 3 + 8,
-                        child: Transform.translate(
-                          offset: const Offset(0, -4),
-                          child: Center(child: widget.legal),
-                        ),
-                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(height: 28, child: Center(child: widget.legal)),
                     ],
                   ),
                 );
@@ -381,7 +375,14 @@ class _StartButtonState extends State<_StartButton> {
       return TextButton(
         key: const ValueKey('login-guest'),
         onPressed: widget.enabled ? widget.onPressed : null,
-        style: TextButton.styleFrom(foregroundColor: const Color(0xFFB9C0B8)),
+        style: TextButton.styleFrom(
+          foregroundColor: const Color(0xFFEADAB5),
+          backgroundColor: const Color(0x9920322C),
+          disabledBackgroundColor: const Color(0x6620322C),
+          side: const BorderSide(color: Color(0x887F9A7E)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
@@ -398,8 +399,8 @@ class _StartButtonState extends State<_StartButton> {
               Text(
                 widget.loading ? 'Bağlanıyor...' : widget.label,
                 style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

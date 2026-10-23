@@ -143,9 +143,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   Future<void> _playAsGuest() async {
     if (GuestIdentityService.missingDebugWebKey) {
-      setState(() => _error = 'Sabit test hesabı anahtarı bu çalıştırmaya yüklenmedi. '
-          'Uygulamayı durdurup VS Code’dan F5 ile veya tool/run_chrome.ps1 ile başlat. '
-          'Yeni misafir hesabı oluşturulmadı.');
+      setState(
+        () => _error =
+            'Sabit test hesabı anahtarı bu çalıştırmaya yüklenmedi. '
+            'Uygulamayı durdurup VS Code’dan F5 ile veya tool/run_chrome.ps1 ile başlat. '
+            'Yeni misafir hesabı oluşturulmadı.',
+      );
       return;
     }
     final rawDeviceId = await getDeviceId();
@@ -487,13 +490,15 @@ class OkeyixLegalBlock extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, bounds) {
         final privacy = RichText(
+          maxLines: 1,
+          softWrap: false,
           textScaler: scaler,
           textAlign: TextAlign.center,
           text: TextSpan(
             style: const TextStyle(
               fontFamily: 'Montserrat',
               color: Color(0xFFCCD4C9),
-              fontSize: 10.5,
+              fontSize: 11.5,
               height: 1.2,
             ),
             children: [
@@ -516,26 +521,26 @@ class OkeyixLegalBlock extends StatelessWidget {
           child: const Text(
             'www.okeyix.com',
             style: TextStyle(
-              color: Color(0xFFACBDB0),
-              fontSize: 10.5,
+              color: Color(0xFFCCD4C9),
+              fontSize: 11.5,
               height: 1.2,
               letterSpacing: .4,
             ),
           ),
         );
-        if (bounds.maxWidth > scaler.scale(500)) {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Flexible(child: privacy),
-              const SizedBox(width: 24),
+              privacy,
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14),
+                child: Text('·', style: TextStyle(color: Color(0xFFE7C66A))),
+              ),
               website,
             ],
-          );
-        }
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [privacy, const SizedBox(height: 4), website],
+          ),
         );
       },
     );
