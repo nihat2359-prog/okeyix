@@ -615,6 +615,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         'users': {'username': 'Sen'},
       }));
       if (chatController.text.trim() == content) chatController.clear();
+      FocusManager.instance.primaryFocus?.unfocus();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _scrollToBottom();
       });
@@ -644,6 +645,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       game.setAvatarPositions(topPos, bottomPos);
     });
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black,
       body: Stack(
         children: [
@@ -871,12 +873,21 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             Positioned.fill(
               child: GestureDetector(
                 onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
                   setState(() {
                     chatOpen = false;
                   });
                 },
                 child: Container(
-                  color: Colors.black.withOpacity(.55),
+                  color: Colors.black.withOpacity(.35),
+                  padding: EdgeInsets.fromLTRB(
+                    MediaQuery.viewPaddingOf(context).left,
+                    MediaQuery.viewPaddingOf(context).top,
+                    MediaQuery.viewPaddingOf(context).right,
+                    MediaQuery.viewInsetsOf(context).bottom > 0
+                        ? MediaQuery.viewInsetsOf(context).bottom
+                        : MediaQuery.viewPaddingOf(context).bottom,
+                  ),
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
@@ -888,7 +899,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
                         width: 560,
                         margin: const EdgeInsets.fromLTRB(0, 8, 12, 8),
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(MediaQuery.viewInsetsOf(context).bottom > 0 ? 6 : 12),
 
                         decoration: BoxDecoration(
                           color: const Color(0xEE0F141A),
@@ -906,6 +917,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                         child: Column(
                           children: [
                             /// HEADER
+                            if (MediaQuery.viewInsetsOf(context).bottom == 0)
                             Row(
                               children: [
                                 const Icon(
@@ -928,13 +940,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                     color: Colors.white70,
                                   ),
                                   onPressed: () {
+                                    FocusManager.instance.primaryFocus?.unfocus();
                                     setState(() => chatOpen = false);
                                   },
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 10),
+                            SizedBox(height: MediaQuery.viewInsetsOf(context).bottom > 0 ? 2 : 10),
 
                             /// ğŸ”¥ MESSAGE LIST
                             Expanded(
@@ -1005,7 +1018,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                             ),
 
                             /// ğŸ”¥ PREVIEW
-                            if (_showPreview && _previewPath != null)
+                            if (_showPreview && _previewPath != null && MediaQuery.viewInsetsOf(context).bottom == 0)
                               Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.all(10),
@@ -1065,6 +1078,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                               ),
 
                             /// ğŸ”¥ QUICK CHAT
+                            if (MediaQuery.viewInsetsOf(context).bottom == 0)
                             SizedBox(
                               height: 42,
                               child: ListView(
@@ -1101,10 +1115,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                               ),
                             ),
 
-                            const SizedBox(height: 8),
+                            SizedBox(height: MediaQuery.viewInsetsOf(context).bottom > 0 ? 2 : 8),
 
                             /// ğŸ”¥ INPUT + VOICE
-                            if (_showEmojiPicker) ...[
+                            if (_showEmojiPicker && MediaQuery.viewInsetsOf(context).bottom == 0) ...[
                               Container(
                                 width: double.infinity,
                                 margin: const EdgeInsets.only(bottom: 8),
@@ -1165,6 +1179,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                 IconButton(
                                   tooltip: 'Emoji',
                                   onPressed: () {
+                                    FocusManager.instance.primaryFocus?.unfocus();
                                     setState(() {
                                       _showEmojiPicker = !_showEmojiPicker;
                                     });
@@ -1181,6 +1196,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                 Expanded(
                                   child: TextField(
                                     controller: chatController,
+                                    textInputAction: TextInputAction.send,
+                                    onSubmitted: (_) => sendMessage(),
                                     style: const TextStyle(color: Colors.white),
                                     decoration: InputDecoration(
                                       hintText: "Mesaj yaz...",
@@ -1194,7 +1211,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                         borderSide: BorderSide.none,
                                       ),
                                     ),
-                                    onSubmitted: (_) => sendMessage(),
+
                                   ),
                                 ),
 
@@ -1317,11 +1334,11 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1B2A24), Color(0xFF101B17)],
+          colors: [Color(0x802A3039), Color(0x9910151D)],
         ),
         borderRadius: BorderRadius.circular(11),
         border: Border.all(
-          color: highlight ? const Color(0xB8D9B46A) : const Color(0x557E795F),
+          color: highlight ? const Color(0xB8D9B46A) : const Color(0x448F9BA6),
           width: 0.8,
         ),
       ),
