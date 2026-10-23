@@ -320,7 +320,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       builder: (context, child) {
         return Overlay(
           key: overlayKey,
-          initialEntries: [OverlayEntry(builder: (context) => child!)],
+          initialEntries: [OverlayEntry(builder: (context) => UpdateCheckHost(
+            navigatorKey: navigatorKey,
+            child: child!,
+          ))],
         );
       },
 
@@ -507,15 +510,6 @@ class AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<AppRoot> {
   bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(UpdateService.instance.checkForUpdatesOnStartup(context));
-    });
-  }
 
   @override
   void didChangeDependencies() {

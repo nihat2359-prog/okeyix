@@ -555,7 +555,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
           table: 'table_spectators',
           callback: (_) => _refreshSpectators(),
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            unawaited(_refreshSpectators());
+          }
+        });
 
     _discardChannel = _supabase
         .channel('okey_screen_discards_${widget.tableId}')
@@ -606,45 +610,44 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     try {
       final rows = await _supabase
           .from('table_spectators')
-          .select('user_id,created_at,users(username,avatar_url)')
+          .select()
           .eq('table_id', widget.tableId);
       final list = (rows as List)
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
-      list.sort(
-        (a, b) => (a['created_at'] ?? '').toString().compareTo(
-          (b['created_at'] ?? '').toString(),
-        ),
-      );
-      if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
-    } catch (e) {
-      // Some deployments do not expose created_at or the users relationship.
+      list.sort((a, b) => (a['created_at'] ?? a['joined_at'] ?? '')
+          .toString().compareTo((b['created_at'] ?? b['joined_at'] ?? '').toString()));
+      final visible = list.take(3).toList();
+      // Avatar metadata must never prevent an occupied spectator slot appearing.
+      for (final item in visible) {
+        final id = item['user_id']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final previous = _visibleSpectators.where((p) => p['user_id']?.toString() == id);
+        if (previous.isNotEmpty) item['users'] = previous.first['users'];
+      }
+      if (!mounted) return;
+      setState(() => _visibleSpectators = visible);
+      final ids = visible.map((p) => p['user_id']?.toString())
+          .whereType<String>().where((id) => id.isNotEmpty).toList();
+      if (ids.isEmpty) return;
       try {
-        final rows = await _supabase
-            .from('table_spectators')
-            .select()
-            .eq('table_id', widget.tableId);
-        final list = (rows as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-        list.sort(
-          (a, b) => (a['created_at'] ?? '').toString().compareTo(
-            (b['created_at'] ?? '').toString(),
-          ),
-        );
-        for (final item in list.take(3)) {
-          final u = await _supabase
-              .from('users')
-              .select('username,avatar_url')
-              .eq('id', item['user_id'])
-              .maybeSingle();
-          item['users'] = u;
-        }
-        if (mounted) setState(() => _visibleSpectators = list.take(3).toList());
-      } catch (_) {}
+        final users = await _supabase.from('users')
+            .select('id,username,avatar_url').inFilter('id', ids);
+        final byId = {for (final user in users) user['id'].toString(): user};
+        if (!mounted) return;
+        setState(() {
+          for (final item in _visibleSpectators) {
+            final user = byId[item['user_id']?.toString()];
+            if (user != null) item['users'] = user;
+          }
+        });
+      } catch (e) {
+        debugPrint('SPECTATOR AVATAR METADATA ERROR: $e');
+      }
+    } catch (e) {
+      debugPrint('SPECTATOR PRESENCE ERROR: $e');
     }
   }
-
   String _spectatorName(String name) {
     final chars = name.trim().runes.toList();
     if (chars.length <= 10) return name.trim();
@@ -1455,13 +1458,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     String username = _userNames[senderId] ?? "";
 
     if (username.isEmpty) {
-      final user = await _supabase
-          .from('users')
-          .select('username')
-          .eq('id', senderId)
-          .single();
-
-      username = user['username'] ?? "Oyuncu";
+      try {
+        final user = await _supabase
+            .from('users')
+            .select('username')
+            .eq('id', senderId)
+            .maybeSingle();
+        username = user?['username']?.toString() ?? 'Oyuncu';
+      } catch (_) {
+        username = 'Oyuncu';
+      }
       _userNames[senderId] = username;
     }
 
@@ -1480,6 +1486,8 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     if (role == 'player') {
       _showAvatarChatBubble(enriched);
     } else if (role == 'spectator' && senderId != _myUserId) {
+      await _refreshSpectators();
+      if (!mounted) return;
       _showSpectatorBubble(enriched);
       if (!_visibleSpectators.any(
         (e) => e['user_id']?.toString() == senderId.toString(),

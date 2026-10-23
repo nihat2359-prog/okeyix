@@ -1,3 +1,4 @@
+import 'package:okeyix/ui/spectator_finish_notice.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -658,9 +659,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           /// HEADER
           if (table != null)
             Positioned(
-              top: 10,
-              left: 14,
-              right: 14,
+              top: MediaQuery.viewPaddingOf(context).top + 10,
+              left: MediaQuery.viewPaddingOf(context).left + 14,
+              right: MediaQuery.viewPaddingOf(context).right + 14,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -668,11 +669,13 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xF011211D), Color(0xED09120F)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xB52A3039), Color(0xC410151D)],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0x886F6140),
+                    color: const Color(0x668F9BA6),
                     width: 0.8,
                   ),
                   boxShadow: const [
@@ -702,11 +705,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                       _headerChip(
                         icon: Icons.soup_kitchen_rounded,
                         text: Format.coin((table!['pot_amount'] as int?) ?? 0),
-                      ),
-                      const SizedBox(width: 9),
-                      _headerChip(
-                        icon: Icons.flag_rounded,
-                        text: '${(table!['round_count'] as int?) ?? 1} el',
                       ),
                       const SizedBox(width: 9),
                       _headerChip(
@@ -741,7 +739,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             ),
 
           if (table != null)
-            Positioned(top: 62,left: 14,child: Column(
+            Positioned(
+              top: MediaQuery.viewPaddingOf(context).top + 68,
+              left: MediaQuery.viewPaddingOf(context).left + 22,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1375,53 +1376,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     );
   }
 
-  Widget _buildFinishOverlay() {
-    return Container(
-      color: const Color(0xB3000000),
-      child: Center(
-        child: Container(
-          width: 420,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF213A32), Color(0xFF132620)],
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xB3E3BB62), width: 1.2),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x99000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'EL BİTTİ',
-                style: TextStyle(
-                  color: Color(0xFFF2D596),
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$_finishWinnerName kazandı',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildFinishOverlay() => SpectatorFinishNotice(winnerName: _finishWinnerName);
 
   bool _isPlayerSender(String? senderId) {
     if (senderId == null) return false;

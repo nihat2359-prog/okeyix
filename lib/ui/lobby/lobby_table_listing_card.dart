@@ -121,16 +121,6 @@ class LobbyTableListingCard extends StatelessWidget {
                                             ),
                                           ),
                                         ),
-                                      FittedBox(
-                                        child: Text(
-                                          'GİRİŞ',
-                                          style: TextStyle(
-                                            color: gold.withValues(alpha: .85),
-                                            fontSize: 10,
-                                            letterSpacing: 1.4,
-                                          ),
-                                        ),
-                                      ),
                                       if (canWatch)
                                         SizedBox(
                                           height: 24,
@@ -182,7 +172,9 @@ class LobbyTableListingCard extends StatelessWidget {
                                   child: Align(
                                     alignment: Alignment.centerRight,
                                     child: _fit(
-                                      '${table['round_count'] ?? 0}. el',
+                                      ((table['round_count'] as num?) ?? 0) > 0
+                                          ? '${table['round_count']}. el'
+                                          : '',
                                       12,
                                     ),
                                   ),

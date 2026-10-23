@@ -2,6 +2,7 @@ import 'dart:async' as async;
 import 'components/themed_tile_back.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'rack/timeout_discard_selection.dart';
 import 'dart:math' as math;
 import 'game_activity_probe.dart';
 import 'bot/bot_observation.dart';
@@ -1293,12 +1294,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       final nowToken =
           '${currentTurn}_${(_turnStartedAt ?? DateTime.now()).millisecondsSinceEpoch}';
       if (nowToken != expectedTurnToken) return;
-      await Supabase.instance.client
-          .rpc(
-            'game_timeout_move',
-            params: {'p_table_id': tableId, 'p_user_id': userId},
-          )
-          .timeout(const Duration(seconds: 6));
+      await _requestTimeoutMove(userId).timeout(const Duration(seconds: 6));
+
       await _loadInitialState(forceHandSync: false);
     } catch (e) {
       debugPrint('HUMAN STALL RECOVERY ERROR: $e');
@@ -4889,6 +4886,35 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     }
   }
 
+  Future<dynamic> _requestTimeoutMove(String userId) {
+    if (userId != Supabase.instance.client.auth.currentUser?.id) {
+      return Supabase.instance.client.rpc('game_timeout_move', params: {
+        'p_table_id': tableId, 'p_user_id': userId,
+      });
+    }
+      // Only our own rack can supply a physical slot preference.
+      final slot = occupiedSlots.length == 15
+          ? timeoutDiscardSlot(
+              occupiedSlots: occupiedSlots.keys,
+              protectedSlots: {
+                for (final entry in occupiedSlots.entries)
+                  if (entry.value.isJoker && !entry.value.isFakeJoker) entry.key,
+              },
+              columns: RackConfig.columns,
+            )
+          : null;
+      final preferredTileId = slot == null ? null : occupiedSlots[slot]?.tile.id;
+      return Supabase.instance.client.rpc(
+        'okeyix_timeout_move_with_tile',
+        params: {
+          'p_table_id': tableId,
+          'p_user_id': userId,
+          'p_preferred_tile_id': preferredTileId,
+        },
+      );
+
+  }
+
   Future<void> _serverTimeoutMove() async {
     if (_actionInFlight) return;
 
@@ -4902,11 +4928,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       _clearDrawCommitForCurrentTurn();
       _pendingPreferredDrawSlot = null;
 
-      // 🔥 server'a timeout işlemini yaptır
-      await Supabase.instance.client.rpc(
-        'game_timeout_move',
-        params: {'p_table_id': tableId, 'p_user_id': userId},
-      );
+      await _requestTimeoutMove(userId);
 
       // 🔥 yeni state'i çek (taşlar burada güncellenir)
       await _loadInitialState(forceHandSync: true);

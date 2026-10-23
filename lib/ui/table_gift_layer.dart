@@ -153,8 +153,8 @@ class _TableGiftLayerState extends State<TableGiftLayer>
   }
 
   Offset _slot(Rect rect, Size size) => Offset(
-    (rect.right - 16).clamp(24.0, size.width - 24),
-    (rect.top + 14).clamp(24.0, size.height - 24),
+    (rect.right - 22).clamp(24.0, size.width - 24),
+    (rect.top + 20).clamp(24.0, size.height - 24),
   );
   Future<void> _drain() async {
     if (!mounted ||
