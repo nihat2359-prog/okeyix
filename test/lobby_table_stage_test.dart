@@ -76,6 +76,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('BOT'), findsOneWidget);
+      final button = find.ancestor(
+        of: find.byIcon(Icons.add_rounded),
+        matching: find.byType(AnimatedContainer),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byIcon(Icons.add_rounded)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.widget<AnimatedContainer>(button).transform!.entry(1, 3), 2);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(tester.widget<AnimatedContainer>(button).transform!.entry(1, 3), 0);
+      expect(calls, isEmpty);
       await tester.tap(find.byKey(const ValueKey('seat-stage-1')));
       await tester.tap(find.byKey(const ValueKey('seat-stage-0')));
       expect(calls, ['join', 'profile']);

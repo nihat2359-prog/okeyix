@@ -1323,7 +1323,13 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           return br.compareTo(ar);
         });
 
-        // If a user is already playing/starting at another table, do not show as invitable.
+        // Bots cannot leave an existing waiting seat to accept an invitation.
+        // Preserve the existing waiting-table behavior for human players.
+        final botIds = list
+            .where((p) => p['is_bot'] == true)
+            .map((p) => p['id']?.toString())
+            .whereType<String>()
+            .toSet();
         final busyRows = await _supabase
             .from('table_players')
             .select('user_id,table_id')
@@ -1336,6 +1342,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
             .toSet()
             .toList();
         final busyUserIds = <String>{};
+        final waitingTableIds = <String>{};
         if (busyTableIds.isNotEmpty) {
           final tableRows = await _supabase
               .from('tables')
@@ -1345,7 +1352,13 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               .map((e) => Map<String, dynamic>.from(e as Map))
               .where((row) {
                 final status = row['status']?.toString() ?? '';
-                return status == 'playing' || status == 'start';
+                if (status == 'waiting') {
+                  waitingTableIds.add(row['id'].toString());
+                }
+                return status == 'playing' ||
+                    status == 'start' ||
+                    status == 'starting' ||
+                    status == 'waiting';
               })
               .map((row) => row['id']?.toString())
               .whereType<String>()
@@ -1357,7 +1370,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
               final userId = row['user_id']?.toString();
               if (userId != null &&
                   tableId != null &&
-                  activeTableIds.contains(tableId)) {
+                  activeTableIds.contains(tableId) &&
+                  (!waitingTableIds.contains(tableId) || botIds.contains(userId))) {
                 busyUserIds.add(userId);
               }
             }
@@ -1372,7 +1386,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         }
       }
       return list
-          .where((p) => p['allow_game_invites'] != false || p['is_bot'] == true)
+          .where((p) => p['allow_game_invites'] != false)
           .toList(growable: false);
     } catch (e) {
       debugPrint('ELIGIBLE PLAYERS ERROR: $e');

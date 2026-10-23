@@ -52,143 +52,229 @@ class LobbyTableListingCard extends StatelessWidget {
           child: SizedBox(
             width: width,
             height:
-                116 +
+                138 +
                 (MediaQuery.textScalerOf(context).scale(48) - 48).clamp(0, 72),
             child: Material(
               color: Colors.transparent,
               child: CustomPaint(
                 painter: _TableStagePainter(active: canJoin),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(17, 12, 17, 17),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 52,
-                              child: _seat(seats[0], 19, 0, canJoin),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ExcludeSemantics(
+                          child: LayoutBuilder(
+                            builder: (context, surface) {
+                              return Stack(
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.monetization_on_rounded,
-                                        size: 12,
-                                        color: gold,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Flexible(
-                                        child: _fit(
-                                          Format.coin(
-                                            (table['entry_coin'] as int?) ?? 0,
+                                  for (final tile in const [
+                                    (.30, -0.16, '7', Color(0xFFB62824)),
+                                    (.39, -0.25, '12', Color(0xFF245689)),
+                                    (.66, 0.22, '3', Color(0xFFB62824)),
+                                    (.75, 0.08, '6', Color(0xFF24282B)),
+                                  ])
+                                    Positioned(
+                                      left: surface.maxWidth * tile.$1 - 8.5,
+                                      bottom: 34,
+                                      child: Transform.rotate(
+                                        angle: tile.$2,
+                                        child: SizedBox(
+                                          width: 17,
+                                          height: 22,
+                                          child: Stack(
+                                            children: [
+                                              Positioned.fill(
+                                                child: Image.asset(
+                                                  'assets/images/tile_base.png',
+                                                  fit: BoxFit.fill,
+                                                ),
+                                              ),
+                                              Positioned.fill(
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 3,
+                                                      ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      tile.$3,
+                                                      textScaler:
+                                                          TextScaler.noScaling,
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        height: 1,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        color: tile.$4,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              Positioned(
+                                                bottom: 4,
+                                                left: 7.5,
+                                                child: Container(
+                                                  width: 2,
+                                                  height: 2,
+                                                  decoration: BoxDecoration(
+                                                    color: tile.$4,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          17,
-                                          bold: true,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  if (starting)
-                                    const FittedBox(
-                                      child: Text(
-                                        'BAŞLIYOR',
-                                        style: TextStyle(
-                                          color: gold,
-                                          fontSize: 8,
-                                        ),
-                                      ),
-                                    ),
-                                  FittedBox(
-                                    child: Text(
-                                      'GİRİŞ',
-                                      style: TextStyle(
-                                        color: gold.withValues(alpha: .65),
-                                        fontSize: 7,
-                                        letterSpacing: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                  if (canWatch)
-                                    SizedBox(
-                                      height: 24,
-                                      child: TextButton(
-                                        key: ValueKey(
-                                          'spectate-${table['id']}',
-                                        ),
-                                        onPressed: () => onSpectate(table),
-                                        style: TextButton.styleFrom(
-                                          padding: EdgeInsets.zero,
-                                          foregroundColor: gold,
-                                          minimumSize: Size.zero,
-                                        ),
-                                        child: const Text(
-                                          'İZLE',
-                                          style: TextStyle(fontSize: 9),
                                         ),
                                       ),
                                     ),
                                 ],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              width: 52,
-                              child: _seat(seats[1], 19, 1, canJoin),
-                            ),
-                          ],
+                              );
+                            },
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 7),
-                      Row(
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(13, 12, 13, 18),
+                      child: Column(
                         children: [
                           Expanded(
-                            child: _detail(
-                              Icons.emoji_events_outlined,
-                              Format.coin((table['pot_amount'] as int?) ?? 0),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 66,
+                                  child: _seat(seats[0], 22, 0, canJoin),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.monetization_on_rounded,
+                                            size: 15,
+                                            color: gold,
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Flexible(
+                                            child: _fit(
+                                              Format.coin(
+                                                (table['entry_coin'] as int?) ??
+                                                    0,
+                                              ),
+                                              21,
+                                              bold: true,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      if (starting)
+                                        const FittedBox(
+                                          child: Text(
+                                            'BAŞLIYOR',
+                                            style: TextStyle(
+                                              color: gold,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      FittedBox(
+                                        child: Text(
+                                          'GİRİŞ',
+                                          style: TextStyle(
+                                            color: gold.withValues(alpha: .85),
+                                            fontSize: 10,
+                                            letterSpacing: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                      if (canWatch)
+                                        SizedBox(
+                                          height: 24,
+                                          child: TextButton(
+                                            key: ValueKey(
+                                              'spectate-${table['id']}',
+                                            ),
+                                            onPressed: () => onSpectate(table),
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              foregroundColor: gold,
+                                              minimumSize: Size.zero,
+                                            ),
+                                            child: const Text(
+                                              'İZLE',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                SizedBox(
+                                  width: 66,
+                                  child: _seat(seats[1], 22, 1, canJoin),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: _fit(
-                              '${table['round_count'] ?? 1} el · $seconds sn',
-                              8,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Tooltip(
-                            message: spectators
-                                ? 'Seyirci açık'
-                                : 'Seyirci kapalı',
-                            child: Icon(
-                              spectators
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                              size: 11,
-                              color: const Color(0xFFADBDB5),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Tooltip(
-                            message: chat ? 'Sohbet açık' : 'Sohbet kapalı',
-                            child: Icon(
-                              chat
-                                  ? Icons.chat_bubble_outline_rounded
-                                  : Icons.comments_disabled_outlined,
-                              size: 10,
-                              color: const Color(0xFFADBDB5),
-                            ),
+                          const SizedBox(height: 21),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _detail(
+                                  Icons.emoji_events_outlined,
+                                  Format.coin(
+                                    (table['pot_amount'] as int?) ?? 0,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: _fit(
+                                  '${table['round_count'] ?? 1} el · $seconds sn',
+                                  12,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Tooltip(
+                                message: spectators
+                                    ? 'Seyirci açık'
+                                    : 'Seyirci kapalı',
+                                child: Icon(
+                                  spectators
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  size: 16,
+                                  color: const Color(0xFFADBDB5),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Tooltip(
+                                message: chat ? 'Sohbet açık' : 'Sohbet kapalı',
+                                child: Icon(
+                                  chat
+                                      ? Icons.chat_bubble_outline_rounded
+                                      : Icons.comments_disabled_outlined,
+                                  size: 15,
+                                  color: const Color(0xFFADBDB5),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -234,25 +320,12 @@ class LobbyTableListingCard extends StatelessWidget {
               ],
             )
           else
-            Container(
-              width: radius * 2,
-              height: radius * 2,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0x33000000),
-                border: Border.all(color: const Color(0x668DA495)),
-              ),
-              child: Icon(
-                canJoin ? Icons.add_rounded : Icons.lock_outline_rounded,
-                size: radius,
-                color: const Color(0xFFADC0B2),
-              ),
-            ),
-          const SizedBox(height: 2),
+            _RaisedSeatButton(radius: radius, enabled: canJoin),
+          const SizedBox(height: 4),
           SizedBox(
-            height: 12,
+            height: 20,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Tooltip(
                 message: player == null ? 'Boş yer' : name,
                 child: FittedBox(
@@ -264,7 +337,7 @@ class LobbyTableListingCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFFE2E5EB),
-                      fontSize: 9,
+                      fontSize: 12,
                       height: 1.1,
                       fontWeight: FontWeight.w600,
                     ),
@@ -292,7 +365,7 @@ class LobbyTableListingCard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Expanded(child: _fit(text, 10)),
+        Expanded(child: _fit(text, 12)),
       ],
     ),
   );
@@ -310,6 +383,86 @@ class LobbyTableListingCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Pointer feedback is local to the empty seat; the parent owns the join action.
+class _RaisedSeatButton extends StatefulWidget {
+  final double radius;
+  final bool enabled;
+  const _RaisedSeatButton({required this.radius, required this.enabled});
+
+  @override
+  State<_RaisedSeatButton> createState() => _RaisedSeatButtonState();
+}
+
+class _RaisedSeatButtonState extends State<_RaisedSeatButton> {
+  bool _pressed = false;
+
+  void _press(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pressed = widget.enabled && _pressed;
+    return Listener(
+      onPointerDown: widget.enabled ? (_) => _press(true) : null,
+      onPointerUp: (_) => _press(false),
+      onPointerCancel: (_) => _press(false),
+      child: AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        transform: Matrix4.translationValues(0, pressed ? 2 : 0, 0),
+        width: widget.radius * 2,
+        height: widget.radius * 2,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFE6AD), Color(0xFFB28A47), Color(0xFF5B411E)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xAA020C09),
+              offset: Offset(1, pressed ? 1 : 4),
+              blurRadius: pressed ? 2 : 5,
+            ),
+          ],
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: pressed
+                  ? const [Color(0xFF102B23), Color(0xFF245342)]
+                  : const [Color(0xFF376B54), Color(0xFF102B23)],
+            ),
+            border: Border.all(color: const Color(0x557BAD8B), width: .7),
+          ),
+          child: Icon(
+            widget.enabled ? Icons.add_rounded : Icons.lock_outline_rounded,
+            size: widget.radius * (widget.enabled ? 1.5 : 1),
+            color: widget.enabled
+                ? const Color(0xFFFFEBC1)
+                : const Color(0xFFADC0B2),
+            shadows: const [
+              Shadow(
+                color: Color(0xBB000000),
+                offset: Offset(0, 1),
+                blurRadius: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Small metal tokens remain static and readable at compact listing sizes.
@@ -405,127 +558,154 @@ class _StakeEmblem extends CustomPainter {
       reward != oldDelegate.reward;
 }
 
-/// Static felt and brushed rail: no continuous animation or image allocation.
+/// Shallow perspective table, painted once per state with a translucent felt.
 class _TableStagePainter extends CustomPainter {
   final bool active;
   const _TableStagePainter({required this.active});
+
+  Path _rim(Size size, double inset, double drop) {
+    final w = size.width;
+    final h = size.height;
+    // Narrower back edge and gently splayed sides imply a view from above.
+    return Path()
+      ..moveTo(30 + inset, 3 + inset + drop)
+      ..lineTo(w - 30 - inset, 3 + inset + drop)
+      ..quadraticBezierTo(
+        w - 14 - inset,
+        3 + inset + drop,
+        w - 11 - inset,
+        20 + inset + drop,
+      )
+      ..lineTo(w - 3 - inset, h - 26 - inset + drop)
+      ..quadraticBezierTo(
+        w - inset,
+        h - 8 - inset + drop,
+        w - 25 - inset,
+        h - 8 - inset + drop,
+      )
+      ..lineTo(25 + inset, h - 8 - inset + drop)
+      ..quadraticBezierTo(
+        inset,
+        h - 8 - inset + drop,
+        3 + inset,
+        h - 26 - inset + drop,
+      )
+      ..lineTo(11 + inset, 20 + inset + drop)
+      ..quadraticBezierTo(
+        14 + inset,
+        3 + inset + drop,
+        30 + inset,
+        3 + inset + drop,
+      )
+      ..close();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final outer = RRect.fromRectAndRadius(
-      rect.deflate(2),
-      const Radius.circular(30),
+    final top = _rim(size, 0, 0);
+    final felt = _rim(size, 6, 0);
+    // Keep every opaque rail, sidewall and shadow draw outside the felt.
+    // Transparency must reveal the lobby, rather than a lower body layer.
+    canvas.save();
+    canvas.clipPath(
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(rect.inflate(24))
+        ..addPath(felt, Offset.zero),
     );
-    canvas.drawRRect(
-      outer.shift(const Offset(0, 2)),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..color = const Color(0x6604080B),
+    canvas.drawShadow(
+      top.shift(const Offset(1, 4)),
+      const Color(0xB0000609),
+      5,
+      true,
     );
-    canvas.drawRRect(
-      outer,
+    // Only the exposed sidewall is opaque: the centre remains see-through.
+    final side = Path.combine(PathOperation.difference, _rim(size, 0, 5), top);
+    canvas.drawPath(
+      side,
       Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF78502A), Color(0xFF23140D)],
+        ).createShader(rect),
+    );
+    final wood = Path.combine(PathOperation.difference, top, felt);
+    canvas.drawPath(
+      wood,
+      Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF8C7751),
-            Color(0xFF282E2C),
-            Color(0xFFB59B68),
-            Color(0xFF353B35),
+            Color(0xFF967044),
+            Color(0xFF46301D),
+            Color(0xFF76502A),
+            Color(0xFF2C1B11),
           ],
-          stops: [0, .35, .72, 1],
+          stops: [0, .35, .7, 1],
         ).createShader(rect),
     );
-    final felt = RRect.fromRectAndRadius(
-      rect.deflate(5),
-      const Radius.circular(27),
-    );
-    canvas.drawRRect(
-      felt,
-      Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(0, -.3),
-          radius: 1,
-          colors: active
-              ? const [Color(0xD0214B40), Color(0xDC0B201F)]
-              : const [Color(0xD0243C37), Color(0xDC0C1B1E)],
-        ).createShader(rect),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect.deflate(9), const Radius.circular(23)),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = .6
-        ..color = const Color(0x447DA58E),
-    );
-    canvas.save();
-    canvas.clipRRect(felt);
-    // Short, interlaced fibres give felt a soft nap without a repeating stripe.
-    // Deterministic paths keep the texture still and require only two draws.
-    final lightFibres = Path();
-    final darkFibres = Path();
-    var row = 0;
-    for (double y = 6; y < size.height - 5; y += 3.1, row++) {
-      var column = 0;
-      for (
-        double x = 6 + (row.isEven ? 0 : 1.7);
-        x < size.width - 5;
-        x += 3.4, column++
-      ) {
-        final seed = (row * 37 + column * 17) % 23;
-        final dx = (seed % 5) * .18;
-        final dy = (seed % 7) * .13;
-        lightFibres.moveTo(x + dx, y + dy);
-        lightFibres.lineTo(x + dx + .8, y + dy - .55);
-        darkFibres.moveTo(x + .8, y + 1.1);
-        darkFibres.lineTo(x + 1.55, y + 1.65);
-      }
-    }
     canvas.drawPath(
-      lightFibres,
+      top,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = .5
-        ..color = const Color(0x2477AF8C),
-    );
-    canvas.drawPath(
-      darkFibres,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = .45
-        ..color = const Color(0x26031410),
-    );
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = const RadialGradient(
-          center: Alignment(-.25, -.45),
-          radius: 1.1,
-          colors: [Color(0x0C8EB995), Color(0x00000000), Color(0x33020806)],
-          stops: [0, .5, 1],
+        ..strokeWidth = 1.3
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF3D99D), Color(0xFFB98D48), Color(0xFF584025)],
         ).createShader(rect),
     );
     canvas.restore();
-    for (final x in [size.width * .29, size.width * .71]) {
-      canvas.drawLine(
-        Offset(x, 43),
-        Offset(x, 88),
-        Paint()
-          ..shader = const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0x007CA78E), Color(0x557CA78E), Color(0x007CA78E)],
-          ).createShader(Rect.fromLTWH(x, 43, 1, 45))
-          ..strokeWidth = .7,
-      );
+    canvas.drawPath(
+      felt,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-.3, -.55),
+          radius: 1.2,
+          colors: active
+              ? const [Color(0x80245A43), Color(0x990A241E)]
+              : const [Color(0x80244C3D), Color(0x990A201C)],
+        ).createShader(rect),
+    );
+    canvas.drawPath(
+      felt,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .8
+        ..color = const Color(0x887FA16B),
+    );
+    canvas.save();
+    canvas.clipPath(felt);
+    canvas.drawPath(
+      felt.shift(const Offset(0, 2)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = const Color(0x66010D09)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    final fibres = Path();
+    for (double y = 10; y < size.height - 10; y += 3.2) {
+      for (double x = 10; x < size.width - 10; x += 4.1) {
+        final drift = (x.toInt() * 13 + y.toInt() * 7) % 5 * .2;
+        fibres.moveTo(x, y + drift);
+        fibres.lineTo(x + .9, y + drift - .5);
+      }
     }
+    canvas.drawPath(
+      fibres,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .5
+        ..color = const Color(0x207DAE8A),
+    );
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _TableStagePainter oldDelegate) =>
-      active != oldDelegate.active;
+      true;
 }
