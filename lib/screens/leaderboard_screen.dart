@@ -87,140 +87,95 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     ProfileService.showUserCard(payload);
   }
 
+  String get _scoreCaption => switch (selectedTab) {
+    1 => 'COİN', 2 => 'KAZANÇ', _ => 'SEVİYE',
+  };
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0E0F12),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/lobby/lobby.png',
-              fit: BoxFit.cover,
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(30),
-                              color: Colors.black.withOpacity(0.45),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.08),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.6),
-                                  blurRadius: 10,
-                                ),
-                              ],
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _tabItem('En İyiler', 0),
-                                  _tabItem('Zenginler', 1),
-                                  _tabItem('Bugün', 2),
-                                  _tabItem('Son Oynadıklarım', 3),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withOpacity(0.5),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.red.withOpacity(0.3),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: loading
-                      ? const Center(child: LobbyLoading())
-                      : players.isEmpty
-                      ? _emptyState()
-                      : selectedTab == 3
-                      ? _buildRecentList()
-                      : Row(
-                          children: [
-                            Expanded(flex: 4, child: _buildTop3()),
-                            Expanded(flex: 6, child: _buildList()),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFF0E141B),
+      body: Stack(children: [
+        Positioned.fill(child: Image.asset('assets/images/lobby/lobby.png', fit: BoxFit.cover)),
+        const Positioned.fill(child: ColoredBox(color: Color(0x66070D15))),
+        SafeArea(child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+          child: Column(children: [
+            Row(children: [
+              const Icon(Icons.emoji_events_outlined, color: Color(0xFFE5C586), size: 22),
+              const SizedBox(width: 8),
+              const Text('SIRALAMA', style: TextStyle(color: Color(0xFFE5C586),
+                fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 14),
+              Expanded(child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(color: const Color(0xE6111A20),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0x447E8581))),
+                child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    _tabItem('En İyiler', 0), _tabItem('Zenginler', 1),
+                    _tabItem('Bugün', 2), _tabItem('Son Oynadıklarım', 3),
+                  ])),
+              )),
+              const SizedBox(width: 8),
+              IconButton(tooltip: 'Kapat', onPressed: () => Navigator.pop(context),
+                style: IconButton.styleFrom(backgroundColor: const Color(0xCC152027),
+                  side: const BorderSide(color: Color(0x557E8581))),
+                icon: const Icon(Icons.close_rounded, color: Color(0xFFD5D9E1), size: 21)),
+            ]),
+            const SizedBox(height: 12),
+            Expanded(child: loading ? const Center(child: LobbyLoading())
+              : players.isEmpty ? _emptyState()
+              : selectedTab == 3 ? _section('SON RAKİPLERİN', '', _buildRecentList())
+              : Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(flex: 4, child: _section('ZİRVENİN SAHİPLERİ', 'İLK 3', _buildTop3())),
+                const SizedBox(width: 12),
+                Expanded(flex: 6, child: _section('OYUNCULAR', _scoreCaption, _buildList())),
+              ])),
+          ]),
+        )),
+      ]),
     );
   }
+
+  Widget _section(String title, String caption, Widget child) => Container(
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Color(0xE6262D36), Color(0xE610161C)]),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0x667F775E))),
+    child: Column(children: [
+      Padding(padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        child: Row(children: [
+          Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Color(0xFFE5C586), fontSize: 9,
+              letterSpacing: 1.1, fontWeight: FontWeight.w700))),
+          const SizedBox(width: 6),
+          Text(caption, style: const TextStyle(color: Color(0xFF969EAA), fontSize: 9)),
+        ])),
+      Expanded(child: child),
+    ]),
+  );
 
   Widget _buildTop3() {
     final p1 = players.isNotEmpty ? players[0] : null;
     final p2 = players.length > 1 ? players[1] : null;
     final p3 = players.length > 2 ? players[2] : null;
-
-    return SizedBox(
-      height: 300,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          Positioned(
-            left: 20,
-            bottom: 0,
-            child: _podiumBlock(p2, 2, 60, Colors.grey.shade400, 80),
-          ),
-          Positioned(
-            bottom: 0,
-            child: _podiumBlock(p1, 1, 80, Colors.amber, 110),
-          ),
-          Positioned(
-            right: 20,
-            bottom: 0,
-            child: _podiumBlock(p3, 3, 60, const Color(0xFFCD7F32), 70),
-          ),
-        ],
-      ),
+    return Padding(padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+      child: Center(child: FittedBox(fit: BoxFit.contain,
+        child: SizedBox(width: 330, height: 300,
+          child: Stack(alignment: Alignment.bottomCenter, children: [
+            Positioned(left: 6, bottom: 0,
+              child: _podiumBlock(p2, 2, 66, const Color(0xFFBBC7CF), 65)),
+            Positioned(bottom: 0,
+              child: _podiumBlock(p1, 1, 84, const Color(0xFFE5C586), 92)),
+            Positioned(right: 6, bottom: 0,
+              child: _podiumBlock(p3, 3, 66, const Color(0xFFCF9968), 52)),
+          ])),
+      )),
     );
   }
-
   Widget _emptyState() {
     return Center(
       child: Column(
@@ -269,9 +224,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.62),
-                  blurRadius: isChampion ? 22 : 15,
-                  spreadRadius: isChampion ? 4 : 2,
+                  color: color.withValues(alpha: .18),
+                  blurRadius: isChampion ? 12 : 6,
+                  spreadRadius: 0,
                 ),
               ],
             ),
@@ -361,8 +316,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              boxShadow: [
-                BoxShadow(color: medal[1].withOpacity(0.5), blurRadius: 12),
+              boxShadow: const [
+                BoxShadow(color: Color(0x55000000), blurRadius: 6, offset: Offset(0, 3)),
               ],
               border: Border.all(color: const Color(0x66FFF1C8), width: 0.8),
             ),
@@ -391,7 +346,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         final avatar = _avatarProvider(p['avatar_url']?.toString());
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 6),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -400,29 +355,27 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               child: Ink(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 10,
+                  vertical: 7,
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  color: Colors.black.withOpacity(0.35),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  color: const Color(0x99262D36),
+                  border: Border.all(color: const Color(0x337E8581)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 30,
-                      height: 30,
+                      width: 25,
+                      height: 25,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFE7C66A), Color(0xFFB9932F)],
-                        ),
+                        color: Color(0xFF343B46),
                       ),
                       child: Text(
                         '$rank',
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: Color(0xFFD8C593),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -433,13 +386,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFE7C66A).withOpacity(0.4),
-                            blurRadius: 6,
+                            color: const Color(0xFFE7C66A).withValues(alpha: .1),
+                            blurRadius: 3,
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: 20,
+                        radius: 17,
                         backgroundImage: avatar,
                         backgroundColor: Colors.grey[800],
                       ),
@@ -459,7 +412,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     Text(
                       _formatScore(p),
                       style: const TextStyle(
-                        color: Colors.amber,
+                        color: Color(0xFFE5C586),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -493,8 +446,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              color: const Color(0x6624362E),
-              border: Border.all(color: const Color(0x444F8F75)),
+              color: const Color(0x99262D36),
+              border: Border.all(color: const Color(0x447E8581)),
             ),
             child: Row(
               children: [
@@ -590,21 +543,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(11),
           gradient: selected
               ? const LinearGradient(
-                  colors: [Color(0xFFFFD54F), Color(0xFFFFA000)],
+                  colors: [Color(0xFFEAD6A4), Color(0xFFC49C55)],
                 )
               : null,
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: Colors.amber.withOpacity(0.6),
-                    blurRadius: 12,
-                    spreadRadius: 1,
+                    color: Colors.black.withValues(alpha: .25),
+                    blurRadius: 4,
+                    spreadRadius: 0,
                   ),
                 ]
               : [],
@@ -622,7 +575,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               style: TextStyle(
                 color: selected ? Colors.black : Colors.white70,
                 fontWeight: FontWeight.bold,
-                fontSize: 13,
+                fontSize: 12,
               ),
             ),
           ],

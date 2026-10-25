@@ -64,13 +64,14 @@ class ProfileService {
         .eq('id', userId)
         .maybeSingle();
 
+    final hydration = () async {
     try {
       final results =
           await Future.wait<dynamic>([
             profileFuture.catchError((_) => null),
             userFuture.catchError((_) => null),
           ]).timeout(
-            const Duration(milliseconds: 900),
+            const Duration(seconds: 10),
             onTimeout: () => [null, null],
           );
 
@@ -92,6 +93,8 @@ class ProfileService {
       // Some environments have incompatible id types between users/profiles.
       // Keep showing profile card with available fallback data.
     }
+
+    }();
 
     final statusText = isSelf
         ? 'Bu senin profilin'
@@ -115,7 +118,9 @@ class ProfileService {
     await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: .45),
-      builder: (dialogContext) => PlayerProfileCard(
+      builder: (dialogContext) => FutureBuilder<void>(
+        future: hydration,
+        builder: (_, __) => PlayerProfileCard(
         userId: userId,
         username: username,
         avatar: LobbyAvatar(
@@ -311,6 +316,7 @@ class ProfileService {
             ],
           ],
         ],
+      ),
       ),
     );
   }

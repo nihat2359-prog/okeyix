@@ -1,3 +1,4 @@
+import 'game_invite_dialog.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
 import 'dart:async';
 import 'dart:math';
@@ -485,14 +486,14 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     if (resolved.startsWith('assets/')) {
       return CircleAvatar(
         radius: 18,
-        backgroundColor: const Color(0xFF1F3D32),
+        backgroundColor: const Color(0xFF262D36),
         backgroundImage: AssetImage(resolved),
       );
     }
     if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
       return CircleAvatar(
         radius: 18,
-        backgroundColor: const Color(0xFF1F3D32),
+        backgroundColor: const Color(0xFF262D36),
         backgroundImage: NetworkImage(resolved),
         onBackgroundImageError: (_, __) {},
         child: Text(
@@ -506,7 +507,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     }
     return CircleAvatar(
       radius: 18,
-      backgroundColor: const Color(0xFF1F3D32),
+      backgroundColor: const Color(0xFF262D36),
       child: Text(
         fallbackChar,
         style: const TextStyle(
@@ -874,400 +875,31 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     }
   }
 
+  bool _inviteDialogOpen = false;
+
   Future<void> _showInviteDialogForSeat(int seatIndex) async {
-    final candidates = await _loadEligiblePlayers();
-    final _controller = ScrollController();
-
-    if (!mounted) return;
-
-    await showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(.75),
-      builder: (context) {
-        final online = candidates
-            .where((p) => p['is_online'] == true)
-            .toList(growable: false);
-        final offline = candidates
-            .where((p) => p['is_online'] != true)
-            .toList(growable: false);
-
-        Widget buildCandidateList(List<Map<String, dynamic>> source) {
-          if (source.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  "Bu sekmede oyuncu yok.",
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
+    if (!mounted || _inviteDialogOpen) return;
+    _inviteDialogOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: .6),
+        builder: (dialogContext) => GameInviteDialog(
+          loadPlayers: _loadEligiblePlayers,
+          avatarBuilder: _inviteAvatar,
+          onInvite: (player) async {
+            await _sendInvite(
+              userId: player['id'].toString(),
+              isBot: player['is_bot'] == true,
             );
-          }
-
-          return Stack(
-            children: [
-              Scrollbar(
-                controller: _controller,
-                thumbVisibility: true,
-                thickness: 4,
-                radius: const Radius.circular(8),
-                child: ListView.separated(
-                  controller: _controller,
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 30),
-                  itemCount: source.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) {
-                    final p = source[i];
-
-                    final name = p['username']?.toString() ?? "Oyuncu";
-                    final rating = p['rating'];
-                    final coins = p['coins'] ?? 0;
-                    final userId = p['id']?.toString();
-                    final avatarUrl = p['avatar_url'];
-                    final isOnline = p['is_online'] == true;
-                    final lastSeenText = p['is_bot'] == true
-                        ? 'Otomatik oyuncu' : _formatLastSeen(p['last_seen_at']);
-
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF212730).withOpacity(0.9),
-                            const Color(0xFF141922).withOpacity(0.9),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.05),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFB9932F).withOpacity(0.4),
-                                  blurRadius: 8,
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                _inviteAvatar(avatarUrl?.toString(), name),
-                                Positioned(
-                                  right: -1,
-                                  top: -1,
-                                  child: _statusDot(isOnline),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(children: [Expanded(child: Text(
-                                  name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                )), if (p['is_bot'] == true) ...[
-                                  const SizedBox(width: 6), const BotBadge(),
-                                ]]),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.emoji_events,
-                                      size: 14,
-                                      color: Color(0xFFE7C66A),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      Format.rating(rating),
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Icon(
-                                      Icons.monetization_on,
-                                      size: 14,
-                                      color: Colors.amber,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      Format.coin(coins),
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (!isOnline) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    lastSeenText,
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFFE7C66A),
-                                  Color(0xFFB9932F),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFB9932F).withOpacity(0.5),
-                                  blurRadius: 8,
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: userId == null
-                                    ? null
-                                    : () async {
-                                        await _sendInvite(
-                                          userId: userId,
-                                          isBot: p['is_bot'] == true,
-                                        );
-                                        if (!mounted) return;
-                                        Navigator.pop(context);
-                                      },
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    "Davet",
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  child: Container(
-                    height: 30,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          const Color(0xFF141922).withOpacity(0.9),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        return DefaultTabController(
-          length: 2,
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 440,
-                maxHeight: MediaQuery.of(context).size.height * 0.78,
-              ),
-              child: Container(
-                width: 420,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF151B24).withOpacity(0.88),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFB9932F).withOpacity(0.7),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.6),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        const Spacer(),
-                        const Icon(Icons.group, color: Color(0xFFE7C66A)),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "Oyuncu Davet Et",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFE7C66A),
-                            letterSpacing: .6,
-                          ),
-                        ),
-                        const Spacer(),
-                        InkWell(
-                          onTap: () => Navigator.pop(context),
-                          borderRadius: BorderRadius.circular(10),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(
-                              Icons.close,
-                              color: Colors.white70,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (candidates.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text(
-                          "Bu lig için uygun oyuncu bulunamadı.",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                    else ...[
-                      Container(
-                        height: 46,
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0x3327303B), Color(0x33141922)],
-                          ),
-                          borderRadius: BorderRadius.circular(13),
-                          border: Border.all(
-                            color: const Color(0x668991A5),
-                            width: 1,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x55000000),
-                              blurRadius: 10,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: TabBar(
-                          indicator: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFEFD18A), Color(0xFFD9A84D)],
-                            ),
-                            borderRadius: BorderRadius.circular(10.5),
-                            border: Border.all(
-                              color: const Color(0xCC775A1F),
-                              width: 0.9,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x8A7D5717),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          indicatorSize: TabBarIndicatorSize.tab,
-                          dividerColor: Colors.transparent,
-                          indicatorPadding: EdgeInsets.zero,
-                          labelColor: const Color(0xFF1F2B24),
-                          unselectedLabelColor: const Color(0xFFD7E7DE),
-                          labelStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.2,
-                          ),
-                          unselectedLabelStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.15,
-                          ),
-                          tabs: [
-                            Tab(text: 'Oyunda (${online.length})'),
-                            Tab(text: 'Oyun Dışı (${offline.length})'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            buildCandidateList(online),
-                            buildCandidateList(offline),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+            if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+          },
+        ),
+      );
+    } finally {
+      _inviteDialogOpen = false;
+    }
   }
-
   Future<List<Map<String, dynamic>>> _loadEligiblePlayers() async {
     final myUserId = _myUserId;
     final leagueId = _leagueId;

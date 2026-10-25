@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'lobby/lobby_metal_surface.dart';
 import 'package:okeyix/core/format.dart';
@@ -140,38 +141,12 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                                   key: ValueKey(widget.userId),
                                   future: _statistics,
                                   builder: (context, snapshot) {
-                                    if (snapshot.connectionState !=
-                                        ConnectionState.done) {
-                                      return _detailMessage(
-                                        'Bitiş kayıtları yükleniyor…',
-                                      );
-                                    }
-                                    if (snapshot.hasError ||
-                                        !snapshot.hasData) {
-                                      return Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              'Bitiş kayıtları yüklenemedi',
-                                              style: _text(
-                                                10,
-                                                color: Colors.white54,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => setState(_load),
-                                            child: Text(
-                                              'Tekrar dene',
-                                              style: _text(10, color: gold),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }
-                                    final stats = snapshot.requireData;
+                                    final stats = snapshot.connectionState == ConnectionState.done
+                                        ? snapshot.data : null;
+                                    final totalWins = _displayedCareerWins(stats);
+                                    final normalWins = stats == null ? null : math.max(0,
+                                        (totalWins ?? stats.wins) - stats.okeyWins
+                                        - stats.doubleWins + stats.okeyDoubleWins);
                                     return Column(
                                       children: [
                                         Align(
@@ -188,33 +163,33 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                                         Row(
                                           children: [
                                             _winBadge(
-                                              'Önceki\nkazanımlar',
-                                              stats.previousWins,
-                                              Icons.workspace_premium_outlined,
-                                              stats.previousWins == null
-                                                  ? 'Kariyer ve bitiş kayıtları şu anda eşleştirilemiyor. Toplam galibiyetin korunur.'
-                                                  : 'Bitiş türü kaydedilmeyen galibiyetler.',
-                                            ),
-                                            _winBadge(
                                               'Normal',
-                                              stats.normalWins,
+                                              normalWins,
                                               Icons.style_outlined,
                                               'Normal bitişle kazanılan eller.',
                                             ),
                                             _winBadge(
                                               'Okeyli',
-                                              stats.okeyWins,
+                                              stats?.okeyWins,
                                               Icons.star_border_rounded,
-                                              'Okeyli bitişler. Okeyli çift: ${stats.okeyDoubleWins}; iki başlığa da dahildir.',
+                                              'Okeyli bitişler. Okeyli çift: ${stats?.okeyDoubleWins ?? '—'}; iki başlığa da dahildir.',
                                             ),
                                             _winBadge(
                                               'Çiftli',
-                                              stats.doubleWins,
+                                              stats?.doubleWins,
                                               Icons.filter_2_outlined,
-                                              'Çiftli bitişler. Okeyli çift: ${stats.okeyDoubleWins}; iki başlığa da dahildir.',
+                                              'Çiftli bitişler. Okeyli çift: ${stats?.okeyDoubleWins ?? '—'}; iki başlığa da dahildir.',
                                             ),
                                           ],
                                         ),
+                                        if (snapshot.hasError)
+                                          Row(mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Flexible(child: Text('Bitiş kayıtları yüklenemedi',
+                                                style: _text(10, color: Colors.white54))),
+                                              TextButton(onPressed: () => setState(_load),
+                                                child: Text('Tekrar dene', style: _text(10, color: gold))),
+                                            ]),
                                       ],
                                     );
                                   },
@@ -327,10 +302,23 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
     ],
   );
 
-  Widget _career(ProfileStatistics? stats) {
-    final wins = stats?.hasCareerSnapshot == true
+  int? _displayedCareerWins(ProfileStatistics? stats) =>
+      stats?.hasCareerSnapshot == true
         ? stats!.careerWins
         : widget.careerWins;
+
+  Widget _career(ProfileStatistics? stats) => TweenAnimationBuilder<double>(
+    key: ValueKey((widget.userId, _displayedCareerWins(stats),
+      stats?.careerLosses ?? widget.careerLosses, widget.coins, widget.rating)),
+    tween: Tween(begin: 0, end: 1),
+    duration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero : const Duration(milliseconds: 650),
+    curve: Curves.easeOutCubic,
+    builder: (_, value, __) => _careerContent(stats, value),
+  );
+
+  Widget _careerContent(ProfileStatistics? stats, double animation) {
+    final wins = _displayedCareerWins(stats);
     final losses = stats?.hasCareerSnapshot == true
         ? stats!.careerLosses
         : widget.careerLosses;
@@ -370,7 +358,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                           alignment: Alignment.centerLeft,
                           widthFactor: Format.ratingLevelProgress(
                             widget.rating,
-                          ),
+                          ) * animation,
                           child: const DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
@@ -386,7 +374,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 7),
                             child: Text(
-                              'Seviye ${Format.ratingLevel(widget.rating)}',
+                              'Seviye ${(Format.ratingLevel(widget.rating) * animation).round()}',
                               style: _text(16, weight: FontWeight.w800),
                             ),
                           ),
@@ -416,7 +404,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            Format.coin(widget.coins),
+                            Format.coin((widget.coins * animation).round()),
                             style: _text(18, weight: FontWeight.w800),
                           ),
                         ),
@@ -430,26 +418,26 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
           const SizedBox(width: 12),
           _bar(
             'Galibiyet',
-            wins?.toString() ?? '—',
-            total == null || total == 0 ? 0 : wins! / total,
+            wins == null ? '—' : '${(wins * animation).round()}',
+            total == null || total == 0 ? 0 : wins! / total * animation,
             const Color(0xFF6DAC78),
           ),
           _bar(
             'Mağlubiyet',
-            losses?.toString() ?? '—',
-            total == null || total == 0 ? 0 : losses! / total,
+            losses == null ? '—' : '${(losses * animation).round()}',
+            total == null || total == 0 ? 0 : losses! / total * animation,
             const Color(0xFFBD7069),
           ),
           _bar(
             'Toplam',
-            total?.toString() ?? '—',
-            total == null || total == 0 ? 0 : 1,
+            total == null ? '—' : '${(total * animation).round()}',
+            total == null || total == 0 ? 0 : animation,
             gold,
           ),
           _bar(
             'Kazanma',
-            rate == null ? '—' : '%${rate.toStringAsFixed(1)}',
-            (rate ?? 0) / 100,
+            rate == null ? '—' : '%${(rate * animation).toStringAsFixed(1)}',
+            (rate ?? 0) / 100 * animation,
             gold,
           ),
         ],
@@ -564,12 +552,18 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                     Flexible(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text(
-                          '${count ?? '—'}',
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: (count ?? 0).toDouble()),
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero : const Duration(milliseconds: 650),
+                          curve: Curves.easeOutCubic,
+                          builder: (_, value, __) => Text(
+                          count == null ? '—' : '${value.round()}',
                           style: _text(
                             17,
                             color: gold,
                             weight: FontWeight.w800,
+                          ),
                           ),
                         ),
                       ),

@@ -11,6 +11,9 @@ class LobbyLevelBadge extends StatelessWidget {
     final next = level + 1;
     final remaining = (next * Format.ratingLevelStep) - rating;
     final progress = Format.ratingLevelProgress(rating);
+    final progressColor = progress < .5
+        ? Color.lerp(const Color(0xFFE4AC57), const Color(0xFFD9DA70), progress * 2)!
+        : Color.lerp(const Color(0xFFD9DA70), const Color(0xFF59D68B), (progress - .5) * 2)!;
     return Tooltip(
       message: 'Seviye $next için $remaining puan',
       child: Semantics(
@@ -51,9 +54,9 @@ class LobbyLevelBadge extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: progress,
-                  minHeight: 5,
-                  backgroundColor: const Color(0xFF131820),
-                  color: const Color(0xFFFFCE68),
+                  minHeight: 6,
+                  backgroundColor: const Color(0xFF465360),
+                  color: progressColor,
                 ),
               ),
               const SizedBox(height: 2),

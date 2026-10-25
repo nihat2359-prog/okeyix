@@ -118,7 +118,6 @@ void main() {
         expect(find.byType(SingleChildScrollView), findsNothing);
         final footerTop = tester.getTopLeft(find.text('Hediye')).dy - 20;
         for (final label in [
-          'Önceki\nkazanımlar',
           'Normal',
           'Okeyli',
           'Çiftli',
@@ -164,6 +163,19 @@ void main() {
     expect(() => ProfileStatistics.fromJson({}), throwsFormatException);
   });
 
+  testWidgets('2122 career wins and 15 okey wins display 2107 normal wins', (tester) async {
+    final data = ProfileStatistics.fromJson({
+      'wins': 15, 'losses': 0, 'normal_wins': 0,
+      'okey_wins': 15, 'double_wins': 0, 'okey_double_wins': 0,
+      'career_wins': 2122, 'career_losses': 2046, 'previous_wins': 2107,
+    });
+    await tester.pumpWidget(card(wins: 2122, losses: 2046, load: () async => data));
+    await tester.pumpAndSettle();
+    expect(find.text('2122'), findsOneWidget);
+    expect(find.text('2107'), findsOneWidget);
+    expect(find.text('15'), findsOneWidget);
+  });
+
   testWidgets('career and previous wins use the same RPC snapshot', (
     tester,
   ) async {
@@ -184,9 +196,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('504'), findsOneWidget);
     expect(find.text('201'), findsOneWidget);
-    expect(find.text('500'), findsOneWidget);
+    expect(find.text('501'), findsOneWidget);
     expect(find.text('999'), findsNothing);
-    expect(find.text('Önceki\nkazanımlar'), findsOneWidget);
+    expect(find.text('Önceki\nkazanımlar'), findsNothing);
     final surface = tester
         .widgetList<DecoratedBox>(find.byType(DecoratedBox))
         .map((w) => w.decoration)
@@ -235,6 +247,26 @@ void main() {
     }
   }
 
+  testWidgets('win cards stay visible while loading and animate arriving counts', (tester) async {
+    final pending = Completer<ProfileStatistics>();
+    await tester.pumpWidget(card(wins: 2122, losses: 2046, load: () => pending.future));
+    await tester.pumpAndSettle();
+    final before = tester.getRect(find.text('Normal'));
+    expect(find.text('Okeyli'), findsOneWidget);
+    expect(find.text('Çiftli'), findsOneWidget);
+    pending.complete(const ProfileStatistics(wins: 15, losses: 0, normalWins: 0,
+      okeyWins: 15, doubleWins: 0, okeyDoubleWins: 0,
+      careerWins: 2122, careerLosses: 2046, previousWins: 2107,
+      hasCareerSnapshot: true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('2107'), findsNothing);
+    expect(tester.getRect(find.text('Normal')), before);
+    await tester.pumpAndSettle();
+    expect(find.text('2107'), findsOneWidget);
+    expect(tester.getRect(find.text('Normal')), before);
+  });
+
   testWidgets('loads once, retries errors, and never shows errors as zero', (
     tester,
   ) async {
@@ -266,7 +298,7 @@ void main() {
     await tester.pumpWidget(card(userId: 'two', load: () => next.future));
     old.complete(stats);
     await tester.pump();
-    expect(find.text('Normal'), findsNothing);
+    expect(find.text('Normal'), findsOneWidget);
     next.complete(
       const ProfileStatistics(
         wins: 0,
@@ -278,7 +310,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Önceki\nkazanımlar'), findsOneWidget);
+    expect(find.text('Önceki\nkazanımlar'), findsNothing);
     expect(find.text('%66.7'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     expect(tester.takeException(), isNull);
@@ -311,7 +343,7 @@ void main() {
       expect(find.text('500'), findsOneWidget);
       expect(find.text('%20.0'), findsOneWidget);
       expect(find.text('Henüz detaylı kayıt yok'), findsNothing);
-      expect(find.text('Önceki\nkazanımlar'), findsOneWidget);
+      expect(find.text('Önceki\nkazanımlar'), findsNothing);
       expect(find.text('Normal'), findsOneWidget);
     },
   );

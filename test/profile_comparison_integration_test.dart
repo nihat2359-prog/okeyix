@@ -18,6 +18,7 @@ const opponent = '00000000-0000-4000-8000-000000009802';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   String? comparedTarget;
+  Completer<void>? profileGate;
   Map<String, dynamic> player(String id) => {
     'id': id,
     'username': id == viewer ? 'Me' : 'Opponent',
@@ -80,6 +81,7 @@ void main() {
             'as_of': '2026-10-20T00:00:00Z',
           };
         } else {
+          if (profileGate != null) await profileGate!.future;
           result = {
             'username': 'Fixture',
             'avatar_url': null,
@@ -104,6 +106,32 @@ void main() {
   });
   tearDownAll(() async {
     await Supabase.instance.dispose();
+  });
+
+  testWidgets('profile opens before identity requests complete', (tester) async {
+    await tester.pumpWidget(MaterialApp(navigatorKey: navigatorKey,
+      home: const Scaffold()));
+    late Future<void> modal;
+    await tester.runAsync(() async {
+      profileGate = Completer<void>();
+      modal = ProfileService.showUserCard({'id': opponent, 'username': 'Immediate'});
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(profileGate!.isCompleted, isFalse);
+    expect(find.text('Immediate'), findsOneWidget);
+    expect(find.byTooltip('Kapat'), findsOneWidget);
+    await tester.runAsync(() async {
+      profileGate!.complete();
+      await Future<void>.delayed(Duration.zero);
+    });
+    profileGate = null;
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Kapat'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => modal);
+    expect(tester.takeException(), isNull);
   });
 
   for (final self in [true, false]) {
