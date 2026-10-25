@@ -291,7 +291,21 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      width: min(300.0, MediaQuery.sizeOf(context).width - 48),
+      duration: const Duration(seconds: 2),
+      backgroundColor: const Color(0xF014211E),
+      elevation: 3,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0x887F9A7E)),
+      ),
+      content: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Color(0xFFEADAB5), fontSize: 12)),
+    ));
   }
 
   Future<Map<String, Map<String, dynamic>>> _loadProfilesByUserId(
@@ -1579,7 +1593,18 @@ class _InviteSeatCardState extends State<_InviteSeatCard>
     _hintController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 850),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context) || !TickerMode.of(context)) {
+      _hintController.stop();
+      _hintController.value = 0;
+    } else if (!_hintController.isAnimating) {
+      _hintController.repeat(reverse: true);
+    }
   }
 
   @override
@@ -1613,7 +1638,13 @@ class _InviteSeatCardState extends State<_InviteSeatCard>
         ),
       ),
       widget.vertical ? const SizedBox(height: 8) : const SizedBox(width: 8),
-      GestureDetector(
+      AnimatedBuilder(
+        animation: _hintController,
+        builder: (_, child) => Transform.scale(
+          scale: 1 + .045 * _hintController.value,
+          child: child,
+        ),
+        child: GestureDetector(
         onTap: widget.onInvite,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -1663,6 +1694,7 @@ class _InviteSeatCardState extends State<_InviteSeatCard>
               ),
             ],
           ),
+        ),
         ),
       ),
     ];

@@ -347,7 +347,9 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
         color: const Color(0x3310161C),
         border: Border.all(color: const Color(0x887D704B), width: .8),
       ),
-      child: Row(
+      child: CustomPaint(
+        painter: _ProfileChartGrid(height: _compact ? 55 : 75),
+        child: Row(
         children: [
           SizedBox(
             width: 126,
@@ -451,6 +453,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
             gold,
           ),
         ],
+        ),
       ),
     );
   }
@@ -706,6 +709,33 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
       },
     );
   }
+}
+
+class _ProfileChartGrid extends CustomPainter {
+  final double height;
+  const _ProfileChartGrid({required this.height});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Level and balance stay outside the graph; labels sit below its baseline.
+    const left = 138.0;
+    if (size.width <= left) return;
+    final paint = Paint()..strokeWidth = .5;
+    canvas.save();
+    canvas.clipRect(Rect.fromLTRB(left, 0, size.width, height));
+    for (var x = left; x <= size.width; x += 10) {
+      paint.color = const Color(0x12FFFFFF);
+      canvas.drawLine(Offset(x, 0), Offset(x, height), paint);
+    }
+    for (var y = 0.0; y <= height; y += 10) {
+      paint.color = const Color(0x18FFFFFF);
+      canvas.drawLine(Offset(left, y), Offset(size.width, y), paint);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfileChartGrid oldDelegate) => oldDelegate.height != height;
 }
 
 /// Static table-style inlay: no blur, animation or image decoding per frame.

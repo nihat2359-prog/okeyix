@@ -1,3 +1,4 @@
+import 'package:okeyix/ui/game_waiting_panel.dart';
 import 'package:okeyix/ui/game_finish_presentation.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
 import 'package:okeyix/ui/table_session_score.dart';
@@ -3473,142 +3474,16 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   Widget _buildWaitingOverlay() {
-    final screenW = MediaQuery.of(context).size.width;
-    final panelWidth = screenW < 560
-        ? (screenW - 28).clamp(280.0, 460.0)
-        : 430.0;
-    final full = _playerCount >= _maxPlayers;
     final gameCount = _game.getCountdown();
     final count = gameCount > 0
         ? gameCount
         : (_tableStatus == 'start' ? 0 : _joinCountdown);
-
-    final text = full
-        ? (count > 0
-              ? 'Oyun $count saniye sonra başlayacak...'
-              : 'Oyun başlatılıyor...')
-        : 'Oyuncu bekleniyor...';
-
-    return IgnorePointer(
-      ignoring: true,
-      child: Align(
-        alignment: Alignment.center,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-            child: Container(
-              width: panelWidth,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0x6614191F), Color(0x55101418)],
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0x52FFE1A0), width: 1.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x99000000).withOpacity(0.26),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (full && count > 0)
-                    ScaleTransition(
-                      scale: Tween(begin: 0.95, end: 1.04).animate(
-                        CurvedAnimation(
-                          parent: _hourglassCtrl,
-                          curve: Curves.easeInOut,
-                        ),
-                      ),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            center: Alignment(-0.2, -0.25),
-                            radius: 0.95,
-                            colors: [Color(0xFFD8E8E0), Color(0xFF6E8F84)],
-                          ),
-                          border: Border.all(
-                            color: const Color(0xFFEAF4EF),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xAA0E1D19).withOpacity(0.55),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$count',
-                            style: const TextStyle(
-                              fontFamily: "Orbitron",
-                              color: Color(0xFF123028),
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    ScaleTransition(
-                      scale: Tween(begin: 0.92, end: 1.08).animate(
-                        CurvedAnimation(
-                          parent: _hourglassCtrl,
-                          curve: Curves.easeInOut,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.hourglass_top_rounded,
-                        color: Color(0xFFE6D8B6),
-                        size: 30,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Text(
-                    text,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: "Montserrat",
-                      fontWeight: FontWeight.w800,
-                      fontSize: 17,
-                      letterSpacing: 0.1,
-                      color: Color(0xFFF3F1E8),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (!full)
-                    const Text(
-                      "Diğer oyuncuları davet ederek oyunu hızlandırabilirsin",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: "Montserrat",
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                        color: Color(0xAED8D2C4),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GameWaitingPanel(
+      players: _playerCount,
+      capacity: _maxPlayers,
+      countdown: count,
     );
   }
-
   Widget _buildIndicatorRewardFx() {
     return Positioned(
       top: 84,
