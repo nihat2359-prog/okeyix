@@ -1,10 +1,106 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:intl/intl.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../ui/lobby/lobby_shimmer_loaders.dart';
+
+class _PodiumBackdrop extends CustomPainter {
+  const _PodiumBackdrop();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, 108);
+    final halo = Rect.fromCircle(center: center, radius: 122);
+    canvas.drawOval(halo, Paint()..shader = const RadialGradient(
+      colors: [Color(0x487F6432), Color(0x161D2029), Colors.transparent],
+    ).createShader(halo));
+    // Engraved laurel branches frame the champion without a rectangular panel.
+    final branch = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2
+      ..color = const Color(0xAAAC8D52);
+    for (final side in [-1.0, 1.0]) {
+      final path = Path();
+      for (var i = 0; i <= 10; i++) {
+        final angle = (.25 + i / 10 * 1.6);
+        final point = center + Offset(side * math.sin(angle) * 62,
+          math.cos(angle) * 64);
+        if (i == 0) { path.moveTo(point.dx, point.dy); }
+        else { path.lineTo(point.dx, point.dy); }
+        if (i > 0 && i < 10) {
+          canvas.save();
+          canvas.translate(point.dx, point.dy);
+          canvas.rotate(-side * angle);
+          canvas.drawOval(const Rect.fromLTWH(-3, -8, 6, 15),
+            Paint()..shader = const LinearGradient(
+              colors: [Color(0xFFD9BB78), Color(0x55675231)],
+            ).createShader(const Rect.fromLTWH(-3, -8, 6, 15)));
+          canvas.restore();
+        }
+      }
+      canvas.drawPath(path, branch);
+    }
+    final base = Rect.fromLTWH(12, size.height - 31, size.width - 24, 22);
+    canvas.drawOval(base, Paint()..shader = const RadialGradient(
+      colors: [Color(0x66886B38), Colors.transparent],
+    ).createShader(base));
+  }
+  @override
+  bool shouldRepaint(covariant _PodiumBackdrop oldDelegate) => false;
+}
+
+class _PodiumCrown extends CustomPainter {
+  const _PodiumCrown(this.metal);
+  final List<Color> metal;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 40, size.height / 32);
+    final crown = Path()
+      ..moveTo(6, 11)
+      ..lineTo(13, 16)
+      ..lineTo(20, 5)
+      ..lineTo(27, 16)
+      ..lineTo(34, 11)
+      ..lineTo(31, 25)
+      ..quadraticBezierTo(20, 28, 9, 25)
+      ..close();
+    canvas.drawShadow(crown, const Color(0xEE000000), 3, false);
+    canvas.drawPath(crown, Paint()..shader = LinearGradient(
+      begin: Alignment.topLeft, end: Alignment.bottomRight,
+      colors: [metal[0], metal[1], metal[2], metal[0]],
+      stops: const [0, .35, .72, 1],
+    ).createShader(const Rect.fromLTWH(6, 5, 28, 23)));
+    canvas.drawPath(crown, Paint()..style = PaintingStyle.stroke
+      ..strokeWidth = .8..color = metal[0]);
+    // Separate metal facets catch the light instead of a flat icon fill.
+    canvas.drawPath(Path()..moveTo(20, 6)..lineTo(20, 25)
+      ..lineTo(13, 16)..close(), Paint()..color = const Color(0x30FFFFFF));
+    canvas.drawPath(Path()..moveTo(27, 16)..lineTo(31, 25)
+      ..lineTo(21, 26)..close(), Paint()..color = const Color(0x42000000));
+    final band = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(8, 25, 24, 4), const Radius.circular(1.5));
+    canvas.drawRRect(band, Paint()..shader = LinearGradient(
+      colors: [metal[2], metal[0], metal[1]],
+    ).createShader(band.outerRect));
+    for (final point in const [Offset(6, 10), Offset(20, 4), Offset(34, 10)]) {
+      canvas.drawCircle(point, 2, Paint()..color = metal[2]);
+      canvas.drawCircle(point - const Offset(.4, .5), 1.5,
+        Paint()..color = metal[0]);
+    }
+    final gem = Path()..moveTo(20, 17)..lineTo(22, 20)
+      ..lineTo(20, 23)..lineTo(18, 20)..close();
+    canvas.drawPath(gem, Paint()..color = const Color(0xFF303843));
+    canvas.drawLine(const Offset(19, 20), const Offset(20, 18),
+      Paint()..color = const Color(0xBFFFFFFF)..strokeWidth = .7);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _PodiumCrown oldDelegate) =>
+      oldDelegate.metal[0] != metal[0];
+}
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -129,7 +225,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               : players.isEmpty ? _emptyState()
               : selectedTab == 3 ? _section('SON RAKİPLERİN', '', _buildRecentList())
               : Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(flex: 4, child: _section('ZİRVENİN SAHİPLERİ', 'İLK 3', _buildTop3())),
+                Expanded(flex: 4, child: _buildTop3()),
                 const SizedBox(width: 12),
                 Expanded(flex: 6, child: _section('OYUNCULAR', _scoreCaption, _buildList())),
               ])),
@@ -166,6 +262,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       child: Center(child: FittedBox(fit: BoxFit.contain,
         child: SizedBox(width: 330, height: 300,
           child: Stack(alignment: Alignment.bottomCenter, children: [
+            const Positioned.fill(child: CustomPaint(painter: _PodiumBackdrop())),
+            Positioned(left: 2, right: 2, bottom: 0, height: 28,
+              child: DecoratedBox(decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(100),
+                gradient: const LinearGradient(begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF5E5140), Color(0xFF1E232C), Color(0xFF080D13)]),
+                border: Border.all(color: const Color(0x667F775E)),
+                boxShadow: const [BoxShadow(color: Color(0x77000000),
+                  blurRadius: 12, offset: Offset(0, 6))],
+              ))),
             Positioned(left: 6, bottom: 0,
               child: _podiumBlock(p2, 2, 66, const Color(0xFFBBC7CF), 65)),
             Positioned(bottom: 0,
@@ -254,13 +361,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
                 ),
                 Positioned(
-                  top: isChampion ? -28 : -24,
+                  top: isChampion ? -33 : -28,
                   left: 0,
                   right: 0,
-                  child: Icon(
-                    Icons.emoji_events_rounded,
-                    size: isChampion ? 28 : 24,
-                    color: medal[0],
+                  child: Center(
+                    child: CustomPaint(
+                      size: Size(isChampion ? 40 : 34, isChampion ? 32 : 27),
+                      painter: _PodiumCrown(medal),
+                    ),
                   ),
                 ),
               ],
@@ -306,13 +414,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
           const SizedBox(height: 6),
           Container(
-            width: 60,
+            width: 76,
             height: height,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: LinearGradient(
-                colors: medal,
+                colors: [
+                  Color.lerp(medal[0], const Color(0xFF20252D), .4)!,
+                  const Color(0xFF151C24),
+                  Color.lerp(medal[2], const Color(0xFF0C1118), .65)!,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -321,13 +433,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ],
               border: Border.all(color: const Color(0x66FFF1C8), width: 0.8),
             ),
-            child: Text(
-              '$rank',
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+            child: Container(
+              width: 42, height: 42, alignment: Alignment.center,
+              decoration: BoxDecoration(shape: BoxShape.circle,
+                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [medal[0], medal[2]]),
+                border: Border.all(color: medal[0], width: 1.5),
+                boxShadow: const [BoxShadow(color: Color(0x88000000),
+                  blurRadius: 5, offset: Offset(0, 3))]),
+              child: Text('$rank', style: const TextStyle(fontSize: 25,
+                fontWeight: FontWeight.w800, color: Color(0xFF24222A))),
             ),
           ),
           const SizedBox(height: 6),
@@ -346,7 +461,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         final avatar = _avatarProvider(p['avatar_url']?.toString());
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: EdgeInsets.zero,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -358,9 +473,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: const Color(0x99262D36),
-                  border: Border.all(color: const Color(0x337E8581)),
+                  color: i.isEven ? const Color(0x12262D36) : Colors.transparent,
+                  border: const Border(bottom: BorderSide(color: Color(0x227E8581), width: .6)),
                 ),
                 child: Row(
                   children: [
@@ -370,7 +484,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF343B46),
+                        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          colors: [Color(0xFF5E5444), Color(0xFF202630)]),
+                        border: Border.fromBorderSide(BorderSide(color: Color(0x998D7956), width: .8)),
                       ),
                       child: Text(
                         '$rank',
@@ -382,8 +498,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ),
                     const SizedBox(width: 10),
                     Container(
+                      padding: const EdgeInsets.all(1.5),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xAAAD9871), width: .7),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFFE7C66A).withValues(alpha: .1),
@@ -392,7 +510,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: 17,
+                        radius: 20,
                         backgroundImage: avatar,
                         backgroundColor: Colors.grey[800],
                       ),
@@ -409,12 +527,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ),
                       ),
                     ),
-                    Text(
-                      _formatScore(p),
-                      style: const TextStyle(
-                        color: Color(0xFFE5C586),
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(9),
+                        gradient: const LinearGradient(begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF4F4635), Color(0xFF1D232C)]),
+                        border: Border.all(color: const Color(0x887E6C48), width: .7)),
+                      child: Text(_formatScore(p), style: const TextStyle(
+                        color: Color(0xFFFFE2A4), fontWeight: FontWeight.w800)),
                     ),
                   ],
                 ),
@@ -445,9 +567,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: const Color(0x99262D36),
-              border: Border.all(color: const Color(0x447E8581)),
+              color: const Color(0x12262D36),
+              border: const Border(bottom: BorderSide(color: Color(0x337E8581), width: .6)),
             ),
             child: Row(
               children: [

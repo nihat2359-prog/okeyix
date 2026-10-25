@@ -119,12 +119,18 @@ class _GameInviteDialogState extends State<GameInviteDialog> {
           final sending = id != null && _sending == id;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0x99262D36),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x337E8581))),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight,
+                colors: [Color(0x223C4048), Color(0x08262D36)]),
+              border: Border(bottom: BorderSide(color: Color(0x337F775E), width: .6))),
             child: Row(children: [
-              SizedBox(width: 32, height: 32, child: FittedBox(
-                child: widget.avatarBuilder(p['avatar_url']?.toString(), name))),
+              Container(width: 42, height: 42,
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(shape: BoxShape.circle,
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [Color(0xFFE4CE9C), Color(0xFF756341), Color(0xFFB1BAC3)]),
+                  boxShadow: [BoxShadow(color: Color(0x66000000), offset: Offset(0, 2), blurRadius: 4)]),
+                child: FittedBox(child: widget.avatarBuilder(p['avatar_url']?.toString(), name))),
               const SizedBox(width: 8),
               Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -138,19 +144,28 @@ class _GameInviteDialogState extends State<GameInviteDialog> {
                       style: const TextStyle(color: Color(0xFFA8AFBA), fontSize: 10))),
                 ])),
               const SizedBox(width: 6),
-              SizedBox(width: 52, height: 44, child: TextButton(
+              SizedBox(width: 52, height: 44, child: DecoratedBox(
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(13),
+                  gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [Color(0xFFEED9A7), Color(0xFFB89A61), Color(0xFF826A42)]),
+                  border: Border.all(color: const Color(0x99F6E3B9), width: .7),
+                  boxShadow: const [BoxShadow(color: Color(0x66000000),
+                    blurRadius: 4, offset: Offset(0, 3))]),
+                child: TextButton(
                 key: ValueKey('invite-player-$id'),
                 onPressed: _sending != null || id == null ? null : () => _invite(p),
                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4),
-                  foregroundColor: const Color(0xFFF0D298),
-                  disabledForegroundColor: Colors.white38,
-                  backgroundColor: const Color(0x66363B44),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))),
+                  foregroundColor: const Color(0xFF211F24),
+                  disabledForegroundColor: const Color(0xFF211F24),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
                 child: sending ? const SizedBox(width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFE5C586)))
-                  : const FittedBox(child: Text('Davet', style: TextStyle(fontSize: 11,
-                    fontWeight: FontWeight.w700))),
-              )),
+                  child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF211F24)))
+                  : const FittedBox(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.person_add_alt_1_rounded, size: 17),
+                      SizedBox(height: 1),
+                      Text('Davet', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                    ])),
+              ))),
             ]),
           );
         },
