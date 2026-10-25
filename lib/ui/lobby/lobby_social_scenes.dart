@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/message_contacts.dart';
+import 'package:okeyix/core/format.dart';
 
 const _gold = Color(0xFFE4C98D);
 typedef FriendAvatarBuilder = Widget Function(Map<String, dynamic> friend);
@@ -95,21 +96,31 @@ class LobbyFriendsScene extends StatelessWidget {
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               )
-            : ListView.separated(
+            : GridView.builder(
                 padding: EdgeInsets.zero,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 4,
+                  mainAxisExtent: 84 + 42 *
+                      (MediaQuery.textScalerOf(context).scale(12) / 12 - 1).clamp(0, 2),
+                ),
                 itemCount: friends.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(color: Color(0x147F8D9D), height: 1),
                 itemBuilder: (context, index) {
                   final friend = friends[index];
                   return InkWell(
                     key: ValueKey('social-friend-${friend['id']}'),
                     borderRadius: BorderRadius.circular(10),
                     onTap: () => onProfile(friend),
-                    child: Padding(
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        color: const Color(0x182F3946),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0x227F8D9D), width: .6),
+                      ),
                       padding: const EdgeInsets.symmetric(
                         vertical: 10,
-                        horizontal: 3,
+                        horizontal: 8,
                       ),
                       child: Row(
                         children: [
@@ -117,6 +128,7 @@ class LobbyFriendsScene extends StatelessWidget {
                           const SizedBox(width: 9),
                           Expanded(
                             child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
@@ -127,6 +139,16 @@ class LobbyFriendsScene extends StatelessWidget {
                                     color: Color(0xFFE5E9E6),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Seviye ${friend['rating'] is num ? Format.rating((friend['rating'] as num).toInt()) : '—'} · ${friend['coins'] is num ? Format.coin(friend['coins'] as num) : '—'} Coin',
+                                    maxLines: 1,
+                                    style: const TextStyle(color: _gold, fontSize: 11),
                                   ),
                                 ),
                                 const SizedBox(height: 2),

@@ -33,14 +33,16 @@ Future<void> scene(
           'id': '$i',
           'username': 'Oyuncu $i',
           'is_online': i.isEven,
+          'rating': 12500,
+          'coins': 1500000,
           'table_id': i == 0 ? 'table' : null,
           'table_spectators_enabled': true,
         },
   ];
-  Widget avatar(Map<String, dynamic> f) => const CircleAvatar(
-    radius: 14,
-    backgroundColor: Color(0xFF6D5B38),
-    child: Icon(Icons.person_outline, size: 18, color: Color(0xFFEAD6A5)),
+  Widget avatar(Map<String, dynamic> f) => CircleAvatar(
+    radius: messages ? 14 : 22,
+    backgroundColor: const Color(0xFF6D5B38),
+    child: Icon(Icons.person_outline, size: messages ? 18 : 26, color: const Color(0xFFEAD6A5)),
   );
   var open = true;
   var active = empty ? null : '0';
@@ -78,9 +80,9 @@ Future<void> scene(
                   LobbyRightPanel(
                     open: open,
                     onClose: close,
-                    widthFactor: messages ? .62 : .44,
-                    minWidth: messages ? 350 : 280,
-                    maxWidth: messages ? 500 : 350,
+                    widthFactor: messages ? .62 : .80,
+                    minWidth: messages ? 350 : 480,
+                    maxWidth: messages ? 500 : 760,
                     panelContent: messages
                         ? LobbyMessagesScene(
                             friends: friends,
@@ -174,7 +176,7 @@ void main() {
           );
           expect(rect.right, lessThanOrEqualTo(size.width - 24));
           // Container bounds include its eight-pixel outer margin.
-          expect(rect.width, lessThanOrEqualTo(508));
+          expect(rect.width, lessThanOrEqualTo(mode == 'friends' ? 768 : 508));
           expect(rect.left, greaterThan(44));
           expect(rect.bottom, lessThanOrEqualTo(size.height - keyboard));
           expect(
@@ -191,6 +193,12 @@ void main() {
               findsOneWidget,
             );
           }
+          if (mode == 'friends') {
+            final first = tester.getRect(find.byKey(const ValueKey('social-friend-0')));
+            final second = tester.getRect(find.byKey(const ValueKey('social-friend-1')));
+            expect(first.top, second.top);
+            expect(second.left, greaterThan(first.right));
+          }
           expect(find.byType(BackdropFilter), findsNothing);
           expect(tester.takeException(), isNull);
         });
@@ -202,6 +210,7 @@ void main() {
     (tester) async {
       final calls = <String>[];
       await scene(tester, sizes[2], 1, calls);
+      expect(find.text('Seviye 12.5 · 1.5 M Coin'), findsWidgets);
       await tester.tap(find.text('Oyuncu 0'));
       await tester.tap(find.byTooltip('Masayı izle'));
       await tester.tap(find.byTooltip('Mesaj yaz').first);

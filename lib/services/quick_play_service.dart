@@ -84,7 +84,9 @@ class QuickPlayController extends ChangeNotifier {
         phase = QuickPlayPhase.cancelled;
         return;
       }
-      message = text.contains('NOT_ENOUGH_COINS')
+      message = text.contains('HUMAN_ONLY_LEAGUE')
+          ? 'Ustalar ve Şampiyonlar liglerinde botla oynanmaz. Gerçek bir oyuncunun masasına katılabilir veya masa açabilirsin.'
+          : text.contains('NOT_ENOUGH_COINS')
           ? 'Liginin en düşük giriş bedeli için yeterli coinin yok.'
           : text.contains('NO_BOT_AVAILABLE')
           ? 'Şu anda uygun açık masa veya bot yok. Biraz sonra tekrar dene.'

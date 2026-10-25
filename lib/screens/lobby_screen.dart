@@ -2488,6 +2488,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       /// USERS
       final usersById = <String, Map<String, dynamic>>{};
       final profileRatingById = <String, int>{};
+      final profileCoinsById = <String, int>{};
       final profileOnlineById = <String, bool>{};
       final profileLastSeenById = <String, DateTime?>{};
       if (counterpartIds.isNotEmpty) {
@@ -2497,7 +2498,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             .inFilter('id', counterpartIds.toList());
         final profileRows = await supabase
             .from('profiles')
-            .select('id,rating,is_online,last_seen_at')
+            .select('id,rating,coins,is_online,last_seen_at')
             .inFilter('id', counterpartIds.toList());
 
         for (final raw in (userRows as List)) {
@@ -2510,6 +2511,8 @@ class _LobbyScreenState extends State<LobbyScreen>
           final id = row['id']?.toString();
           if (id == null || id.isEmpty) continue;
           profileRatingById[id] = (row['rating'] as int?) ?? 1200;
+          final coins = (row['coins'] as num?)?.toInt();
+          if (coins != null) profileCoinsById[id] = coins;
           final lastSeenRaw = row['last_seen_at']?.toString();
           final serverOnline = (row['is_online'] as bool?) ?? false;
           profileOnlineById[id] = PresenceService.effectiveOnline(
@@ -2573,6 +2576,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               : user!['username'],
           'avatar_url': user?['avatar_url'],
           'rating': profileRatingById[friendId] ?? 1200,
+          'coins': profileCoinsById[friendId],
           'is_online': profileOnlineById[friendId] ?? false,
           'last_seen_at': profileLastSeenById[friendId],
           'blocked': blockedIds.contains(friendId),
@@ -3173,23 +3177,23 @@ class _LobbyScreenState extends State<LobbyScreen>
       open: _rightPanelType != _RightPanelType.none,
       onClose: _closeRightPanel,
       panelContent: _rightPanelContent(),
-      widthFactor: isMessagesPanel ? 0.62 : 0.44,
-      minWidth: isMessagesPanel ? 350 : 280,
-      maxWidth: isMessagesPanel ? 500 : 350,
+      widthFactor: isMessagesPanel ? 0.62 : 0.80,
+      minWidth: isMessagesPanel ? 350 : 480,
+      maxWidth: isMessagesPanel ? 500 : 760,
     );
   }
 
-  Widget _socialAvatar(Map<String, dynamic> friend) => _statusAvatar(
+  Widget _socialAvatar(Map<String, dynamic> friend, {double radius = 14}) => _statusAvatar(
     username: friend['username']?.toString() ?? 'Oyuncu',
     avatarUrl: friend['avatar_url']?.toString(),
     isOnline: friend['is_online'] == true,
-    size: 14,
+    size: radius,
     blocked: UserState.blockedUserIds.contains(friend['id']),
   );
 
   Widget _friendsPanel() => LobbyFriendsScene(
     friends: _friends,
-    avatarBuilder: _socialAvatar,
+    avatarBuilder: (friend) => _socialAvatar(friend, radius: 22),
     statusText: (friend) => friend['table_id'] != null
       ? (friend['table_role'] == 'spectator' ? 'Masayı izliyor' : 'Masada oynuyor')
       : friend['is_online'] == true
@@ -4729,7 +4733,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         ),
         const SizedBox(width: 2),
         LobbyDockAction(
-          label: 'Arkadaşlarım',
+          label: 'Arkadaşlar',
           emblem: LobbyDockEmblemKind.social,
           onTap: () => _openRightPanel(_RightPanelType.friends),
         ),

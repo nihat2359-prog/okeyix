@@ -2,6 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/core/table_invite_policy.dart';
 
 void main() {
+  test('Masters and Champions exclude bots while lower leagues keep invitations', () {
+    expect(leagueAllowsBotPlayers('elite'), isFalse);
+    expect(leagueAllowsBotPlayers('gold'), isFalse);
+    expect(leagueAllowsBotPlayers(null), isFalse);
+    for (final league in ['standard', 'bronze', 'silver']) {
+      expect(leagueAllowsBotPlayers(league), isTrue);
+    }
+  });
   final now = DateTime.utc(2026, 10, 22, 12);
   Map<String, dynamic> invite(Duration age, {String status = 'pending'}) => {
     'created_at': now.subtract(age).toIso8601String(), 'status': status,

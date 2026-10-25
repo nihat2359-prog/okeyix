@@ -24,6 +24,17 @@ const ready = <String, dynamic>{
   'bot': false,
 };
 void main() {
+  test('human-only league rejection explains the available human-table options', () async {
+    final backend = FakeBackend()
+      ..responses.add(Future.error(StateError('HUMAN_ONLY_LEAGUE')));
+    final flow = QuickPlayController(backend);
+    await flow.start();
+    expect(flow.phase, QuickPlayPhase.error);
+    expect(flow.message, contains('Ustalar ve Şampiyonlar'));
+    expect(flow.message, contains('masa açabilirsin'));
+    expect(flow.result, isNull);
+    flow.dispose();
+  });
   testWidgets(
     'double activation performs one scan and immediately joins the human table',
     (tester) async {

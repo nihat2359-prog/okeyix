@@ -1,4 +1,5 @@
 import 'package:okeyix/ui/spectator_finish_notice.dart';
+import 'package:okeyix/services/table_chat_sync.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -55,9 +56,13 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   bool chatOpen = false;
   final TextEditingController chatController = TextEditingController();
   List messages = [];
+  late final TableChatSync _chatSync;
+  bool _chatReady = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Map<String, String> _avatarChatByUserId = {};
   final Map<String, Timer> _avatarChatTimers = {};
+  final Map<String, Map<String, dynamic>> _chatSenders = {};
+  int _spectatorNoticeSequence = 0;
   DateTime? _lastFinishAt;
   bool _showFinishOverlay = false;
   String _finishWinnerName = 'Oyuncu';
@@ -174,6 +179,19 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   @override
   void initState() {
     super.initState();
+    _chatSync = TableChatSync(
+      loadRecent: () async {
+        final since = _chatSync.latestMessageAt
+            ?.subtract(const Duration(seconds: 2)) ?? _watchStartedAt;
+        final rows = await supabase.from('table_messages').select()
+            .eq('table_id', widget.tableId)
+            .gte('created_at', since.toUtc().toIso8601String())
+            .order('created_at', ascending: false).limit(200)
+            .timeout(const Duration(seconds: 5));
+        return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+      },
+      onMessage: _receiveChatMessage,
+    );
 
     game = SpectatorGame(
       tableId: widget.tableId,
@@ -190,6 +208,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     _safetyTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       unawaited(_refreshTurnState());
       unawaited(_refreshLiveDetails());
+      unawaited(_recoverChatMessages());
     });
   }
 
@@ -263,7 +282,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     final previousSeat = _currentTurnSeat;
     try {
       final row = await supabase.from('tables')
-          .select('status,current_turn,turn_started_at,turn_seconds,chat_enabled,last_finish_at,last_winner_user_id')
+          .select('status,current_turn,turn_started_at,turn_seconds,chat_enabled,pot_amount,last_finish_at,last_winner_user_id')
           .eq('id', widget.tableId).maybeSingle();
       if (!mounted || row == null) return;
       _observeTableFinish(row);
@@ -421,7 +440,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
     if (!mounted) return;
 
-    spectatorChannel?.unsubscribe();
+    _chatSync.seed(m.map((row) => Map<String, dynamic>.from(row as Map)));
+    final previousChannel = spectatorChannel;
+    if (previousChannel != null) await supabase.removeChannel(previousChannel);
+    if (!mounted) return;
     final channel = supabase.channel('spectators:${widget.tableId}');
     spectatorChannel = channel;
 
@@ -472,30 +494,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             column: 'table_id',
             value: widget.tableId,
           ),
-          callback: (payload) async {
+          callback: (payload) {
             if (!mounted) return;
-            final msg = Map<String, dynamic>.from(payload.newRecord);
-            final senderId = msg['sender_id']?.toString();
-            if (senderId != null) {
-              try {
-              final u = await supabase
-                  .from('users')
-                  .select('username')
-                  .eq('id', senderId)
-                  .maybeSingle();
-              if (u != null) {
-                msg['users'] = {'username': u['username'] ?? 'Oyuncu'};
-              }
-              } catch (_) {
-                // Deliver the message even if sender enrichment is unavailable.
-              }
-            }
-            if (!mounted) return;
-            setState(() {
-              _appendIncomingMessage(msg);
-            });
-            _handleIncomingMessageEffects(msg);
-            _scrollToBottom();
+            _chatSync.receive(Map<String, dynamic>.from(payload.newRecord));
           },
         )
         .onPostgresChanges(
@@ -537,7 +538,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
           callback: (_) => unawaited(_refreshScoreMembers()),
         )
         .subscribe((status, err) {
-          if (mounted && status==RealtimeSubscribeStatus.subscribed) unawaited(_refreshScoreMembers());
+          if (mounted && status==RealtimeSubscribeStatus.subscribed) {
+            unawaited(_refreshScoreMembers());
+            unawaited(_recoverChatMessages());
+          }
           if (err != null) {
             print("SPECTATOR ERROR: $err");
           }
@@ -547,7 +551,10 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       table = t;
       players = p;
       spectators = s.length;
-      messages = _sortMessages(m as List);
+      for (final message in m) {
+        _appendIncomingMessage(Map<String, dynamic>.from(message as Map));
+      }
+      _chatReady = true;
       _tableChatEnabled = tableChatEnabled;
       _turnStartedAt = turnStartedAt;
       _turnSeconds = turnSeconds;
@@ -555,6 +562,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       if (!_tableChatEnabled) chatOpen = false;
     });
     unawaited(_refreshPlayerScores());
+    unawaited(_recoverChatMessages());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _scrollToBottom();
@@ -705,8 +713,8 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                       ),
                       const SizedBox(width: 9),
                       _headerChip(
-                        icon: Icons.soup_kitchen_rounded,
-                        text: Format.coin((table!['pot_amount'] as int?) ?? 0),
+                        icon: Icons.rice_bowl_rounded,
+                        text: Format.coin((table!['pot_amount'] as num?)?.toInt() ?? 0),
                       ),
                       const SizedBox(width: 9),
                       _headerChip(
@@ -771,13 +779,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
-                      .isNotEmpty) ...[
-                    _buildAvatarBubble(
-                      _avatarChatByUserId[top['user_id']?.toString()]!,
-                    ),
-                    const SizedBox(height: 4),
-                  ],
                   _buildTurnAvatar(
                     seatIndex: 1,
                     userId: top['user_id']?.toString(),
@@ -785,6 +786,13 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                     avatarKey: topAvatarKey,
                     giftBoundsKey: topGiftBoundsKey,
                   ),
+                  if ((_avatarChatByUserId[top['user_id']?.toString()] ?? '')
+                      .isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    _buildAvatarBubble(
+                      _avatarChatByUserId[top['user_id']?.toString()]!,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -834,6 +842,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                   setState(() {
                     chatOpen = !chatOpen;
                   });
+                  if (chatOpen) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted || !chatOpen || !_chatScrollController.hasClients) return;
+                      _chatScrollController.jumpTo(
+                        _chatScrollController.position.maxScrollExtent,
+                      );
+                    });
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -1375,17 +1391,23 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xEE223A32), Color(0xEE162720)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xF02A3039), Color(0xF010151D)],
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x99E3BB62)),
+        border: Border.all(color: const Color(0x668F8062), width: .8),
+        boxShadow: const [
+          BoxShadow(color: Color(0x55000000), blurRadius: 12,
+            offset: Offset(0, 4)),
+        ],
       ),
       child: Text(
         '$name: $text',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          color: Color(0xFFEAF3EE),
+          color: Color(0xFFF0E9DA),
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
@@ -1398,6 +1420,69 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   bool _isPlayerSender(String? senderId) {
     if (senderId == null) return false;
     return players.any((p) => p['user_id']?.toString() == senderId);
+  }
+
+  Future<void> _recoverChatMessages() async {
+    if (!mounted || !_chatReady) return;
+    try {
+      await _chatSync.refresh();
+    } catch (error) {
+      debugPrint('SPECTATOR CHAT RECOVERY ERROR: $error');
+    }
+  }
+
+  void _receiveChatMessage(Map<String, dynamic> msg) {
+    if (!mounted) return;
+    final senderId = msg['sender_id']?.toString();
+    for (final player in players) {
+      if (player['user_id']?.toString() == senderId) {
+        msg['users'] = player['users'];
+        break;
+      }
+    }
+    msg['users'] ??= _chatSenders[senderId];
+    setState(() => _appendIncomingMessage(msg));
+    unawaited(_deliverChatEffects(msg));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToBottom();
+    });
+    if (senderId != null && msg['users'] == null && msg['role'] != 'spectator') {
+      unawaited(_enrichMessageSender(msg));
+    }
+  }
+
+  Future<void> _deliverChatEffects(Map<String, dynamic> msg) async {
+    if (msg['role'] == 'spectator' &&
+        msg['sender_id']?.toString() != supabase.auth.currentUser?.id) {
+      final sequence = ++_spectatorNoticeSequence;
+      final existingName = msg['users']?['username']?.toString().trim() ?? '';
+      if (existingName.isEmpty) await _enrichMessageSender(msg);
+      if (!mounted || sequence != _spectatorNoticeSequence) return;
+      // Open the notice with its final identity, never a temporary role label.
+      if ((msg['users']?['username']?.toString().trim() ?? '').isEmpty) return;
+    }
+    _handleIncomingMessageEffects(msg);
+  }
+
+  Future<void> _enrichMessageSender(Map<String, dynamic> msg) async {
+    try {
+      final user = await supabase.from('users').select('username')
+          .eq('id', msg['sender_id']).maybeSingle()
+          .timeout(const Duration(seconds: 5));
+      if (!mounted || user == null) return;
+      setState(() {
+        _chatSenders[msg['sender_id'].toString()] = Map<String, dynamic>.from(user);
+        msg['users'] = user;
+        for (final existing in messages) {
+          if (existing['id'] == msg['id']) existing['users'] = user;
+        }
+        if (_lastIncomingMessage?['id'] == msg['id']) {
+          _lastIncomingMessage!['users'] = user;
+        }
+      });
+    } catch (_) {
+      // Keep the message in the list if sender metadata is unavailable.
+    }
   }
 
   void _handleIncomingMessageEffects(Map<String, dynamic> msg) {
@@ -1746,6 +1831,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   @override
   void dispose() {
+    _chatSync.dispose();
     _liveDetailsRefresh.dispose();
     _finishOverlayTimer?.cancel();
     _scoresRefresh.dispose();

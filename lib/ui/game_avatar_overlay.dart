@@ -13,6 +13,7 @@ import 'avatar_card.dart';
 import 'avatar_preset.dart';
 import 'table_gift_layer.dart';
 import 'bot_badge.dart';
+import 'package:okeyix/core/table_invite_policy.dart';
 
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
@@ -918,6 +919,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       );
 
       final list = List<Map<String, dynamic>>.from(res ?? []);
+      if (!leagueAllowsBotPlayers(leagueId)) {
+        list.removeWhere((player) => player['is_bot'] == true);
+      }
 
       final ids = list
           .map((e) => e['id']?.toString())
@@ -1066,6 +1070,14 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   Future<void> _sendInvite({required String userId, bool isBot = false}) async {
     final myUserId = _myUserId;
     if (myUserId == null) return;
+    if (isBot && !leagueAllowsBotPlayers(_leagueId)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Ustalar ve Şampiyonlar liglerinde yalnızca gerçek oyuncularla oynanır.'),
+        ));
+      }
+      return;
+    }
     try {
       if (isBot) {
         final seatRows = await _supabase
