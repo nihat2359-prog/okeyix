@@ -157,7 +157,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
         paint: Paint()
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20)
           ..color = Colors.amber.withOpacity(0.4),
-      ),
+      )..priority = -1,
     );
 
     add(t);

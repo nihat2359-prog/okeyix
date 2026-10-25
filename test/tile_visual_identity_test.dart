@@ -81,6 +81,58 @@ Future<void> settle(WidgetTester tester, VisualGame game) async {
 }
 
 void main() {
+  testWidgets('preview cleanup preserves an automatic discard animation', (tester) async {
+    final game = await mount(tester);
+    game.debugSyncVisualHand(List.generate(14, (i) => payload('discard-preview-$i')), initial: true);
+    await settle(tester, game);
+    final tile = game.tileComponentMap['discard-preview-0']!;
+    var completed = false;
+    final target = Vector2(350, 150);
+    tile.isLocked = true;
+    tile.add(MoveEffect.to(target, EffectController(duration: 0.18),
+      onComplete: () => completed = true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    game.isTempShiftActive = true;
+    game.clearTemporaryShift();
+    game.moveTileSmooth(tile, game.slotPositions[tile.currentSlotIndex!]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(completed, isTrue);
+    expect(tile.position.distanceTo(target), lessThan(0.001));
+  });
+
+  testWidgets('preview reset before the next frame cannot restart rack motion', (tester) async {
+    final game = await mount(tester);
+    game.debugSyncVisualHand(List.generate(14, (i) => payload('queued-$i')), initial: true);
+    await settle(tester, game);
+    final tile = game.tileComponentMap['queued-0']!;
+    final slot = tile.currentSlotIndex!;
+    // Preview and drop can happen before Flame mounts an added effect.
+    game.moveTileSmooth(tile, game.slotPositions[slot] + Vector2(40, -15));
+    game.isTempShiftActive = true;
+    game.clearTemporaryShift();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tile.position.distanceTo(game.slotPositions[slot]), lessThan(0.001));
+  });
+
+  testWidgets('rapid rack retargeting finishes exactly at the latest slot', (tester) async {
+    final game = await mount(tester);
+    final tile = visual('retarget');
+    game.world.add(tile);
+    await settle(tester, game);
+    game.moveTileSmooth(tile, Vector2(200, 300));
+    await tester.pump(const Duration(milliseconds: 40));
+    game.moveTileSmooth(tile, Vector2(350, 300));
+    game.moveTileSmooth(tile, Vector2(250, 300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tile.position.distanceTo(Vector2(250, 300)), lessThan(0.001));
+  });
+
   testWidgets('pending closed draw has a neutral face rather than an okey back', (tester) async {
     final game = await mount(tester);
     final pending = visual('__closed_draw_preview__', joker: true);

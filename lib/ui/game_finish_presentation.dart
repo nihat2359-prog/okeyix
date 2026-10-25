@@ -151,11 +151,6 @@ class _GameFinishPresentationState extends State<GameFinishPresentation>
                                       ),
                                     ),
                                     const SizedBox(width: 18),
-                                    Container(
-                                      width: 1,
-                                      height: 24,
-                                      color: gold.withValues(alpha: .35),
-                                    ),
                                     const SizedBox(width: 16),
                                     if (win)
                                       const Padding(
@@ -180,20 +175,6 @@ class _GameFinishPresentationState extends State<GameFinishPresentation>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  width: 160,
-                                  height: 1,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        gold.withValues(alpha: .6),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -206,34 +187,48 @@ class _GameFinishPresentationState extends State<GameFinishPresentation>
                     child: Padding(
                       padding: EdgeInsets.only(bottom: compact ? 8 : 18),
                       child: SizedBox(
-                        width: math.min(218, bounds.maxWidth * .55),
-                        height: 46,
+                        width: math.min(236, bounds.maxWidth * .55),
+                        height: 48,
                         child: Material(
                           color: Colors.transparent,
                           child: Ink(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(23),
+                              borderRadius: BorderRadius.circular(14),
                               gradient: const LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Color(0xE52C333B), Color(0xED10171E)],
+                                stops: [0, .12, .52, 1],
+                                colors: [
+                                  Color(0xFF3D5045),
+                                  Color(0xF5253C32),
+                                  Color(0xF5162A23),
+                                  Color(0xFF0C1915),
+                                ],
                               ),
                               border: Border.all(
-                                color: const Color(0x99D7BA7B),
-                                width: .8,
+                                color: const Color(0xD9CBA65E),
+                                width: 1.1,
                               ),
                               boxShadow: const [
                                 BoxShadow(
-                                  color: Color(0x55000000),
-                                  offset: Offset(0, 3),
-                                  blurRadius: 5,
+                                  color: Color(0xAA000000),
+                                  offset: Offset(0, 4),
+                                  blurRadius: 9,
+                                ),
+                                BoxShadow(
+                                  color: Color(0x294D3B19),
+                                  offset: Offset(0, 1),
+                                  blurRadius: 2,
+                                  spreadRadius: 1,
                                 ),
                               ],
                             ),
                             child: InkWell(
                               key: const ValueKey('finish-leave'),
                               onTap: widget.leaving ? null : widget.onLeave,
-                              borderRadius: BorderRadius.circular(23),
+                              borderRadius: BorderRadius.circular(14),
+                              splashColor: const Color(0x33E0BD76),
+                              highlightColor: const Color(0x18E0BD76),
                               child: Center(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -244,21 +239,33 @@ class _GameFinishPresentationState extends State<GameFinishPresentation>
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
-                                          widget.leaving
-                                              ? Icons.hourglass_top_rounded
-                                              : Icons.logout_rounded,
-                                          color: const Color(0xFFE2C68C),
-                                          size: 16,
+                                        Container(
+                                          padding: const EdgeInsets.all(7),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(9),
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [Color(0xFFF3D89A), Color(0xFFB58A43)],
+                                            ),
+                                            border: Border.all(color: const Color(0xFFFFE8AE), width: .6),
+                                          ),
+                                          child: Icon(
+                                            widget.leaving
+                                                ? Icons.hourglass_top_rounded
+                                                : Icons.logout_rounded,
+                                            color: const Color(0xFF26362B),
+                                            size: 17,
+                                          ),
                                         ),
-                                        const SizedBox(width: 9),
+                                        const SizedBox(width: 12),
                                         Text(
                                           widget.leaving
                                               ? 'Ayrılıyor...'
                                               : 'Masadan Ayrıl',
                                           style: const TextStyle(
                                             color: Color(0xFFF3E5C5),
-                                            fontSize: 13,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.w700,
                                             letterSpacing: .3,
                                           ),

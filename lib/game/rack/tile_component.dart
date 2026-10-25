@@ -81,6 +81,37 @@ class TileComponent extends PositionComponent
   Vector2? dragOffset;
   Vector2 originalPosition = Vector2.zero();
   Vector2? currentTarget;
+  Vector2? _rackMoveStart;
+  double _rackMoveElapsed = 0;
+
+  void stopRackMotion() {
+    _rackMoveStart = null;
+  }
+
+  void moveOnRack(Vector2 target) {
+    if (isLocked) return;
+    currentTarget = target.clone();
+    _rackMoveStart = position.clone();
+    _rackMoveElapsed = 0;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    final start = _rackMoveStart;
+    final target = currentTarget;
+    if (start == null || target == null) return;
+    _rackMoveElapsed += dt;
+    final progress = (_rackMoveElapsed / 0.16).clamp(0.0, 1.0);
+    if (progress >= 1) {
+      position.setFrom(target);
+      stopRackMotion();
+    } else {
+      position.setFrom(
+        start + (target - start) * Curves.easeOutBack.transform(progress),
+      );
+    }
+  }
   int? currentSlotIndex;
   int? originalSlotIndex;
   bool isLocked = false;
@@ -368,6 +399,7 @@ class TileComponent extends PositionComponent
 
   void playInvalidFinishHighlight() {
     if (!isMounted) return;
+    stopRackMotion();
     final startPos = position.clone();
     final startScale = scale.clone();
     final startPriority = priority;
@@ -490,6 +522,7 @@ class TileComponent extends PositionComponent
     final gameRef = _tryGame();
     if (gameRef == null) return;
 
+    stopRackMotion();
     if (gameRef.isGroupDragAnchor(this)) {
       priority = 100;
       gameRef.startActiveGroupDrag(this);
@@ -638,6 +671,7 @@ class TileComponent extends PositionComponent
   }
 
   void _restoreToOriginalSlot() {
+    stopRackMotion();
     children.whereType<MoveEffect>().toList().forEach((e) => e.removeFromParent());
     final slot = originalSlotIndex;
     if (slot != null) {

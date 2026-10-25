@@ -84,7 +84,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   DateTime? _readySince;
   DateTime? _lastFinishAt;
-  bool _finishFxBaselineSeeded = false;
 
   int? _mySeatIndex;
   String? _myUserId;
@@ -95,8 +94,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   List<Map<String, dynamic>> _chatMessages = [];
   List<Map<String, dynamic>> _discardRows = [];
 
-  bool _showFinishFx = false;
-  String _finishFxText = '';
   Map<String, dynamic>? _lastIncomingMessage;
   OverlayEntry? _quickChatOverlay;
   bool _showMessageBanner = false;
@@ -1257,13 +1254,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
       final status = row['status']?.toString() ?? 'waiting';
       final maxPlayers = (row['max_players'] as int?) ?? 2;
-      final winner = row['last_winner_user_id']?.toString();
       final readySince = _parseServerTime(row['ready_since']);
       final finishAt = _parseServerTime(row['last_finish_at']);
       final chatEnabled = (row['chat_enabled'] as bool?) ?? true;
       final spectatorsEnabled = (row['spectators_enabled'] as bool?) ?? true;
 
-      final prevFinishAt = _lastFinishAt;
       _tableStatus = status;
       _maxPlayers = maxPlayers;
       _lastFinishAt = finishAt;
@@ -1285,17 +1280,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
         _showEmojiPicker = false;
       }
 
-      final shouldShowFinishFx =
-          _finishFxBaselineSeeded &&
-          finishAt != null &&
-          (prevFinishAt == null || finishAt.isAfter(prevFinishAt));
-      if (shouldShowFinishFx) {
-        final winnerName = winner == null
-            ? 'Kazanan belli deÄŸil'
-            : (_userNames[winner] ?? 'Bir oyuncu');
-        _showFinishMessage("$winnerName kazandı");
-      }
-      _finishFxBaselineSeeded = true;
 
       if (mounted) setState(() {});
     } catch (e) {
@@ -1843,15 +1827,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     } catch (_) {}
   }
 
-  void _showFinishMessage(String text) {
-    _finishFxText = text;
-    _showFinishFx = true;
-    if (mounted) setState(() {});
-    Timer(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      setState(() => _showFinishFx = false);
-    });
-  }
 
   DateTime? _parseServerTime(dynamic raw) {
     if (raw == null) return null;
@@ -2016,42 +1991,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                           : const SizedBox.shrink(),
                     ),
                     if (!finishOverlayOpen && _menuOpen) _buildMenuPanel(),
-                    if (_showFinishFx) _buildFinishFx(),
                     if (_showIndicatorRewardFx) _buildIndicatorRewardFx(),
-                    if (!finishOverlayOpen)
-                      Positioned(
-                        top: 56,
-                        left: 0,
-                        right: 0,
-                        child: IgnorePointer(
-                          child: ValueListenableBuilder<bool>(
-                            valueListenable: _turnNoticeVisible,
-                            builder: (_, visible, _) => visible
-                                ? Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 18, vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xED15221F),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: const Color(0x99C9A86C)),
-                                      ),
-                                      child: const Text(
-                                        'Sıra sende',
-                                        style: TextStyle(
-                                          color: Color(0xFFFFE4AA),
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        ),
-                      ),
-
                     if (!finishOverlayOpen && _visibleSpectators.isNotEmpty)
                       Positioned(top: 89, right: 8, child: _spectatorStrip()),
                     if (!finishOverlayOpen &&
@@ -3661,38 +3601,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                       ),
                     ),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFinishFx() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Container(
-          color: const Color(0x55000000),
-          alignment: Alignment.center,
-          child: AnimatedScale(
-            duration: const Duration(milliseconds: 250),
-            scale: _showFinishFx ? 1 : 0.95,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFD4AF37), Color(0xFFFFE08A)],
-                ),
-              ),
-              child: Text(
-                _finishFxText,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                ),
               ),
             ),
           ),

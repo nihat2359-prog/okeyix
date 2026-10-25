@@ -378,8 +378,9 @@ class _StartButtonState extends State<_StartButton> {
         onPressed: widget.enabled ? widget.onPressed : null,
         style: TextButton.styleFrom(
           foregroundColor: const Color(0xFFEADAB5),
+          disabledForegroundColor: const Color(0xFFEADAB5),
           backgroundColor: const Color(0x9920322C),
-          disabledBackgroundColor: const Color(0x6620322C),
+          disabledBackgroundColor: const Color(0x9920322C),
           side: const BorderSide(color: Color(0x887F9A7E)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -398,7 +399,7 @@ class _StartButtonState extends State<_StartButton> {
                 const SizedBox(width: 8),
               ],
               Text(
-                widget.loading ? 'Bağlanıyor...' : widget.label,
+                widget.label,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

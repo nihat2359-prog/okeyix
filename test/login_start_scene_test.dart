@@ -194,6 +194,13 @@ void main() {
           isNull,
         );
       }
+      final guestButton = find.byKey(const ValueKey('login-guest'));
+      expect(find.descendant(of: guestButton,
+        matching: find.text('Misafir olarak devam et')), findsOneWidget);
+      if (provider != 'guest') {
+        expect(find.descendant(of: guestButton,
+          matching: find.byType(CircularProgressIndicator)), findsNothing);
+      }
       expect(calls, [provider]);
       pending.complete();
       await tester.pumpAndSettle();
