@@ -652,7 +652,7 @@ class TileComponent extends PositionComponent
       final index = gameRef.getNearestSlotIndex(position);
 
       if (index != null) {
-        gameRef.insertIntoRow(index, this);
+        gameRef.insertIntoRow(index, this, playSound: false);
         if (currentSlotIndex == null) {
           _restoreToOriginalSlot();
         }

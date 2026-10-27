@@ -5330,7 +5330,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     moveTileSmooth(tile, slotPositions[slot]);
   }
 
-  void insertIntoRow(int targetIndex, TileComponent tile) {
+  void insertIntoRow(int targetIndex, TileComponent tile, {bool playSound = true}) {
     _rebuildOccupiedSlots();
     occupiedSlots.removeWhere((_, occupant) => identical(occupant, tile));
     tile.currentSlotIndex = null;
@@ -5343,7 +5343,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     if (!occupiedSlots.containsKey(targetIndex)) {
       _assignRackSlot(tile, targetIndex);
-      _emitTileSfx();
+      if (playSound) _emitTileSfx();
       return;
     }
 
@@ -5356,7 +5356,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         if (moving != null) _assignRackSlot(moving, slot);
       }
       _assignRackSlot(tile, targetIndex);
-      _emitTileSfx();
+      if (playSound) _emitTileSfx();
       return;
     }
     for (var empty = targetIndex - 1; empty >= rowStart; empty--) {
@@ -5366,7 +5366,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         if (moving != null) _assignRackSlot(moving, slot);
       }
       _assignRackSlot(tile, targetIndex);
-      _emitTileSfx();
+      if (playSound) _emitTileSfx();
       return;
     }
 
@@ -5514,7 +5514,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       tile.originalSlotIndex = slot;
       moveTileSmooth(tile, slotPositions[slot]);
     }
-    _emitTileSfx();
     _clearGroupDragVisuals();
   }
 
