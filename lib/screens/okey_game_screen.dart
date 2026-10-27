@@ -1,3 +1,4 @@
+import 'package:okeyix/ui/table_chat_membership_event.dart';
 import 'package:okeyix/ui/game_waiting_panel.dart';
 import 'package:okeyix/ui/game_finish_presentation.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
@@ -1469,6 +1470,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     _scrollToBottom();
 
+    if (TableChatMembershipEvent.matches(enriched)) return;
     final role = (enriched['role'] ?? 'player').toString();
     if (role == 'player') {
       _showAvatarChatBubble(enriched);
@@ -3157,6 +3159,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       ]),
       messageBuilder: (context, index) {
         final msg = _chatMessages[index];
+        if (TableChatMembershipEvent.matches(msg)) {
+          return TableChatMembershipEvent(event: Map<String, dynamic>.from(msg['membership_event']));
+        }
         final senderId = msg['sender_id']?.toString();
         final mine = senderId == _myUserId;
         final spectator = msg['role'] == 'spectator';

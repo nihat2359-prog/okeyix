@@ -1,3 +1,4 @@
+import 'package:okeyix/ui/table_chat_membership_event.dart';
 import 'package:okeyix/ui/table_chat_panel.dart';
 import 'package:okeyix/ui/spectator_finish_notice.dart';
 import 'package:okeyix/services/table_chat_sync.dart';
@@ -968,6 +969,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                                 itemCount: messages.length,
                                 itemBuilder: (_, i) {
                                   final m = messages[i];
+                                  if (TableChatMembershipEvent.matches(m)) {
+                                    return TableChatMembershipEvent(event: Map<String, dynamic>.from(m['membership_event']));
+                                  }
 
                                   final mine =
                                       m['sender_id'] ==
@@ -1418,6 +1422,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> _deliverChatEffects(Map<String, dynamic> msg) async {
+    if (TableChatMembershipEvent.matches(msg)) return;
     if (msg['role'] == 'spectator' &&
         msg['sender_id']?.toString() != supabase.auth.currentUser?.id) {
       final sequence = ++_spectatorNoticeSequence;

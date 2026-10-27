@@ -5,6 +5,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
 
 void main() {
+  testWidgets('closing without Al never claims; reopening still allows a server claim', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(
+      builder: (context) => TextButton(onPressed: () => showDialog<void>(
+        context: context, builder: (_) => DailyBonusDialog(amount: 2500,
+          onSound: _ignoreSound, onClaim: () async { calls++; return true; })),
+        child: const Text('open'))))));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('reward-close')));
+    await tester.pumpAndSettle();
+    expect(calls, 0);
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('reward-action')));
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    expect(find.text('Harika! Kazandın.'), findsOneWidget);
+  });
   Future<void> showBonus(
     WidgetTester tester,
     Future<bool> Function() onClaim, {

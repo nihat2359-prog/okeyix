@@ -15,6 +15,8 @@ void main() {
             players: count < 0 ? 1 : 2, capacity: 2, countdown: count < 0 ? 0 : count)),
         )));
         expect(tester.takeException(), isNull);
+        final panel = tester.getRect(find.byType(DecoratedBox).last);
+        expect(panel.width, closeTo((size.width * .30).clamp(196.0, 224.0), .01));
         if (count == 5) {
           expect(find.text('5'), findsOneWidget);
           expect(tester.widget<CircularProgressIndicator>(

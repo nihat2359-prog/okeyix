@@ -81,6 +81,46 @@ Future<void> settle(WidgetTester tester, VisualGame game) async {
 }
 
 void main() {
+  testWidgets('rack settling never overshoots and repeated targets do not restart it', (tester) async {
+    final game = await mount(tester);
+    final tile = visual('smooth-settle');
+    game.world.add(tile);
+    await settle(tester, game);
+    tile.position.setZero();
+    tile.moveOnRack(Vector2(100, 0));
+    var previous = 0.0;
+    for (var frame = 0; frame < 10; frame++) {
+      tile.update(.02);
+      expect(tile.position.x, inInclusiveRange(previous, 100));
+      previous = tile.position.x;
+      tile.moveOnRack(Vector2(100, 0));
+    }
+    expect(tile.position.x, 100);
+    // No-op targets must not schedule another visible movement.
+    tile.update(.2);
+    expect(tile.position.x, 100);
+    expect(tile.isMovingOnRack, isFalse);
+  });
+  testWidgets('preview cleanup and snapshots keep a smooth move instead of snapping', (tester) async {
+    final game = await mount(tester);
+    final hand = List.generate(14, (i) => payload('smooth-$i'));
+    game.debugSyncVisualHand(hand, initial: true);
+    await settle(tester, game);
+    final tile = game.tileComponentMap['smooth-0']!;
+    final target = game.slotPositions[tile.currentSlotIndex!].clone();
+    tile.position = target + Vector2(50, -20);
+    final before = tile.position.clone();
+    game.isTempShiftActive = true;
+    game.clearTemporaryShift();
+    expect(tile.position, before);
+    tile.update(.04);
+    final mid = tile.position.clone();
+    game.debugSyncVisualHand(hand);
+    expect(tile.position, mid);
+    tile.update(.2);
+    expect(tile.position.distanceTo(target), lessThan(.001));
+    expect(game.occupiedSlots[tile.currentSlotIndex], same(tile));
+  });
   testWidgets('preview cleanup preserves an automatic discard animation', (tester) async {
     final game = await mount(tester);
     game.debugSyncVisualHand(List.generate(14, (i) => payload('discard-preview-$i')), initial: true);

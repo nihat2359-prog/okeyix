@@ -14,11 +14,19 @@ import 'package:okeyix/ui/reward_dialogs.dart';
 import 'package:okeyix/ui/profile_setup_dialog.dart';
 import 'package:okeyix/services/reward_audio.dart';
 
-const rewards = [2500, 3000, 3500, 4000, 4500, 5000, 7500];
+const rewards = [2500, 5000, 10000, 20000, 40000, 80000, 160000];
 void ignoreSound(RewardSound _) {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('new reward schedule preserves the actual amount of a reward already received', () {
+    final status = DailyRewardStatus.fromJson({'day': 7, 'amount': 160000,
+      'rewards': rewards, 'available': false, 'credited_amount': 7500,
+      'day_key': 'daily_bonus:2026-10-27'});
+    expect(status.amount, 7500);
+    expect(status.rewards.last, 160000);
+    expect(status.available, isFalse);
+  });
   setUpAll(() async {
     final text = FontLoader('Montserrat')
       ..addFont(rootBundle.load('assets/fonts/Montserrat-Regular.ttf'))
@@ -34,7 +42,7 @@ void main() {
       await tester.pumpWidget(RepaintBoundary(key: const ValueKey('retention-capture'),
         child: MaterialApp(theme: ThemeData(fontFamily: 'Montserrat'),
           home: Scaffold(backgroundColor: const Color(0xFF0A101A),
-            body: kind == 'week' ? DailyBonusDialog(amount: 7500, rewardDay: 7,
+            body: kind == 'week' ? DailyBonusDialog(amount: 160000, rewardDay: 7,
               weeklyRewards: rewards, onSound: ignoreSound, onClaim: () async => true)
               : const PlayerNameReminderDialog()))));
       await tester.pumpAndSettle();
@@ -96,12 +104,12 @@ void main() {
               : route == 'okeyix_daily_reward_status'
               ? {
                   'day': 7,
-                  'amount': 7500,
+                  'amount': 160000,
                   'rewards': rewards,
                   'available': true,
                   'day_key': 'daily_bonus:2026-10-27',
                 }
-              : {'credited': claimed, 'amount': claimed ? 7500 : 0, 'day': 7};
+              : {'credited': claimed, 'amount': claimed ? 160000 : 0, 'day': 7};
           return http.Response(
             jsonEncode(body),
             missing || denied ? 400 : 200,
@@ -114,7 +122,7 @@ void main() {
       final service = DailyRewardService(client);
       final status = (await service.status())!;
       expect(status.day, 7);
-      expect(await service.claim(status), 7500);
+      expect(await service.claim(status), 160000);
       claimed = false;
       expect(await service.claim(status), 0);
       denied = true;
@@ -185,7 +193,7 @@ void main() {
                 ),
                 child: Scaffold(
                   body: DailyBonusDialog(
-                    amount: 7500,
+                    amount: 160000,
                     rewardDay: 7,
                     weeklyRewards: rewards,
                     onSound: ignoreSound,

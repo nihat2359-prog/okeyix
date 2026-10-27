@@ -86,21 +86,29 @@ class TileComponent extends PositionComponent
   Vector2? _rackMoveStart;
   double _rackMoveElapsed = 0;
   double _rackMoveDelay = 0;
-  double _rackMoveDuration = .16;
-  Curve _rackMoveCurve = Curves.easeOutBack;
+  double _rackMoveDuration = .18;
+  Curve _rackMoveCurve = Curves.easeOutCubic;
+  bool get isMovingOnRack => _rackMoveStart != null;
 
   void stopRackMotion() {
     _rackMoveStart = null;
   }
 
-  void moveOnRack(Vector2 target) {
-    if (isLocked) return;
+  void moveOnRack(Vector2 target, {bool allowLocked = false}) {
+    if (isLocked && !allowLocked) return;
+    if (!isMovingOnRack && position.distanceToSquared(target) < .001) {
+      position.setFrom(target);
+      currentTarget = target.clone();
+      return;
+    }
+    if (isMovingOnRack && currentTarget != null &&
+        currentTarget!.distanceToSquared(target) < .001) return;
     currentTarget = target.clone();
     _rackMoveStart = position.clone();
     _rackMoveElapsed = 0;
     _rackMoveDelay = 0;
-    _rackMoveDuration = .16;
-    _rackMoveCurve = Curves.easeOutBack;
+    _rackMoveDuration = .18;
+    _rackMoveCurve = Curves.easeOutCubic;
   }
 
   void dealOnRack(Vector2 target, {required double startDelay}) {
@@ -600,19 +608,10 @@ class TileComponent extends PositionComponent
       gameRef.hideTileAboveAvatars(this);
       final worldPos = absolutePosition;
       if (gameRef.isPointNearIndicator(worldPos)) {
-        final claimed = await gameRef.tryClaimIndicatorBonus(this);
-        if (claimed) {
-          // Gosterge bonusu alindiysa tas rack'e geri doner.
-          _restoreToOriginalSlot();
-        } else {
-          // Gosterge islemi degilse ayni birakmada bitis dene.
-          final finished = await gameRef.finishWithTile(this);
-          if (!finished) {
-            _restoreToOriginalSlot();
-          } else {
-            gameRef.scheduleTileRemoval(this);
-          }
-        }
+        // Indicator and finish are separate actions, even when their hitboxes
+        // overlap. A rejected claim must never become a finish request.
+        await gameRef.tryClaimIndicatorBonus(this);
+        _restoreToOriginalSlot();
         priority = 20;
         gameRef.clearPreview();
         gameRef.clearTemporaryShift();

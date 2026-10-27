@@ -463,20 +463,15 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<void> _runRewardFlowIfNeeded({bool manual = false}) async {
     if (_rewardFlowRunning) return;
     final user = supabase.auth.currentUser;
-    if (user == null || !mounted) return;
+    if (user == null || !mounted || ModalRoute.of(context)?.isCurrent != true) return;
     _rewardFlowRunning = true;
     try {
       final rewards = DailyRewardService(supabase);
       final weekly = await rewards.status();
       final dailyAvailable = weekly?.available ?? await _isDailyBonusAvailable(user.id);
       if ((!dailyAvailable && !manual) || !mounted || ModalRoute.of(context)?.isCurrent != true) return;
-      final prefs = await SharedPreferences.getInstance();
-      final shownKey = 'daily_reward_shown_${user.id}';
-      final dayKey = weekly?.dayKey ?? 'daily_bonus:${DateTime.now().toUtc().add(const Duration(hours: 3)).toIso8601String().substring(0, 10)}';
-      if (!manual && prefs.getString(shownKey) == dayKey) return;
-      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
-      await prefs.setString(shownKey, dayKey);
-      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      // Seeing or closing the panel is not a claim. Only the server receipt
+      // suppresses the next automatic offer on a new lobby visit.
 
       var credited = false;
       var amount = 0;
@@ -495,7 +490,7 @@ class _LobbyScreenState extends State<LobbyScreen>
               credited = amount > 0;
               return credited;
             }
-            final now = DateTime.now();
+            final now = DateTime.now().toUtc().add(const Duration(hours: 3));
             final dayKey =
                 'daily_bonus:${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
             final claimed = await supabase.rpc(
@@ -509,8 +504,6 @@ class _LobbyScreenState extends State<LobbyScreen>
             if (claimed != true) {
               return false;
             }
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('daily_bonus_claimed_${user.id}', dayKey);
             credited = true;
             amount = _dailyBonusCoinAmount;
             return true;
@@ -587,13 +580,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<bool> _isDailyBonusAvailable(String userId) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc().add(const Duration(hours: 3));
     final dayKey =
         'daily_bonus:${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final prefs = await SharedPreferences.getInstance();
-    final localKey = 'daily_bonus_claimed_$userId';
-    if (prefs.getString(localKey) == dayKey) return false;
-
     final rows = await supabase
         .from('wallet_transactions')
         .select('id')
@@ -1851,6 +1840,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     ).then((_) async {
       if (!mounted) return;
       await _loadUser();
+      await _runRewardFlowIfNeeded();
       await _showPlayerNameReminder();
     });
   }

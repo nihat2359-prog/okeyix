@@ -189,6 +189,32 @@ void main() {
   });
 
   for (final source in ['closed', 'discard']) {
+    testWidgets('$source draw hands off at the preview position then settles without locking input', (tester) async {
+      final game = await mount(tester);
+      game.debugPrepareLatencyState(14);
+      game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+      await settle(tester, game);
+      final pending = visual('pending-$source');
+      pending.position = game.slotPositions[0].clone();
+      game.world.add(pending);
+      await settle(tester, game);
+      final free = List.generate(26, (i) => i).firstWhere((i) => !game.occupiedSlots.containsKey(i));
+      game.debugShowPendingDraw(pending, preferredSlot: free);
+      pending.update(.04);
+      final start = pending.position.clone();
+      await tester.runAsync(() => game.debugDrawCommittedHand(
+        preferredSlot: free, source: source, fromSeat: source == 'discard' ? 1 : null));
+      final drawn = game.tileComponentMap['latency-14']!;
+      expect(drawn.position, start);
+      expect(pending.hideTileVisual, isTrue);
+      expect(drawn.isMovingOnRack, isTrue);
+      expect(game.debugActionInFlight, isFalse);
+      expect(game.tileComponentMap.length, 15);
+      expect(game.occupiedSlots.values.toSet().length, 15);
+      await settle(tester, game);
+      expect(drawn.position.distanceTo(game.slotPositions[drawn.currentSlotIndex!]), lessThan(.001));
+      expect(calls, ['game_draw']);
+    });
     for (final fullRow in [false, true]) {
       testWidgets('$source draw response inserts into a blocked row without losing tiles; fullRow=$fullRow', (tester) async {
         final game = await mount(tester);

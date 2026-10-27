@@ -6,7 +6,9 @@ Canlıya henüz uygulanmadı. Flutter sürümünden önce SQL Editor'da postgres
 
 1. `supabase/migrations/20261027000100_seven_day_rewards.sql`
 2. `supabase/migrations/20261027000200_unique_player_names.sql`
-3. Yeni Flutter sürümünü yayınla.
+3. `supabase/migrations/20261027000300_doubling_daily_rewards.sql`
+4. `supabase/migrations/20261027000400_secure_legacy_daily_bonus.sql`
+5. Yeni Flutter sürümünü yayınla.
 
 İkinci dosya, mevcut adlarda büyük/küçük harf ve baş/son boşluk farkıyla
 çakışma varsa açık hata ile durur; hesapları yeniden adlandırmaz veya silmez.
@@ -43,30 +45,41 @@ eski kalıcı Bir daha gösterme tercihi korunur.
 | Gün | Coin |
 | --- | ---: |
 | 1 | 2.500 |
-| 2 | 3.000 |
-| 3 | 3.500 |
-| 4 | 4.000 |
-| 5 | 4.500 |
-| 6 | 5.000 |
-| 7 | 7.500 |
+| 2 | 5.000 |
+| 3 | 10.000 |
+| 4 | 20.000 |
+| 5 | 40.000 |
+| 6 | 80.000 |
+| 7 | 160.000 |
 
-Toplam 30.000 Coin. İlk gün mevcut 2.500 korunur. Tutar istemciden alınmaz.
+Toplam 317.500 Coin. İlk gün mevcut 2.500 korunur; her gün iki katına çıkar.
+003 migration'ı, eski kurulumu günceller; ilerleme sıfırlanmaz ve eski makbuzlar
+değişmez. Bugün eski tutarla alınmış ödül için ek ödeme açılmaz. Yeni uygulama,
+alınmış ödülün gerçek tutarını `credited_amount` alanından gösterir.
+Tutar istemciden alınmaz.
 İlerleme sunucuda özel tabloda saklanır; gün kaçırınca sıfırlanmaz. Yedinci
 ödülden sonra ilk güne döner. Günde bir ödül, Europe/Istanbul sunucu tarihiyle
 belirlenir. Ödeme makbuzu, bakiye ve ilerleme aynı işlemde yazılır.
 
-Eski `claim_daily_bonus(uuid,integer,text)` değiştirilmez: eski sürüm 2.500
+Eski `claim_daily_bonus(uuid,integer,text)` imzası korunur: eski sürüm 2.500
 almaya devam eder. İki sürüm aynı günlük benzersiz makbuz anahtarını kullanır;
 aynı gün iki ödül alamaz. Eski sürümle alınan ödül yedi günlük ilerlemeyi artırmaz.
 Yeni RPC henüz yoksa uygulama eski akışı kullanır; ağ/yetki hatalarında buna
 sessizce geçmez ve tahmini ödül göstermez.
 
+Canlı kaynak incelemesinde eski 20260604 fonksiyonunun hâlâ yüklü olduğu
+doğrulandı. 20261027000400 migration'ı eski istemcilerin kullanıcı, tutar ve gün
+parametrelerine güvenilmesini kaldırır: auth.uid() doğrulanır, tutar 2.500 ve
+Europe/Istanbul günü sunucuda belirlenir. İstek imzası/boolean dönüşü korunur.
+Geçmiş kayıtlar ve yedi günlük ilerleme değiştirilmez.
+
 Panel mevcut ödül sahnesini, sandık görsellerini, sesleri ve Coin aktarımını
 kullanır. İlk günler küçük ödül objeleri, 7. gün büyük sandık gösterilir.
 Başarı bildirimi yalnızca sunucu onayından sonra gelir. Sonraki gün için dönüş
 mesajı gösterilir. Bildirimler uygulama içidir; işletim sistemi push bildirimi
-eklenmedi. Panel otomatik günde bir kez açılır; kapatan oyuncu menüdeki Günlük
-Hediyeler'den yeniden ulaşır. Oyun rotasının üstünde açılmaz.
+eklenmedi. Ödül alınana kadar yeni lobi ziyaretinde panel yeniden açılabilir;
+yalnızca paneli görmüş olmak hakkı kapatmaz. Kapatan oyuncu menüdeki Günlük
+Hediyeler'den de yeniden ulaşır. Oyun rotasının üstünde açılmaz.
 
 ## Doğrulama
 

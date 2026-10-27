@@ -17,7 +17,8 @@ class GameWaitingPanel extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.only(top: bounds.maxHeight * .23),
           child: SizedBox(
-            width: math.min(330, math.max(0, bounds.maxWidth - 32)),
+            width: math.min((MediaQuery.sizeOf(context).width * .30).clamp(196.0, 224.0),
+              math.max(0, bounds.maxWidth - 32)),
             height: (bounds.maxHeight * .14).clamp(44.0, 56.0),
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -29,7 +30,7 @@ class GameWaitingPanel extends StatelessWidget {
                 boxShadow: const [BoxShadow(color: Color(0x44000000),
                   blurRadius: 10, offset: Offset(0, 4))]),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 child: FittedBox(fit: BoxFit.scaleDown,
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     if (ready && countdown > 0) ...[
@@ -51,7 +52,7 @@ class GameWaitingPanel extends StatelessWidget {
                           fontWeight: FontWeight.w600, letterSpacing: 1.2)),
                       const SizedBox(height: 4),
                       Text(ready ? (countdown > 0 ? 'Oyun başlıyor' : 'Taşlar hazırlanıyor')
-                        : 'Arkadaşını davet et, masaya katılsın.',
+                        : 'Arkadaşını davet et.',
                         style: const TextStyle(color: Color(0xFFF5EFE2),
                           fontSize: 13, fontWeight: FontWeight.w600)),
                     ]),

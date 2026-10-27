@@ -3,7 +3,7 @@ BEGIN;
 DO $$ DECLARE result jsonb; before_coin bigint; expected integer;
   uid uuid:='00000000-0000-4000-8000-000000000001';
   today text:='daily_bonus:'||to_char(statement_timestamp() AT TIME ZONE 'Europe/Istanbul','YYYY-MM-DD');
-  rewards integer[]:=ARRAY[2500,3000,3500,4000,4500,5000,7500];
+  rewards integer[]:=ARRAY[2500,5000,10000,20000,40000,80000,160000];
 BEGIN
   IF current_database()<>'okeyix_retention_test' THEN RAISE EXCEPTION 'LOCAL_TEST_DATABASE_REQUIRED'; END IF;
   DELETE FROM public.wallet_transactions;

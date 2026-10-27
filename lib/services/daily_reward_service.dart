@@ -27,7 +27,9 @@ class DailyRewardStatus {
     }
     return DailyRewardStatus(
       day: day,
-      amount: amount,
+      amount: json['available'] != true && json['credited_amount'] is num &&
+          (json['credited_amount'] as num) > 0
+          ? (json['credited_amount'] as num).toInt() : amount,
       rewards: rewards,
       available: json['available'] == true,
       dayKey: json['day_key'] as String,
