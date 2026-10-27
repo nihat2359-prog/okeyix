@@ -171,6 +171,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   RealtimeChannel? _tablePlayersChannel;
   RealtimeChannel? _tableDiscardsChannel;
   RealtimeChannel? _movesChannel;
+  RealtimeChannel? _indicatorChannel;
   async.Timer? _startWatchdogTimer;
   async.Timer? _startCountdownTimer;
   async.Timer? _turnTimer;
@@ -270,6 +271,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _startDiscardPoll();
     _startLiveTablePoll();
     _subscribeRealtimeMoves();
+    _subscribeIndicatorReveals();
   }
 
   Future<void> reloadInitialState() async {
@@ -607,6 +609,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (_movesChannel != null) {
       supabase.removeChannel(_movesChannel!);
     }
+    if (_indicatorChannel != null) {
+      supabase.removeChannel(_indicatorChannel!);
+    }
 
     _startWatchdogTimer?.cancel();
     _startCountdownTimer?.cancel();
@@ -619,6 +624,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _tablePlayersChannel = null;
     _tableDiscardsChannel = null;
     _movesChannel = null;
+    _indicatorChannel = null;
 
     _startWatchdogTimer = null;
     _startCountdownTimer = null;
@@ -1719,6 +1725,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
       if (newRound != null && newRound > _round) {
         _round = newRound;
+        _hasDrawnFromSourceThisRound = false;
+        _indicatorBonusClaimedThisRound = false;
         _handStateEpoch++;
         _clearRenderedHand();
         changed = true;
@@ -2729,6 +2737,10 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void _clearRenderedHand() {
+    for (final tile in _indicatorRevealTiles) {
+      tile.removeFromParent();
+    }
+    _indicatorRevealTiles.clear();
     // Pending additions are not in world.children yet. Cancel them as well,
     // otherwise the previous deal can appear after the next deal was queued.
     for (final tile in tileComponentMap.values.toList()) {
@@ -3349,6 +3361,87 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
     }
     return null;
+  }
+
+  final Set<String> _revealedIndicators = {};
+  final Set<TileComponent> _indicatorRevealTiles = {};
+
+  void _subscribeIndicatorReveals() {
+    if (_stabilityMode) return;
+    _indicatorChannel = Supabase.instance.client
+        .channel('indicator_reveals:$tableId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public', table: 'table_indicator_events',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq,
+            column: 'table_id', value: tableId),
+          callback: (payload) => _receiveIndicatorReveal(payload.newRecord),
+        ).subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            unawaited(_recoverIndicatorReveals());
+          }
+        });
+  }
+
+  Future<void> _recoverIndicatorReveals() async {
+    try {
+      // Recover a notification lost during subscription/reconnection. Do not
+      // replay older celebrations when entering an already-running table.
+      final rows = await Supabase.instance.client.from('table_indicator_events')
+          .select().eq('table_id', tableId).eq('round_no', _round)
+          .gte('created_at', DateTime.now().toUtc()
+            .subtract(const Duration(seconds: 5)).toIso8601String())
+          .order('created_at').limit(4).timeout(const Duration(seconds: 5));
+      for (final row in rows) {
+        _receiveIndicatorReveal(row);
+      }
+    } catch (error) {
+      debugPrint('INDICATOR REVEAL RECOVERY: $error');
+    }
+  }
+
+  bool _receiveIndicatorReveal(Map<String, dynamic> event) {
+    final playerId = event['player_id']?.toString();
+    final id = event['id']?.toString();
+    final indicator = indicatorTileComponent;
+    final seat = playerId == null ? null : _seatFromUserId(playerId);
+    if (!_lifecycleActive || !_gameStarted || isFinishOpen ||
+        event['table_id'] != tableId || event['round_no'] != _round ||
+        id == null || seat == null || seat == _resolveMySeatIndex() ||
+        playerId == UserState.userId || indicator == null ||
+        _revealedIndicators.contains(id)) return false;
+    _revealedIndicators.add(id);
+    if (_revealedIndicators.length > 120) {
+      _revealedIndicators.remove(_revealedIndicators.first);
+    }
+    final start = _drawAnimationTargetForSeat(seat);
+    final tile = TileComponent(
+      tile: TileModel(id: 'indicator-reveal:$id', value: indicator.value,
+        color: indicator.color),
+      position: start.clone(),
+    )..isLocked = true
+     ..priority = 100;
+    _indicatorRevealTiles.add(tile);
+    world.add(tile);
+    tile.add(SequenceEffect([
+      MoveEffect.to(indicator.position.clone(),
+        EffectController(duration: .18, curve: Curves.easeOut)),
+      RotateEffect.by(6.28318,
+        EffectController(duration: .35, curve: Curves.easeInOut)),
+      MoveEffect.to(start,
+        EffectController(duration: .2, curve: Curves.easeInOut)),
+    ], onComplete: () {
+      _indicatorRevealTiles.remove(tile);
+      tile.removeFromParent();
+    }));
+    return true;
+  }
+
+  @visibleForTesting
+  bool debugReceiveIndicatorReveal(Map<String, dynamic> event,
+      {required String opponent}) {
+    _playerSeatMap[1] = {'user_id': opponent};
+    return _receiveIndicatorReveal(event);
   }
 
   bool _isAnimatingRemoteMove = false;

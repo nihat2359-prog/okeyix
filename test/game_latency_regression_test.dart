@@ -24,6 +24,7 @@ void main() {
   var rejectDraw = false;
   var delayDiscard = false;
   var rejectDiscard = false;
+  var tableRound = 1;
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     final token = '${base64Url.encode(utf8.encode('{"alg":"none"}'))}.'
@@ -56,7 +57,7 @@ void main() {
           result = [];
         } else if (route == 'tables') {
           if (delayTable && gate != null) await gate!.future;
-          result = [{'status': 'playing', 'current_turn': 1, 'round_count': 1,
+          result = [{'status': 'playing', 'current_turn': 1, 'round_count': tableRound,
             'turn_started_at': DateTime.now().toUtc().toIso8601String()}];
         } else if (route == 'table_discard_tops') {
           final snapshot = List<Map<String, dynamic>>.from(tops);
@@ -73,10 +74,28 @@ void main() {
       email: 'latency@example.invalid', password: 'fixture');
   });
   setUp(() { calls.clear(); tops = []; gate = null; delayTable = false;
-    legacyDraw = false; rejectDraw = false;
+    legacyDraw = false; rejectDraw = false; tableRound = 1;
     delayDiscard = false; rejectDiscard = false;
     hand = List.generate(15, (i) => payload('latency-$i')); });
   tearDownAll(() => Supabase.instance.dispose());
+
+  testWidgets('poll-detected rounds two and three renew indicator before first draw', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    for (final round in [2, 3]) {
+      game.debugIndicatorBonusState(drawn: true, claimed: true);
+      expect(game.canClaimIndicatorBonus, isFalse);
+      tableRound = round;
+      await tester.runAsync(() => game.debugPollTurn());
+      expect(game.getRound(), round);
+      expect(game.canClaimIndicatorBonus, isTrue,
+        reason: 'The previous round must not consume the new round indicator right');
+      game.debugIndicatorBonusState(drawn: true);
+      await tester.runAsync(() => game.debugPollTurn());
+      expect(game.canClaimIndicatorBonus, isFalse,
+        reason: 'Polling the same round must not restore a consumed right');
+    }
+  });
 
   testWidgets('dragging a rack tile does not request a recovery hand', (tester) async {
     final game = await mount(tester);
