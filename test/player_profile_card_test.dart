@@ -73,6 +73,21 @@ Widget card({
 );
 
 void main() {
+  for (final wins in [0, 3]) {
+    testWidgets('null career counters still show verified recorded results; wins=$wins', (tester) async {
+      await tester.pumpWidget(card(wins: null, losses: null,
+        load: () async => ProfileStatistics.fromJson({
+          'wins': wins, 'losses': wins == 0 ? 0 : 2,
+          'normal_wins': wins, 'okey_wins': 0, 'double_wins': 0,
+          'okey_double_wins': 0, 'career_wins': null, 'career_losses': null,
+          'previous_wins': null,
+        })));
+      await tester.pumpAndSettle();
+      expect(find.text('—'), findsNothing);
+      expect(find.text(wins == 0 ? '%0.0' : '%60.0'), findsOneWidget);
+      expect(find.text('Bitiş kayıtları yüklenemedi'), findsNothing);
+    });
+  }
   for (final size in [
     const Size(480, 270),
     const Size(568, 320),

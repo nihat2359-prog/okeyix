@@ -42,6 +42,7 @@ class TileComponent extends PositionComponent
         TapCallbacks,
         ActivityLifecycleObservation {
   bool renderInDragOverlay = false;
+  bool hideTileVisual = false;
   bool _paintingDragOverlay = false;
   bool _awaitingDrawConfirmation = false;
   Object? _faceTheme;
@@ -58,6 +59,7 @@ class TileComponent extends PositionComponent
 
   @override
   void renderTree(Canvas canvas) {
+    if (hideTileVisual) return;
     if (renderInDragOverlay && !_paintingDragOverlay) return;
     super.renderTree(canvas);
   }
@@ -83,6 +85,9 @@ class TileComponent extends PositionComponent
   Vector2? currentTarget;
   Vector2? _rackMoveStart;
   double _rackMoveElapsed = 0;
+  double _rackMoveDelay = 0;
+  double _rackMoveDuration = .16;
+  Curve _rackMoveCurve = Curves.easeOutBack;
 
   void stopRackMotion() {
     _rackMoveStart = null;
@@ -93,6 +98,16 @@ class TileComponent extends PositionComponent
     currentTarget = target.clone();
     _rackMoveStart = position.clone();
     _rackMoveElapsed = 0;
+    _rackMoveDelay = 0;
+    _rackMoveDuration = .16;
+    _rackMoveCurve = Curves.easeOutBack;
+  }
+
+  void dealOnRack(Vector2 target, {required double startDelay}) {
+    moveOnRack(target);
+    _rackMoveDelay = startDelay;
+    _rackMoveDuration = .22;
+    _rackMoveCurve = Curves.easeOutCubic;
   }
 
   @override
@@ -102,13 +117,14 @@ class TileComponent extends PositionComponent
     final target = currentTarget;
     if (start == null || target == null) return;
     _rackMoveElapsed += dt;
-    final progress = (_rackMoveElapsed / 0.16).clamp(0.0, 1.0);
+    if (_rackMoveElapsed < _rackMoveDelay) return;
+    final progress = ((_rackMoveElapsed - _rackMoveDelay) / _rackMoveDuration).clamp(0.0, 1.0);
     if (progress >= 1) {
       position.setFrom(target);
       stopRackMotion();
     } else {
       position.setFrom(
-        start + (target - start) * Curves.easeOutBack.transform(progress),
+        start + (target - start) * _rackMoveCurve.transform(progress),
       );
     }
   }
@@ -673,16 +689,9 @@ class TileComponent extends PositionComponent
   void _restoreToOriginalSlot() {
     stopRackMotion();
     children.whereType<MoveEffect>().toList().forEach((e) => e.removeFromParent());
-    final slot = originalSlotIndex;
-    if (slot != null) {
-      final gameRef = _tryGame();
-      if (gameRef == null) return;
-      currentSlotIndex = slot;
-      gameRef.occupySlot(slot, this);
-      position = gameRef.slotPositions[slot];
-      return;
-    }
-    position = originalPosition;
+    final gameRef = _tryGame();
+    if (gameRef == null) return;
+    gameRef.restoreRackTile(this);
   }
 
   OkeyGame? _tryGame() {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:okeyix/services/reward_audio.dart';
+import 'package:okeyix/core/format.dart';
 
 const _gold = Color(0xFFFFDA83);
 
@@ -26,6 +27,10 @@ enum _ClaimState { ready, loading, success, alreadyClaimed, error }
 
 class DailyBonusDialog extends StatefulWidget {
   final int amount;
+  final int? rewardDay;
+  final List<int>? weeklyRewards;
+  final int Function()? creditedAmount;
+  final bool alreadyClaimed;
   // A win is shown only after a confirmed server credit.
   final Future<bool> Function() onClaim;
   final ValueChanged<RewardSound>? onSound;
@@ -33,6 +38,10 @@ class DailyBonusDialog extends StatefulWidget {
     super.key,
     required this.amount,
     required this.onClaim,
+    this.rewardDay,
+    this.weeklyRewards,
+    this.creditedAmount,
+    this.alreadyClaimed = false,
     this.onSound,
   });
   @override
@@ -41,6 +50,12 @@ class DailyBonusDialog extends StatefulWidget {
 
 class _DailyBonusDialogState extends State<DailyBonusDialog> {
   _ClaimState _state = _ClaimState.ready;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.alreadyClaimed) _state = _ClaimState.alreadyClaimed;
+  }
+
   Future<void> _claim() async {
     if (_state == _ClaimState.loading) return;
     if (_state == _ClaimState.success || _state == _ClaimState.alreadyClaimed) {
@@ -66,22 +81,48 @@ class _DailyBonusDialogState extends State<DailyBonusDialog> {
     final success = _state == _ClaimState.success;
     final already = _state == _ClaimState.alreadyClaimed;
     return _RewardCard(
-      amount: widget.amount,
+      amount: success
+          ? (widget.creditedAmount?.call() ?? widget.amount)
+          : widget.amount,
+      treasureAsset: widget.rewardDay == null || widget.rewardDay == 7
+          ? 'assets/images/coins/coins_huge.png'
+          : widget.rewardDay! <= 2 ? 'assets/images/coins/coins_small.png'
+          : widget.rewardDay! <= 4 ? 'assets/images/coins/coins_medium.png'
+          : 'assets/images/coins/coins_large.png',
       badge: success
           ? 'ÖDÜL SENİN'
           : already
           ? 'BUGÜN TAMAMLANDI'
-          : 'HER GÜN YENİ BİR HEDİYE',
+          : widget.rewardDay == null
+          ? 'HER GÜN YENİ BİR HEDİYE'
+          : '7 GÜNLÜK HEDİYE YOLCULUĞU',
       title: success
           ? 'Harika! Kazandın.'
           : already
           ? 'Bugünkü ödülün alındı'
-          : 'Günlük bonusun hazır!',
+          : widget.rewardDay == null
+          ? 'Günlük bonusun hazır!'
+          : widget.rewardDay == 7
+          ? 'Büyük sandığın hazır!'
+          : '${widget.rewardDay}. gün hediyen hazır!',
       message: success
-          ? 'Coinlerin hesabına eklendi. Şimdi masada parlama zamanı!'
+          ? widget.rewardDay == null
+                ? 'Coinlerin hesabına eklendi. Şimdi masada parlama zamanı!'
+                : widget.rewardDay == 7
+                ? 'Büyük sandığın Coinleri hesabına eklendi. Yarın yeni bir 7 günlük yolculuk başlıyor!'
+                : 'Coinlerin hesabına eklendi. Yarın ${widget.rewardDay! + 1}. gün hediyen için yeniden gel!'
           : already
           ? 'Yarın yeni bir bonus için tekrar gel. Masalar seni bekliyor.'
-          : 'Yeni bir gün, yeni bir şans. Hediyeni al, masaya güçlü başla.',
+          : widget.rewardDay == null
+          ? 'Yeni bir gün, yeni bir şans. Hediyeni al, masaya güçlü başla.'
+          : 'Her gün bir hediye, 7. gün büyük sandık! Bir gün ara versen de ilerlemen kaybolmaz.',
+      footer: widget.rewardDay != null && widget.weeklyRewards != null
+          ? _SevenDayTrail(
+              day: widget.rewardDay!,
+              rewards: widget.weeklyRewards!,
+              claimed: success || already,
+            )
+          : null,
       button: success || already
           ? 'Devam et'
           : _state == _ClaimState.error
@@ -99,21 +140,120 @@ class _DailyBonusDialogState extends State<DailyBonusDialog> {
   }
 }
 
+class _SevenDayTrail extends StatelessWidget {
+  final int day;
+  final List<int> rewards;
+  final bool claimed;
+  const _SevenDayTrail({
+    required this.day,
+    required this.rewards,
+    required this.claimed,
+  });
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 62,
+    child: Row(
+      children: [
+        for (var i = 0; i < 7; i++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: i == 6 ? 0 : 4),
+              child: Semantics(
+                label:
+                    '${i + 1}. gün, ${rewards[i]} Coin, '
+                    '${i + 1 < day || (i + 1 == day && claimed)
+                        ? "alındı"
+                        : i + 1 == day
+                        ? "bugün"
+                        : "sıradaki"}',
+                child: Container(
+                  key: ValueKey('reward-day-${i + 1}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: i + 1 == day
+                          ? [const Color(0xCC77532B), const Color(0xDD30251B)]
+                          : [const Color(0xDD293039), const Color(0xDD111820)],
+                    ),
+                    border: Border.all(
+                      color: i + 1 == day ? _gold : const Color(0x556F747C),
+                    ),
+                    boxShadow: i + 1 == day
+                        ? [
+                            const BoxShadow(
+                              color: Color(0x337F5823),
+                              blurRadius: 8,
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      children: [
+                        Text(
+                          '${i + 1}. GÜN',
+                          style: const TextStyle(
+                            color: Color(0xFFCFC5AD),
+                            fontSize: 9,
+                          ),
+                        ),
+                        Icon(
+                          i + 1 < day || (i + 1 == day && claimed)
+                              ? Icons.check_circle_rounded
+                              : i == 6
+                              ? Icons.inventory_2_rounded
+                              : Icons.monetization_on_rounded,
+                          color: i + 1 <= day || i == 6
+                              ? _gold
+                              : const Color(0xFF8E929A),
+                          size: 18,
+                        ),
+                        Text(
+                          Format.coin(rewards[i]),
+                          style: const TextStyle(
+                            color: _gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 class _RewardCard extends StatefulWidget {
   final int amount;
+  final String treasureAsset;
   final String title, message, badge, button;
   final String? error;
   final bool loading, success, alreadyClaimed;
   final VoidCallback onPressed;
   final ValueChanged<RewardSound>? onSound;
+  final Widget? footer;
   const _RewardCard({
     required this.amount,
+    this.treasureAsset = 'assets/images/coins/coins_huge.png',
     required this.title,
     required this.message,
     required this.badge,
     required this.button,
     required this.onPressed,
     this.onSound,
+    this.footer,
     this.error,
     this.loading = false,
     this.success = false,
@@ -396,6 +536,10 @@ class _RewardCardState extends State<_RewardCard>
                                     ],
                                   ),
                                 ),
+                                if (widget.footer != null) ...[
+                                  const SizedBox(height: 8),
+                                  widget.footer!,
+                                ],
                               ],
                             ),
                           ),
@@ -415,11 +559,6 @@ class _RewardCardState extends State<_RewardCard>
   Widget _treasure() => LayoutBuilder(
     builder: (context, bounds) => Stack(
       children: [
-        Positioned.fill(
-          child: RepaintBoundary(
-            child: CustomPaint(painter: const _RewardDais()),
-          ),
-        ),
         Positioned(
           left: 0,
           right: 0,
@@ -431,11 +570,16 @@ class _RewardCardState extends State<_RewardCard>
               scale: 1 + math.sin(_win.value * math.pi) * .12,
               child: child,
             ),
-            child: Image.asset(
-              'assets/images/coins/coins_huge.png',
-              fit: BoxFit.contain,
-              excludeFromSemantics: true,
-            ),
+            child: LayoutBuilder(builder: (context, space) {
+              final side = math.min(space.maxWidth, space.maxHeight);
+              return Center(child: SizedBox.square(dimension: side,
+                child: CustomPaint(
+                  painter: _RewardDais(base: widget.treasureAsset.endsWith('coins_small.png') ? .68 : .76),
+                  child: Image.asset(widget.treasureAsset, fit: BoxFit.contain,
+                    excludeFromSemantics: true),
+                ),
+              ));
+            }),
           ),
         ),
         Positioned(
@@ -611,14 +755,15 @@ class _Insignia extends CustomPainter {
 }
 
 class _RewardDais extends CustomPainter {
-  const _RewardDais();
+  final double base;
+  const _RewardDais({required this.base});
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * .61);
+    final center = Offset(size.width / 2, size.height * base);
     final oval = Rect.fromCenter(
       center: center,
-      width: size.width * .82,
-      height: size.height * .17,
+      width: size.width * .72,
+      height: size.height * .10,
     );
     canvas.drawOval(
       oval.shift(const Offset(0, 5)),
@@ -663,7 +808,7 @@ class _RewardDais extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RewardDais oldDelegate) => false;
+  bool shouldRepaint(covariant _RewardDais oldDelegate) => oldDelegate.base != base;
 }
 
 class _WinParticles extends CustomPainter {

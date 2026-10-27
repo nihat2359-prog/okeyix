@@ -2,6 +2,37 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Presentation only. Does not pause the game or own network/audio resources.
+class TableChatQuickMessages extends StatelessWidget {
+  const TableChatQuickMessages({super.key, required this.onSelected});
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 64,
+    child: GridView.builder(
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 30,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 4,
+      ),
+      itemCount: TableChatPanel.quickMessages.length,
+      itemBuilder: (context, index) => TextButton(
+        onPressed: () => onSelected(TableChatPanel.quickMessages[index]),
+        style: TextButton.styleFrom(
+          foregroundColor: TableChatPanel.gold,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          side: const BorderSide(color: Color(0x33DABF82), width: .6),
+        ),
+        child: Text(TableChatPanel.quickMessages[index],
+          style: const TextStyle(fontSize: 10)),
+      ),
+    ),
+  );
+}
+
 class TableChatPanel extends StatelessWidget {
   const TableChatPanel({
     super.key,
@@ -162,41 +193,10 @@ class TableChatPanel extends StatelessWidget {
                         ),
                       ),
                       if (!compact)
-                        SizedBox(
-                          height: 64,
-                          child: GridView.builder(
-                            padding: EdgeInsets.zero,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisExtent: 30,
-                                  crossAxisSpacing: 6,
-                                  mainAxisSpacing: 4,
-                                ),
-                            itemCount: quickMessages.length,
-                            itemBuilder: (context, index) => TextButton(
-                              onPressed: () {
-                                _close();
-                                onQuickMessage(quickMessages[index]);
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: gold,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                side: const BorderSide(
-                                  color: Color(0x33DABF82),
-                                  width: .6,
-                                ),
-                              ),
-                              child: Text(
-                                quickMessages[index],
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                            ),
-                          ),
-                        ),
+                        TableChatQuickMessages(onSelected: (message) {
+                          _close();
+                          onQuickMessage(message);
+                        }),
                       SizedBox(
                         // Keyboard insets remove the quick-message SizedBox
                         // above. Keep this subtree's identity so its TextField

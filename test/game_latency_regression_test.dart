@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:okeyix/game/rack/preview_component.dart';
 import 'tile_visual_identity_test.dart' show mount, settle, payload, visual;
+import 'package:okeyix/game/rack/tile_component.dart';
 
 const viewer = '00000000-0000-4000-8000-000000009901';
 
@@ -21,6 +22,8 @@ void main() {
   var delayTable = false;
   var legacyDraw = false;
   var rejectDraw = false;
+  var delayDiscard = false;
+  var rejectDiscard = false;
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     final token = '${base64Url.encode(utf8.encode('{"alg":"none"}'))}.'
@@ -47,7 +50,10 @@ void main() {
         } else if (route == 'get_full_table_state') {
           result = null;
         } else if (route == 'game_discard_fast') {
-          result = {'ok': true};
+          if (delayDiscard && gate != null) await gate!.future;
+          result = {'ok': !rejectDiscard};
+        } else if (route == 'table_discards') {
+          result = [];
         } else if (route == 'tables') {
           if (delayTable && gate != null) await gate!.future;
           result = [{'status': 'playing', 'current_turn': 1, 'round_count': 1,
@@ -68,6 +74,7 @@ void main() {
   });
   setUp(() { calls.clear(); tops = []; gate = null; delayTable = false;
     legacyDraw = false; rejectDraw = false;
+    delayDiscard = false; rejectDiscard = false;
     hand = List.generate(15, (i) => payload('latency-$i')); });
   tearDownAll(() => Supabase.instance.dispose());
 
@@ -125,6 +132,41 @@ void main() {
     await settle(tester, game);
   });
 
+  testWidgets('a first-discard snapshot during dealing leaves every surviving face on its slot', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: game.size.clone());
+    game.debugPrepareLatencyState(15);
+    game.debugApplyOwnHand(hand, hardReset: true);
+    await tester.runAsync(() => game.ready());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    game.debugApplyOwnHand(hand.take(14).toList());
+    await settle(tester, game);
+    await tester.pump(const Duration(seconds: 1));
+    for (final tile in game.tileComponentMap.values) {
+      expect(tile.position.distanceTo(game.slotPositions[tile.currentSlotIndex!]),
+        lessThan(.01), reason: 'Visible face ${tile.id} must match its assigned rack slot');
+    }
+    expect(game.occupiedSlots.length, 14);
+  });
+
+  testWidgets('sorting during the deal cannot leave faces outside their new slots', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: game.size.clone());
+    game.debugPrepareLatencyState(15);
+    game.debugApplyOwnHand(hand, hardReset: true);
+    await tester.runAsync(() => game.ready());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    game.arrangeSerial();
+    await settle(tester, game);
+    await tester.pump(const Duration(seconds: 1));
+    for (final tile in game.tileComponentMap.values) {
+      expect(tile.position.distanceTo(game.slotPositions[tile.currentSlotIndex!]),
+        lessThan(.01), reason: tile.id);
+    }
+  });
+
   testWidgets('a delayed committed draw unlocks without a full-table read', (tester) async {
     final game = await mount(tester);
     game.debugPrepareLatencyState(14);
@@ -145,6 +187,45 @@ void main() {
     expect(calls, ['game_draw']);
     expect(game.canDiscardByVoice(), isTrue);
   });
+
+  for (final source in ['closed', 'discard']) {
+    for (final fullRow in [false, true]) {
+      testWidgets('$source draw response inserts into a blocked row without losing tiles; fullRow=$fullRow', (tester) async {
+        final game = await mount(tester);
+        game.debugPrepareLatencyState(14);
+        game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+        await settle(tester, game);
+        final layout = fullRow ? [...List.generate(13, (i) => i), 13]
+            : [...List.generate(12, (i) => i + 1), 13, 14];
+        game.occupiedSlots.clear();
+        for (var i = 0; i < 14; i++) {
+          final tile = game.tileComponentMap['latency-$i']!;
+          tile.stopRackMotion();
+          tile.currentSlotIndex = layout[i];
+          tile.position = game.slotPositions[layout[i]].clone();
+          game.occupiedSlots[layout[i]] = tile;
+        }
+        final existing = Map.of(game.tileComponentMap);
+        await tester.runAsync(() => game.debugDrawCommittedHand(
+          preferredSlot: 5, source: source, fromSeat: source == 'discard' ? 1 : null));
+        await settle(tester, game);
+        expect(calls, ['game_draw']);
+        expect(game.tileComponentMap.length, 15);
+        expect(game.occupiedSlots.length, 15);
+        expect(game.occupiedSlots.values.toSet().length, 15);
+        final drawn = game.tileComponentMap['latency-14']!;
+        expect(drawn.currentSlotIndex, fullRow ? 14 : 5);
+        for (final entry in existing.entries) {
+          expect(game.tileComponentMap[entry.key], same(entry.value));
+        }
+        for (final tile in game.tileComponentMap.values) {
+          expect(game.occupiedSlots[tile.currentSlotIndex], same(tile));
+        }
+        expect(game.debugActionInFlight, isFalse);
+        expect(game.canDiscardByVoice(), isTrue);
+      });
+    }
+  }
 
   testWidgets('confirmed discard only refreshes turn and preserves remaining slots', (tester) async {
     final game = await mount(tester);
@@ -189,6 +270,97 @@ void main() {
     expect(game.tileComponentMap.length, 14);
     expect(game.debugActionInFlight, isFalse);
     expect(game.canDiscardByVoice(), isFalse);
+  });
+
+  for (final slotOnly in [false, true]) {
+    testWidgets('remote pickup hides the source before animation and stale reads cannot restore it; slotOnly=$slotOnly', (tester) async {
+      final game = await mount(tester);
+      game.debugPrepareLatencyState(14);
+      final old = visual('picked-up')..isLocked = true;
+      game.world.add(old);
+      game.debugSeedDiscard(0, old, slotOnly: slotOnly);
+      await settle(tester, game);
+      final animation = game.debugAnimateDiscardPickup(0, 1, payload(old.id));
+      // Before the next frame, not after the 320 ms movement.
+      expect(old.hideTileVisual, isTrue);
+      expect(game.debugDiscardTop(0), isNull);
+      tops = [{'seat_index': 0, 'tile': payload(old.id)}];
+      await tester.runAsync(() => game.debugSyncDiscardTops());
+      expect(game.debugDiscardTop(0), isNull);
+      await tester.pump(const Duration(milliseconds: 400));
+      await animation;
+      await settle(tester, game);
+      expect(old.isMounted, isFalse);
+      expect(game.world.children.whereType<TileComponent>()
+          .where((t) => t.id == old.id), isEmpty);
+    });
+  }
+
+  testWidgets('delayed older pickup preserves a newer discard', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    final newer = visual('newer-top')..isLocked = true;
+    game.world.add(newer);
+    game.debugSeedDiscard(0, newer);
+    await settle(tester, game);
+    final animation = game.debugAnimateDiscardPickup(0, 1, payload('older-picked-up'));
+    expect(game.debugDiscardTop(0), same(newer));
+    expect(newer.hideTileVisual, isFalse);
+    await tester.pump(const Duration(milliseconds: 400));
+    await animation;
+    await settle(tester, game);
+    expect(newer.isMounted, isTrue);
+  });
+
+  testWidgets('slow discard confirmation cannot leave the original rack face under the picked-up visual', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(15);
+    game.debugSyncVisualHand(hand, initial: true);
+    final previous = visual('previous-top')..isLocked = true;
+    game.world.add(previous);
+    game.debugSeedDiscard(0, previous);
+    await settle(tester, game);
+    final original = game.tileComponentMap['latency-0']!;
+    original.position = previous.position.clone();
+    late Future<bool> discarding;
+    await tester.runAsync(() async {
+      gate = Completer<void>();
+      delayDiscard = true;
+      discarding = game.debugDiscardCommittedTile(original);
+      await Future<void>.delayed(Duration.zero);
+    });
+    expect(original.hideTileVisual, isTrue);
+    final optimistic = game.debugDiscardTop(0)!;
+    expect(optimistic.id, original.id);
+    final animation = game.debugAnimateDiscardPickup(0, 1, payload(original.id));
+    expect(optimistic.hideTileVisual, isTrue);
+    expect(original.hideTileVisual, isTrue);
+    expect(game.debugDiscardTop(0)?.id, isNot(original.id));
+    await tester.pump(const Duration(milliseconds: 400));
+    await animation;
+    await tester.runAsync(() async {
+      gate!.complete();
+      expect(await discarding, isTrue);
+    });
+    await settle(tester, game);
+    expect(original.isMounted, isFalse);
+    expect(game.tileComponentMap.length, 14);
+  });
+
+  testWidgets('failed discard restores the original tile visibility', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(15);
+    game.debugSyncVisualHand(hand, initial: true);
+    await settle(tester, game);
+    final tile = game.tileComponentMap['latency-0']!;
+    rejectDiscard = true;
+    late bool accepted;
+    await tester.runAsync(() async {
+      accepted = await game.debugDiscardCommittedTile(tile);
+    });
+    expect(accepted, isFalse);
+    expect(tile.hideTileVisual, isFalse);
+    expect(game.tileComponentMap[tile.id], same(tile));
   });
 
   testWidgets('empty authoritative top clears a missed take visual', (tester) async {

@@ -44,6 +44,7 @@ Future<void> openProfileSetupDialog({
 
 class ProfileSetupDialog extends StatefulWidget {
   final bool forceComplete;
+  final bool focusUsername;
   final bool asPage;
   final String initialUsername;
   final String? initialAvatarRef;
@@ -55,6 +56,7 @@ class ProfileSetupDialog extends StatefulWidget {
 
   const ProfileSetupDialog({
     required this.forceComplete,
+    this.focusUsername = false,
     this.asPage = false,
     required this.initialUsername,
     required this.initialAvatarRef,
@@ -115,6 +117,9 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
   void initState() {
     super.initState();
     usernameController = TextEditingController(text: widget.initialUsername);
+    if (widget.focusUsername) {
+      usernameController.selection = TextSelection(baseOffset: 0, extentOffset: usernameController.text.length);
+    }
     selectedAvatarRef = selectedAvatarRef =
         widget.initialAvatarRef ?? "assets/images/avatars/avatar11.png";
     ownedPremiumAvatarRefs = {...widget.ownedPremiumAvatarRefs};
@@ -307,6 +312,7 @@ class ProfileSetupDialogState extends State<ProfileSetupDialog> {
     child: ProfileEditorScene(
       avatar: _avatarPortrait(),
       username: usernameController,
+      focusUsername: widget.focusUsername,
       forceComplete: widget.forceComplete,
       asPage: widget.asPage,
       saving: _saving,

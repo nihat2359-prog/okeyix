@@ -13,6 +13,7 @@ import 'avatar_card.dart';
 import 'avatar_preset.dart';
 import 'table_gift_layer.dart';
 import 'bot_badge.dart';
+import 'table_join_notice.dart';
 import 'package:okeyix/core/table_invite_policy.dart';
 
 class GameAvatarOverlay extends StatefulWidget {
@@ -44,6 +45,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   RealtimeChannel? _tablePlayersChannel;
   RealtimeChannel? _tableChannel;
   Timer? _pollTimer;
+  Timer? _joinNoticeTimer;
+  List<String>? _joinedNames;
 
   String? _myUserId;
   int? _mySeatIndex;
@@ -84,6 +87,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     if (_tablePlayersChannel != null) { unawaited(_supabase.removeChannel(_tablePlayersChannel!)); }
     if (_tableChannel != null) { unawaited(_supabase.removeChannel(_tableChannel!)); }
     _pollTimer?.cancel();
+    _joinNoticeTimer?.cancel();
     _viewRefresh.dispose();
     if (widget.viewData == null) _viewData.dispose();
     _tablePlayersChannel = null;
@@ -251,7 +255,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         _hasLoadedPlayersOnce = true;
       });
 
-      _showJoinedPlayersSnack(joinedPlayers);
+      _showJoinedPlayersNotice(joinedPlayers);
       _showRemovedPlayersFx(removedPlayers, mySeat);
     } catch (e) {
       debugPrint('OVERLAY ERROR: $e');
@@ -278,7 +282,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     });
   }
 
-  void _showJoinedPlayersSnack(List<_SeatPlayer> joinedPlayers) {
+  void _showJoinedPlayersNotice(List<_SeatPlayer> joinedPlayers) {
     if (!mounted || joinedPlayers.isEmpty) return;
 
     final names = joinedPlayers
@@ -287,27 +291,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         .toList(growable: false);
     if (names.isEmpty) return;
 
-    final message = names.length == 1
-        ? '${names.first} masaya katıldı'
-        : '${names.length} oyuncu masaya katıldı: ${names.join(', ')}';
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(
-      behavior: SnackBarBehavior.floating,
-      width: min(300.0, MediaQuery.sizeOf(context).width - 48),
-      duration: const Duration(seconds: 2),
-      backgroundColor: const Color(0xF014211E),
-      elevation: 3,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0x887F9A7E)),
-      ),
-      content: Text(message, maxLines: 2, overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Color(0xFFEADAB5), fontSize: 12)),
-    ));
+    _joinNoticeTimer?.cancel();
+    setState(() => _joinedNames = names);
+    _joinNoticeTimer = Timer(const Duration(milliseconds: 2400), () {
+      if (mounted) setState(() => _joinedNames = null);
+    });
   }
 
   Future<Map<String, Map<String, dynamic>>> _loadProfilesByUserId(
@@ -583,6 +571,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       return Stack(
         children: [
           ...items,
+          if (_joinedNames != null)
+            TableJoinNotice(key: ValueKey(_joinedNames!.join(',')), names: _joinedNames!),
           Positioned.fill(child: TableGiftLayer(
             key: ValueKey('gifts:${widget.tableId}:$_myUserId:$_giftMembersKey'),
             tableId: widget.tableId,
@@ -624,6 +614,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     return Stack(
       children: [
         ...items,
+        if (_joinedNames != null)
+          TableJoinNotice(key: ValueKey(_joinedNames!.join(',')), names: _joinedNames!),
         ..._flyAwayFx
             .map((fx) => _buildFlyAwayFx(size: size, fx: fx))
             .toList(growable: false),

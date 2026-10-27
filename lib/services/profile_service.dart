@@ -678,6 +678,7 @@ class ProfileService {
 
   static Future<void> openProfileSetupDialog({
     required bool forceComplete,
+    bool focusUsername = false,
     Future<void> Function()? onSuccess,
   }) async {
     final context = navigatorKey.currentContext;
@@ -731,6 +732,7 @@ class ProfileService {
     } else {
       final setupWidget = ProfileSetupDialog(
         forceComplete: false,
+        focusUsername: focusUsername,
         asPage: false,
         initialUsername: initialUsername,
         initialAvatarRef: initialAvatar,

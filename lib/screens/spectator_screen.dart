@@ -1,3 +1,4 @@
+import 'package:okeyix/ui/table_chat_panel.dart';
 import 'package:okeyix/ui/spectator_finish_notice.dart';
 import 'package:okeyix/services/table_chat_sync.dart';
 import 'dart:io';
@@ -94,14 +95,6 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   String _recordDuration = "0:00";
   final _recorder = AudioRecorder();
 
-  final quickMessages = [
-    "Tebrikler",
-    "Teşekkürler",
-    "Hızlı oyna",
-    "İyi oyun",
-    "Şanslısın",
-    "Harika hamle",
-  ];
   static const List<String> _chatEmojis = <String>[
     '\u{1F600}',
     '\u{1F602}',
@@ -1095,42 +1088,15 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
                             /// ğŸ”¥ QUICK CHAT
                             if (MediaQuery.viewInsetsOf(context).bottom == 0)
-                            SizedBox(
-                              height: 42,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                children: quickMessages.map((msg) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        chatController.text = msg;
-                                        sendMessage();
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF1A222A),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          msg,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-
+                            TableChatQuickMessages(onSelected: (message) {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              setState(() {
+                                chatOpen = false;
+                                _showEmojiPicker = false;
+                              });
+                              chatController.text = message;
+                              unawaited(sendMessage());
+                            }),
                             SizedBox(height: MediaQuery.viewInsetsOf(context).bottom > 0 ? 2 : 8),
 
                             /// ğŸ”¥ INPUT + VOICE

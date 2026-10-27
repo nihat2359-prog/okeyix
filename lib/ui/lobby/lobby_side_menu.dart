@@ -3,6 +3,7 @@ import 'package:okeyix/screens/game_rules_screen.dart';
 
 class LobbySideMenu extends StatelessWidget {
   final bool open;
+  final VoidCallback? onDailyReward;
   final VoidCallback onClose,
       onSupport,
       onAnnouncements,
@@ -22,6 +23,7 @@ class LobbySideMenu extends StatelessWidget {
   const LobbySideMenu({
     super.key,
     required this.open,
+    this.onDailyReward,
     required this.onClose,
     required this.onSupport,
     required this.onAnnouncements,
@@ -53,10 +55,11 @@ class LobbySideMenu extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
-                    maxWidth: 290,
+                    maxWidth: 330,
                     maxHeight: 520,
                   ),
-                  child: Material(
+                  child: Stack(children: [
+                    Padding(padding: const EdgeInsets.only(right: 40), child: Material(
                     color: Colors.transparent,
                     child: Container(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -74,56 +77,6 @@ class LobbySideMenu extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          Row(
-                            children: [
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'OKEYIX',
-                                      style: TextStyle(
-                                        color: Color(0xFFDABF82),
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 2.4,
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      'Oyun Menüsü',
-                                      style: TextStyle(
-                                        color: Color(0xFFF0E5D0),
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                key: const ValueKey('menu-close'),
-                                tooltip: 'Menüyü kapat',
-                                onPressed: onClose,
-                                icon: const Icon(
-                                  Icons.close_rounded,
-                                  color: Color(0xFFAEB9C9),
-                                  size: 21,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            height: .7,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0x77C5A56B), Color(0x007A8290)],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, bounds) => Column(
@@ -155,6 +108,11 @@ class LobbySideMenu extends StatelessWidget {
                                                     const GameRulesScreen(),
                                               ),
                                             ),
+                                          ),
+                                          if (onDailyReward != null) menuButtonBuilder(
+                                            icon: Icons.redeem_rounded,
+                                            label: 'Günlük Hediyeler',
+                                            onTap: onDailyReward!,
                                           ),
                                           menuButtonBuilder(
                                             icon: Icons.tune_rounded,
@@ -192,7 +150,18 @@ class LobbySideMenu extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
+                    )),
+                    Positioned(top: 0, right: 0,
+                      child: Material(color: const Color(0xF21D232C),
+                        shape: const CircleBorder(side: BorderSide(color: Color(0x667D704B))),
+                        child: IconButton(
+                          key: const ValueKey('menu-close'),
+                          tooltip: 'Menüyü kapat', onPressed: onClose,
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFFD8CEB8), size: 22),
+                        ),
+                      ),
+                    ),
+                  ]),
                 ),
               ),
             ),

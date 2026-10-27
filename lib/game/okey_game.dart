@@ -3,6 +3,7 @@ import 'components/themed_tile_back.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'rack/timeout_discard_selection.dart';
+import 'rack/serial_rack_plan.dart';
 import 'dart:math' as math;
 import 'game_activity_probe.dart';
 import 'bot/bot_observation.dart';
@@ -2377,6 +2378,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     // A server snapshot is authoritative for tile membership, never for the
     // user's visual rack order. Keep every surviving tile in its local slot.
+    _repairRackSlotAssignments();
     final preservedSlots = <String, int>{};
     for (final entry in tileComponentMap.entries) {
       final slot = entry.value.currentSlotIndex;
@@ -2389,7 +2391,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     );
 
     for (final model in parsedById.values) {
-      if (tileComponentMap.containsKey(model.id)) continue;
+      final existing = tileComponentMap[model.id];
+      if (existing != null && !existing.isRemoving && !existing.isRemoved) continue;
+      if (existing != null) tileComponentMap.remove(model.id);
       int slotIndex;
       int? preferredSlot;
       bool forceInsertWithShift = false;
@@ -2468,12 +2472,14 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       for (final entry in preservedSlots.entries) {
         final tile = tileComponentMap[entry.key];
         if (tile == null || !tile.isMounted) continue;
+        tile.stopRackMotion();
         tile.currentSlotIndex = entry.value;
         tile.position = slotPositions[entry.value].clone();
         _lastKnownSlotByTileId[entry.key] = entry.value;
       }
       _rebuildOccupiedSlots();
     }
+    _repairRackSlotAssignments();
   }
 
   void _renderSeats() {
@@ -2583,7 +2589,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _rebuildOccupiedSlots();
     List<int>? slotPlan;
     if (wasHandEmptyBeforeRender) {
-      slotPlan = _buildSmartRackPlan(parsed.length, parsed);
+      slotPlan = _buildSmartRackPlan(parsed);
     }
 
     //-------------------------------------------------
@@ -2654,16 +2660,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
       world.add(tile);
       if (wasHandEmptyBeforeRender) {
-        tile.add(
-          observeGameEffect(MoveEffect.to(
-            slotPositions[slotIndex],
-            EffectController(
-              duration: 0.22,
-              startDelay: i * 0.025,
-              curve: Curves.easeOutCubic,
-            ),
-          ), activityProbe, 'okey_game.dart:3'),
-        );
+        // Absolute, cancellable motion: a snapshot/drag/sort may pin this tile
+        // mid-deal without a queued relative effect moving it off the rack.
+        tile.dealOnRack(slotPositions[slotIndex], startDelay: i * .025);
       } else {
         tile.position = slotPositions[slotIndex];
       }
@@ -2856,102 +2855,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     return _findFirstEmptySlot();
   }
 
-  List<int> _buildSmartRackPlan(int count, List<TileModel> tiles) {
-    final refs = <_TileRef>[
-      for (int i = 0; i < tiles.length; i++) _TileRef(i, tiles[i]),
-    ];
-    final remaining = [...refs];
-    final groups = <List<_TileRef>>[];
-
-    while (true) {
-      final best = _extractBestGroup(remaining);
-      if (best == null) break;
-      groups.add(best);
-      remaining.removeWhere((r) => best.contains(r));
-    }
-
-    final orderedBottomTiles = _sortLooseTiles(remaining);
-
-    final placement = List<int>.filled(count, -1);
-
-    final groupRowSlots = <int>[
-      for (int i = RackConfig.columns; i < slotPositions.length; i++) i,
-    ];
-    final looseRowSlots = <int>[
-      for (int i = 0; i < RackConfig.columns && i < slotPositions.length; i++)
-        i,
-    ];
-
-    // ğŸ”¥ CASE 1: hiÃ§ group yok â†’ SPLIT
-    if (groups.isEmpty) {
-      final topCount = (count / 2).ceil();
-
-      for (int i = 0; i < orderedBottomTiles.length; i++) {
-        final ref = orderedBottomTiles[i];
-        if (i < topCount && i < looseRowSlots.length) {
-          placement[ref.originalIndex] = looseRowSlots[i];
-        } else {
-          final bottomIndex = i - topCount;
-          if (bottomIndex < groupRowSlots.length) {
-            placement[ref.originalIndex] = groupRowSlots[bottomIndex];
-          }
-        }
-      }
-
-      return placement;
-    }
-
-    // ğŸ”¥ GROUP YERLEÅÄ°MÄ°
-    var groupCursor = 0;
-    for (final group in groups) {
-      final sortedGroup = _sortGroup(group);
-      for (final ref in sortedGroup) {
-        if (groupCursor >= groupRowSlots.length) break;
-        placement[ref.originalIndex] = groupRowSlots[groupCursor];
-        groupCursor++;
-      }
-      if (groupCursor < groupRowSlots.length) {
-        groupCursor++; // group gap
-      }
-      if (groupCursor >= groupRowSlots.length) break;
-    }
-
-    // ğŸ”¥ LOOSE YERLEÅÄ°MÄ° (overflow fix ile)
-    var looseCursor = 0;
-    for (final ref in orderedBottomTiles) {
-      if (placement[ref.originalIndex] != -1) continue;
-
-      if (looseCursor < looseRowSlots.length) {
-        placement[ref.originalIndex] = looseRowSlots[looseCursor];
-        looseCursor++;
-      } else {
-        // ğŸ”¥ overflow â†’ alt row boÅŸ slot bul
-        final nextFree = groupRowSlots.firstWhere(
-          (slot) => !placement.contains(slot),
-          orElse: () => -1,
-        );
-
-        if (nextFree != -1) {
-          placement[ref.originalIndex] = nextFree;
-        }
-      }
-    }
-
-    // ğŸ”¥ SAFE FALLBACK (clamp yerine)
-    for (int i = 0; i < placement.length; i++) {
-      if (placement[i] == -1) {
-        final nextFree = List.generate(
-          slotPositions.length,
-          (i) => i,
-        ).firstWhere((slot) => !placement.contains(slot), orElse: () => -1);
-
-        if (nextFree != -1) {
-          placement[i] = nextFree;
-        }
-      }
-    }
-
-    return placement;
+  List<int> _buildSmartRackPlan(List<TileModel> tiles) {
+    return serialRackPlan(tiles, columns: RackConfig.columns);
   }
 
   void arrangeSerial() {
@@ -2959,7 +2864,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     final entries = occupiedSlots.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
     final tiles = entries.map((e) => e.value.tile).toList(growable: false);
-    final plan = _buildSmartRackPlan(tiles.length, tiles);
+    final plan = _buildSmartRackPlan(tiles);
     _applyRackArrangement(
       entries.map((e) => e.value).toList(growable: false),
       plan,
@@ -3073,6 +2978,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       final tile = tiles[i];
       final slot = plan[i];
       if (slot < 0 || slot >= slotPositions.length) continue;
+      tile.stopRackMotion();
       occupiedSlots[slot] = tile;
       tile.currentSlotIndex = slot;
       tile.originalSlotIndex = slot;
@@ -3082,192 +2988,10 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     clearTemporaryShift();
   }
 
-  List<_TileRef>? _extractBestGroup(List<_TileRef> refs) {
-    if (refs.length < 3) return null;
-
-    final all = _collectGroupCandidates(refs);
-    if (all.isEmpty) return null;
-
-    List<_TileRef>? best;
-    var bestGroupCount = -1;
-    var bestTileCount = -1;
-    var bestLen = -1;
-
-    for (final candidate in all) {
-      final remaining = refs.where((r) => !candidate.contains(r)).toList();
-      final stats = _greedyGroupingStats(remaining);
-      final groupCount = 1 + stats.$1;
-      final tileCount = candidate.length + stats.$2;
-      if (groupCount > bestGroupCount ||
-          (groupCount == bestGroupCount && tileCount > bestTileCount) ||
-          (groupCount == bestGroupCount &&
-              tileCount == bestTileCount &&
-              candidate.length > bestLen)) {
-        best = candidate;
-        bestGroupCount = groupCount;
-        bestTileCount = tileCount;
-        bestLen = candidate.length;
-      }
-    }
-
-    return best;
-  }
-
   bool arrangeSerialByVoice() {
     if (occupiedSlots.isEmpty) return false;
     arrangeSerial();
     return true;
-  }
-
-  List<List<_TileRef>> _collectGroupCandidates(List<_TileRef> refs) {
-    final runCandidates = <List<_TileRef>>[];
-    for (final color in TileColor.values) {
-      final sameColor =
-          refs.where((r) => r.tile.color == color && !r.tile.isJoker).toList()
-            ..sort((a, b) => a.tile.value.compareTo(b.tile.value));
-      if (sameColor.length < 3) continue;
-      final byValue = <int, _TileRef>{};
-      for (final r in sameColor) {
-        byValue.putIfAbsent(r.tile.value, () => r);
-      }
-      final valuesSet = byValue.keys.toSet();
-
-      for (int start = 1; start <= 11; start++) {
-        if (!valuesSet.contains(start)) continue;
-        final chain = <_TileRef>[];
-        int current = start;
-        while (valuesSet.contains(current)) {
-          chain.add(byValue[current]!);
-          current += 1;
-        }
-        if (chain.length >= 3) runCandidates.add(chain);
-      }
-
-      // Only 12-13-1 is valid wrap in this ruleset.
-      if (valuesSet.contains(12) &&
-          valuesSet.contains(13) &&
-          valuesSet.contains(1)) {
-        runCandidates.add([byValue[12]!, byValue[13]!, byValue[1]!]);
-      }
-    }
-
-    final setCandidates = <List<_TileRef>>[];
-    final byNumber = <int, List<_TileRef>>{};
-    for (final r in refs.where((r) => !r.tile.isJoker)) {
-      byNumber.putIfAbsent(r.tile.value, () => []).add(r);
-    }
-    for (final entries in byNumber.values) {
-      final byColor = <TileColor, _TileRef>{};
-      for (final r in entries) {
-        byColor.putIfAbsent(r.tile.color, () => r);
-      }
-      final set = byColor.values.toList();
-      if (set.length >= 3) setCandidates.add(set);
-    }
-
-    return [...runCandidates, ...setCandidates];
-  }
-
-  (int, int) _greedyGroupingStats(List<_TileRef> refs) {
-    final remaining = [...refs];
-    var groupCount = 0;
-    var tileCount = 0;
-    while (true) {
-      final candidates = _collectGroupCandidates(remaining);
-      if (candidates.isEmpty) break;
-      candidates.sort((a, b) => b.length.compareTo(a.length));
-      final best = candidates.first;
-      groupCount += 1;
-      tileCount += best.length;
-      remaining.removeWhere((r) => best.contains(r));
-    }
-    return (groupCount, tileCount);
-  }
-
-  List<_TileRef> _sortGroup(List<_TileRef> group) {
-    if (group.isEmpty) return group;
-    final sameColor = group.every(
-      (g) => g.tile.color == group.first.tile.color,
-    );
-    final sorted = [...group];
-    if (sameColor) {
-      // Run ordering: only 12-13-1 wrap is valid; 13-1-2 is not.
-      final byValue = <int, _TileRef>{for (final r in sorted) r.tile.value: r};
-      if (byValue.length == sorted.length) {
-        final values = byValue.keys.toList()..sort();
-        final isPlainRun = values.every(
-          (v) => v == values.first + values.indexOf(v),
-        );
-        if (isPlainRun) {
-          return values.map((v) => byValue[v]!).toList(growable: false);
-        }
-        final isWrapRun =
-            values.length == 3 &&
-            values[0] == 1 &&
-            values[1] == 12 &&
-            values[2] == 13;
-        if (isWrapRun) {
-          return [byValue[12]!, byValue[13]!, byValue[1]!];
-        }
-      }
-      sorted.sort((a, b) => a.tile.value.compareTo(b.tile.value));
-      return sorted;
-    }
-    sorted.sort((a, b) {
-      final byVal = a.tile.value.compareTo(b.tile.value);
-      if (byVal != 0) return byVal;
-      return a.tile.color.index.compareTo(b.tile.color.index);
-    });
-    return sorted;
-  }
-
-  List<_TileRef> _sortLooseTiles(List<_TileRef> loose) {
-    if (loose.length <= 1) return [...loose];
-    final remaining = [...loose];
-    final blocks = <List<_TileRef>>[];
-
-    // 1) First prioritize loose run-like sequences (len >= 2).
-    while (true) {
-      final bestRun = _extractBestLooseRun(remaining);
-      if (bestRun == null) break;
-      blocks.add(bestRun);
-      remaining.removeWhere((r) => bestRun.contains(r));
-    }
-
-    // 2) Then keep same-value neighbors together (len >= 2).
-    final byValue = <int, List<_TileRef>>{};
-    for (final r in remaining) {
-      if (r.tile.isJoker) continue;
-      byValue.putIfAbsent(r.tile.value, () => []).add(r);
-    }
-    final valueBlocks = <List<_TileRef>>[];
-    final usedInValueBlocks = <_TileRef>{};
-    for (final value in byValue.keys.toList()..sort()) {
-      final list = byValue[value]!;
-      if (list.length < 2) continue;
-      list.sort((a, b) => a.tile.color.index.compareTo(b.tile.color.index));
-      valueBlocks.add(list);
-      usedInValueBlocks.addAll(list);
-    }
-    remaining.removeWhere(usedInValueBlocks.contains);
-    valueBlocks.sort((a, b) {
-      final byLen = b.length.compareTo(a.length);
-      if (byLen != 0) return byLen;
-      return a.first.tile.value.compareTo(b.first.tile.value);
-    });
-    blocks.addAll(valueBlocks);
-
-    // 3) Remaining singles: greedy adjacency so near tiles stay side-by-side.
-    if (remaining.isNotEmpty) {
-      blocks.add(_orderLooseGreedy(remaining));
-    }
-
-    // 4) Flatten blocks.
-    final out = <_TileRef>[];
-    for (final block in blocks) {
-      out.addAll(block);
-    }
-    return out;
   }
 
   bool isPointNearIndicator(Vector2 worldPoint) {
@@ -3420,114 +3144,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       debugPrint('INDICATOR BONUS DB ERROR: $e');
       return 0;
     }
-  }
-
-  List<_TileRef>? _extractBestLooseRun(List<_TileRef> pool) {
-    List<_TileRef>? best;
-    for (final color in TileColor.values) {
-      final list = pool
-          .where((r) => !r.tile.isJoker && r.tile.color == color)
-          .toList(growable: false);
-      if (list.length < 2) continue;
-
-      final byValue = <int, List<_TileRef>>{};
-      for (final ref in list) {
-        byValue.putIfAbsent(ref.tile.value, () => []).add(ref);
-      }
-
-      for (int start = 1; start <= 12; start++) {
-        final chain = <_TileRef>[];
-        int cur = start;
-        for (int step = 0; step < 13; step++) {
-          final refs = byValue[cur];
-          if (refs == null || refs.isEmpty) break;
-          chain.add(refs.first);
-          cur += 1;
-        }
-        if (chain.length < 2) continue;
-        if (best == null || chain.length > best.length) {
-          best = chain;
-        } else if (best != null && chain.length == best.length) {
-          final a = chain.first.tile.value == 1 ? 14 : chain.first.tile.value;
-          final b = best.first.tile.value == 1 ? 14 : best.first.tile.value;
-          if (a < b) best = chain;
-        }
-      }
-      if (byValue.containsKey(12) &&
-          byValue.containsKey(13) &&
-          byValue.containsKey(1)) {
-        final wrap = [
-          byValue[12]!.first,
-          byValue[13]!.first,
-          byValue[1]!.first,
-        ];
-        if (best == null || wrap.length > best.length) {
-          best = wrap;
-        }
-      }
-    }
-    return best;
-  }
-
-  List<_TileRef> _orderLooseGreedy(List<_TileRef> loose) {
-    final pool = [...loose];
-    final ordered = <_TileRef>[];
-    int seedIndex = 0;
-    for (int i = 1; i < pool.length; i++) {
-      final a = pool[i];
-      final b = pool[seedIndex];
-      if (a.tile.isJoker != b.tile.isJoker) {
-        if (!a.tile.isJoker) seedIndex = i;
-        continue;
-      }
-      if (a.tile.value != b.tile.value) {
-        if (a.tile.value < b.tile.value) seedIndex = i;
-        continue;
-      }
-      if (a.tile.color.index < b.tile.color.index) seedIndex = i;
-    }
-    ordered.add(pool.removeAt(seedIndex));
-    while (pool.isNotEmpty) {
-      final last = ordered.last;
-      int bestIndex = 0;
-      int bestScore = -1 << 20;
-      for (int i = 0; i < pool.length; i++) {
-        final c = pool[i];
-        final score = _looseAdjacencyScore(last, c);
-        if (score > bestScore) {
-          bestScore = score;
-          bestIndex = i;
-        } else if (score == bestScore) {
-          final cur = pool[bestIndex];
-          if (c.tile.value < cur.tile.value ||
-              (c.tile.value == cur.tile.value &&
-                  c.tile.color.index < cur.tile.color.index)) {
-            bestIndex = i;
-          }
-        }
-      }
-      ordered.add(pool.removeAt(bestIndex));
-    }
-    return ordered;
-  }
-
-  int _looseAdjacencyScore(_TileRef left, _TileRef right) {
-    if (right.tile.isJoker) return -500;
-    if (left.tile.isJoker) return 0;
-
-    final lv = left.tile.value;
-    final rv = right.tile.value;
-    final sameColor = left.tile.color == right.tile.color;
-    final sameValue = lv == rv;
-    final consecutive =
-        (lv - rv).abs() == 1 || (lv == 13 && rv == 1) || (lv == 1 && rv == 13);
-
-    if (sameColor && consecutive) return 100; // run neighbor (8-9, 12-13-1)
-    if (sameValue && !sameColor)
-      return 85; // set neighbor (same number diff color)
-    if (sameColor) return 40;
-    if ((lv - rv).abs() == 1) return 25;
-    return 0;
   }
 
   TileModel? _tileModelFromPayload(Map<String, dynamic> raw) {
@@ -3886,6 +3502,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         ? slotPositions[preferredRackSlot].clone()
         : _drawAnimationTargetForSeat(toSeat);
 
+    _consumeDiscardTopVisualAfterDraw(fromSeat, expectedTileId: tileModel!.id);
+
     final transient = TileComponent(
       tile: tileModel!, // 🔥 zorunlu
       position: start,
@@ -3893,29 +3511,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     transient.isLocked = true;
     world.add(transient);
-
-    // 🔥 discard üstündeki taşı kaldır + local stack'ten alttakini anında göster
-    _discardChanged(fromSeat);
-    _consumedDiscardTileBySeat[fromSeat] = tileModel.id;
-    final removed = _popDiscardStack(fromSeat);
-    final revealed = _peekDiscardStack(fromSeat);
-    final previousTop = _discardTopTilesBySeat[fromSeat];
-    if (previousTop != null) {
-      previousTop.removeFromParent();
-      _discardTopTilesBySeat.remove(fromSeat);
-      fromSlot.currentTile = null;
-    }
-    if (revealed != null) {
-      final revealedTile =
-          TileComponent(tile: revealed, position: fromSlot.position.clone())
-            ..priority = 50
-            ..isLocked = true;
-      world.add(revealedTile);
-      _discardTopTilesBySeat[fromSeat] = revealedTile;
-      fromSlot.currentTile = revealedTile;
-    } else if (removed != null) {
-      _fetchAndShowPreviousDiscardTop(fromSeat, removed.id);
-    }
 
     final completer = Completer<void>();
 
@@ -4924,6 +4519,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (userId == null) return false;
 
     _networkInFlight = true;
+    tile.hideTileVisual = true;
+    var discardConfirmed = false;
 
     try {
       final mySeat = _resolveMySeatIndex();
@@ -4956,6 +4553,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         return false;
       }
 
+      discardConfirmed = true;
       _removeTileFromRackState(tile);
       if (tile.isMounted) {
         tile.removeFromParent();
@@ -4975,6 +4573,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       return false;
     } finally {
       _networkInFlight = false;
+      if (!discardConfirmed) tile.hideTileVisual = false;
     }
   }
 
@@ -5618,26 +5217,60 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   bool _slotHasMountedTile(int index, {TileComponent? ignore}) {
-    final slotPos = slotPositions[index];
-    for (final tile in tileComponentMap.values) {
-      if (!tile.isMounted) continue;
-      if (ignore != null && identical(tile, ignore)) continue;
-      if (tile.currentSlotIndex == index) return true;
-      // Fallback: treat tile as occupying this slot if it is visually on it.
-      if (tile.position.distanceTo(slotPos) < 1.0) return true;
-    }
-    return false;
+    return _mountedTileAtSlot(index, ignore: ignore) != null;
   }
 
   TileComponent? _mountedTileAtSlot(int index, {TileComponent? ignore}) {
-    final slotPos = slotPositions[index];
     for (final tile in tileComponentMap.values) {
-      if (!tile.isMounted) continue;
+      if (tile.isRemoving || tile.isRemoved) continue;
       if (ignore != null && identical(tile, ignore)) continue;
       if (tile.currentSlotIndex == index) return tile;
-      if (tile.position.distanceTo(slotPos) < 1.0) return tile;
     }
     return null;
+  }
+
+  // Repair only invalid or conflicting assignments; never sort a healthy rack.
+  // A finishing tile is intentionally detached and sent separately to the RPC.
+  bool _repairRackSlotAssignments({TileComponent? exclude}) {
+    if (_rackInteractionActive) return false;
+    final owners = <int, TileComponent>{};
+    final excludedSlot = exclude?.currentSlotIndex;
+    bool available(int slot) => !owners.containsKey(slot) && slot != excludedSlot;
+    final unplaced = <TileComponent>[];
+    for (final tile in tileComponentMap.values) {
+      if (identical(tile, exclude) || tile.isRemoving || tile.isRemoved) continue;
+      final slot = tile.currentSlotIndex;
+      if (slot != null && slot >= 0 && slot < slotPositions.length &&
+          available(slot)) {
+        owners[slot] = tile;
+      } else {
+        unplaced.add(tile);
+      }
+    }
+    for (final tile in unplaced) {
+      int? destination;
+      for (final slot in [_lastKnownSlotByTileId[tile.id], tile.originalSlotIndex]) {
+        if (slot != null && slot >= 0 && slot < slotPositions.length &&
+            available(slot)) {
+          destination = slot;
+          break;
+        }
+      }
+      if (destination == null) {
+        for (var slot = 0; slot < slotPositions.length; slot++) {
+          if (available(slot)) { destination = slot; break; }
+        }
+      }
+      if (destination == null) return false;
+      tile.stopRackMotion();
+      tile.currentSlotIndex = destination;
+      tile.currentTarget = slotPositions[destination].clone();
+      tile.position = slotPositions[destination].clone();
+      _lastKnownSlotByTileId[tile.id] = destination;
+      owners[destination] = tile;
+    }
+    occupiedSlots..clear()..addAll(owners);
+    return true;
   }
 
   void applyPreviewShift(int targetIndex, TileComponent draggingTile) {
@@ -5664,96 +5297,58 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     }
   }
 
+  void _assignRackSlot(TileComponent tile, int slot) {
+    occupiedSlots.removeWhere((_, occupant) => identical(occupant, tile));
+    occupiedSlots[slot] = tile;
+    tile.currentSlotIndex = slot;
+    _lastKnownSlotByTileId[tile.id] = slot;
+    moveTileSmooth(tile, slotPositions[slot]);
+  }
+
   void insertIntoRow(int targetIndex, TileComponent tile) {
     _rebuildOccupiedSlots();
-    final row = targetIndex ~/ RackConfig.columns;
-    final rowStart = row * RackConfig.columns;
-    final rowEnd = rowStart + RackConfig.columns - 1;
-
-    if (tile.currentSlotIndex != null) {
-      occupiedSlots.remove(tile.currentSlotIndex);
-    }
-
-    final targetMounted = _mountedTileAtSlot(targetIndex, ignore: tile);
-    if (targetMounted == null && !occupiedSlots.containsKey(targetIndex)) {
-      occupiedSlots[targetIndex] = tile;
-      tile.currentSlotIndex = targetIndex;
-
-      moveTileSmooth(tile, slotPositions[targetIndex]); // ✅
-      _emitTileSfx();
-      return;
-    }
-    if (targetMounted != null) {
-      occupiedSlots[targetIndex] = targetMounted;
-      targetMounted.currentSlotIndex = targetIndex;
-    }
-
-    int emptyIndex = -1;
-    for (int i = targetIndex + 1; i <= rowEnd; i++) {
-      if (_mountedTileAtSlot(i, ignore: tile) == null &&
-          !occupiedSlots.containsKey(i)) {
-        emptyIndex = i;
-        break;
-      }
-    }
-
-    if (emptyIndex == -1) {
-      // Fallback: if dropping to far-right slot and there is space on the left,
-      // shift the right block left so the dragged tile can be placed at row end.
-      if (targetIndex == rowEnd) {
-        int leftEmptyIndex = -1;
-        for (int i = targetIndex - 1; i >= rowStart; i--) {
-          if (_mountedTileAtSlot(i, ignore: tile) == null &&
-              !occupiedSlots.containsKey(i)) {
-            leftEmptyIndex = i;
-            break;
-          }
-        }
-
-        if (leftEmptyIndex != -1) {
-          for (int i = leftEmptyIndex; i < targetIndex; i++) {
-            final movingTile = occupiedSlots[i + 1];
-            if (movingTile != null && movingTile != tile) {
-              occupiedSlots[i] = movingTile;
-              movingTile.currentSlotIndex = i;
-              moveTileSmooth(movingTile, slotPositions[i]);
-            } else {
-              occupiedSlots.remove(i);
-            }
-          }
-
-          occupiedSlots.remove(targetIndex);
-          occupiedSlots[targetIndex] = tile;
-          tile.currentSlotIndex = targetIndex;
-          moveTileSmooth(tile, slotPositions[targetIndex]);
-          _emitTileSfx();
-          return;
-        }
-      }
-
+    occupiedSlots.removeWhere((_, occupant) => identical(occupant, tile));
+    tile.currentSlotIndex = null;
+    if (targetIndex < 0 || targetIndex >= slotPositions.length) {
       _restoreTileToOriginalSlot(tile);
       return;
     }
+    final rowStart = targetIndex ~/ RackConfig.columns * RackConfig.columns;
+    final rowEnd = math.min(rowStart + RackConfig.columns - 1, slotPositions.length - 1);
 
-    // 🔥 SHIFT ANİMASYONU
-    for (int i = emptyIndex; i > targetIndex; i--) {
-      final movingTile = occupiedSlots[i - 1];
-      if (movingTile != null) {
-        occupiedSlots[i] = movingTile;
-        movingTile.currentSlotIndex = i;
-
-        moveTileSmooth(movingTile, slotPositions[i]); // ✅ BURASI
-      }
+    if (!occupiedSlots.containsKey(targetIndex)) {
+      _assignRackSlot(tile, targetIndex);
+      _emitTileSfx();
+      return;
     }
 
-    occupiedSlots.remove(targetIndex);
-    occupiedSlots[targetIndex] = tile;
-    tile.currentSlotIndex = targetIndex;
+    // Preserve the existing right-first insertion order. A full right block
+    // can also move left, regardless of where in the row the drop occurred.
+    for (var empty = targetIndex + 1; empty <= rowEnd; empty++) {
+      if (occupiedSlots.containsKey(empty)) continue;
+      for (var slot = empty; slot > targetIndex; slot--) {
+        final moving = occupiedSlots[slot - 1];
+        if (moving != null) _assignRackSlot(moving, slot);
+      }
+      _assignRackSlot(tile, targetIndex);
+      _emitTileSfx();
+      return;
+    }
+    for (var empty = targetIndex - 1; empty >= rowStart; empty--) {
+      if (occupiedSlots.containsKey(empty)) continue;
+      for (var slot = empty; slot < targetIndex; slot++) {
+        final moving = occupiedSlots[slot + 1];
+        if (moving != null) _assignRackSlot(moving, slot);
+      }
+      _assignRackSlot(tile, targetIndex);
+      _emitTileSfx();
+      return;
+    }
 
-    moveTileSmooth(tile, slotPositions[targetIndex]); // ✅ BURASI
-    _emitTileSfx();
+    // A drawn tile has no original slot. If this row is full, retain an
+    // existing tile's original slot or put the new tile in a free rack slot.
+    _restoreTileToOriginalSlot(tile);
   }
-
   bool isGroupDragAnchor(TileComponent tile) =>
       _groupDragAnchor != null && identical(_groupDragAnchor, tile);
 
@@ -5924,30 +5519,30 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _clearGroupDragVisuals();
   }
 
-  void _restoreTileToOriginalSlot(TileComponent tile) {
-    tile.stopRackMotion();
-    final original = tile.originalSlotIndex;
-    if (original != null &&
-        original >= 0 &&
-        original < slotPositions.length &&
-        !occupiedSlots.containsKey(original)) {
-      occupiedSlots[original] = tile;
-      tile.currentSlotIndex = original;
-      tile.position = slotPositions[original];
-      return;
-    }
-
-    if (tile.currentSlotIndex != null) {
-      final current = tile.currentSlotIndex!;
-      if (current >= 0 && current < slotPositions.length) {
-        tile.position = slotPositions[current];
-        return;
-      }
-    }
-
-    tile.position = tile.originalPosition;
+  void restoreRackTile(TileComponent tile) {
+    _rebuildOccupiedSlots();
+    _restoreTileToOriginalSlot(tile);
   }
 
+  void _restoreTileToOriginalSlot(TileComponent tile) {
+    tile.stopRackMotion();
+    occupiedSlots.removeWhere((_, occupant) => identical(occupant, tile));
+    int? destination;
+    for (final slot in [tile.originalSlotIndex, tile.currentSlotIndex]) {
+      if (slot != null && slot >= 0 && slot < slotPositions.length &&
+          !occupiedSlots.containsKey(slot)) {
+        destination = slot;
+        break;
+      }
+    }
+    destination ??= _findFirstEmptySlot();
+    if (destination < 0) return;
+    tile.currentSlotIndex = destination;
+    occupiedSlots[destination] = tile;
+    _lastKnownSlotByTileId[tile.id] = destination;
+    tile.currentTarget = slotPositions[destination].clone();
+    tile.position = slotPositions[destination].clone();
+  }
   void applyTemporaryShift(int targetIndex) {
     _rebuildOccupiedSlots();
     if (_lastPreviewIndex == targetIndex) return; // 🔥 jitter fix
@@ -6036,7 +5631,11 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       return false;
     }
 
-    final slots = _buildSlotsJson(occupiedSlots);
+    final slots = _prepareFinishSlots(tile);
+    if (slots == null) {
+      _actionInFlight = false;
+      return false;
+    }
     final lastTilePayload = tile.tile.toJson();
 
     try {
@@ -6667,7 +6266,20 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   @visibleForTesting
-  Future<void> debugDrawCommittedHand() => _serverDraw(source: 'deck');
+  Future<void> debugDrawCommittedHand({int? preferredSlot, String source = 'deck', int? fromSeat}) {
+    _pendingPreferredDrawSlot = preferredSlot;
+    return _serverDraw(source: source, fromSeat: fromSeat);
+  }
+
+  List<Map<String, dynamic>>? _prepareFinishSlots(TileComponent finishingTile) {
+    if (!_repairRackSlotAssignments(exclude: finishingTile)) return null;
+    // Keep the last tile separate even if a caller has not detached it yet.
+    return _buildSlotsJson(Map<int, TileComponent>.from(occupiedSlots));
+  }
+
+  @visibleForTesting
+  List<Map<String, dynamic>>? debugFinishSlots(TileComponent finishingTile) =>
+      _prepareFinishSlots(finishingTile);
 
   @visibleForTesting
   bool get debugActionInFlight => _actionInFlight;
@@ -6676,14 +6288,26 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   Future<bool> debugDiscardCommittedTile(TileComponent tile) => _serverDiscard(tile);
 
   @visibleForTesting
-  void debugSeedDiscard(int seat, TileComponent tile) {
+  void debugSeedDiscard(int seat, TileComponent tile, {bool slotOnly = false}) {
     final index = _slotIndexForAbsoluteSeat(seat);
     final slot = DiscardSlotComponent(playerIndex: index, position: tile.position.clone());
     _discardSlotsByIndex[index] = slot;
     slot.currentTile = tile;
-    _discardTopTilesBySeat[seat] = tile;
+    if (slotOnly) {
+      _discardTopTilesBySeat.remove(seat);
+    } else {
+      _discardTopTilesBySeat[seat] = tile;
+    }
     _discardStacksBySeat[seat] = [tile.tile];
   }
+
+  @visibleForTesting
+  Future<void> debugAnimateDiscardPickup(int fromSeat, int toSeat, Map<String, dynamic> tile) =>
+      _animateDiscardToPlayer(fromSeat: fromSeat, toSeat: toSeat, tileData: tile);
+
+  @visibleForTesting
+  TileComponent? debugDiscardTop(int seat) => _discardTopTilesBySeat[seat] ??
+      _discardSlotsByIndex[_slotIndexForAbsoluteSeat(seat)]?.currentTile;
 
   @visibleForTesting
   Future<void> debugSyncDiscardTops() => _syncDiscardTopsFromServer();
@@ -6728,41 +6352,42 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     return null;
   }
 
-  void _consumeDiscardTopVisualAfterDraw(int fromSeat) {
+  void _consumeDiscardTopVisualAfterDraw(int fromSeat, {String? expectedTileId}) {
     _discardChanged(fromSeat);
-    final fromSlotIndex = _slotIndexForAbsoluteSeat(fromSeat);
-    final fromSlot = _discardSlotsByIndex[fromSlotIndex];
-    if (fromSlot == null) return;
-    final consumedId =
-        (_discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile)?.tile.id;
-    if (consumedId != null) {
-      _consumedDiscardTileBySeat[fromSeat] = consumedId;
-    }
+    final fromSlot = _discardSlotsByIndex[_slotIndexForAbsoluteSeat(fromSeat)];
+    final mappedTop = _discardTopTilesBySeat[fromSeat];
+    final slotTop = fromSlot?.currentTile;
+    final consumedId = expectedTileId ?? mappedTop?.tile.id ?? slotTop?.tile.id;
+    if (consumedId == null) return;
+    _consumedDiscardTileBySeat[fromSeat] = consumedId;
 
-    final removed = _popDiscardStack(fromSeat);
+    // Flame removes components on a later lifecycle pass. Suppress the old
+    // face synchronously, before the travelling tile is added to the world.
+    for (final top in {mappedTop, slotTop}) {
+      if (top == null || top.tile.id != consumedId) continue;
+      top.hideTileVisual = true;
+      top.removeFromParent();
+    }
+    if (mappedTop?.tile.id == consumedId) _discardTopTilesBySeat.remove(fromSeat);
+    if (slotTop?.tile.id == consumedId) fromSlot?.currentTile = null;
+
+    final stack = _discardStacksBySeat[fromSeat];
+    stack?.removeWhere((model) => model.id == consumedId);
+    // An older pickup must never remove a newer discard already displayed.
+    if (fromSlot == null || _discardTopTilesBySeat[fromSeat] != null ||
+        fromSlot.currentTile != null) return;
     final revealed = _peekDiscardStack(fromSeat);
-    final previousTop =
-        _discardTopTilesBySeat[fromSeat] ?? fromSlot.currentTile;
-
-    if (previousTop != null) {
-      previousTop.removeFromParent();
-      _discardTopTilesBySeat.remove(fromSeat);
-      fromSlot.currentTile = null;
-    }
-
     if (revealed != null) {
-      final revealedTile =
-          TileComponent(tile: revealed, position: fromSlot.position.clone())
-            ..priority = 50
-            ..isLocked = true;
-      world.add(revealedTile);
-      _discardTopTilesBySeat[fromSeat] = revealedTile;
-      fromSlot.currentTile = revealedTile;
-    } else if (removed != null) {
-      _fetchAndShowPreviousDiscardTop(fromSeat, removed.id);
+      final tile = TileComponent(tile: revealed, position: fromSlot.position.clone())
+        ..priority = 50
+        ..isLocked = true;
+      world.add(tile);
+      _discardTopTilesBySeat[fromSeat] = tile;
+      fromSlot.currentTile = tile;
+    } else if (stack != null) {
+      unawaited(_fetchAndShowPreviousDiscardTop(fromSeat, consumedId));
     }
   }
-
   List<_FinishTile> buildFinishTilesFromHand(List hand) {
     return hand.asMap().entries.map((entry) {
       final i = entry.key;

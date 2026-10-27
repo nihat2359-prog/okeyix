@@ -453,6 +453,7 @@ class SpectatorGame extends FlameGame {
       final topTile = stack.removeLast();
       start = topTile.position.clone();
 
+      topTile.hideTileVisual = true;
       topTile.removeFromParent(); // sadece üstteki gider
     }
 

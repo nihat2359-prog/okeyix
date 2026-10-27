@@ -302,14 +302,23 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
     ],
   );
 
-  int? _displayedCareerWins(ProfileStatistics? stats) =>
-      stats?.hasCareerSnapshot == true
-        ? stats!.careerWins
-        : widget.careerWins;
+  int? _displayedCareerWins(ProfileStatistics? stats) {
+    if (stats == null) return widget.careerWins;
+    final career = stats.hasCareerSnapshot
+        ? stats.careerWins ?? widget.careerWins : widget.careerWins;
+    return math.max(career ?? 0, stats.wins);
+  }
+
+  int? _displayedCareerLosses(ProfileStatistics? stats) {
+    if (stats == null) return widget.careerLosses;
+    final career = stats.hasCareerSnapshot
+        ? stats.careerLosses ?? widget.careerLosses : widget.careerLosses;
+    return math.max(career ?? 0, stats.losses);
+  }
 
   Widget _career(ProfileStatistics? stats) => TweenAnimationBuilder<double>(
     key: ValueKey((widget.userId, _displayedCareerWins(stats),
-      stats?.careerLosses ?? widget.careerLosses, widget.coins, widget.rating)),
+      _displayedCareerLosses(stats), widget.coins, widget.rating)),
     tween: Tween(begin: 0, end: 1),
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero : const Duration(milliseconds: 650),
@@ -319,9 +328,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
 
   Widget _careerContent(ProfileStatistics? stats, double animation) {
     final wins = _displayedCareerWins(stats);
-    final losses = stats?.hasCareerSnapshot == true
-        ? stats!.careerLosses
-        : widget.careerLosses;
+    final losses = _displayedCareerLosses(stats);
     final total = wins != null && losses != null ? wins + losses : null;
     final rate = total == null
         ? null

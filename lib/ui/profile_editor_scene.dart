@@ -7,6 +7,7 @@ class ProfileEditorScene extends StatelessWidget {
   final Widget avatar;
   final TextEditingController username;
   final bool forceComplete, saving, asPage;
+  final bool focusUsername;
   final String renameInfo, costInfo;
   final String? error;
   final VoidCallback onAvatar, onPhoto, onSave, onClose;
@@ -21,6 +22,7 @@ class ProfileEditorScene extends StatelessWidget {
     required this.onSave,
     required this.onClose,
     this.forceComplete = false,
+    this.focusUsername = false,
     this.saving = false,
     this.asPage = false,
     this.error,
@@ -206,6 +208,7 @@ class ProfileEditorScene extends StatelessWidget {
                                             'profile-username',
                                           ),
                                           controller: username,
+                                          autofocus: focusUsername,
                                           maxLength: 20,
                                           scrollPadding: const EdgeInsets.all(
                                             12,

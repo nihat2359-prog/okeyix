@@ -14,6 +14,9 @@ import 'package:okeyix/services/celebration_service.dart';
 import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/profile_service.dart';
+import 'package:okeyix/services/daily_reward_service.dart';
+import 'package:okeyix/services/player_name_reminder.dart';
+import 'package:okeyix/ui/player_name_reminder_dialog.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/services/ready_table_service.dart';
 import 'package:okeyix/ui/reward_dialogs.dart';
@@ -87,6 +90,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _lobbyLoopsRunning = false;
   bool _banScreenOpened = false;
   bool _rewardFlowRunning = false;
+  bool _nameReminderShownThisSession = false;
   static const int _welcomeCoinAmount = 10000;
   static const int _dailyBonusCoinAmount = 2500;
   late final AnimationController _bgController;
@@ -357,6 +361,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       _startLobbyLoops();
       unawaited(_loadTables());
       unawaited(_loadSocialData());
+      unawaited(_runRewardFlowIfNeeded());
       return;
     }
     if (state == AppLifecycleState.inactive ||
@@ -437,6 +442,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadTables();
     await _runRewardFlowIfNeeded();
     await _tryResumeActiveGame();
+    await _showPlayerNameReminder();
     await _checkCampaignPopup();
     final userId = UserState.userId ?? supabase.auth.currentUser?.id;
     if (userId != null) {
@@ -454,22 +460,41 @@ class _LobbyScreenState extends State<LobbyScreen>
     await _loadPendingTableInvites(myUserId);
   }
 
-  Future<void> _runRewardFlowIfNeeded() async {
+  Future<void> _runRewardFlowIfNeeded({bool manual = false}) async {
     if (_rewardFlowRunning) return;
     final user = supabase.auth.currentUser;
     if (user == null || !mounted) return;
     _rewardFlowRunning = true;
     try {
-      final dailyAvailable = await _isDailyBonusAvailable(user.id);
-      if (!dailyAvailable || !mounted) return;
+      final rewards = DailyRewardService(supabase);
+      final weekly = await rewards.status();
+      final dailyAvailable = weekly?.available ?? await _isDailyBonusAvailable(user.id);
+      if ((!dailyAvailable && !manual) || !mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final prefs = await SharedPreferences.getInstance();
+      final shownKey = 'daily_reward_shown_${user.id}';
+      final dayKey = weekly?.dayKey ?? 'daily_bonus:${DateTime.now().toUtc().add(const Duration(hours: 3)).toIso8601String().substring(0, 10)}';
+      if (!manual && prefs.getString(shownKey) == dayKey) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      await prefs.setString(shownKey, dayKey);
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
 
       var credited = false;
+      var amount = 0;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (_) => DailyBonusDialog(
-          amount: _dailyBonusCoinAmount,
+          amount: weekly?.amount ?? _dailyBonusCoinAmount,
+          rewardDay: weekly?.day,
+          weeklyRewards: weekly?.rewards,
+          creditedAmount: () => amount,
+          alreadyClaimed: !dailyAvailable,
           onClaim: () async {
+            if (weekly != null) {
+              amount = await rewards.claim(weekly);
+              credited = amount > 0;
+              return credited;
+            }
             final now = DateTime.now();
             final dayKey =
                 'daily_bonus:${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -487,17 +512,63 @@ class _LobbyScreenState extends State<LobbyScreen>
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('daily_bonus_claimed_${user.id}', dayKey);
             credited = true;
+            amount = _dailyBonusCoinAmount;
             return true;
           },
         ),
       );
       await _loadUser(
-        rewardPresentation: credited ? _dailyBonusCoinAmount : null,
+        rewardPresentation: credited ? amount : null,
       );
     } catch (e) {
       debugPrint('REWARD FLOW ERROR: $e');
+      if (manual && mounted && ModalRoute.of(context)?.isCurrent == true) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xF21D232C),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0x668F8062))),
+          content: const Row(children: [
+            Icon(Icons.redeem_rounded, color: Color(0xFFE5C585)),
+            SizedBox(width: 10),
+            Expanded(child: Text('Hediyeler yüklenemedi. Lütfen yeniden dene.')),
+          ]),
+        ));
+      }
     } finally {
       _rewardFlowRunning = false;
+    }
+  }
+
+  Future<void> _showPlayerNameReminder() async {
+    if (!mounted || _nameReminderShownThisSession || _rewardFlowRunning ||
+        ModalRoute.of(context)?.isCurrent != true) return;
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    var ownsReminder = false;
+    try {
+      final reminder = PlayerNameReminder(await SharedPreferences.getInstance());
+      if (!mounted || _nameReminderShownThisSession || ModalRoute.of(context)?.isCurrent != true ||
+          !reminder.shouldShow(userId: uid, name: UserState.userName,
+            games: (UserState.wins ?? 0) + (UserState.losses ?? 0))) return;
+      _nameReminderShownThisSession = true;
+      ownsReminder = true;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final result = await showDialog<PlayerNameReminderResult>(
+        context: context, barrierDismissible: false,
+        builder: (_) => const PlayerNameReminderDialog());
+      if (result?.neverAgain == true) await reminder.dismiss(uid);
+      if (result?.edit == true && mounted) {
+        await ProfileService.openProfileSetupDialog(forceComplete: false,
+          focusUsername: true, onSuccess: () async {
+            await _loadUser();
+            await _loadSocialData();
+          });
+      }
+    } catch (e) {
+      debugPrint('PLAYER NAME REMINDER ERROR: $e');
+    } finally {
+      if (ownsReminder) _nameReminderShownThisSession = false;
     }
   }
 
@@ -1777,7 +1848,11 @@ class _LobbyScreenState extends State<LobbyScreen>
           return FadeTransition(opacity: animation, child: child);
         },
       ),
-    );
+    ).then((_) async {
+      if (!mounted) return;
+      await _loadUser();
+      await _showPlayerNameReminder();
+    });
   }
 
   void _msg(String text) {
@@ -3079,6 +3154,10 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           LobbySideMenu(
             open: _isSideMenuOpen,
+            onDailyReward: () {
+              _closeSideMenu();
+              unawaited(_runRewardFlowIfNeeded(manual: true));
+            },
             onClose: _closeSideMenu,
 
             onSupport: () async {

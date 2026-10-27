@@ -69,6 +69,7 @@ Future<void> scene(
                   onAnnouncements: () => calls.add('announcements'),
                   onProfileCard: () => calls.add('profile'),
                   onSettings: () => calls.add('settings'),
+                  onDailyReward: () => calls.add('daily'),
                   onLogout: () => calls.add('logout'),
                   menuButtonBuilder: lobbySideMenuButton,
                   goldBorderColor: const Color(0xCCB07A1A),
@@ -103,6 +104,10 @@ void main() {
           final calls = <String>[];
           await scene(tester, size, scale, calls);
           expect(find.byType(BackdropFilter), findsNothing);
+          expect(find.text('OKEYIX'), findsNothing);
+          expect(find.text('Oyun Menüsü'), findsNothing);
+          expect(tester.getRect(find.byKey(const ValueKey('menu-close'))).left,
+            greaterThan(tester.getRect(find.byKey(const ValueKey('menu-Profil Kartım'))).right));
           expect(
             tester.widget<LobbyDockEmblem>(find.byType(LobbyDockEmblem)).active,
             isTrue,
@@ -112,6 +117,7 @@ void main() {
             'Sistem Duyuruları': 'announcements',
             'Profil Kartım': 'profile',
             'Ayarlar': 'settings',
+            'Günlük Hediyeler': 'daily',
           }.entries) {
             final target = find.byKey(ValueKey('menu-${item.key}'));
             expect(target.hitTestable(), findsOneWidget);
