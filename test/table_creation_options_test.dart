@@ -56,8 +56,8 @@ void main() {
       expect(buildTableStakes(100, 100), [100]);
       expect(() => buildTableStakes(100, 99), throwsArgumentError);
       expect(() => buildTableStakes(0, 100), throwsArgumentError);
-      expect(formatTableStake(1001), '1.001K');
-      expect(formatTableStake(1000001), '1.000001M');
+      expect(formatTableStake(1001), '1,001 Bin');
+      expect(formatTableStake(1000001), '1,000001 Mn');
     },
   );
 

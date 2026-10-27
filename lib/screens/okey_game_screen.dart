@@ -2142,7 +2142,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                         curve: Curves.easeOutCubic,
                         builder: (context, value, child) {
                           return Text(
-                            Format.coin(value.round()),
+                            Format.balance(value.round()),
                             style: const TextStyle(
                               fontFamily: "Orbitron",
                               fontWeight: FontWeight.w900,

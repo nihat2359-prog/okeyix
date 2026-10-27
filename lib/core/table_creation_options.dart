@@ -1,3 +1,5 @@
+import 'format.dart';
+
 /// Keeps the existing stakes and fills the largest gaps until six are available.
 /// Never invents amounts outside the league's configured inclusive bounds.
 List<int> buildTableStakes(int minimum, int maximum) {
@@ -40,16 +42,7 @@ List<int> buildTableStakes(int minimum, int maximum) {
 }
 
 /// Compact labels must not round two different selectable stakes to one label.
-String formatTableStake(int amount) {
-  if (amount < 1000) return '$amount';
-  final divisor = amount >= 1000000 ? 1000000 : 1000;
-  final digits = divisor == 1000000 ? 6 : 3;
-  final remainder = amount % divisor;
-  final fraction = remainder == 0
-      ? ''
-      : '.${remainder.toString().padLeft(digits, '0').replaceFirst(RegExp(r'0+$'), '')}';
-  return '${amount ~/ divisor}$fraction${divisor == 1000000 ? 'M' : 'K'}';
-}
+String formatTableStake(int amount) => Format.coinExact(amount);
 
 /// The same validated draft used by the UI is sent to the existing insert.
 Map<String, dynamic> tableCreationPayload({

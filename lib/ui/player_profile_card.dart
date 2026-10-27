@@ -411,7 +411,7 @@ class _PlayerProfileCardState extends State<PlayerProfileCard> {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            Format.coin((widget.coins * animation).round()),
+                            Format.balance((widget.coins * animation).round()),
                             style: _text(18, weight: FontWeight.w800),
                           ),
                         ),

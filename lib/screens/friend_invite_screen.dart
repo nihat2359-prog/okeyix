@@ -1,3 +1,4 @@
+import 'package:okeyix/core/format.dart';
 import 'package:flutter/material.dart';
 import '../ui/lobby/lobby_metal_surface.dart';
 import 'package:flutter/services.dart';
@@ -311,7 +312,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
                       ),
                     ),
                     const Text(
-                      '1M COIN',
+                      '1 Mn COIN',
                       style: TextStyle(
                         color: _gold,
                         fontSize: 44,
@@ -525,8 +526,8 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
             Text(
               rewarded
                   ? s.t(
-                      'Tamamlandı · 1M coin kazanıldı!',
-                      'Completed · 1M coins received!',
+                      'Tamamlandı · 1 Mn coin kazanıldı!',
+                      'Completed · 1 Mn coins received!',
                     )
                   : s.t(
                       '$progress / 10 el tamamlandı',
@@ -596,12 +597,7 @@ class _FriendInviteScreenState extends State<FriendInviteScreen>
     ),
   );
 
-  String _coin(dynamic value) {
-    final n = (value as num?) ?? 0;
-    return n >= 1000000
-        ? '${(n / 1000000).toStringAsFixed(n % 1000000 == 0 ? 0 : 1)}M'
-        : '$n';
-  }
+  String _coin(dynamic value) => Format.balance((value as num?) ?? 0);
 
   Widget _summary(String label, String value) => Column(
     mainAxisSize: MainAxisSize.min,

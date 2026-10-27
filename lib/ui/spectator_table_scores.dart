@@ -75,8 +75,8 @@ class SpectatorPlayerCard extends StatelessWidget {
             Row(children: [
               const Icon(Icons.monetization_on_outlined, size: 13, color: Color(0xFFE4C88D)),
               const SizedBox(width: 4),
-              Flexible(child: Text(coins == null ? '—' : Format.coin(coins!), maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFE4C88D)))),
+              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(coins == null ? '—' : Format.balance(coins!), maxLines: 1,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFE4C88D))))),
             ]),
           ])),
       ]),

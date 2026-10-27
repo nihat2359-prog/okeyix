@@ -141,7 +141,7 @@ void main() {
       );
       await t.pumpAndSettle();
       expect(find.byType(TextField), findsNothing);
-      expect(find.text('Tamamlandı · 1M coin kazanıldı!'), findsOneWidget);
+      expect(find.text('Tamamlandı · 1 Mn coin kazanıldı!'), findsOneWidget);
       expect(t.takeException(), isNull);
     },
   );

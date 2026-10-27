@@ -3,49 +3,45 @@ class Format {
   static const int ratingMaxValue = 34000; // 34.0
   static const int ratingLevelStep = 1000; // per-level bucket
 
+  static const _coinDivisors = [1, 1000, 1000000, 1000000000, 1000000000000];
+  static const _coinUnits = ['', 'Bin', 'Mn', 'Mr', 'Tn'];
+
+  static String balance(num value) => coin(value);
+
   static String coin(num value) {
-    if (value >= 1000000000000) {
-      final v = value / 1000000000000;
-      return "${_formatShort(v)} T";
+    final magnitude = value.abs();
+    var unit = 0;
+    while (unit < _coinDivisors.length - 1 &&
+        magnitude >= _coinDivisors[unit + 1]) {
+      unit++;
     }
-
-    if (value >= 1000000000) {
-      final v = value / 1000000000;
-      return "${_formatShort(v)} B";
+    if (unit == 0) return value.toString().replaceAll('.', ',');
+    var tenths = (magnitude * 10 / _coinDivisors[unit]).round();
+    // Carry rounding into the next unit instead of displaying 1000 Bin/Mn/Mr.
+    if (tenths >= 10000 && unit < _coinDivisors.length - 1) {
+      unit++;
+      tenths = (magnitude * 10 / _coinDivisors[unit]).round();
     }
-
-    if (value >= 1000000) {
-      final v = value / 1000000;
-      return "${_formatShort(v)} M";
-    }
-
-    if (value >= 1000) {
-      final v = value / 1000;
-
-      /// 🔥 CRITICAL FIX
-      if (v >= 999.5) {
-        return "1 M";
-      }
-
-      return "${_formatShort(v)} K";
-    }
-
-    return value.toString();
+    final text = tenths % 10 == 0 ? '${tenths ~/ 10}'
+        : '${tenths ~/ 10},${tenths % 10}';
+    return '${value < 0 ? '-' : ''}$text ${_coinUnits[unit]}';
   }
 
-  static String _formatShort(num v) {
-    // 🔥 tam sayıysa .0 gösterme
-    if (v % 1 == 0) {
-      return v.toStringAsFixed(0);
+  /// Exact labels for selectable stakes: never merge distinct amounts by rounding.
+  static String coinExact(int value) {
+    final magnitude = value.abs();
+    var unit = 0;
+    while (unit < _coinDivisors.length - 1 &&
+        magnitude >= _coinDivisors[unit + 1]) {
+      unit++;
     }
-
-    if (v >= 100) return v.toStringAsFixed(0);
-    if (v >= 10) return v.toStringAsFixed(1);
-
-    return v.toStringAsFixed(1);
+    if (unit == 0) return '$value';
+    final divisor = _coinDivisors[unit];
+    final remainder = magnitude % divisor;
+    final fraction = remainder == 0 ? '' :
+        ',${remainder.toString().padLeft(unit * 3, '0').replaceFirst(RegExp(r'0+$'), '')}';
+    return '${value < 0 ? '-' : ''}${magnitude ~/ divisor}$fraction ${_coinUnits[unit]}';
   }
-
-  /// 🔥 İleride lazım olacak
   static String number(int value) {
     return value.toString();
   }
@@ -77,4 +73,5 @@ class Format {
     final next = ((value ~/ ratingStep) + 1) * ratingStep;
     return next > ratingMaxValue ? ratingMaxValue : next;
   }
+
 }

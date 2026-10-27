@@ -118,6 +118,7 @@ class _CreateTableSceneState extends State<CreateTableScene> {
                   borderRadius: BorderRadius.circular(70),
                   child: Center(
                     child: SizedBox(
+                      key: ValueKey('stake-face-$index'),
                       width: tokenDiameter(index),
                       height: tokenDiameter(index),
                       child: RepaintBoundary(
@@ -125,19 +126,11 @@ class _CreateTableSceneState extends State<CreateTableScene> {
                           painter: _EntryToken(index == widget.selectedIndex),
                           child: Center(
                             child: FractionallySizedBox(
-                              widthFactor: .68,
+                              widthFactor: .60,
+                              heightFactor: .56,
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
-                                child: Text(
-                                  widget.formatStake(widget.stakes[index]),
-                                  style: TextStyle(
-                                    color: index == widget.selectedIndex
-                                        ? const Color(0xFF3F2A0C)
-                                        : gold,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                                child: _stakeLabel(index),
                               ),
                             ),
                           ),
@@ -153,6 +146,24 @@ class _CreateTableSceneState extends State<CreateTableScene> {
       );
     },
   );
+
+  Widget _stakeLabel(int index) {
+    final label = widget.formatStake(widget.stakes[index]);
+    final split = label.lastIndexOf(' ');
+    final color = index == widget.selectedIndex
+        ? const Color(0xFF3F2A0C) : gold;
+    return Column(key: ValueKey('stake-label-$index'),
+      mainAxisSize: MainAxisSize.min, children: [
+      Text(split < 0 ? label : label.substring(0, split),
+        maxLines: 1, softWrap: false,
+        style: TextStyle(color: color, fontSize: 20,
+          height: 1.1, fontWeight: FontWeight.w700)),
+      if (split >= 0)
+        Text(label.substring(split + 1), maxLines: 1, softWrap: false,
+          style: TextStyle(color: color, fontSize: 12,
+            height: 1.2, fontWeight: FontWeight.w600)),
+    ]);
+  }
   @override
   Widget build(BuildContext context) => Dialog(
     backgroundColor: Colors.transparent,

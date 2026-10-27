@@ -4627,7 +4627,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      Format.coin(_coinDisplayValue),
+                      Format.balance(_coinDisplayValue),
                       style: TextStyle(
                         color: const Color(0xFFE5D3AA),
                         fontSize: textSize,

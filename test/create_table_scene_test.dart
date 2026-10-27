@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/ui/lobby/create_table_scene.dart';
+import 'package:okeyix/core/table_creation_options.dart';
 
 class Draft {
   final stakes = [100, 200, 400, 800, 1600, 3200];
@@ -16,6 +17,7 @@ Future<void> scene(
   Size size,
   Draft draft, {
   double scale = 1,
+  String Function(int)? formatter,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -50,7 +52,7 @@ Future<void> scene(
                     spectator: draft.spectator,
                     chat: draft.chat,
                     canCreate: draft.stakes[draft.selected] <= 1000,
-                    formatStake: (n) => '$n',
+                    formatStake: formatter ?? (n) => '$n',
                     onStake: (n) => refresh(() => draft.selected = n),
                     onSpeed: (n) => refresh(() => draft.speed = n),
                     onSpectator: () =>
@@ -71,6 +73,25 @@ Future<void> scene(
 }
 
 void main() {
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('Turkish amount and unit stay inside token at text $scale', (tester) async {
+      final draft = Draft();
+      draft.stakes..clear()..addAll([250000,350000,440000,625000,810000,1000000]);
+      await scene(tester, const Size(568,320), draft,
+        scale: scale, formatter: formatTableStake);
+      for (var i = 0; i < draft.stakes.length; i++) {
+        final face = tester.getRect(find.byKey(ValueKey('stake-face-$i')));
+        final label = tester.getRect(find.byKey(ValueKey('stake-label-$i')));
+        expect(label.width, lessThanOrEqualTo(face.width * .61));
+        expect(label.height, lessThanOrEqualTo(face.height * .57));
+        expect(face.contains(label.topLeft), isTrue);
+        expect(face.contains(label.bottomRight), isTrue);
+      }
+      expect(find.text('Bin'), findsNWidgets(5));
+      expect(find.text('Mn'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('real dialog route preserves the backdrop through its face', (
     tester,
   ) async {

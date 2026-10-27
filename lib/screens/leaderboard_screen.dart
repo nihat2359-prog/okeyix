@@ -621,7 +621,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      Format.coin(coins),
+                      Format.balance(coins),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -640,8 +640,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   String _formatScore(dynamic p) {
     if (selectedTab == 0) return Format.rating(_asInt(p['rating']));
-    if (selectedTab == 1) return Format.coin(_asInt(p['coins']));
-    if (selectedTab == 2) return Format.coin(_asInt(p['total_earned']));
+    if (selectedTab == 1) return Format.balance(_asInt(p['coins']));
+    if (selectedTab == 2) return Format.balance(_asInt(p['total_earned']));
     return Format.rating(_asInt(p['rating']));
   }
 

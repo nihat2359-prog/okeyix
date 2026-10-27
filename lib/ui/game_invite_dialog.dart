@@ -153,7 +153,7 @@ class _GameInviteDialogState extends State<GameInviteDialog> {
                   const SizedBox(height: 3),
                   FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
                     child: Text('${p['is_bot'] == true ? 'BOT · ' : ''}'
-                      'Seviye ${Format.rating(p['rating'])} · ${Format.coin(p['coins'] ?? 0)} Coin',
+                      'Seviye ${Format.rating(p['rating'])} · ${Format.balance(p['coins'] ?? 0)} Coin',
                       style: const TextStyle(color: Color(0xFFD4C4A0), fontSize: 11))),
                   if (p['is_online'] != true) ...[
                     const SizedBox(height: 3),

@@ -154,7 +154,7 @@ class AvatarCard extends StatelessWidget {
         curve: Curves.easeOutCubic,
         builder: (context, value, child) {
           return Text(
-            Format.coin(value.round()),
+            Format.balance(value.round()),
             style: TextStyle(
               fontSize: 10.5,
               color: const Color(0xFFE7C77B),

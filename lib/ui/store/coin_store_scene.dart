@@ -136,7 +136,7 @@ class CoinStoreScene extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                        Format.coin(balance),
+                                        Format.balance(balance),
                                         key: const ValueKey('store-balance'),
                                         style: const TextStyle(
                                           color: Color(0xFFF1E3C4),

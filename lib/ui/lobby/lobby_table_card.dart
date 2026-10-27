@@ -178,15 +178,7 @@ class LobbyTableCard extends StatelessWidget {
     );
   }
 
-  String _formatEntryShort(int value) {
-    if (value >= 1000000) {
-      return '${(value / 1000000).toStringAsFixed(1)}MİL';
-    }
-    if (value >= 1000) {
-      return '${(value / 1000).toStringAsFixed(0)}BİN';
-    }
-    return '$value';
-  }
+  String _formatEntryShort(int value) => Format.coin(value);
 
   Widget _seatAnchor({
     required int seatIndex,

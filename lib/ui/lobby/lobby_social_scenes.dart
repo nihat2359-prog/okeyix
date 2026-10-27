@@ -146,7 +146,7 @@ class LobbyFriendsScene extends StatelessWidget {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(
-                                    'Seviye ${friend['rating'] is num ? Format.rating((friend['rating'] as num).toInt()) : '—'} · ${friend['coins'] is num ? Format.coin(friend['coins'] as num) : '—'} Coin',
+                                    'Seviye ${friend['rating'] is num ? Format.rating((friend['rating'] as num).toInt()) : '—'} · ${friend['coins'] is num ? Format.balance(friend['coins'] as num) : '—'} Coin',
                                     maxLines: 1,
                                     style: const TextStyle(color: _gold, fontSize: 11),
                                   ),

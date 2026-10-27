@@ -456,8 +456,8 @@ void main() {
     expect(find.text('Boş yer'), findsNothing);
     expect(find.text('Masa 1'), findsNothing);
     expect(find.text('Masa 2'), findsNothing);
-    expect(find.text('2.5 K'), findsWidgets);
-    expect(find.text('5 K'), findsWidgets);
+    expect(find.text('2,5 Bin'), findsWidgets);
+    expect(find.text('5 Bin'), findsWidgets);
     expect(find.text('3 el · 20 sn'), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('seat-waiting-1')));
