@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:okeyix/overlay/app_overlay.dart';
 import 'package:okeyix/services/tile_theme_service.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -318,12 +319,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       // 🔥 BURASI EKLENECEK
       builder: (context, child) {
-        return Overlay(
-          key: overlayKey,
-          initialEntries: [OverlayEntry(builder: (context) => UpdateCheckHost(
+        return AppOverlay(
+          overlayKey: overlayKey,
+          child: UpdateCheckHost(
             navigatorKey: navigatorKey,
             child: child!,
-          ))],
+          ),
         );
       },
 

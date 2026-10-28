@@ -9,3 +9,14 @@ entrypoint = "./functions/delete-voice/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/delete-voice/*.html" ]
+
+[functions.process_reengagement_notifications]
+enabled = true
+# Server-only endpoint. index.ts validates a dedicated 32+ character secret.
+# It accepts neither public API keys nor end-user JWTs as authorization.
+verify_jwt = false
+
+[functions.send_reengagement_test]
+enabled = true
+# Independent manual test secret + server-pinned user/device + one-use SQL ticket.
+verify_jwt = false

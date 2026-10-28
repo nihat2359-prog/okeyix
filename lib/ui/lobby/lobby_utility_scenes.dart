@@ -23,187 +23,216 @@ class GameSupportScene extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !sending,
-    child: _GamePanel(
-      builder: (context, height) {
-        final compact = height < 240;
-        return Column(
-          children: [
-            _Heading(
-              'OYUNCU DESTEĞİ',
-              'Destek & Şikâyet',
-              Icons.support_agent_rounded,
-              sending ? null : onClose,
-              compact: compact,
-            ),
-            SizedBox(height: compact ? 2 : 6),
-            SizedBox(
-              height: compact ? 32 : 44,
-              child: Row(
-                children: [
-                  for (final item in const {
-                    'talep': ('Talep', Icons.edit_note_rounded),
-                    'sikayet': ('Şikâyet', Icons.flag_outlined),
-                    'hata': ('Hata', Icons.bug_report_outlined),
-                  }.entries)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(22),
-                              color: category == item.key
-                                  ? const Color(0x25E5C585)
-                                  : Colors.transparent,
-                              border: Border.all(
-                                color: category == item.key
-                                    ? const Color(0x99E5C585)
-                                    : const Color(0x337C8693),
-                                width: .8,
-                              ),
-                            ),
-                            child: InkWell(
-                              key: ValueKey('support-${item.key}'),
-                              onTap: sending
-                                  ? null
-                                  : () => onCategory(item.key),
-                              borderRadius: BorderRadius.circular(22),
-                              child: Center(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        item.value.$2,
-                                        color: category == item.key
-                                            ? _gold
-                                            : const Color(0xFF9BA5B3),
-                                        size: 17,
+  Widget build(BuildContext context) {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return PopScope(
+      canPop: !sending,
+      child: _GamePanel(
+        builder: (context, height) {
+          final compact = height < 240;
+          return Column(
+            children: [
+              if (keyboardOpen)
+                SizedBox(
+                  height: 28,
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Mesajını yaz',
+                          style: TextStyle(color: _gold, fontSize: 13),
+                        ),
+                      ),
+                      TextButton.icon(
+                        key: const ValueKey('support-hide-keyboard'),
+                        onPressed: () => FocusScope.of(context).unfocus(),
+                        icon: const Icon(Icons.keyboard_hide_rounded, size: 18),
+                        label: const Text('Klavyeyi kapat'),
+                        style: TextButton.styleFrom(foregroundColor: _gold),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!keyboardOpen) ...[
+                _Heading(
+                  'OYUNCU DESTEĞİ',
+                  'Destek & Şikâyet',
+                  Icons.support_agent_rounded,
+                  sending ? null : onClose,
+                  compact: compact,
+                ),
+                SizedBox(height: compact ? 2 : 6),
+                SizedBox(
+                  height: compact ? 32 : 44,
+                  child: Row(
+                    children: [
+                      for (final item in const {
+                        'talep': ('Talep', Icons.edit_note_rounded),
+                        'sikayet': ('Şikâyet', Icons.flag_outlined),
+                        'hata': ('Hata', Icons.bug_report_outlined),
+                      }.entries)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(22),
+                                  color: category == item.key
+                                      ? const Color(0x25E5C585)
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: category == item.key
+                                        ? const Color(0x99E5C585)
+                                        : const Color(0x337C8693),
+                                    width: .8,
+                                  ),
+                                ),
+                                child: InkWell(
+                                  key: ValueKey('support-${item.key}'),
+                                  onTap: sending
+                                      ? null
+                                      : () => onCategory(item.key),
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: Center(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            item.value.$2,
+                                            color: category == item.key
+                                                ? _gold
+                                                : const Color(0xFF9BA5B3),
+                                            size: 17,
+                                          ),
+                                          const SizedBox(width: 7),
+                                          Text(
+                                            item.value.$1,
+                                            style: TextStyle(
+                                              color: category == item.key
+                                                  ? _gold
+                                                  : const Color(0xFFBDC4CF),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 7),
-                                      Text(
-                                        item.value.$1,
-                                        style: TextStyle(
-                                          color: category == item.key
-                                              ? _gold
-                                              : const Color(0xFFBDC4CF),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: compact ? 2 : 8),
+              ],
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('support-message'),
+                  controller: message,
+                  autofillHints: null,
+                  keyboardType: TextInputType.multiline,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  enabled: !sending,
+                  expands: true,
+                  maxLines: null,
+                  minLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  scrollPadding: const EdgeInsets.all(8),
+                  cursorColor: _gold,
+                  style: TextStyle(
+                    color: Color(0xFFE6E8ED),
+                    fontSize: compact ? 12 : 13,
+                    height: compact ? 1.2 : 1.4,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0x40070D16),
+                    hintText: 'Seni dinliyoruz. Detayları buraya yaz…',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF858F9F),
+                      fontSize: 12,
+                    ),
+                    contentPadding: EdgeInsets.all(compact ? 4 : 14),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0x336E7C8E),
+                        width: .7,
                       ),
                     ),
-                ],
-              ),
-            ),
-            SizedBox(height: compact ? 2 : 8),
-            Expanded(
-              child: TextField(
-                key: const ValueKey('support-message'),
-                controller: message,
-                enabled: !sending,
-                expands: true,
-                maxLines: null,
-                minLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                scrollPadding: const EdgeInsets.all(8),
-                cursorColor: _gold,
-                style: TextStyle(
-                  color: Color(0xFFE6E8ED),
-                  fontSize: compact ? 12 : 13,
-                  height: compact ? 1.2 : 1.4,
-                ),
-                decoration: InputDecoration(
-                  isDense: true,
-                  filled: true,
-                  fillColor: const Color(0x40070D16),
-                  hintText: 'Seni dinliyoruz. Detayları buraya yaz…',
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF858F9F),
-                    fontSize: 12,
-                  ),
-                  contentPadding: EdgeInsets.all(compact ? 4 : 14),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0x336E7C8E),
-                      width: .7,
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0x99E5C585),
+                        width: .8,
+                      ),
                     ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0x99E5C585),
-                      width: .8,
-                    ),
-                  ),
-                  disabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0x336E7C8E),
-                      width: .7,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: compact ? 2 : 8),
-            SizedBox(
-              height: 44,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      error ?? 'En az 8 karakter yaz.',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: error == null
-                            ? const Color(0xFF9CA6B5)
-                            : const Color(0xFFF0A298),
-                        fontSize: 10,
-                        height: 1.2,
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0x336E7C8E),
+                        width: .7,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _GameAction(
-                      'Vazgeç',
-                      Icons.close_rounded,
-                      sending ? null : onClose,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _GameAction(
-                      sending ? 'Gönderiliyor…' : 'Gönder',
-                      sending
-                          ? Icons.hourglass_top_rounded
-                          : Icons.send_rounded,
-                      sending ? null : onSend,
-                      primary: true,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
-        );
-      },
-    ),
-  );
+              SizedBox(height: compact ? 2 : 8),
+              SizedBox(
+                height: keyboardOpen ? 36 : 44,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        error ?? 'En az 8 karakter yaz.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: error == null
+                              ? const Color(0xFF9CA6B5)
+                              : const Color(0xFFF0A298),
+                          fontSize: 10,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: _GameAction(
+                        'Vazgeç',
+                        Icons.close_rounded,
+                        sending ? null : onClose,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: _GameAction(
+                        sending ? 'Gönderiliyor…' : 'Gönder',
+                        sending
+                            ? Icons.hourglass_top_rounded
+                            : Icons.send_rounded,
+                        sending ? null : onSend,
+                        primary: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class GameSettingsScene extends StatelessWidget {
@@ -309,8 +338,15 @@ class GameSettingsScene extends StatelessWidget {
               Expanded(
                 child: TextButton.icon(
                   onPressed: onTileThemes ?? () => showTileThemes(context),
-                  icon: const Icon(Icons.style_outlined, color: _gold, size: 20),
-                  label: const Text('Taş Temaları', style: TextStyle(color: _gold, fontSize: 12)),
+                  icon: const Icon(
+                    Icons.style_outlined,
+                    color: _gold,
+                    size: 20,
+                  ),
+                  label: const Text(
+                    'Taş Temaları',
+                    style: TextStyle(color: _gold, fontSize: 12),
+                  ),
                 ),
               ),
               if (showAccountActions) ...[

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../okeyix_web"
+		}
+	],
+	"settings": {
+		"dart.openDevTools": "flutter"
+	}
+}

@@ -2117,7 +2117,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     String? errorText;
     bool sending = false;
 
-    await showDialog<void>(
+    final route = DialogRoute<void>(
       context: context,
       barrierDismissible: !sending,
       builder: (context) {
@@ -2125,6 +2125,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           builder: (context, setLocalState) {
             Future<void> submit() async {
               if (sending) return;
+              FocusScope.of(context).unfocus();
               final message = messageController.text.trim();
               if (message.length < 8) {
                 setLocalState(() {
@@ -2143,18 +2144,39 @@ class _LobbyScreenState extends State<LobbyScreen>
                   'category': category,
                   'message': message,
                   'status': 'open',
-                  'reported_user_id': '',
+                  'reported_user_id': null,
                 });
-                if (!mounted || !context.mounted) return;
-                Navigator.pop(context);
-                _msg('Talebiniz alınmıştır.');
-              } catch (_) {
+              } on PostgrestException catch (error, stackTrace) {
+                debugPrint(
+                  'SUPPORT_REQUEST_DATABASE_ERROR: code=${error.code} '
+                  'message=${error.message} details=${error.details} '
+                  'hint=${error.hint}',
+                );
+                debugPrintStack(stackTrace: stackTrace);
+                if (!context.mounted) return;
+                setLocalState(() {
+                  sending = false;
+                  errorText = switch (error.code) {
+                    '42501' => 'Destek kaydı için erişim izni yok (42501).',
+                    '23503' => 'Oyuncu kaydı doğrulanamadı (23503).',
+                    '23502' => 'Destek kaydında zorunlu alan eksik (23502).',
+                    _ => 'Talep kaydedilemedi (${error.code ?? 'veritabanı'}).',
+                  };
+                });
+                return;
+              } catch (error, stackTrace) {
+                debugPrint('SUPPORT_REQUEST_ERROR: ${error.runtimeType}: $error');
+                debugPrintStack(stackTrace: stackTrace);
                 if (!context.mounted) return;
                 setLocalState(() {
                   sending = false;
                   errorText = 'Mesajın gönderilemedi. Lütfen tekrar dene.';
                 });
+                return;
               }
+              if (!mounted || !context.mounted) return;
+              Navigator.pop(context);
+              _msg('Talebiniz alınmıştır.');
             }
 
             return GameSupportScene(
@@ -2170,7 +2192,13 @@ class _LobbyScreenState extends State<LobbyScreen>
         );
       },
     );
-    messageController.dispose();
+    try {
+      await Navigator.of(context, rootNavigator: true).push(route);
+      // The pop future resolves before the reverse transition removes TextField.
+      await route.completed;
+    } finally {
+      messageController.dispose();
+    }
   }
 
   Future<void> _showSystemMessagesDialog() async {

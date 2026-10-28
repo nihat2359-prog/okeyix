@@ -175,8 +175,17 @@ void main() {
     );
     final button = tester.getRect(find.byKey(const ValueKey('utility-Gönder')));
     expect(button.bottom, lessThanOrEqualTo(360 - 140));
+    final messageFinder = find.byKey(const ValueKey('support-message'));
+    expect(tester.getSize(messageFinder).height, greaterThanOrEqualTo(64));
+    await tester.enterText(messageFinder, 'Destek test mesajı 12345');
+    await tester.tap(find.byKey(const ValueKey('support-hide-keyboard')));
+    await tester.pump();
+    final editable = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editable.focusNode.hasFocus, isFalse);
+    expect(editable.controller.text, 'Destek test mesajı 12345');
+    expect(calls, isEmpty);
     await tester.tap(find.byKey(const ValueKey('utility-Gönder')));
-    expect(calls, contains('send:'));
+    expect(calls, contains('send:Destek test mesajı 12345'));
     expect(tester.takeException(), isNull);
     calls.clear();
     await scene(tester, sizes.first, true, calls, busy: true);

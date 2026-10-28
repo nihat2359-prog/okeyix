@@ -198,6 +198,8 @@ class ProfileReportScene extends StatelessWidget {
     child: TextField(
       key: const ValueKey('profile-report-message'),
       controller: controller,
+      autofillHints: null,
+      keyboardType: TextInputType.multiline,
       enabled: !sending,
       expands: true,
       minLines: null,
