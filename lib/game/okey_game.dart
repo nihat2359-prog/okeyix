@@ -1,4 +1,6 @@
 import 'dart:async' as async;
+import 'confirmed_draw.dart';
+import 'game_latency_trace.dart';
 import 'components/themed_tile_back.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -97,10 +99,15 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   void Function(int amount)? onIndicatorBonusAwarded;
   void Function(bool visible)? onFinishVisibilityChanged;
   DateTime? _turnStartedAt;
+  DateTime? _lastServerTurnAt;
+  int? _lastServerTurnRound;
   DateTime? _enteredPlayingAt;
   String? _lastRenderedHandFingerprint;
   String? _lastDeckVisualSignature;
   int _myHandCount = 0;
+  int _committedHandRevision = 0;
+  Future<TileModel?>? _preparedClosedDraw;
+  int _preparedDrawGeneration = 0;
   String? _drawCommittedTurnKey;
   bool _sourceDrawDragActive = false;
   Vector2? _sourceDrawDragPosition;
@@ -835,6 +842,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     final supabase = Supabase.instance.client;
     final wasGameStarted = _gameStarted;
     final requestEpoch = _handStateEpoch;
+    final handRevision = _committedHandRevision;
 
     final res = await supabase.rpc(
       'get_full_table_state',
@@ -844,6 +852,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (res == null || requestEpoch != _handStateEpoch) return;
 
     final table = Map<String, dynamic>.from(res['table']);
+    if (_staleTurnSnapshot(table)) return;
     final incomingRound = table['round_count'];
     if (incomingRound is int && incomingRound < _round) return;
     if (table['status'] == 'playing' &&
@@ -883,16 +892,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     }
     _pot = (table['pot_amount'] as int?) ?? _pot;
 
-    final nextTurn = (table['current_turn'] as int?) ?? 0;
     final serverTurnStartedAt = _parseServerTime(table['turn_started_at']);
-
-    if (currentTurn != nextTurn) {
-      _turnStartedAt = serverTurnStartedAt ?? DateTime.now();
-      _lastTimeoutTurnToken = null;
-    }
-
-    currentTurn = nextTurn;
-    _turnStartedAt = serverTurnStartedAt ?? _turnStartedAt ?? DateTime.now();
+    _applyTurnSnapshot(table);
 
     //-------------------------------------------------
     // LEAGUE + TURN SECONDS
@@ -1055,7 +1056,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _hideWaitingOverlay();
 
     final renderEpoch = _handStateEpoch;
-    await Future.wait([
+    final presentationSync = Future.wait([
       _ensureFreshTurnStartedAt(
         status: status,
         serverTurnStartedAt: serverTurnStartedAt,
@@ -1065,7 +1066,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     _turnStartedAt ??= DateTime.now();
 
-    if (isLoaded) {
+    if (isLoaded && handRevision == _committedHandRevision) {
       if (renderEpoch != _handStateEpoch) return;
       if (status != 'playing' ||
           (tableRoundRaw is int && tableRoundRaw != _round) ||
@@ -1085,6 +1086,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         hardReset: shouldHardResync,
       );
     }
+    await presentationSync;
     await _validateCriticalInvariants('load_initial_state');
   }
 
@@ -1717,6 +1719,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       if (!_lifecycleActive || pollEpoch != _handStateEpoch) return;
       if ((rows as List).isEmpty) return;
       final table = Map<String, dynamic>.from(rows.first);
+      if (_staleTurnSnapshot(table)) return;
 
       final newRound = _normalizedRoundFromTable(table);
       final newPot = table['pot_amount'] as int?;
@@ -1753,15 +1756,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         // Table-state transitions are handled by _loadInitialState/_handleTableUpdate.
         return;
       }
-      final turn = table['current_turn'] as int?;
-      if (turn != null && turn != currentTurn) {
-        currentTurn = turn;
-        _turnStartedAt =
-            _parseServerTime(table['turn_started_at']) ?? DateTime.now();
-        _recomputeDrawState();
-        _actionInFlight = false;
-        _lastTimeoutTurnToken = null;
-      }
+      _applyTurnSnapshot(table);
       if (table['deck'] != null) {
         _syncDeckFromTable(table['deck']);
       }
@@ -1779,6 +1774,39 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     final mySeat = _resolveMySeatIndex();
     if (mySeat == null) return false;
     return currentTurn == mySeat;
+  }
+
+  bool _staleTurnSnapshot(Map<String, dynamic> table) {
+    final round = _normalizedRoundFromTable(table);
+    if (round < _round) return true;
+    final stamp = _parseServerTime(table['turn_started_at']);
+    return table['status'] == 'playing' && round == _lastServerTurnRound &&
+        stamp != null && _lastServerTurnAt != null &&
+        stamp.isBefore(_lastServerTurnAt!);
+  }
+
+  void _applyTurnSnapshot(Map<String, dynamic> table) {
+    if (_staleTurnSnapshot(table)) return;
+    final turn = table['current_turn'];
+    if (turn is! int) return;
+    final stamp = _parseServerTime(table['turn_started_at']);
+    final round = _normalizedRoundFromTable(table);
+    final newTurn = currentTurn != turn || (stamp != null &&
+        (round != _lastServerTurnRound || stamp != _lastServerTurnAt));
+    currentTurn = turn;
+    if (stamp != null) {
+      _lastServerTurnAt = stamp;
+      _lastServerTurnRound = round;
+      _turnStartedAt = stamp;
+    } else if (newTurn) {
+      _turnStartedAt = DateTime.now();
+    }
+    if (newTurn) {
+      _actionInFlight = false;
+      _lastTimeoutTurnToken = null;
+      onHudChanged?.call();
+    }
+    _recomputeDrawState();
   }
 
   bool get isMyTurnForLocalUser => _isMyTurn();
@@ -1910,6 +1938,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _handIntegrityInFlight = true;
     final epoch = _handStateEpoch;
     final round = _round;
+    final handRevision = _committedHandRevision;
     try {
       final rows = await Supabase.instance.client
           .from('table_players')
@@ -1918,7 +1947,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
           .eq('user_id', uid)
           .limit(1)
           .timeout(const Duration(seconds: 7));
-      if (epoch != _handStateEpoch ||
+      if (handRevision != _committedHandRevision ||
+          epoch != _handStateEpoch ||
           round != _round ||
           !_gameStarted ||
           isFinishOpen ||
@@ -3283,6 +3313,11 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         _reconnectAttempt = 0;
         _reconnectTimer?.cancel();
         _reconnectTimer = null;
+        if (_gameStarted) {
+          // Recover changes missed during reconnect without waiting for a poll.
+          unawaited(_pollLiveTableState(fresh: true));
+          unawaited(_syncDiscardTopsFromServer());
+        }
       }
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.closed) {
@@ -3968,6 +4003,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   Future<void> _handleTableUpdateObservedBody(Map<String, dynamic> table) async {
     activityProbe?.event('tableUpdateCandidate');
     try {
+      if (_staleTurnSnapshot(table)) return;
       final incomingRound = table['round_count'];
       if (incomingRound is int && incomingRound < _round) return;
       final status = table['status'] as String?;
@@ -4067,17 +4103,12 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
 
       // 🔥 TURN SYNC (sadece playing'de anlamlı)
-      final turn = table['current_turn'];
-      final serverTurnStartedAt = _parseServerTime(table['turn_started_at']);
-
-      if (turn is int) {
-        if (currentTurn != turn) {
-          _turnStartedAt = serverTurnStartedAt ?? DateTime.now();
-          _actionInFlight = false;
-          _lastTimeoutTurnToken = null;
-        }
-        currentTurn = turn;
-        _recomputeDrawState();
+      final previousTurnKey = _currentTurnKey();
+      _applyTurnSnapshot(table);
+      if (_currentTurnKey() != previousTurnKey) {
+        // A turn event confirms the discard transaction committed. Read its top
+        // now, even if the separate move/discard realtime event was lost.
+        unawaited(_syncDiscardTopsFromServer());
       }
 
       if (table['deck'] != null && !_initialized) {
@@ -4425,16 +4456,32 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (userId == null) return;
     _actionInFlight = true;
     final drawEpoch = _handStateEpoch;
+    final latency = GameLatencyTrace('draw');
     final drawRound = _round;
+    final drawTurn = currentTurn;
+    final drawTurnStartedAt = _turnStartedAt;
     _rackDrawArrivalStart = _pendingDrawVisualTile?.position.clone() ??
         (source == 'discard' && fromSeat != null
           ? _discardSlotsByIndex[_slotIndexForAbsoluteSeat(fromSeat)]?.position.clone()
           : closedPileComponent?.position.clone());
     bool currentDraw() => _lifecycleActive &&
-        drawEpoch == _handStateEpoch && drawRound == _round;
+        drawEpoch == _handStateEpoch && drawRound == _round &&
+        drawTurn == currentTurn && (drawTurnStartedAt == null ||
+          drawTurnStartedAt == _turnStartedAt);
+    final prepared = source == 'closed' ? _preparedClosedDraw : null;
+    _preparedClosedDraw = null;
+    final pendingPreview = _pendingDrawVisualTile;
+    if (prepared != null && pendingPreview != null) {
+      unawaited(prepared.then((model) {
+        if (model == null || !currentDraw() || !_actionInFlight ||
+            !identical(_pendingDrawVisualTile, pendingPreview)) return;
+        _revealPreparedDraw(model, pendingPreview);
+        latency.mark('prepared_face_queued');
+      }));
+    }
     try {
       Future<dynamic> callDraw({int? seat}) async {
-        return await Supabase.instance.client.rpc(
+        final response = await Supabase.instance.client.rpc(
           'game_draw',
           params: {
             'p_table_id': tableId,
@@ -4443,10 +4490,24 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
             'p_from_seat': seat,
           },
         );
+        latency.mark('rpc_response');
+        return response;
       }
 
-      final response = await callDraw(seat: fromSeat);
+      final response = await confirmedDraw(
+        mutation: callDraw(seat: fromSeat),
+        previousIds: tileComponentMap.keys.toSet(),
+        tableId: tableId,
+        isCurrent: currentDraw,
+        readHand: () async {
+          final rows = await Supabase.instance.client.from('table_players')
+              .select('hand').eq('table_id', tableId).eq('user_id', userId).limit(1);
+          return rows.isNotEmpty && rows.first['hand'] is List
+              ? List<dynamic>.from(rows.first['hand'] as List) : null;
+        },
+      );
       if (!currentDraw()) return;
+      latency.mark('confirmation_received');
       if (response is Map && response['ok'] == false) {
         throw StateError('GAME_DRAW_REJECTED');
       }
@@ -4454,8 +4515,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       _hasDrawnFromSourceThisRound = true;
       // game_draw already returns the committed hand. Reveal it before any
       // additional network read; the closed-pile preview is not a real joker.
-      final committedHand = committedDrawHand(response, tableId);
+      var committedHand = committedDrawHand(response, tableId);
       if (committedHand != null) {
+        _committedHandRevision++;
         _renderMyHand([
           <String, dynamic>{'user_id': userId, 'hand': committedHand},
         ], applyServerDiff: true);
@@ -4473,6 +4535,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
           if (handRows is List && handRows.isNotEmpty) {
             final hand = handRows.first['hand'];
             if (hand is List && hand.length == 15) {
+              committedHand = hand;
+              _committedHandRevision++;
               _renderMyHand([
                 <String, dynamic>{'user_id': userId, 'hand': hand},
               ], applyServerDiff: true);
@@ -4484,6 +4548,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
       _clearPendingDrawVisualTile();
       _hasDrawnFromSourceThisRound = true;
+      latency.mark('hand_render_queued');
       _markDrawCommittedForCurrentTurn();
       // A committed hand is already authoritative. Do not keep input locked
       // behind a second full-table/users/discard round trip on the normal path.
@@ -4637,6 +4702,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (userId == null) return false;
 
     _networkInFlight = true;
+    final latency = GameLatencyTrace('discard');
     tile.hideTileVisual = true;
     var discardConfirmed = false;
 
@@ -4672,6 +4738,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
 
       discardConfirmed = true;
+      latency.mark('rpc_confirmed');
+      _committedHandRevision++;
       _removeTileFromRackState(tile);
       if (tile.isMounted) {
         tile.removeFromParent();
@@ -4685,6 +4753,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       // Only the next turn is needed after our confirmed discard; the local
       // hand was updated above. Avoid reloading all players and discard visuals.
       await _pollLiveTableState(fresh: true);
+      latency.mark('turn_refreshed');
       return true;
     } catch (e) {
       await _loadInitialState(forceHandSync: true);
@@ -6102,7 +6171,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     }
     _sourceDrawDragActive = true;
     _sourceDrawFromDiscardSlot = fromDiscardSlot;
-    // Drag is only a preview: do not consume the discard or call the server.
+    _preparedDrawGeneration++;
+    _preparedClosedDraw = fromDiscardSlot == null ? _prepareClosedDraw() : null;
+    // Preparation is read-only; a drag must never consume a tile.
     // Hide the source tile while its draggable copy is under the finger.
     _dragHiddenDiscardTile = fromDiscardSlot?.currentTile;
     _dragRevealedDiscardTile?.removeFromParent();
@@ -6261,6 +6332,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     // Dropping outside the rack cancels the operation, including the server draw.
     if (targetSlot == null) {
+      _preparedDrawGeneration++;
+      _preparedClosedDraw = null;
       dragged?.removeFromParent();
       _pendingPreferredDrawSlot = null;
       _restoreDiscardAfterCancelledDrag();
@@ -6319,6 +6392,57 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     tile.moveOnRack(slotPositions[targetSlot], allowLocked: true);
     _pendingDrawVisualTile = tile;
   }
+
+  Future<TileModel?> _prepareClosedDraw() async {
+    final generation = _preparedDrawGeneration;
+    final epoch = _handStateEpoch;
+    final round = _round;
+    final turnKey = _currentTurnKey();
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    try {
+      final response = await Supabase.instance.client.rpc(
+        'okeyix_prepare_closed_draw', params: {'p_table_id': tableId},
+      ).timeout(const Duration(seconds: 3));
+      if (!_lifecycleActive || epoch != _handStateEpoch || round != _round ||
+          turnKey != _currentTurnKey() || generation != _preparedDrawGeneration ||
+          response is! Map || response['table_id'] != tableId ||
+          response['user_id'] != uid ||
+          _normalizedRoundFromTable(Map<String, dynamic>.from(response)) != round ||
+          response['tile'] is! Map) return null;
+      final stamp = _parseServerTime(response['turn_started_at']);
+      if (_lastServerTurnAt != null && stamp != _lastServerTurnAt) return null;
+      return _tileModelFromPayload(Map<String, dynamic>.from(response['tile'] as Map));
+    } catch (_) {
+      // Older servers and failed preparation retain the normal draw path.
+      return null;
+    }
+  }
+
+  void _revealPreparedDraw(TileModel model, TileComponent preview) {
+    final start = preview.position.clone();
+    preview.hideTileVisual = true;
+    preview.removeFromParent();
+    final face = TileComponent(tile: model, position: start)
+      ..isLocked = true
+      ..priority = 125;
+    world.add(face);
+    _pendingDrawVisualTile = face;
+    final slot = _pendingPreferredDrawSlot;
+    if (slot != null && slot >= 0 && slot < slotPositions.length) {
+      face.moveOnRack(slotPositions[slot], allowLocked: true);
+    }
+    // This is still a preview, not a member of the authoritative rack maps.
+  }
+
+  @visibleForTesting
+  Future<void> debugPrepareClosedDraw() async {
+    _preparedDrawGeneration++;
+    _preparedClosedDraw = _prepareClosedDraw();
+    await _preparedClosedDraw;
+  }
+
+  @visibleForTesting
+  TileComponent? get debugPendingDraw => _pendingDrawVisualTile;
 
   void _clearPendingDrawVisualTile() {
     _pendingDrawVisualTile?.hideTileVisual = true;
@@ -6430,6 +6554,21 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
   @visibleForTesting
   Future<void> debugPollTurn() => _pollLiveTableState();
+
+  @visibleForTesting
+  void debugApplyTurn(Map<String, dynamic> table) => _applyTurnSnapshot(table);
+
+  @visibleForTesting
+  DateTime? get debugTurnStartedAt => _turnStartedAt;
+
+  @visibleForTesting
+  Future<void> debugLoadHand() => _loadInitialState(forceHandSync: true);
+
+  @visibleForTesting
+  Future<void> debugCheckHand() => _checkAuthoritativeHandIntegrity();
+
+  @visibleForTesting
+  Future<void> debugReceiveTable(Map<String, dynamic> table) => _handleTableUpdate(table);
 
   @visibleForTesting
   void debugHoldDiscard(int seat) => _holdDiscardSeatSync(seat);

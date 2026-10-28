@@ -1,4 +1,5 @@
 import 'game_invite_dialog.dart';
+import 'package:okeyix/core/game_turn_clock.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
 import 'dart:async';
 import 'dart:math';
@@ -19,6 +20,7 @@ import 'package:okeyix/core/table_invite_policy.dart';
 class GameAvatarOverlay extends StatefulWidget {
   final String tableId;
   final GameViewDataSource? viewData;
+  final SupabaseClient? realtimeClient;
   final double topInset;
   final OkeyGame game;
   final Map<String, String> playerChatByUserId;
@@ -26,6 +28,7 @@ class GameAvatarOverlay extends StatefulWidget {
     super.key,
     required this.tableId,
     this.viewData,
+    this.realtimeClient,
     this.topInset = 0,
     required this.game,
     this.playerChatByUserId = const {},
@@ -37,6 +40,7 @@ class GameAvatarOverlay extends StatefulWidget {
 
 class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   final SupabaseClient _supabase = Supabase.instance.client;
+  late final SupabaseClient _realtime;
   late final GameViewDataSource _viewData;
   final _viewRefresh = CoalescedViewRefresh();
   static const int _localCoinFloor = 50000;
@@ -56,7 +60,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   int _entryCoin = 100;
   int _currentTurnSeat = 0;
   int _turnSeconds = 15;
-  int _lastSeenTurnSeat = -1;
+  final _turnClock = GameTurnClock();
   DateTime? _turnStartedAt;
   bool _hasLoadedPlayersOnce = false;
   bool get _turnClockActive =>
@@ -72,6 +76,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   @override
   void initState() {
     super.initState();
+    _realtime = widget.realtimeClient ?? _supabase;
     _viewData = widget.viewData ?? GameViewDataSource.supabase(_supabase, widget.tableId);
     _loadPlayers();
     _subscribeTablePlayers();
@@ -84,8 +89,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
   @override
   void dispose() {
-    if (_tablePlayersChannel != null) { unawaited(_supabase.removeChannel(_tablePlayersChannel!)); }
-    if (_tableChannel != null) { unawaited(_supabase.removeChannel(_tableChannel!)); }
+    if (_tablePlayersChannel != null) { unawaited(_realtime.removeChannel(_tablePlayersChannel!)); }
+    if (_tableChannel != null) { unawaited(_realtime.removeChannel(_tableChannel!)); }
     _pollTimer?.cancel();
     _joinNoticeTimer?.cancel();
     _viewRefresh.dispose();
@@ -98,7 +103,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
   void _subscribeTablePlayers() {
     _tablePlayersChannel?.unsubscribe();
-    _tablePlayersChannel = _supabase
+    _tablePlayersChannel = _realtime
         .channel('avatar_overlay_${widget.tableId}')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -124,7 +129,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
   void _subscribeTable() {
     _tableChannel?.unsubscribe();
-    _tableChannel = _supabase
+    _tableChannel = _realtime
         .channel('avatar_overlay_table_${widget.tableId}')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
@@ -137,17 +142,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           ),
           callback: (payload) async {
             _viewData.tableChanged(payload.commitTimestamp.toString());
-            final nextTurnRaw = payload.newRecord['current_turn'];
-            final nextTurn = int.tryParse('$nextTurnRaw');
-            final nextTurnStartedAt = _parseServerTime(
-              payload.newRecord['turn_started_at'],
-            );
-            if (nextTurn != null && nextTurn != _lastSeenTurnSeat) {
-              _lastSeenTurnSeat = nextTurn;
-              _currentTurnSeat = nextTurn;
-              _turnStartedAt = nextTurnStartedAt ?? DateTime.now();
-              if (mounted) setState(() {});
-            }
+            _applyClockSnapshot(payload.newRecord);
             await _loadPlayers();
           },
         )
@@ -161,6 +156,27 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
 
   Future<void> _loadPlayers() => _viewRefresh.run(_loadPlayersOnce);
 
+  void _applyClockSnapshot(Map<String, dynamic> table) {
+    if (!mounted) return;
+    final seat = table['current_turn'];
+    if (seat is! int) return;
+    final accepted = _turnClock.apply(
+      nextSeat: seat,
+      nextStatus: table['status']?.toString() ?? _tableStatus,
+      serverStartedAt: _parseServerTime(table['turn_started_at']),
+      nextRound: table['round_count'] as int?,
+      fallbackNow: DateTime.now(),
+    );
+    if (!accepted) return;
+    if (_currentTurnSeat == _turnClock.seat &&
+        _tableStatus == _turnClock.status && _turnStartedAt == _turnClock.startedAt) return;
+    setState(() {
+      _currentTurnSeat = _turnClock.seat;
+      _tableStatus = _turnClock.status;
+      _turnStartedAt = _turnClock.startedAt;
+    });
+  }
+
   Future<void> _loadPlayersOnce() async {
     try {
       _myUserId = _supabase.auth.currentUser?.id;
@@ -169,24 +185,8 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       if (!mounted || table == null) return;
 
       _tableSize = (table['max_players'] as int?) ?? 2;
-      _tableStatus = table['status']?.toString() ?? 'waiting';
-      final turn = (table['current_turn'] as int?) ?? 0;
-      final serverTurnStartedAt = _parseServerTime(table['turn_started_at']);
-      if (turn != _lastSeenTurnSeat) {
-        _lastSeenTurnSeat = turn;
-        _turnStartedAt = serverTurnStartedAt ?? DateTime.now();
-      }
-      if (serverTurnStartedAt != null) {
-        final currentStart = _turnStartedAt;
-        if (currentStart == null ||
-            (serverTurnStartedAt.difference(currentStart).inMilliseconds)
-                    .abs() >
-                3000) {
-          _turnStartedAt = serverTurnStartedAt;
-        }
-      }
-      _currentTurnSeat = turn;
-      _turnStartedAt ??= serverTurnStartedAt ?? DateTime.now();
+      // Clock rendering never waits for league, avatar or profile requests.
+      _applyClockSnapshot(table);
       _leagueId = table['league_id']?.toString();
       _entryCoin = (table['entry_coin'] as int?) ?? 100;
       final tableTurnSeconds = table['turn_seconds'] as int?;
@@ -219,8 +219,12 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
           .toSet()
           .toList();
 
-      final profiles = await _loadProfilesByUserId(userIds);
-      final users = await _loadUsersByUserId(userIds);
+      final metadata = await Future.wait([
+        _loadProfilesByUserId(userIds),
+        _loadUsersByUserId(userIds),
+      ]);
+      final profiles = metadata[0];
+      final users = metadata[1];
       await _hydrateCurrentUserFallback(users);
 
       final mapped = playerRows

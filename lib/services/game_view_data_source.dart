@@ -55,7 +55,7 @@ class GameViewDataSource {
 
   // Only columns already consumed by these two UI layers; no select('*').
   static const tableColumns =
-      'status,max_players,ready_since,last_finish_at,last_winner_user_id,chat_enabled,spectators_enabled,last_final_slots,last_finish_tile,last_win_amount,pot_amount,league_id,entry_coin,current_turn,turn_seconds,turn_started_at';
+      'status,max_players,ready_since,last_finish_at,last_winner_user_id,chat_enabled,spectators_enabled,last_final_slots,last_finish_tile,last_win_amount,pot_amount,league_id,entry_coin,current_turn,turn_seconds,turn_started_at,round_count';
 
   factory GameViewDataSource.supabase(SupabaseClient client, String tableId) {
     ViewRows rows(dynamic data) =>

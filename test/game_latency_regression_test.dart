@@ -1,7 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -10,6 +10,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:okeyix/game/rack/preview_component.dart';
 import 'tile_visual_identity_test.dart' show mount, settle, payload, visual;
 import 'package:okeyix/game/rack/tile_component.dart';
+import 'package:okeyix/services/game_view_data_source.dart';
+import 'package:okeyix/ui/game_avatar_overlay.dart';
+import 'package:okeyix/ui/avatar_card.dart';
+import 'game_lifecycle_regression_test.dart' show TestClient;
 
 const viewer = '00000000-0000-4000-8000-000000009901';
 
@@ -25,6 +29,9 @@ void main() {
   var delayDiscard = false;
   var rejectDiscard = false;
   var tableRound = 1;
+  Map<String, dynamic>? fullState;
+  Completer<void>? fullGate;
+  Completer<void>? handGate;
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     final token = '${base64Url.encode(utf8.encode('{"alg":"none"}'))}.'
@@ -46,10 +53,17 @@ void main() {
           if (gate != null) await gate!.future;
           result = rejectDraw ? {'ok': false} : legacyDraw ? {'ok': true} :
             {'ok': true, 'table_id': 'visual-test', 'hand': hand};
+        } else if (route == 'okeyix_prepare_closed_draw') {
+          result = {'table_id': 'visual-test', 'user_id': viewer,
+            'round_count': 1, 'tile': hand.last};
         } else if (route == 'table_players') {
-          result = [{'hand': hand}];
+          result = [{'hand': List<Map<String, dynamic>>.from(hand)}];
+          if (handGate != null) await handGate!.future;
         } else if (route == 'get_full_table_state') {
-          result = null;
+          result = fullState;
+          if (fullGate != null) await fullGate!.future;
+        } else if (route == 'users') {
+          result = [{'id': viewer, 'is_bot': false}];
         } else if (route == 'game_discard_fast') {
           if (delayDiscard && gate != null) await gate!.future;
           result = {'ok': !rejectDiscard};
@@ -75,9 +89,134 @@ void main() {
   });
   setUp(() { calls.clear(); tops = []; gate = null; delayTable = false;
     legacyDraw = false; rejectDraw = false; tableRound = 1;
+    fullState = null; fullGate = null; handGate = null;
     delayDiscard = false; rejectDiscard = false;
     hand = List.generate(15, (i) => payload('latency-$i')); });
   tearDownAll(() => Supabase.instance.dispose());
+
+  Map<String, dynamic> snapshot(List<dynamic> tiles) => {
+    'table': {'status': 'playing', 'max_players': 2, 'round_count': 1,
+      'current_turn': 0, 'turn_started_at': DateTime.now().toUtc().toIso8601String()},
+    'league': null,
+    'players': [{'user_id': viewer, 'seat_index': 0, 'hand': tiles}],
+  };
+
+  testWidgets('avatar clock refreshes while profile metadata remains blocked', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(844, 390));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    var viewNow = DateTime.now();
+    var turnStart = viewNow.subtract(const Duration(seconds: 10));
+    Completer<void>? metadataGate;
+    var blockedReads = 0;
+    final source = GameViewDataSource(
+      tableId: 'visual-test', currentUser: () => viewer, now: () => viewNow,
+      fetchTable: () async => {'status': 'playing', 'current_turn': 0,
+        'round_count': 1, 'turn_seconds': 15, 'max_players': 2,
+        'turn_started_at': turnStart.toUtc().toIso8601String()},
+      fetchPlayers: () async => [{'id': 'member', 'user_id': viewer, 'seat_index': 0}],
+      fetchProfiles: (_) async {
+        if (metadataGate != null) { blockedReads++; await metadataGate.future; }
+        return [{'id': viewer, 'coins': 50000}];
+      },
+      fetchUsers: (_) async {
+        if (metadataGate != null) { blockedReads++; await metadataGate.future; }
+        return [{'id': viewer, 'username': 'Test', 'is_bot': false}];
+      },
+      fetchLeague: (_) async => [],
+    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body:
+      GameAvatarOverlay(tableId: 'visual-test', game: game, viewData: source,
+        realtimeClient: TestClient()))));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+    await tester.pump();
+    var avatar = tester.widget<AvatarCard>(find.byType(AvatarCard).first);
+    expect(avatar.progressReader!(), lessThan(.5));
+    source.invalidateAll();
+    viewNow = viewNow.add(const Duration(seconds: 3));
+    turnStart = DateTime.now();
+    metadataGate = Completer<void>();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+    await tester.pump();
+    expect(blockedReads, 2, reason: 'Profiles and users start concurrently');
+    expect(metadataGate.isCompleted, isFalse);
+    avatar = tester.widget<AvatarCard>(find.byType(AvatarCard).first);
+    expect(avatar.progressReader!(), greaterThan(.8),
+      reason: 'The same-seat new clock must render before either metadata response');
+    metadataGate.complete();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.runAsync(() async {
+      await Supabase.instance.client.realtime.removeAllChannels();
+      await Supabase.instance.client.realtime.disconnect();
+    });
+    // Gift-layer transport may have an already scheduled retry after disposal.
+    Supabase.instance.client.realtime.reconnectTimer.reset();
+    source.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an older full snapshot cannot remove a newly committed draw', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+    await settle(tester, game);
+    fullState = snapshot(hand.take(14).toList());
+    fullGate = Completer<void>();
+    late Future<void> loading;
+    await tester.runAsync(() async {
+      loading = game.debugLoadHand();
+      await Future<void>.delayed(Duration.zero);
+      await game.debugDrawCommittedHand().timeout(const Duration(seconds: 3));
+    });
+    fullGate!.complete();
+    await tester.runAsync(() => loading.timeout(const Duration(seconds: 3)));
+    await settle(tester, game);
+    expect(game.tileComponentMap.length, 15);
+    expect(game.tileComponentMap.containsKey('latency-14'), isTrue);
+  });
+
+  testWidgets('a delayed discard-top read cannot delay rendering the authoritative hand', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+    await settle(tester, game);
+    fullState = snapshot(hand);
+    gate = Completer<void>();
+    late Future<void> loading;
+    await tester.runAsync(() async {
+      loading = game.debugLoadHand();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    expect(gate!.isCompleted, isFalse);
+    expect(game.tileComponentMap.length, 15);
+    gate!.complete();
+    await tester.runAsync(() => loading);
+    await settle(tester, game);
+  });
+
+  testWidgets('an old integrity read cannot rewind a committed draw', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    final completeHand = List<Map<String, dynamic>>.from(hand);
+    hand = hand.take(14).toList();
+    game.debugSyncVisualHand(hand, initial: true);
+    await settle(tester, game);
+    handGate = Completer<void>();
+    late Future<void> checking;
+    await tester.runAsync(() async {
+      checking = game.debugCheckHand();
+      await Future<void>.delayed(Duration.zero);
+      hand = completeHand;
+      await game.debugDrawCommittedHand();
+    });
+    handGate!.complete();
+    await tester.runAsync(() => checking.timeout(const Duration(seconds: 3)));
+    await settle(tester, game);
+    expect(game.tileComponentMap.length, 15);
+  });
 
   testWidgets('poll-detected rounds two and three renew indicator before first draw', (tester) async {
     final game = await mount(tester);
@@ -207,6 +346,90 @@ void main() {
     expect(game.canDiscardByVoice(), isTrue);
   });
 
+  testWidgets('committed hand read reveals the tile before a delayed draw response', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+    await settle(tester, game);
+    gate = Completer<void>();
+    await tester.runAsync(() async {
+      await game.debugDrawCommittedHand().timeout(const Duration(seconds: 2));
+    });
+    expect(gate!.isCompleted, isFalse);
+    expect(game.debugActionInFlight, isFalse);
+    expect(game.tileComponentMap.length, 15);
+    expect(calls, ['game_draw', 'table_players']);
+    gate!.complete();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await settle(tester, game);
+    expect(game.tileComponentMap.length, 15);
+  });
+
+  testWidgets('preparation stays hidden then reveals on drop before commit without adding a playable tile', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+    await settle(tester, game);
+    await tester.runAsync(() => game.debugPrepareClosedDraw());
+    expect(calls, ['okeyix_prepare_closed_draw']);
+    expect(game.debugPendingDraw, isNull);
+    expect(game.tileComponentMap.length, 14);
+    final preview = visual('__closed_draw_preview__', joker: true);
+    game.world.add(preview);
+    game.debugShowPendingDraw(preview, preferredSlot: 14);
+    gate = Completer<void>();
+    late Future<void> drawing;
+    await tester.runAsync(() async {
+      drawing = game.debugDrawCommittedHand(source: 'closed', preferredSlot: 14);
+      await Future<void>.delayed(Duration.zero);
+    });
+    expect(game.debugPendingDraw?.id, 'latency-14');
+    expect(game.debugPendingDraw?.isLocked, isTrue);
+    expect(game.tileComponentMap.length, 14);
+    expect(game.debugActionInFlight, isTrue);
+    expect(game.canDiscardByVoice(), isFalse);
+    gate!.complete();
+    await tester.runAsync(() => drawing);
+    await settle(tester, game);
+    expect(game.tileComponentMap.length, 15);
+    expect(game.debugPendingDraw, isNull);
+  });
+
+  testWidgets('same seat with a newer server timestamp renews timer and old snapshots cannot rewind it', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    final first = DateTime.utc(2026, 10, 28, 12);
+    Map<String, dynamic> snapshot(int seat, DateTime at, {int round = 1}) => {
+      'status': 'playing', 'round_count': round, 'current_turn': seat,
+      'turn_started_at': at.toIso8601String(),
+    };
+    game.debugApplyTurn(snapshot(0, first));
+    final later = first.add(const Duration(seconds: 30));
+    game.debugApplyTurn(snapshot(0, later));
+    expect(game.debugTurnStartedAt?.toUtc(), later);
+    game.debugApplyTurn(snapshot(1, first.add(const Duration(seconds: 15))));
+    expect(game.currentTurn, 0);
+    expect(game.debugTurnStartedAt?.toUtc(), later);
+    game.debugApplyTurn(snapshot(1, later.add(const Duration(seconds: 1))));
+    expect(game.currentTurn, 1);
+  });
+
+  testWidgets('turn event immediately recovers an opponent discard without waiting for the periodic poll', (tester) async {
+    final game = await mount(tester);
+    game.debugPrepareLatencyState(14);
+    game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+    await settle(tester, game);
+    game.debugSeedDiscard(1, visual('previous-top'));
+    tops = [{'seat_index': 1, 'tile': payload('new-opponent-top')}];
+    await tester.runAsync(() => game.debugReceiveTable({
+      'status': 'playing', 'round_count': 1, 'current_turn': 0,
+      'turn_started_at': DateTime.now().toUtc().toIso8601String(),
+    }));
+    await settle(tester, game);
+    expect(calls.where((route) => route != 'debug_events'), ['table_discard_tops']);
+    expect(game.debugDiscardTop(1)?.id, 'new-opponent-top');
+  });
+
   for (final source in ['closed', 'discard']) {
     testWidgets('$source draw hands off at the preview position then settles without locking input', (tester) async {
       final game = await mount(tester);
@@ -299,7 +522,7 @@ void main() {
     legacyDraw = true;
     await tester.runAsync(() => game.debugDrawCommittedHand());
     await settle(tester, game);
-    expect(calls, ['game_draw', 'table_players', 'get_full_table_state']);
+    expect(calls, ['game_draw', 'table_players']);
     expect(game.tileComponentMap.length, 15);
     expect(game.debugActionInFlight, isFalse);
   });

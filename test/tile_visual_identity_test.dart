@@ -180,7 +180,7 @@ void main() {
     game.world.add(pending);
     await settle(tester, game);
     expect(pending.children.contains(pending.backSprite), isFalse);
-    expect(pending.children.whereType<TextComponent>().single.text, '…');
+    expect(pending.children.whereType<TextComponent>().single.text, 'Bekleniyor');
   });
 
   testWidgets('clearing a preview stops its effect and pins tiles to slot centers', (tester) async {

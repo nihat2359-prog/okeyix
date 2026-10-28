@@ -241,12 +241,16 @@ class TileComponent extends PositionComponent
     _gemBadge = null;
     if (_awaitingDrawConfirmation) {
       add(baseSprite);
+      add(_DrawConfirmationProgress(
+        position: Vector2(size.x / 2, size.y * .42),
+      ));
       add(TextComponent(
-        text: '…',
+        text: 'Bekleniyor',
         anchor: Anchor.center,
-        position: size / 2,
+        position: Vector2(size.x / 2, size.y * .70),
         textRenderer: TextPaint(style: const TextStyle(
-          fontSize: 36, color: Color(0xFF6D716C),
+          fontFamily: 'Montserrat', fontSize: 13,
+          fontWeight: FontWeight.w600, color: Color(0xFF6D716C),
         )),
       ));
       return;
@@ -798,6 +802,35 @@ class TileComponent extends PositionComponent
       "is_joker": isJoker,
       "is_fake_joker": isFakeJoker,
     };
+  }
+}
+
+/// Font-independent loading mark, clearly distinct from a numbered tile.
+class _DrawConfirmationProgress extends PositionComponent {
+  _DrawConfirmationProgress({required super.position});
+
+  double _angle = 0;
+  final Paint _track = Paint()
+    ..color = const Color(0x226D716C)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 3;
+  final Paint _arc = Paint()
+    ..color = const Color(0xFFAA7B12)
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeWidth = 3;
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _angle = (_angle + dt * 4) % (2 * math.pi);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    canvas.drawCircle(Offset.zero, 14, _track);
+    canvas.drawArc(const Rect.fromLTWH(-14, -14, 28, 28),
+      _angle, math.pi * 1.4, false, _arc);
   }
 }
 
