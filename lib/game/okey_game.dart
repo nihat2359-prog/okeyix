@@ -106,6 +106,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   String? _lastDeckVisualSignature;
   int _myHandCount = 0;
   int _committedHandRevision = 0;
+  bool _initialDealInProgress = false;
+  int _dealtHandRevision = 0;
   Future<TileModel?>? _preparedClosedDraw;
   int _preparedDrawGeneration = 0;
   String? _drawCommittedTurnKey;
@@ -651,6 +653,16 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   void update(double dt) {
     if (GameActivityProbe.enabled) _sampleActivity();
     super.update(dt);
+    if (_initialDealInProgress && tileComponentMap.length >= 14 &&
+        tileComponentMap.values.every((tile) => tile.isMounted &&
+          !tile.isRemoving && !tile.isMovingOnRack &&
+          tile.currentSlotIndex != null &&
+          identical(occupiedSlots[tile.currentSlotIndex], tile))) {
+      _initialDealInProgress = false;
+      unawaited(_processMoveQueue());
+      unawaited(_syncDiscardTopsFromServer());
+      onHudChanged?.call();
+    }
     if (_deferredTileRemovals.isEmpty) return;
     final pending = List<TileComponent>.from(_deferredTileRemovals);
     _deferredTileRemovals.clear();
@@ -843,6 +855,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     final wasGameStarted = _gameStarted;
     final requestEpoch = _handStateEpoch;
     final handRevision = _committedHandRevision;
+    final dealRevision = _dealtHandRevision;
 
     final res = await supabase.rpc(
       'get_full_table_state',
@@ -852,6 +865,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (res == null || requestEpoch != _handStateEpoch) return;
 
     final table = Map<String, dynamic>.from(res['table']);
+    if (table['status'] != 'playing' && dealRevision != _dealtHandRevision) return;
     if (_staleTurnSnapshot(table)) return;
     final incomingRound = table['round_count'];
     if (incomingRound is int && incomingRound < _round) return;
@@ -940,6 +954,19 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       playersList.add(map);
     }
 
+    // The authoritative hand must not wait for user/bot metadata. Stage objects
+    // already exist during onLoad, even though the game is not isLoaded yet.
+    if (table['status'] == 'playing' && mySeat != null &&
+        slotPositions.isNotEmpty && snapshotEpoch == _handStateEpoch &&
+        handRevision == _committedHandRevision) {
+      _mySeatIndexAbs = mySeat;
+      final initial = tileComponentMap.isEmpty;
+      if (initial) _initialDealInProgress = true;
+      _renderMyHand(playersList, applyServerDiff: forceHandSync ||
+        !wasGameStarted || initial || roundChanged, hardReset: false);
+      if (initial && tileComponentMap.isNotEmpty) _dealtHandRevision++;
+    }
+
     // Some RPC shapes may not include nested user.is_bot.
     // Backfill bot flags from public.users so bot turns always activate.
     if (playerUserIds.isNotEmpty) {
@@ -972,6 +999,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     // Metadata can arrive after a newer deal/finish or the transition to playing.
     // Do not let an older waiting snapshot clear a rack that is already dealt.
     if (snapshotEpoch != _handStateEpoch ||
+        (table['status'] != 'playing' && dealRevision != _dealtHandRevision) ||
         (!wasGameStarted && _gameStarted && table['status'] != 'playing')) {
       return;
     }
@@ -1055,7 +1083,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _cancelStartCountdown();
     _hideWaitingOverlay();
 
-    final renderEpoch = _handStateEpoch;
     final presentationSync = Future.wait([
       _ensureFreshTurnStartedAt(
         status: status,
@@ -1066,26 +1093,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     _turnStartedAt ??= DateTime.now();
 
-    if (isLoaded && handRevision == _committedHandRevision) {
-      if (renderEpoch != _handStateEpoch) return;
-      if (status != 'playing' ||
-          (tableRoundRaw is int && tableRoundRaw != _round) ||
-          (_finishedRoundGuard != null && _round <= _finishedRoundGuard!))
-        return;
-      final shouldSyncMyHand =
-          forceHandSync ||
-          !wasGameStarted ||
-          tileComponentMap.isEmpty ||
-          roundChanged;
-      final shouldHardResync =
-          shouldSyncMyHand &&
-          (roundChanged || !wasGameStarted || tileComponentMap.isEmpty);
-      _renderMyHand(
-        playersWithProfiles,
-        applyServerDiff: shouldSyncMyHand,
-        hardReset: shouldHardResync,
-      );
-    }
+    // The hand was already applied before metadata. Never hard-reset it again
+    // using flags captured before that first render (especially on round two).
     await presentationSync;
     await _validateCriticalInvariants('load_initial_state');
   }
@@ -1216,6 +1225,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _turnTimer?.cancel();
     _turnTimer = async.Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!_gameStarted) return;
+      if (_initialDealInProgress) return;
       _maybeRecoverStalledHumanTurn();
       if (_botTurnInFlight &&
           _botTurnStartedAt != null &&
@@ -1327,6 +1337,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void _maybePlayBotTurn() {
+    if (_initialDealInProgress) return;
     // Bot turns should be orchestrated by any seated human player.
     // In auto-created bot tables, created_by may belong to a system owner user.
     if (_mySeatIndexAbs == null) return;
@@ -1727,6 +1738,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       bool changed = false;
 
       if (newRound != null && newRound > _round) {
+        _initialDealInProgress = true;
         _round = newRound;
         _hasDrawnFromSourceThisRound = false;
         _indicatorBonusClaimedThisRound = false;
@@ -1832,6 +1844,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   bool _canDrawNow() {
+    if (_initialDealInProgress) return false;
     if (!_isMyTurn()) return false;
     if (_indicatorBonusInFlight) {
       AppMsg.show('Gösterge işlemi devam ediyor.');
@@ -3506,12 +3519,13 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   Future<void> _processMoveQueue() async {
+    if (_initialDealInProgress) return;
     if (_processingQueue) return;
 
     _processingQueue = true;
 
     try {
-      while (_moveQueue.isNotEmpty) {
+      while (_moveQueue.isNotEmpty && !_initialDealInProgress) {
         final move = _moveQueue.removeAt(0);
         try {
           await _handleMove(move);
@@ -4028,6 +4042,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
 
       if (status == 'playing' && !_gameStarted) {
+        if (tileComponentMap.isEmpty) _initialDealInProgress = true;
         _gameStarted = true;
         _enteredPlayingAt = DateTime.now();
         _hideWaitingOverlay();
@@ -4248,6 +4263,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   Future<void> _syncDiscardTopsFromServerObservedBody() async {
+    if (_initialDealInProgress) return;
     if (_discardSyncInFlight) {
       _discardSyncRequested = true;
       return;
@@ -5988,6 +6004,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   bool canDiscardByVoice() {
+    if (_initialDealInProgress) return false;
     if (!_isMyTurn()) return false;
     if (_actionInFlight || _uiLocked) return false;
     return hasDrawnThisTurn || _effectiveHandCount() == 15;
@@ -6221,6 +6238,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   DateTime? _lastNotYourTurnNotice;
 
   bool _allowTurnAction() {
+    if (_initialDealInProgress) return false;
     if (isMyTurnForLocalUser) return true;
     final now = DateTime.now();
     if (_lastNotYourTurnNotice == null ||
@@ -6566,6 +6584,9 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
   @visibleForTesting
   Future<void> debugCheckHand() => _checkAuthoritativeHandIntegrity();
+
+  @visibleForTesting
+  bool get debugInitialDealInProgress => _initialDealInProgress;
 
   @visibleForTesting
   Future<void> debugReceiveTable(Map<String, dynamic> table) => _handleTableUpdate(table);

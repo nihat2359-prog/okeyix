@@ -2,13 +2,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flame/game.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:okeyix/game/rack/preview_component.dart';
-import 'tile_visual_identity_test.dart' show mount, settle, payload, visual;
+import 'tile_visual_identity_test.dart' show mount, settle, payload, visual, VisualGame;
 import 'package:okeyix/game/rack/tile_component.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
 import 'package:okeyix/ui/game_avatar_overlay.dart';
@@ -16,6 +17,17 @@ import 'package:okeyix/ui/avatar_card.dart';
 import 'game_lifecycle_regression_test.dart' show TestClient;
 
 const viewer = '00000000-0000-4000-8000-000000009901';
+
+class InitialStateLoadGame extends VisualGame {
+  bool handQueuedDuringLoad = false;
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    previewBox = PreviewComponent(size: size.clone());
+    await debugLoadHand();
+    handQueuedDuringLoad = !isLoaded && tileComponentMap.length == 15;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +44,7 @@ void main() {
   Map<String, dynamic>? fullState;
   Completer<void>? fullGate;
   Completer<void>? handGate;
+  Completer<void>? usersGate;
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     final token = '${base64Url.encode(utf8.encode('{"alg":"none"}'))}.'
@@ -64,6 +77,7 @@ void main() {
           if (fullGate != null) await fullGate!.future;
         } else if (route == 'users') {
           result = [{'id': viewer, 'is_bot': false}];
+          if (usersGate != null) await usersGate!.future;
         } else if (route == 'game_discard_fast') {
           if (delayDiscard && gate != null) await gate!.future;
           result = {'ok': !rejectDiscard};
@@ -89,7 +103,7 @@ void main() {
   });
   setUp(() { calls.clear(); tops = []; gate = null; delayTable = false;
     legacyDraw = false; rejectDraw = false; tableRound = 1;
-    fullState = null; fullGate = null; handGate = null;
+    fullState = null; fullGate = null; handGate = null; usersGate = null;
     delayDiscard = false; rejectDiscard = false;
     hand = List.generate(15, (i) => payload('latency-$i')); });
   tearDownAll(() => Supabase.instance.dispose());
@@ -156,6 +170,86 @@ void main() {
     Supabase.instance.client.realtime.reconnectTimer.reset();
     source.dispose();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('initial deal renders before slow user metadata and actions wait for arrival', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: game.size.clone());
+    game.debugPrepareLatencyState(15);
+    fullState = snapshot(hand);
+    usersGate = Completer<void>();
+    late Future<void> loading;
+    await tester.runAsync(() async {
+      loading = game.debugLoadHand();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    expect(usersGate!.isCompleted, isFalse);
+    expect(game.tileComponentMap.length, 15,
+      reason: 'The initial rack must not wait for public.users');
+    final originalTiles = Map.of(game.tileComponentMap);
+    expect(game.debugInitialDealInProgress, isTrue);
+    expect(game.canDiscardByVoice(), isFalse);
+    await settle(tester, game);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(game.debugInitialDealInProgress, isFalse);
+    expect(game.canDiscardByVoice(), isTrue);
+    usersGate!.complete();
+    await tester.runAsync(() => loading.timeout(const Duration(seconds: 3)));
+    for (final entry in originalTiles.entries) {
+      expect(game.tileComponentMap[entry.key], same(entry.value));
+    }
+  });
+
+  testWidgets('entering an already playing table queues the initial hand during onLoad', (tester) async {
+    fullState = snapshot(hand);
+    final game = InitialStateLoadGame();
+    await tester.pumpWidget(GameWidget(game: game));
+    await tester.runAsync(() => game.loaded.timeout(const Duration(seconds: 3)));
+    expect(game.handQueuedDuringLoad, isTrue,
+      reason: 'First hand must not depend on a later integrity/poll request');
+    expect(game.tileComponentMap.length, 15);
+    await settle(tester, game);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(game.debugInitialDealInProgress, isFalse);
+  });
+
+  testWidgets('round two hand survives delayed metadata and an older waiting snapshot without a redeal', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: game.size.clone());
+    game.debugPrepareLatencyState(14);
+    game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
+    await settle(tester, game);
+    fullState = snapshot([]);
+    (fullState!['table'] as Map)['round_count'] = 2;
+    (fullState!['table'] as Map)['status'] = 'waiting';
+    usersGate = Completer<void>();
+    late Future<void> waiting;
+    late Future<void> playing;
+    await tester.runAsync(() async {
+      waiting = game.debugLoadHand();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      fullState = snapshot(hand);
+      (fullState!['table'] as Map)['round_count'] = 2;
+      playing = game.debugLoadHand();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    expect(game.getRound(), 2);
+    expect(game.tileComponentMap.length, 15);
+    final dealt = Map.of(game.tileComponentMap);
+    await settle(tester, game);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    usersGate!.complete();
+    await tester.runAsync(() => Future.wait([waiting, playing])
+      .timeout(const Duration(seconds: 3)));
+    expect(game.tileComponentMap.length, 15);
+    for (final entry in dealt.entries) {
+      expect(game.tileComponentMap[entry.key], same(entry.value));
+      expect(entry.value.isMovingOnRack, isFalse);
+    }
+    expect(game.debugInitialDealInProgress, isFalse);
   });
 
   testWidgets('an older full snapshot cannot remove a newly committed draw', (tester) async {
