@@ -456,6 +456,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       // Keep sound cadence and game-owned clocks; notify only affected HUDs.
       final snapshot = (
         _game.gameStarted,
+        _game.isHandReadyForPlay,
         _game.getCountdown(),
         _joinCountdown,
         _game.getRound(),
@@ -1983,9 +1984,10 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
                       valueListenable: _hudRevision,
                       builder: (_, _, _) =>
                           !finishOverlayOpen &&
-                              (_tableStatus == 'waiting' ||
-                                  _tableStatus == 'start') &&
-                              !_game.gameStarted
+                               (_tableStatus == 'waiting' ||
+                                    _tableStatus == 'start' ||
+                                    _tableStatus == 'playing') &&
+                                !_game.isHandReadyForPlay
                           ? _buildWaitingOverlay()
                           : const SizedBox.shrink(),
                     ),
@@ -3476,11 +3478,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   Widget _buildWaitingOverlay() {
     final gameCount = _game.getCountdown();
-    final count = gameCount > 0
+    final count = _tableStatus == 'playing' ? 0 : gameCount > 0
         ? gameCount
         : (_tableStatus == 'start' ? 0 : _joinCountdown);
     return GameWaitingPanel(
-      players: _playerCount,
+      players: _tableStatus == 'playing' ? _maxPlayers : _playerCount,
       capacity: _maxPlayers,
       countdown: count,
     );

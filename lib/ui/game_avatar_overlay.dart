@@ -65,7 +65,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   bool _hasLoadedPlayersOnce = false;
   bool get _turnClockActive =>
       _tableStatus == 'playing' &&
-      widget.game.gameStarted &&
+      widget.game.isHandReadyForPlay &&
       widget.game.getCountdown() == 0 &&
       !widget.game.isFinishOpen;
   final List<_FlyAwayFx> _flyAwayFx = <_FlyAwayFx>[];
