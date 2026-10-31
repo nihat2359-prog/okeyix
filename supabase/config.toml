@@ -20,3 +20,8 @@ verify_jwt = false
 enabled = true
 # Independent manual test secret + server-pinned user/device + one-use SQL ticket.
 verify_jwt = false
+[functions.pisti]
+verify_jwt = false
+
+[functions.send_table_invite_push]
+verify_jwt = true

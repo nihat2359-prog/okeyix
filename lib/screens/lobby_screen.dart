@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -39,6 +40,10 @@ import 'package:uuid/uuid.dart';
 import 'package:okeyix/services/auth_service.dart';
 
 import 'okey_game_screen.dart';
+import 'pisti_table_screen.dart';
+import 'pisti_lobby_screen.dart';
+import '../services/pisti_service.dart';
+import '../ui/pisti_invite_window.dart';
 import 'login_screen.dart';
 import 'store_screen.dart';
 import 'friend_invite_screen.dart';
@@ -695,6 +700,17 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (uid == null) return;
 
     try {
+      final pisti = await supabase.from('okeyix_pisti_rooms').select('id')
+          .inFilter('status', ['waiting', 'playing'])
+          .contains('seats', jsonEncode([{'id': uid}])).limit(1);
+      if (pisti.isNotEmpty && mounted) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PistiTableScreen(roomId: pisti.first['id'] as String)));
+        return;
+      }
+    } catch (_) { /* Older servers keep the existing Okey resume flow. */ }
+
+    try {
       final playerRows = await supabase
           .from('table_players')
           .select('table_id')
@@ -760,6 +776,8 @@ class _LobbyScreenState extends State<LobbyScreen>
         ModalRoute.of(context)?.isCurrent != true) return;
     _loadingPendingTableInvites = true;
     try {
+      await _loadPendingPistiInvite(myUserId);
+      if (!mounted) return;
       final cutoff = DateTime.now().toUtc().subtract(tableInviteLifetime).toIso8601String();
       try {
         await supabase.from('table_invites').update({'status': 'rejected'})
@@ -790,6 +808,32 @@ class _LobbyScreenState extends State<LobbyScreen>
     } finally {
       _loadingPendingTableInvites = false;
     }
+  }
+
+  Future<void> _loadPendingPistiInvite(String uid) async {
+    if (!_allowGameInvites || _handlingTableInvite) return;
+    try {
+      final rows = await supabase.from('okeyix_pisti_invites').select()
+          .eq('to_user', uid).eq('status', 'pending')
+          .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+          .order('created_at', ascending: false).limit(1);
+      if (!mounted || rows.isEmpty || ModalRoute.of(context)?.isCurrent != true) return;
+      final invite = rows.first;
+      if (!_handledTableInviteIds.add(invite['id'] as String)) return;
+      _handlingTableInvite = true;
+      final accept = await showPistiInviteWindow(context);
+      final service = PistiService(client: supabase);
+      if (accept == true) {
+        final result = await service.command('accept', {'invite_id': invite['id']});
+        if (mounted) await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PistiTableScreen(roomId: result['room_id'] as String)));
+      } else {
+        await service.command('reject', {'invite_id': invite['id'], 'room_id': invite['table_id']});
+      }
+    } catch (e) {
+      // Missing additive schema on an older server must not break Okey invites.
+      if (e is! PostgrestException && mounted) _msg(pistiError(e));
+    } finally { _handlingTableInvite = false; }
   }
 
   Future<void> _handleIncomingTableInvite(Map<String, dynamic> invite) async {
@@ -3172,6 +3216,14 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           LobbySideMenu(
             open: _isSideMenuOpen,
+            onPisti: () {
+              _closeSideMenu();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PistiLobbyScreen(),
+                ),
+              );
+            },
             onDailyReward: () {
               _closeSideMenu();
               unawaited(_runRewardFlowIfNeeded(manual: true));
@@ -4808,6 +4860,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     final unreadTotal = _unreadTotal;
     return Row(
       children: [
+        LobbyDockAction(label: 'Pişti Molası', icon: Icons.style_outlined, onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PistiLobbyScreen()))),
+        const SizedBox(width: 2),
         _coinBuyDockButton(),
         const SizedBox(width: 2),
         LobbyDockAction(

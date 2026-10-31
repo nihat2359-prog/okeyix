@@ -8,21 +8,21 @@ class AnalyticsService {
   AnalyticsService._();
 
   static final AnalyticsService instance = AnalyticsService._();
-  static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  static FirebaseAnalytics get _analytics => FirebaseAnalytics.instance;
   static bool _initialized = false;
 
   Future<void> init() async {
-    if (_initialized) return;
-    _initialized = true;
+    if (kIsWeb || _initialized) return;
     try {
       await _analytics.setAnalyticsCollectionEnabled(true);
+      _initialized = true;
     } catch (e) {
       debugPrint('ANALYTICS INIT ERROR: $e');
     }
   }
 
   Future<void> requestTrackingPermissionIfNeeded() async {
-    if (!Platform.isIOS) return;
+    if (kIsWeb || !Platform.isIOS) return;
     try {
       final status = await AppTrackingTransparency.trackingAuthorizationStatus;
       if (status == TrackingStatus.notDetermined) {
@@ -34,6 +34,7 @@ class AnalyticsService {
   }
 
   Future<void> logLogin({required String method}) async {
+    if (!_initialized) return;
     try {
       await _analytics.logLogin(loginMethod: method);
     } catch (e) {
@@ -42,6 +43,7 @@ class AnalyticsService {
   }
 
   Future<void> logSignUp({required String method}) async {
+    if (!_initialized) return;
     try {
       await _analytics.logSignUp(signUpMethod: method);
     } catch (e) {
@@ -54,6 +56,7 @@ class AnalyticsService {
     required int coins,
     required String platform,
   }) async {
+    if (!_initialized) return;
     try {
       await _analytics.logEvent(
         name: 'coin_purchase_success',
@@ -72,6 +75,7 @@ class AnalyticsService {
     required String name,
     Map<String, Object>? parameters,
   }) async {
+    if (!_initialized) return;
     try {
       await _analytics.logEvent(name: name, parameters: parameters);
     } catch (e) {

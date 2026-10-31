@@ -43,11 +43,12 @@ export function notificationPayload(item, now = Date.now()) {
   // End queued delivery at the end of today's Istanbul send window (UTC+3).
   const day = new Date(now + 3 * 3600000).toISOString().slice(0, 10);
   const end = Date.parse(`${day}T21:00:00+03:00`);
-  const ttl = Math.max(0, Math.min(3600, Math.floor((end - now) / 1000)));
+  const campaign = item.category === 'renewal';
+  const ttl = campaign ? 86400 : Math.max(0, Math.min(3600, Math.floor((end - now) / 1000)));
   return { message: {
     token: item.token,
     notification: { title: item.title, body: item.body },
-    data: { category: 'reengagement', notification_id: item.id },
+    data: { category: campaign ? 'renewal' : 'reengagement', notification_id: item.id },
     android: { priority: 'normal', ttl: `${ttl}s`,
       notification: { channel_id: 'invite_channel', sound: 'default' } },
     apns: { headers: { 'apns-priority': '10', 'apns-push-type': 'alert',

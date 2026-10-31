@@ -18,8 +18,10 @@ Future<void> scene(
   WidgetTester tester,
   Size size,
   double scale,
-  List<String> calls,
-) async {
+  List<String> calls, {
+  bool development = false,
+  bool pisti = false,
+}) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   var open = false;
@@ -61,6 +63,9 @@ Future<void> scene(
                 ),
                 LobbySideMenu(
                   open: open,
+                  // Keep the production menu golden independent of debug tools.
+                  showDevelopmentDemos: development,
+                  onPisti: pisti ? () => calls.add('pisti') : null,
                   onClose: () {
                     calls.add('close');
                     update(() => open = false);
@@ -88,6 +93,21 @@ Future<void> scene(
 }
 
 void main() {
+  testWidgets(
+    'production Pisti game entry fits the landscape menu and invokes its callback',
+    (tester) async {
+      final calls = <String>[];
+      await scene(tester, const Size(640, 360), 1.3, calls, pisti: true);
+      expect(tester.takeException(), isNull);
+      final entry = find.text('Pişti Molası');
+      expect(entry, findsOneWidget);
+      expect(tester.getRect(entry).bottom, lessThan(339));
+      await tester.tap(entry);
+      await tester.pump();
+      expect(calls, contains('pisti'));
+      expect(find.text('Oyun merkezi'), findsNothing);
+    },
+  );
   setUpAll(() async {
     await (FontLoader(
       'Montserrat',
@@ -106,8 +126,14 @@ void main() {
           expect(find.byType(BackdropFilter), findsNothing);
           expect(find.text('OKEYIX'), findsNothing);
           expect(find.text('Oyun Menüsü'), findsNothing);
-          expect(tester.getRect(find.byKey(const ValueKey('menu-close'))).left,
-            greaterThan(tester.getRect(find.byKey(const ValueKey('menu-Profil Kartım'))).right));
+          expect(
+            tester.getRect(find.byKey(const ValueKey('menu-close'))).left,
+            greaterThan(
+              tester
+                  .getRect(find.byKey(const ValueKey('menu-Profil Kartım')))
+                  .right,
+            ),
+          );
           expect(
             tester.widget<LobbyDockEmblem>(find.byType(LobbyDockEmblem)).active,
             isTrue,

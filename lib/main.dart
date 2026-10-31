@@ -9,6 +9,7 @@ import 'package:okeyix/firebase_options.dart';
 import 'package:okeyix/screens/login_screen.dart';
 import 'package:okeyix/screens/lobby_screen.dart';
 import 'package:okeyix/screens/okey_game_screen.dart';
+import 'package:okeyix/screens/pisti_lobby_screen.dart';
 import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/gift_listener.dart';
 import 'package:okeyix/services/analytics_service.dart';
@@ -27,14 +28,16 @@ const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await TileThemeService.load();
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await AnalyticsService.instance.init();
-    unawaited(AnalyticsService.instance.requestTrackingPermissionIfNeeded());
-  } catch (e) {
-    debugPrint('STARTUP FIREBASE INIT ERROR: $e');
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await AnalyticsService.instance.init();
+      unawaited(AnalyticsService.instance.requestTrackingPermissionIfNeeded());
+    } catch (e) {
+      debugPrint('STARTUP FIREBASE INIT ERROR: $e');
+    }
   }
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([
@@ -304,6 +307,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
+
+    if (data['game_type'] == 'pisti' || data['type'] == 'pisti_invite') {
+      await Navigator.of(ctx).push(MaterialPageRoute<void>(builder: (_) => PistiLobbyScreen(initialInviteId: data['invite_id']?.toString(), initialRoomId: tableId)));
+      return;
+    }
 
     await Navigator.of(ctx).push(
       MaterialPageRoute(
