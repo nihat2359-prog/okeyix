@@ -1,5 +1,9 @@
 # Geri kazanım otomasyonu — canlı kurulum kaydı
 
+**Sonraki değişiklik:** [30 Ekim 2026](reengagement_production_status_20261030.md)
+güncellemesi günlük kotayı kaldırdı ve dakikalık zamanlama getirdi. Bu belgedeki
+100/gün ve saat başı bilgileri 28 Ekim kurulumunun tarihsel durumudur.
+
 ## Güncel politika — 28 Ekim 2026, 04:15 Türkiye saati
 
 Kullanıcının açık talebiyle `20261028000400_reengagement_token_delivery.sql` production'a uygulandı.

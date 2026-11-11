@@ -9,8 +9,35 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DeviceRegistrationService {
   DeviceRegistrationService._();
+  static final _pending = <String, Future<void>>{};
+  static Future<void> _queue = Future.value();
 
   static Future<void> registerCurrentDevice({
+    String? pushTokenOverride,
+    bool lookupPushToken = true,
+  }) {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return Future.value();
+    final key = '$userId:$lookupPushToken:${pushTokenOverride ?? ''}';
+    final existing = _pending[key];
+    if (existing != null) return existing;
+    final work = _queue
+        .then((_) async {
+          if (Supabase.instance.client.auth.currentUser?.id != userId) return;
+          await _register(
+            pushTokenOverride: pushTokenOverride,
+            lookupPushToken: lookupPushToken,
+          );
+        })
+        .whenComplete(() {
+          _pending.remove(key);
+        });
+    _pending[key] = work;
+    _queue = work.then<void>((_) {}, onError: (Object _, StackTrace stack) {});
+    return work;
+  }
+
+  static Future<void> _register({
     String? pushTokenOverride,
     bool lookupPushToken = true,
   }) async {
@@ -24,7 +51,8 @@ class DeviceRegistrationService {
 
     final deviceId = await DeviceIdentityService.getStableInstallId();
     final packageInfo = await PackageInfo.fromPlatform();
-    final pushToken = pushTokenOverride ??
+    final pushToken =
+        pushTokenOverride ??
         (lookupPushToken
             ? await PushNotificationService.instance.getToken()
             : null);
@@ -67,10 +95,8 @@ class DeviceRegistrationService {
       body["push_token"] = pushToken;
     }
 
-    final res = await supabase.functions.invoke(
-      'register_device',
-      body: body,
-    );
+    if (supabase.auth.currentUser?.id != user.id) return;
+    final res = await supabase.functions.invoke('register_device', body: body);
     debugPrint('REGISTER_DEVICE DONE: ${res.data}');
   }
 }

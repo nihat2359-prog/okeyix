@@ -5,15 +5,16 @@ import assert from 'node:assert/strict';
 import { stripTypeScriptTypes } from 'node:module';
 import { readFileSync } from 'node:fs';
 import * as core from '../supabase/functions/process_reengagement_notifications/core.mjs';
+import { processCampaignBatch } from '../supabase/functions/process_reengagement_notifications/campaign.mjs';
 
 function handlerWith(env, createClient) {
   let handler;
   const source = readFileSync(new URL('../supabase/functions/process_reengagement_notifications/index.ts', import.meta.url), 'utf8')
     .replace(/^import .*;\r?\n/gm, '');
   const js = stripTypeScriptTypes(source);
-  const names = ['createClient', 'googleAccessToken', 'processBatch', 'secretMatches', 'sendNotification', 'Deno'];
+  const names = ['createClient', 'googleAccessToken', 'processBatch', 'secretMatches', 'sendNotification', 'processCampaignBatch', 'Deno'];
   new Function(...names, js)(createClient, core.googleAccessToken, core.processBatch,
-    core.secretMatches, core.sendNotification, {
+    core.secretMatches, core.sendNotification, processCampaignBatch, {
       env: { get: (name) => env[name] }, serve: (value) => { handler = value; },
     });
   return handler;
@@ -49,4 +50,24 @@ test('actual endpoint sanitizes database errors', async () => {
     headers: { 'x-reengagement-secret': secret }, body: '{"mode":"process"}' }));
   assert.equal(response.status, 503);
   assert.doesNotMatch(await response.text(), /sensitive|fake-token/);
+});
+
+test('campaign preview selects campaign RPC and sends no message', async () => {
+  const handler = handlerWith({ REENGAGEMENT_CRON_SECRET: secret, SUPABASE_URL: 'https://offline.invalid',
+    SUPABASE_SERVICE_ROLE_KEY: 'fake-service-key' }, () => ({ rpc: async (name, args) => {
+      assert.equal(name, 'okeyix_renewal_worker'); assert.equal(args.p_action, 'preview');
+      return { data: { enabled: false, pending: 0 }, error: null };
+    } }));
+  for (const mode of ['campaign_preview', 'campaign_process']) {
+    assert.equal((await handler(new Request('https://offline.invalid', { method: 'POST',
+      headers: { 'x-reengagement-secret': secret }, body: JSON.stringify({ mode }) }))).status, 200);
+  }
+});
+
+test('endpoint cannot select recipients or override campaign text', async () => {
+  const handler = handlerWith({ REENGAGEMENT_CRON_SECRET: secret }, () => assert.fail('DB must not run'));
+  for (const extra of [{ user_id: 'offline-id' }, { title: 'override' }, { token: 'fake-token' }]) {
+    assert.equal((await handler(new Request('https://offline.invalid', { method: 'POST',
+      headers: { 'x-reengagement-secret': secret }, body: JSON.stringify({ mode: 'campaign_process', ...extra }) }))).status, 400);
+  }
 });

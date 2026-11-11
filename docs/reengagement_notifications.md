@@ -1,5 +1,10 @@
 # Otomatik geri kazanım — Supabase kurulum ve işletim
 
+**30 Ekim 2026 güncellemesi:** Günlük 100 sınırı kaldırıldı; Cron her dakika çalışır.
+Bir defalık tüm cihazları kapsayan yenilenme duyurusu ve güncel işletim notları için
+[30 Ekim canlı kaydı](reengagement_production_status_20261030.md).
+Aşağıdaki günlük kota ve saat başı zamanlama bilgileri önceki kurulumun tarihsel kaydıdır.
+
 Durum (28 Ekim 2026): **production migration'ları uygulandı, production Edge deploy edildi,
 otomasyon ve Cron aktif.** Kullanıcının son açık talebiyle 004 migration'ı doğrulanmış izin
 kaydı zorunluluğunu kaldırdı; son canlı kontrolde uygun alıcı sayısı **2.247**.

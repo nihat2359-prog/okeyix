@@ -108,33 +108,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   int _committedHandRevision = 0;
   bool _initialDealInProgress = false;
   int _dealtHandRevision = 0;
-  int _handFlowSequence = 0;
-  final Stopwatch _handFlowClock = Stopwatch()..start();
-
-  void _traceHandFlow(String event, {Map<String, dynamic>? table, String? caller}) {
-    assert(() {
-      debugPrint('OKEYIX_HAND_FLOW ${jsonEncode({
-        'build': 'round-aware-snapshot-2',
-        'elapsedMs': _handFlowClock.elapsedMilliseconds,
-        'instance': identityHashCode(this),
-        'seq': ++_handFlowSequence,
-        'event': event,
-        'round': _round,
-        'epoch': _handStateEpoch,
-        'playing': _gameStarted,
-        'dealing': _initialDealInProgress,
-        'ready': isHandReadyForPlay,
-        'tiles': tileComponentMap.length,
-        'slots': occupiedSlots.length,
-        'finishOpen': isFinishOpen,
-        if (table != null) 'serverStatus': table['status'],
-        if (table != null) 'serverRound': table['round_count'],
-        if (table != null) 'serverTurn': table['current_turn'],
-        if (caller != null) 'caller': caller,
-      })}');
-      return true;
-    }());
-  }
   Future<TileModel?>? _preparedClosedDraw;
   int _preparedDrawGeneration = 0;
   String? _drawCommittedTurnKey;
@@ -298,7 +271,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _traceHandFlow('load_begin');
     _sessionStartedAt = DateTime.now();
     _initStage();
     await _loadInitialState();
@@ -691,7 +663,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
           tile.currentSlotIndex != null &&
           identical(occupiedSlots[tile.currentSlotIndex], tile))) {
       _initialDealInProgress = false;
-      _traceHandFlow('deal_ready');
       unawaited(_processMoveQueue());
       unawaited(_syncDiscardTopsFromServer());
       onHudChanged?.call();
@@ -903,7 +874,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     if (res == null || requestEpoch != _handStateEpoch) return;
 
     final table = Map<String, dynamic>.from(res['table']);
-    _traceHandFlow('full_snapshot', table: table);
     if (table['round_count'] is! int) {
       // Never deal an unversioned hand as round 1 and clear it when polling
       // discovers the actual round. Older RPCs must be upgraded first.
@@ -1026,7 +996,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     //-------------------------------------------------
     if (!stillInTable && !_kickedHandled) {
       _kickedHandled = true;
-      debugPrint("PLAYER REMOVED FROM TABLE");
       _gameStarted = false;
       // Never clear overlays here; transient player list races can hide HUD/avatars.
       // Screen-level flow should decide navigation/leave behavior.
@@ -1106,7 +1075,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       if (initial) _initialDealInProgress = true;
       _renderMyHand(playersList, applyServerDiff: forceHandSync ||
         !wasGameStarted || initial || roundChanged, hardReset: false);
-      _traceHandFlow('hand_applied', table: table);
       if (initial && tileComponentMap.isNotEmpty) _dealtHandRevision++;
     }
 
@@ -2829,8 +2797,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   }
 
   void _clearRenderedHand() {
-    _traceHandFlow('hand_clear', caller: StackTrace.current.toString()
-      .split('\n').skip(1).take(2).join(' '));
     for (final tile in _indicatorRevealTiles) {
       tile.removeFromParent();
     }
@@ -4077,7 +4043,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
   Future<void> _handleTableUpdateObservedBody(Map<String, dynamic> table) async {
     activityProbe?.event('tableUpdateCandidate');
-    _traceHandFlow('realtime_snapshot', table: table);
     try {
       if (_staleTurnSnapshot(table)) return;
       if (_normalizedRoundFromTable(table) < _round) return;
@@ -4209,8 +4174,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
           .select()
           .eq('id', tableId)
           .single();
-
-      print("📥 FETCH OK");
 
       await _handleTableUpdate(res);
     } catch (e) {
