@@ -15,7 +15,7 @@ import 'package:audioplayers/audioplayers.dart' as jo;
 
 final _player = jo.AudioPlayer();
 
-class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
+class FinishRackView extends PositionComponent with HasGameRef<FlameGame> {
   bool _isPlayingSound = false;
   final List<Map<String, dynamic>> slots;
   final Map<String, dynamic> finishTile;
@@ -25,6 +25,8 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
   final int winAmount;
   final bool isOkeyFinish;
   final bool isDoubleFinish;
+  final Vector2? viewportSize;
+  final bool rackOnly;
   FinishRackView(
     this.slots,
     this.finishTile,
@@ -33,34 +35,37 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     this.isSpectator,
     this.winAmount,
     this.isOkeyFinish,
-    this.isDoubleFinish,
-  );
+    this.isDoubleFinish, {
+    this.viewportSize,
+    this.rackOnly = false,
+  });
   late SpriteComponent rack;
 
   @override
   Future<void> onLoad() async {
     _playResultSound();
     // ğŸ”¥ TÃœM SAHNEYÄ° ORTALA
-    position = gameRef.size / 2;
+    position = (viewportSize ?? gameRef.size) / 2;
     anchor = Anchor.center;
     priority = 9999;
 
     // ğŸ”¥ FULL SCREEN KARARTMA
 
-    final vp = gameRef.camera.viewport.size;
+    final vp = viewportSize ?? gameRef.camera.viewport.size;
     // ğŸ”¥ FULL SCREEN OVERLAY
-    add(
-      RectangleComponent(
-        size: vp, // ğŸ”¥ DOÄRU
-        position: -vp / 2, // ğŸ”¥ DOÄRU
-        paint: Paint()..color = Colors.black.withOpacity(0.7),
-      ),
-    );
+    if (!rackOnly)
+      add(
+        RectangleComponent(
+          size: vp, // ğŸ”¥ DOÄRU
+          position: -vp / 2, // ğŸ”¥ DOÄRU
+          paint: Paint()..color = Colors.black.withOpacity(0.7),
+        ),
+      );
 
     // ğŸ”¥ RACK PNG
     final image = await gameRef.images.load('rack.png');
 
-    final rackWidth = vp.x * 0.60;
+    final rackWidth = vp.x * (rackOnly ? 0.90 : 0.60);
 
     // oranÄ± koru
     final aspect = image.height / image.width;
@@ -71,7 +76,7 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       sprite: Sprite(image),
       size: Vector2(rackWidth, rackHeight),
       anchor: Anchor.center,
-      position: Vector2(0, -vp.y * 0.08), // yukarÄ±
+      position: Vector2(0, vp.y * (rackOnly ? 0.10 : -0.08)), // yukarÄ±
     );
 
     add(rack);
@@ -117,7 +122,8 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
       final model = _tileModelFromPayload(tile);
       if (model == null) return;
 
-      final t = TileComponent(tile: model, position: Vector2(x, 0));
+      final t = TileComponent(tile: model, position: Vector2(x, 0))
+        ..isLocked = true;
       final slotWidthPx = (rackWidth * scaleX) / 13;
       final baseTileWidth = t.size.x <= 0 ? 100.0 : t.size.x;
       final clampedScale = finishTileScale(slotWidthPx, baseTileWidth);
@@ -138,15 +144,18 @@ class FinishRackView extends PositionComponent with HasGameRef<OkeyGame> {
     final model = _tileModelFromPayload(tile);
     if (model == null) return;
 
-    final t = TileComponent(tile: model, position: Vector2(0, 60));
+    final t = TileComponent(tile: model, position: Vector2(0, 60))
+      ..isLocked = true;
     final rackWidth = rack.size.x;
     final slotWidthPx = (rackWidth * 0.80) / 13;
     final baseTileWidth = t.size.x <= 0 ? 100.0 : t.size.x;
     t.scale = Vector2.all(finishTileScale(slotWidthPx, baseTileWidth) * 1.15);
     t.position = Vector2(
       rack.position.x,
-      rack.position.y - rack.size.y / 2 -
-          t.size.y * t.scale.y / 2 - gameRef.camera.viewport.size.y * .003,
+      rack.position.y -
+          rack.size.y / 2 -
+          t.size.y * t.scale.y / 2 -
+          (viewportSize ?? gameRef.camera.viewport.size).y * .003,
     );
 
     // ğŸ”¥ glow efekti

@@ -2,6 +2,7 @@ import 'package:okeyix/ui/table_chat_membership_event.dart';
 import 'package:okeyix/ui/table_chat_panel.dart';
 import 'package:okeyix/ui/spectator_finish_notice.dart';
 import 'package:okeyix/services/table_chat_sync.dart';
+import 'package:okeyix/services/spectator_access.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -69,6 +70,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   bool _showFinishOverlay = false;
   String _finishWinnerName = 'Oyuncu';
   String? _finishTypeLabel;
+  bool _hasFinishRack = false;
+  List<Map<String, dynamic>> _finishSlots = [];
+  Map<String, dynamic> _finishTile = {};
   bool _tableChatEnabled = true;
   int _currentTurnSeat = 0;
   DateTime? _turnStartedAt;
@@ -173,6 +177,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   @override
   void initState() {
     super.initState();
+    _spectatorAccess = SpectatorAccess(register: _joinSpectator);
     _chatSync = TableChatSync(
       loadRecent: () async {
         final since = _chatSync.latestMessageAt
@@ -189,12 +194,12 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
     game = SpectatorGame(
       tableId: widget.tableId,
-      onTableClosed: () {
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+      onTableClosed: _closeSpectatorScreen,
     );
+    unawaited(game.images.loadAll(['rack.png', 'tile_base.png', 'tile_back.png'])
+        .then<void>((_) {}, onError: (Object error, StackTrace stack) {
+          debugPrint('SPECTATOR FINISH PRELOAD ERROR: $error');
+        }));
     unawaited(_initializeSpectator());
     _turnTicker = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (mounted && table != null) setState(() {});
@@ -207,9 +212,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> _initializeSpectator() async {
-    await _joinSpectator();
-    if (!mounted) return;
     try {
+      await _spectatorAccess.ensureJoined();
+      if (!mounted) return;
       await _load();
       await _refreshLiveDetails();
     } catch (_) {
@@ -218,6 +223,14 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> _refreshLiveDetails() => _liveDetailsRefresh.run(() async {
+    if (!mounted || _closingTable) return;
+    try {
+      await _spectatorAccess.ensureJoined();
+    } catch (error) {
+      debugPrint('SPECTATOR REGISTRATION ERROR: $error');
+      return;
+    }
+    if (!mounted) return;
     await Future.wait([
       _refreshPlayerScores(),
       _refreshCoins(),
@@ -246,39 +259,51 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
   }
 
   Future<void> _refreshLastFinish() async {
+    if (!mounted || _closingTable) return;
     try {
-      final raw = await supabase.rpc('okeyix_spectator_last_finish',
-        params: {'p_table_id': widget.tableId});
-      if (!mounted || raw is! Map) return;
+      final raw = await _spectatorAccess.read(() async =>
+        await supabase.rpc('okeyix_spectator_last_finish',
+          params: {'p_table_id': widget.tableId}));
+      if (!mounted || _closingTable || raw is! Map) return;
       final result = Map<String, dynamic>.from(raw);
       final finishedAt = _parseServerTime(result['finished_at']);
       if (finishedAt == null || finishedAt.isBefore(_watchStartedAt)) return;
       final label = spectatorFinishLabel(result);
-      if (_lastFinishAt != null && !finishedAt.isAfter(_lastFinishAt!)) {
-        // The table Realtime event can arrive before the durable finish details.
-        // Enrich that same notice without replaying it or resetting its timer.
-        if (finishedAt.isAtSameMomentAs(_lastFinishAt!) && label != _finishTypeLabel) {
-          setState(() => _finishTypeLabel = label);
-        }
+      // Only table snapshots open a notice. Statistics use their own timestamp
+      // and must never replay the same finish or restart its visible interval.
+      if (_lastFinishAt == null) {
+        unawaited(_refreshTurnState());
         return;
       }
-      _lastFinishAt = finishedAt;
-      _openFinishOverlay(result['username']?.toString() ?? 'Oyuncu', finishLabel: label);
+      final sameWinner = result['winner_user_id']?.toString() ==
+          table?['last_winner_user_id']?.toString();
+      final sameFinish = finishedAt.difference(_lastFinishAt!).abs() <
+          const Duration(seconds: 10);
+      if (sameWinner && sameFinish && label != _finishTypeLabel) {
+        setState(() => _finishTypeLabel = label);
+      }
     } catch (e) {
+      if (!mounted || _closingTable) return;
       // Keep the winner-only fallback, but expose missing RPC/access failures.
       debugPrint('SPECTATOR FINISH DETAILS ERROR: $e');
     }
   }
   Future<void> _refreshTurnState() async {
-    if (!mounted || _turnRefreshInFlight) return;
+    if (!mounted || _closingTable || _turnRefreshInFlight) return;
     _turnRefreshInFlight = true;
     final previousStart = _turnStartedAt;
     final previousSeat = _currentTurnSeat;
     try {
       final row = await supabase.from('tables')
-          .select('status,current_turn,turn_started_at,turn_seconds,chat_enabled,pot_amount,last_finish_at,last_winner_user_id')
+          .select('status,current_turn,turn_started_at,turn_seconds,chat_enabled,pot_amount,last_finish_at,last_winner_user_id,last_final_slots,last_finish_tile')
           .eq('id', widget.tableId).maybeSingle();
-      if (!mounted || row == null) return;
+      if (!mounted || _closingTable) return;
+      if (row == null || row['status'] == 'closed') {
+        _closeSpectatorScreen();
+        return;
+      }
+      game.applyTableState(row);
+      _updateFinishRack(row);
       _observeTableFinish(row);
       if (previousStart != _turnStartedAt || previousSeat != _currentTurnSeat) return;
       setState(() {
@@ -295,6 +320,39 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     }
   }
 
+  bool _closingTable = false;
+
+  void _closeSpectatorScreen() {
+    if (!mounted || _closingTable) return;
+    _closingTable = true;
+    _safetyTimer?.cancel();
+    _turnTicker?.cancel();
+    _finishOverlayTimer?.cancel();
+    game.finishRound();
+    game.hideFinish();
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isActive) return;
+    final navigator = Navigator.of(context);
+    // Close this screen specifically, even if a profile dialog is above it.
+    // Remove owned popup routes first so they do not outlive the table.
+    navigator.popUntil((candidate) => identical(candidate, route));
+    if (route.isCurrent) navigator.pop();
+  }
+
+  void _updateFinishRack(Map<String, dynamic> row) {
+    if (!_showFinishOverlay || _hasFinishRack) return;
+    final at = _parseServerTime(row['last_finish_at']);
+    if (at == null || _lastFinishAt == null || !at.isAtSameMomentAs(_lastFinishAt!)) return;
+    final raw = row['last_final_slots'];
+    final lastTile = row['last_finish_tile'];
+    if (raw is! List || raw.isEmpty || lastTile is! Map) return;
+    if (mounted) setState(() {
+      _finishSlots = raw.whereType<Map>().map((s) => Map<String, dynamic>.from(s)).toList();
+      _finishTile = Map<String, dynamic>.from(lastTile);
+      _hasFinishRack = true;
+    });
+  }
+
   void _observeTableFinish(Map<String, dynamic> row) {
     final at = _parseServerTime(row['last_finish_at']);
     final winnerId = row['last_winner_user_id']?.toString();
@@ -307,6 +365,7 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     final name = user is Map ? user['username']?.toString() : null;
     _lastFinishAt = at;
     _openFinishOverlay(name ?? 'Oyuncu');
+    _updateFinishRack(row);
   }
 
   Future<void> _refreshPlayerScores() => _scoresRefresh.run(() async {
@@ -399,7 +458,12 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
         .from('tables')
         .select()
         .eq('id', widget.tableId)
-        .single();
+        .maybeSingle();
+    if (!mounted || _closingTable) return;
+    if (t == null || t['status'] == 'closed') {
+      _closeSpectatorScreen();
+      return;
+    }
     final tableChatEnabled = (t['chat_enabled'] as bool?) ?? true;
     final turnStartedAt = _parseServerTime(t['turn_started_at']);
     final turnSeconds = (t['turn_seconds'] as int?) ?? 20;
@@ -503,7 +567,12 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
             value: widget.tableId,
           ),
           callback: (payload) async {
+            if (!mounted || _closingTable) return;
             final row = payload.newRecord;
+            if (row['status'] == 'closed') {
+              _closeSpectatorScreen();
+              return;
+            }
             unawaited(_refreshPlayerScores());
             unawaited(_refreshLiveDetails());
             final turnStartedAt = _parseServerTime(row['turn_started_at']);
@@ -518,7 +587,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
                 _currentTurnSeat = currentTurnSeat;
               });
             }
+            game.applyTableState(row);
             _observeTableFinish(row);
+            _updateFinishRack(row);
           },
         )
         .onPostgresChanges(
@@ -1385,7 +1456,16 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     );
   }
 
-  Widget _buildFinishOverlay() => SpectatorFinishNotice(winnerName: _finishWinnerName, finishLabel: _finishTypeLabel);
+  Widget _buildFinishOverlay() {
+    final finishAt = _lastFinishAt;
+    return SpectatorFinishNotice(
+      key: ValueKey(finishAt),
+      winnerName: _finishWinnerName,
+      finishLabel: _finishTypeLabel,
+      slots: _finishSlots,
+      finishTile: _finishTile,
+    );
+  }
 
   bool _isPlayerSender(String? senderId) {
     if (senderId == null) return false;
@@ -1496,15 +1576,27 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
 
   void _openFinishOverlay(String winnerName, {String? finishLabel}) {
     if (!mounted) return;
+    game.finishRound();
     setState(() {
+      _hasFinishRack = false;
+      _finishSlots = [];
+      _finishTile = {};
       _finishWinnerName = winnerName;
       _finishTypeLabel = finishLabel;
       _showFinishOverlay = true;
     });
+    if (table != null) _updateFinishRack(table!);
+    if (!_hasFinishRack) unawaited(_refreshTurnState());
+    // One interval from opening; loading and metadata never restart it.
+    _scheduleFinishHide(const Duration(seconds: 5));
+  }
+
+  void _scheduleFinishHide(Duration duration) {
     _finishOverlayTimer?.cancel();
-    _finishOverlayTimer = Timer(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      setState(() => _showFinishOverlay = false);
+    _finishOverlayTimer = Timer(duration, () {
+      if (!mounted || _closingTable) return;
+      game.hideFinish();
+      setState(() { _showFinishOverlay = false; _hasFinishRack = false; });
     });
   }
 
@@ -1783,7 +1875,9 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
       username: name,
       coins: _playerCoins[userId],
       avatar: avatar(avatarPath, key: avatarKey),
-      active: _currentTurnSeat == seatIndex,
+      active: table?['status'] == 'playing' && !_showFinishOverlay &&
+          (_lastFinishAt == null || (_turnStartedAt != null && _turnStartedAt!.isAfter(_lastFinishAt!))) &&
+          _currentTurnSeat == seatIndex,
       progress: _turnProgress(),
 
       onTap: userId == null || userId.isEmpty ? null
@@ -1830,20 +1924,28 @@ class _SpectatorScreenState extends State<SpectatorScreen> {
     );
   }
 
+  late final SpectatorAccess _spectatorAccess;
+
   Future<void> _joinSpectator() async {
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null || !mounted) throw StateError('SPECTATOR_SESSION_REQUIRED');
 
     try {
       await supabase.from('table_spectators').upsert({
         'table_id': widget.tableId,
         'user_id': user.id,
       }, onConflict: 'table_id,user_id', ignoreDuplicates: true);
-      if (!mounted) return;
-      unawaited(_refreshPlayerScores());
+      // Upsert alone does not prove an existing row is still present.
+      await supabase.from('table_spectators').select('user_id')
+          .eq('table_id', widget.tableId).eq('user_id', user.id).single();
+      if (!mounted) {
+        await _leaveSpectator();
+        throw StateError('SPECTATOR_SESSION_CLOSED');
+      }
   
     } catch (e) {
-      print("JOIN ERROR: $e");
+      debugPrint('SPECTATOR JOIN ERROR: $e');
+      rethrow;
     }
   }
 

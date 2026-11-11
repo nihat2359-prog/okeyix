@@ -7,7 +7,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:okeyix/engine/models/tile.dart';
-import 'package:okeyix/game/okey_game.dart';
+import 'components/finish_screen.dart';
 import 'package:okeyix/game/rack/rack_config.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,8 +18,11 @@ class SpectatorGame extends FlameGame {
   Color backgroundColor() => const Color(0x00000000);
   final String tableId;
   final VoidCallback? onTableClosed;
-  SpectatorGame({required this.tableId, this.onTableClosed, SupabaseClient? realtimeClient})
-      : supabase = realtimeClient ?? Supabase.instance.client;
+  SpectatorGame({
+    required this.tableId,
+    this.onTableClosed,
+    SupabaseClient? realtimeClient,
+  }) : supabase = realtimeClient ?? Supabase.instance.client;
 
   final SupabaseClient supabase;
   RealtimeChannel? _realtimeChannel;
@@ -70,7 +73,63 @@ class SpectatorGame extends FlameGame {
   late Vector2 discardLeftPos;
   late Vector2 discardRightPos;
   final center = Vector2(800, 450);
-  late final OkeyGame _game;
+  FinishRackView? _finishView;
+  bool _roundFinished = false;
+  int _visualEpoch = 0;
+  final Set<TileComponent> _movingTiles = {};
+
+  void finishRound() {
+    _roundFinished = true;
+    _visualEpoch++;
+    for (final tile in [
+      ...discardLeftStack,
+      ...discardRightStack,
+      ..._movingTiles,
+    ]) {
+      tile.removeFromParent();
+    }
+    discardLeftStack.clear();
+    discardRightStack.clear();
+    _movingTiles.clear();
+  }
+
+  void hideFinish() {
+    _finishView?.removeFromParent();
+    _finishView = null;
+  }
+
+  void showFinish(
+    List<Map<String, dynamic>> slots,
+    Map<String, dynamic> lastTile,
+    String winnerName,
+  ) {
+    if (!isLoaded || !_lifecycleActive) return;
+    hideFinish();
+    _finishView = FinishRackView(
+      slots,
+      lastTile,
+      winnerName,
+      false,
+      true,
+      0,
+      false,
+      false,
+      viewportSize: cameraComponent.viewport.size.clone(),
+    );
+    cameraComponent.viewport.add(_finishView!);
+  }
+
+  void applyTableState(Map<String, dynamic> row) {
+    if (row['status'] == 'playing') {
+      if (_roundFinished) {
+        _roundFinished = false;
+        _visualEpoch++;
+      }
+    } else {
+      finishRound();
+    }
+  }
+
   List<TileComponent> discardLeftStack = [];
   List<TileComponent> discardRightStack = [];
   TileComponent? indicatorTile;
@@ -146,7 +205,6 @@ class SpectatorGame extends FlameGame {
     deckCountText.text = (fallback ?? 0).clamp(0, 999).toString();
   }
 
-
   int _getSeatFromPlayer(String userId) {
     return playerSeatMap[userId] ?? 0;
   }
@@ -180,9 +238,9 @@ class SpectatorGame extends FlameGame {
       anchor: Anchor.center,
       priority: 999,
       classicStyle: const TextStyle(
-          color: Color.fromARGB(255, 0, 12, 78),
-          fontSize: 48,
-          fontWeight: FontWeight.bold,
+        color: Color.fromARGB(255, 0, 12, 78),
+        fontSize: 48,
+        fontWeight: FontWeight.bold,
       ),
     );
 
@@ -241,6 +299,7 @@ class SpectatorGame extends FlameGame {
         .eq('table_id', tableId)
         .order('created_at', ascending: true); // 🔥 ÖNEMLİ
 
+    if (_roundFinished) return;
     for (final r in rows) {
       final seat = r['seat_index'];
       final raw = r['tile'];
@@ -267,7 +326,9 @@ class SpectatorGame extends FlameGame {
     if (!_lifecycleActive || generation != _realtimeGeneration) return;
     final channel = supabase.channel('realtime:$tableId');
     _realtimeChannel = channel;
-    bool current() => _lifecycleActive && generation == _realtimeGeneration &&
+    bool current() =>
+        _lifecycleActive &&
+        generation == _realtimeGeneration &&
         identical(_realtimeChannel, channel);
 
     /// 🔥 MATCH MOVES (zaten vardı)
@@ -282,6 +343,7 @@ class SpectatorGame extends FlameGame {
       ),
       callback: (payload) {
         if (!current()) return;
+        if (_roundFinished) return;
         final row = payload.newRecord;
         final type = row['move_type'];
         final tile = row['tile_data'];
@@ -332,6 +394,7 @@ class SpectatorGame extends FlameGame {
       callback: (payload) async {
         if (!current()) return;
         final row = payload.newRecord;
+        applyTableState(row);
         _applyDeckFromRaw(row['deck'], fallbackDeckCount: row['deck_count']);
         _applyIndicatorFromRaw(row['indicator_tile']);
 
@@ -346,44 +409,6 @@ class SpectatorGame extends FlameGame {
         print("REALTIME ERROR: $err");
       }
     });
-  }
-
-  Future<Map<String, dynamic>?> _loadFinishSnapshot(tableId) async {
-    final res = await supabase
-        .from('table_finish_snapshots')
-        .select()
-        .eq('table_id', tableId)
-        .order('finished_at', ascending: false)
-        .limit(1)
-        .maybeSingle();
-
-    return res;
-  }
-
-  void _openFinishScreen(Map<String, dynamic> snapshot, String winnerName) {
-    final playersWrapper = snapshot['players'];
-    if (playersWrapper == null) return;
-
-    final players = playersWrapper['players'];
-    if (players == null || players is! List) return;
-
-    final winner = players.firstWhere((p) => p['is_winner'] == true);
-
-    final rawSlots = winner['slots'];
-    if (rawSlots == null || rawSlots is! List) return;
-
-    final slots = List<Map<String, dynamic>>.from(rawSlots);
-
-    _game.showFinishFromGame(
-      slots,
-      const <String, dynamic>{},
-      winnerName,
-      false,
-      true,
-      0,
-      false,
-      false,
-    ); // 🔥 SADECE BU
   }
 
   void _decreaseDeck() {
@@ -417,24 +442,30 @@ class SpectatorGame extends FlameGame {
   }
 
   void animateDrawFromDeck(int seat, Map tile) {
+    if (_roundFinished) return;
     final start = deckPos;
 
     final end = seat == 0 ? bottomAvatarPos : topAvatarPos;
 
     final t = _createBackTile(start.clone()); // 👈 kapalı taş
 
+    _movingTiles.add(t);
     world.add(t);
 
     t.add(
       MoveEffect.to(
         end,
         EffectController(duration: 0.4),
-        onComplete: () => t.removeFromParent(),
+        onComplete: () {
+          _movingTiles.remove(t);
+          t.removeFromParent();
+        },
       ),
     );
   }
 
   void animatePickupFromDiscard(int seat, Map tile) {
+    if (_roundFinished) return;
     late Vector2 start;
     late List<TileComponent> stack;
 
@@ -462,19 +493,25 @@ class SpectatorGame extends FlameGame {
     final t = _createBackTile(start.clone());
     t.priority = 300;
 
+    _movingTiles.add(t);
     world.add(t);
 
     t.add(
       MoveEffect.to(
         end,
         EffectController(duration: 0.4),
-        onComplete: () => t.removeFromParent(),
+        onComplete: () {
+          _movingTiles.remove(t);
+          t.removeFromParent();
+        },
       ),
     );
   }
 
   void _animateDiscard(Map tile, int seat) {
+    if (_roundFinished) return;
     final start = seat == 0 ? bottomAvatarPos : topAvatarPos;
+    final epoch = _visualEpoch;
     final end = _nextDiscardPosition(seat);
 
     // 🔥 önce parse et
@@ -488,6 +525,7 @@ class SpectatorGame extends FlameGame {
     final t = _createTileFromModel(model, start.clone());
     t.priority = 300;
 
+    _movingTiles.add(t);
     world.add(t);
 
     t.add(
@@ -495,7 +533,9 @@ class SpectatorGame extends FlameGame {
         end,
         EffectController(duration: 0.45),
         onComplete: () {
+          _movingTiles.remove(t);
           t.removeFromParent();
+          if (_roundFinished || epoch != _visualEpoch) return;
 
           // 🔥 burada da model kullan
           _setDiscard(model, seat);
@@ -509,6 +549,7 @@ class SpectatorGame extends FlameGame {
   // =========================
 
   void _setDiscard(TileModel tile, int seat) {
+    if (_roundFinished) return;
     final pos = _nextDiscardPosition(seat);
 
     final newTile = _createTileFromModel(tile, pos);
@@ -656,5 +697,4 @@ class SpectatorGame extends FlameGame {
     topAvatarPos.setFrom(top);
     bottomAvatarPos.setFrom(bottom);
   }
-
 }
