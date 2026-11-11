@@ -6,7 +6,6 @@ class LobbySideMenu extends StatelessWidget {
   final bool open;
   final bool showDevelopmentDemos;
   final VoidCallback? onDailyReward;
-  final VoidCallback? onPisti;
   final VoidCallback onClose,
       onSupport,
       onAnnouncements,
@@ -28,7 +27,6 @@ class LobbySideMenu extends StatelessWidget {
     required this.open,
     this.showDevelopmentDemos = kDebugMode,
     this.onDailyReward,
-    this.onPisti,
     required this.onClose,
     required this.onSupport,
     required this.onAnnouncements,
@@ -114,11 +112,6 @@ class LobbySideMenu extends StatelessWidget {
                                               ),
                                             ),
                                           ),
-                                          if (onPisti != null) menuButtonBuilder(
-                                            icon: Icons.style_outlined,
-                                            label: 'Pişti Molası',
-                                            onTap: onPisti!,
-                                          ),
                                           if (onDailyReward != null) menuButtonBuilder(
                                             icon: Icons.redeem_rounded,
                                             label: 'Günlük Hediyeler',
@@ -129,7 +122,6 @@ class LobbySideMenu extends StatelessWidget {
                                             label: 'Ayarlar',
                                             onTap: onSettings,
                                           ),
-
                                         ]
                                         .map(
                                           (button) => Expanded(

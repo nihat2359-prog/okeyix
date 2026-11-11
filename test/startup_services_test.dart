@@ -22,7 +22,7 @@ void main() {
         coins: 1,
         platform: 'test',
       );
-      await AnalyticsService.instance.logEvent(name: 'pisti_table_open');
+      await AnalyticsService.instance.logEvent(name: 'okey_table_open');
     },
   );
   test(

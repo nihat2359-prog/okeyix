@@ -1,8 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type InvitePayload = {
-  game_type?: string;
-  invite_id?: string;
   table_id?: string;
   from_user?: string;
   to_user?: string;
@@ -224,17 +222,6 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    if (payload.game_type === 'pisti') {
-      const jwt = req.headers.get('authorization')?.replace(/^Bearer /i, '');
-      const { data: identity, error } = await supabase.auth.getUser(jwt ?? '');
-      if (error || identity.user?.id !== fromUserId) return json(401, { error: 'AUTH_REQUIRED' });
-      const { data: invite } = await supabase.from('okeyix_pisti_invites')
-        .select('id,status,expires_at').eq('id', payload.invite_id ?? '')
-        .eq('table_id', tableId).eq('from_user', fromUserId).eq('to_user', toUserId).maybeSingle();
-      if (!invite || invite.status !== 'pending' || Date.parse(invite.expires_at) <= Date.now()) {
-        return json(409, { error: 'INVITE_EXPIRED' });
-      }
-    }
 
     let inviterName = "Bir oyuncu";
     const { data: inviterProfile } = await supabase
@@ -266,12 +253,9 @@ Deno.serve(async (req) => {
 
     const accessToken = await getGoogleAccessToken(serviceAccount);
 
-    const title = payload.game_type === 'pisti' ? 'Okeyix Pişti Daveti' : "OkeyIX Masa Daveti";
+    const title = "OkeyIX Masa Daveti";
     const body = `${inviterName} seni masaya davet etti`;
-    const data: Record<string, string> = payload.game_type === 'pisti' ? {
-      type: 'pisti_invite', game_type: 'pisti', invite_id: payload.invite_id!,
-      table_id: tableId, from_user: fromUserId, to_user: toUserId,
-    } : {
+    const data: Record<string, string> = {
       type: "table_invite",
       table_id: tableId,
       from_user: fromUserId,
@@ -279,10 +263,6 @@ Deno.serve(async (req) => {
     };
 
     const results: Array<Record<string, unknown>> = [];
-    if (payload.game_type === 'pisti') {
-      const { data: claimed, error } = await supabase.rpc('okeyix_pisti_claim_push', { p_invite: payload.invite_id });
-      if (error || !claimed) return json(200, { ok: true, sent: 0, reason: 'ALREADY_CLAIMED_OR_EXPIRED' });
-    }
     for (const token of tokens) {
       const r = await sendViaFcmV1(accessToken, projectId, token, title, body, data);
       results.push({
@@ -292,12 +272,6 @@ Deno.serve(async (req) => {
     }
 
     const successCount = results.filter((r) => r.ok === true).length;
-    if (payload.game_type === 'pisti') {
-      // Keep provider response bodies out of the public invitation record.
-      await supabase.from('okeyix_pisti_invites').update({
-        push_outcome: { sent: successCount, results: results.map(r => ({ ok: r.ok, status: r.status })) },
-      }).eq('id', payload.invite_id!);
-    }
     return json(200, {
       ok: true,
       sent: successCount,

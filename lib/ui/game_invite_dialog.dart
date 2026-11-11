@@ -6,9 +6,8 @@ class GameInviteDialog extends StatefulWidget {
   final Future<List<Map<String, dynamic>>> Function() loadPlayers;
   final Future<void> Function(Map<String, dynamic>) onInvite;
   final Widget Function(String?, String) avatarBuilder;
-  final String? invitationHint;
   const GameInviteDialog({super.key, required this.loadPlayers,
-    required this.onInvite, required this.avatarBuilder, this.invitationHint});
+    required this.onInvite, required this.avatarBuilder});
   @override
   State<GameInviteDialog> createState() => _GameInviteDialogState();
 }
@@ -152,9 +151,7 @@ class _GameInviteDialogState extends State<GameInviteDialog> {
                     style: const TextStyle(color: Color(0xFFF5EFE2), fontSize: 13,
                       fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
-                  if (widget.invitationHint != null) Text('${p['is_bot'] == true ? 'BOT · ' : ''}${widget.invitationHint!}', maxLines: 1,
-                    overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFD4C4A0), fontSize: 11))
-                  else FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+                  FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
                     child: Text('${p['is_bot'] == true ? 'BOT · ' : ''}'
                       'Seviye ${Format.rating(p['rating'])} · ${Format.balance(p['coins'] ?? 0)} Coin',
                       style: const TextStyle(color: Color(0xFFD4C4A0), fontSize: 11))),
