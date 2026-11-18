@@ -1,0 +1,4 @@
+BEGIN;
+SET LOCAL request.jwt.claim.sub='00000000-0000-0000-0000-000000000002';
+SELECT public.okeyix_quick_play_v2('10000000-0000-0000-0000-000000000002','start');
+COMMIT;

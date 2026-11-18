@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/quick_play_service.dart';
 import 'lobby_metal_surface.dart';
@@ -15,7 +16,7 @@ class QuickPlayPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, limits) {
-      final short = compact || limits.maxHeight < 160;
+      final short = compact || limits.maxHeight < 160 || limits.maxWidth < 280;
       return Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 490),
@@ -88,7 +89,7 @@ class QuickPlayPanel extends StatelessWidget {
                               const Padding(
                                 padding: EdgeInsets.only(top: 6),
                                 child: Text(
-                                  'Masa yoksa kendi liginde botla hemen başla.',
+                                  'Gerçek rakip için en fazla 10 saniye ara.',
                                   style: TextStyle(
                                     color: Color(0xFF8F9F9B),
                                     fontSize: 10,
@@ -127,27 +128,38 @@ class QuickPlayWaitDialog extends StatefulWidget {
   State<QuickPlayWaitDialog> createState() => _QuickPlayWaitDialogState();
 }
 
-class _QuickPlayWaitDialogState extends State<QuickPlayWaitDialog> {
+class _QuickPlayWaitDialogState extends State<QuickPlayWaitDialog>
+    with WidgetsBindingObserver {
   bool _closed = false;
+  bool _foreground = true;
   QuickPlayController get flow => widget.controller;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed;
     flow.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) flow.start();
+      if (mounted && _foreground) flow.start();
+      if (mounted && !_foreground) flow.cancel();
     });
   }
 
   void _changed() {
     if (!mounted || _closed) return;
-    if (flow.terminal) {
+    if (flow.terminal && _foreground) {
       _closed = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted)
+        if (!_foreground) {
+          _closed = false;
+          return;
+        }
+        if (mounted) {
           Navigator.of(
             context,
           ).pop(flow.phase == QuickPlayPhase.ready ? flow.result : null);
+        }
       });
     } else {
       setState(() {});
@@ -155,8 +167,20 @@ class _QuickPlayWaitDialogState extends State<QuickPlayWaitDialog> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) {
+      _changed();
+    } else if (!flow.terminal) {
+      unawaited(flow.cancel());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     flow.removeListener(_changed);
+    if (!flow.terminal) unawaited(flow.cancel());
     super.dispose();
   }
 
@@ -174,74 +198,81 @@ class _QuickPlayWaitDialogState extends State<QuickPlayWaitDialog> {
         elevation: 0,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: SingleChildScrollView(
-            child: LobbyMetalSurface(
-              flatBorder: true,
-              surfaceOpacity: 2.3,
-              radius: 22,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'HIZLI OYNA · TÜM LİGLER',
-                    style: TextStyle(
-                      color: Color(0xFFAF9D78),
-                      fontSize: 10,
-                      letterSpacing: 1.4,
+          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 270),
+          child: LobbyMetalSurface(
+            flatBorder: true,
+            surfaceOpacity: 2.3,
+            radius: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'HIZLI OYNA · TÜM LİGLER',
+                          style: TextStyle(
+                            color: Color(0xFFAF9D78),
+                            fontSize: 10,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          cancelling
+                              ? 'İşlem iptal ediliyor'
+                              : failed
+                              ? 'Oyun başlatılamadı'
+                              : 'Gerçek rakip aranıyor…',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFF2DDAA),
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (!failed)
+                          const LinearProgressIndicator(
+                            color: Color(0xFFE3C17D),
+                            backgroundColor: Colors.white10,
+                          ),
+                        const SizedBox(height: 12),
+                        Text(
+                          flow.message ??
+                              (cancelling
+                                  ? 'İşlem sunucuda doğrulanıyor.'
+                                  : 'En fazla 10 saniye gerçek rakip aranır. Bulunamazsa bot kullanımına izin verilen liglerde botla başlanır.'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFBAC7C3),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    cancelling
-                        ? 'İşlem iptal ediliyor'
-                        : failed
-                        ? 'Oyun başlatılamadı'
-                        : 'Uygun masa aranıyor',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFF2DDAA),
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (!failed)
-                    const LinearProgressIndicator(
-                      color: Color(0xFFE3C17D),
-                      backgroundColor: Colors.white10,
-                    ),
-                  const SizedBox(height: 12),
-                  Text(
-                    flow.message ??
-                        (cancelling
-                            ? 'İşlem sunucuda doğrulanıyor.'
-                            : 'Oynayabileceğin tüm ligler taranıyor. Uygun masa yoksa kendi liginde en düşük girişle bot rakiple başlayacaksın.'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFBAC7C3),
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (failed)
-                    TextButton(
-                      onPressed: flow.busy ? null : flow.retry,
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFE3C17D),
-                      ),
-                      child: const Text('Yeniden dene'),
-                    ),
-                  const SizedBox(height: 8),
+                ),
+                if (failed)
                   TextButton(
-                    onPressed: cancelling ? null : flow.cancel,
+                    onPressed: flow.busy ? null : flow.retry,
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFC6CFCC),
+                      foregroundColor: const Color(0xFFE3C17D),
                     ),
-                    child: const Text('İptal'),
+                    child: const Text('Yeniden dene'),
                   ),
-                ],
-              ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: cancelling ? null : flow.cancel,
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFC6CFCC),
+                  ),
+                  child: const Text('Vazgeç'),
+                ),
+              ],
             ),
           ),
         ),

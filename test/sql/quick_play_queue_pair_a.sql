@@ -1,0 +1,5 @@
+BEGIN;
+SET LOCAL request.jwt.claim.sub='00000000-0000-0000-0000-000000000001';
+SELECT public.okeyix_quick_play_v2('10000000-0000-0000-0000-000000000001','start');
+SELECT pg_sleep(0.5);
+COMMIT;

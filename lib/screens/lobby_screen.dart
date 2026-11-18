@@ -8,6 +8,7 @@ import 'package:okeyix/core/format.dart';
 import 'package:okeyix/core/table_creation_options.dart';
 import 'package:okeyix/core/message_contacts.dart';
 import 'package:okeyix/core/league_player_counts.dart';
+import 'package:okeyix/core/lobby_league_selection.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -114,7 +115,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   final TextEditingController _chatController = TextEditingController();
   final _recorder = AudioRecorder();
   final ScrollController _chatScrollController = ScrollController();
-  String? selectedLeague = "standart";
+  static final _sessionLeagueSelection = LobbyLeagueSelection();
+  String? selectedLeague;
+  bool _leagueProfileLoaded = false;
   int createMaxPlayer = 2;
   int createTurnSeconds = 15;
   bool createSpectatorEnabled = true;
@@ -1191,6 +1194,8 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (profileCoin > previousCoin && !presentReward) {
         _triggerCoinFx();
       }
+      _leagueProfileLoaded = true;
+      if (_reconcileLeagueSelection()) unawaited(_loadTables());
       return true;
     } catch (e) {
       debugPrint('USER LOAD ERROR: $e');
@@ -1309,6 +1314,35 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
   }
 
+  bool _reconcileLeagueSelection() {
+    final user = supabase.auth.currentUser;
+    if (!_leagueProfileLoaded || user == null || leagues.isEmpty) return false;
+    _sessionLeagueSelection.useSession('${user.id}:${user.lastSignInAt}');
+    final next = _sessionLeagueSelection.resolve(
+      leagues,
+      coins: UserState.userCoin,
+      rating: UserState.userRating,
+    );
+    final league = leagues.firstWhere((l) => l['id'] == next);
+    final eligible = canAccessLobbyLeague(
+      league,
+      coins: UserState.userCoin,
+      rating: UserState.userRating,
+    );
+    final changed = selectedLeague != next || isLeagueLocked != !eligible;
+    setState(() {
+      selectedLeague = next;
+      isLeagueLocked = !eligible;
+      lockedLeague = eligible ? null : league;
+      if (changed) {
+        tables = [];
+        loadingTables = eligible;
+        _tablesInitialized = !eligible;
+      }
+    });
+    return changed;
+  }
+
   Future<void> _loadLeagues() async {
     if (!mounted) return;
     setState(() => loadingLeagues = true);
@@ -1325,11 +1359,8 @@ class _LobbyScreenState extends State<LobbyScreen>
           row['name'] = _normalizeTrText(row['name']?.toString() ?? '');
           return row;
         }).toList();
-
-        if (!leagues.any((l) => l['id'] == selectedLeague)) {
-          selectedLeague = leagues.first['id'];
-        }
       });
+      _reconcileLeagueSelection();
     } catch (e) {
       debugPrint('LEAGUE LOAD ERROR: $e');
       if (!mounted) return;
@@ -1473,6 +1504,10 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _loadTables() async {
     if (!mounted) return;
+    if (!_leagueProfileLoaded || loadingLeagues) return;
+    _reconcileLeagueSelection();
+    if (isLeagueLocked) return;
+    final requestedLeague = selectedLeague;
 
     if (!_tablesInitialized) {
       setState(() {
@@ -1489,7 +1524,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     try {
       final league = leagues.firstWhere(
-        (l) => l['id'] == selectedLeague,
+        (l) => l['id'] == requestedLeague,
         orElse: () => leagues.first,
       );
 
@@ -1621,7 +1656,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         return table;
       }).toList();
 
-      if (!mounted) return;
+      if (!mounted || selectedLeague != requestedLeague || isLeagueLocked) return;
 
       setState(() {
         _mergeTables(merged);
@@ -1633,7 +1668,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     } catch (e) {
       debugPrint('TABLE LOAD ERROR: $e');
 
-      if (!mounted) return;
+      if (!mounted || selectedLeague != requestedLeague || isLeagueLocked) return;
 
       setState(() {
         tables = [];
@@ -4300,15 +4335,15 @@ class _LobbyScreenState extends State<LobbyScreen>
                               final playerCoin = UserState.userCoin;
                               final playerRating = UserState.userRating;
 
-                              final minCoin = league['min_coin'];
-                              final minRating = league['min_rating'];
-
-                              final eligible =
-                                  playerCoin >= minCoin &&
-                                  playerRating >= minRating;
+                              final eligible = canAccessLobbyLeague(
+                                league,
+                                coins: playerCoin,
+                                rating: playerRating,
+                              );
 
                               setState(() {
                                 selectedLeague = league['id'];
+                                _sessionLeagueSelection.selectedId = selectedLeague;
 
                                 if (!eligible) {
                                   isLeagueLocked = true;

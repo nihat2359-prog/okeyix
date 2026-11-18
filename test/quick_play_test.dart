@@ -24,17 +24,20 @@ const ready = <String, dynamic>{
   'bot': false,
 };
 void main() {
-  test('human-only league rejection explains the available human-table options', () async {
-    final backend = FakeBackend()
-      ..responses.add(Future.error(StateError('HUMAN_ONLY_LEAGUE')));
-    final flow = QuickPlayController(backend);
-    await flow.start();
-    expect(flow.phase, QuickPlayPhase.error);
-    expect(flow.message, contains('Ustalar ve Şampiyonlar'));
-    expect(flow.message, contains('masa açabilirsin'));
-    expect(flow.result, isNull);
-    flow.dispose();
-  });
+  test(
+    'human-only league rejection explains the available human-table options',
+    () async {
+      final backend = FakeBackend()
+        ..responses.add(Future.error(StateError('HUMAN_ONLY_LEAGUE')));
+      final flow = QuickPlayController(backend);
+      await flow.start();
+      expect(flow.phase, QuickPlayPhase.error);
+      expect(flow.message, contains('Ustalar ve Şampiyonlar'));
+      expect(flow.message, contains('masa açabilirsin'));
+      expect(flow.result, isNull);
+      flow.dispose();
+    },
+  );
   testWidgets(
     'double activation performs one scan and immediately joins the human table',
     (tester) async {
@@ -49,21 +52,20 @@ void main() {
       flow.dispose();
     },
   );
-  testWidgets(
-    'server bot match is ready immediately without a wait or opt-in phase',
-    (tester) async {
-      final backend = FakeBackend()
-        ..responses.add(
-          Future.value({...ready, 'bot': true, 'is_creator': true}),
-        );
-      final flow = QuickPlayController(backend);
-      await flow.start();
-      expect(flow.phase, QuickPlayPhase.ready);
-      expect(flow.result!['bot'], isTrue);
-      expect(backend.calls, ['start']);
-      flow.dispose();
-    },
-  );
+  testWidgets('server deadline result enters the bot table once', (
+    tester,
+  ) async {
+    final backend = FakeBackend()
+      ..responses.add(
+        Future.value({...ready, 'bot': true, 'is_creator': true}),
+      );
+    final flow = QuickPlayController(backend);
+    await flow.start();
+    expect(flow.phase, QuickPlayPhase.ready);
+    expect(flow.result!['bot'], isTrue);
+    expect(backend.calls, ['start']);
+    flow.dispose();
+  });
   testWidgets(
     'cancel during an ambiguous pending request is reconciled with the server',
     (tester) async {
@@ -96,7 +98,7 @@ void main() {
     pending.complete(ready);
     await start;
     expect(flow.phase, QuickPlayPhase.ready);
-    expect(backend.calls, ['start']);
+    expect(backend.calls, ['start', 'cancel']);
     flow.dispose();
   });
   testWidgets(
@@ -117,27 +119,110 @@ void main() {
     },
   );
   testWidgets(
-    'old server waiting result never exposes a ten-second waiting flow',
+    'waiting polls the same server request and stops after matching',
     (tester) async {
       final backend = FakeBackend()
         ..responses.add(
-          Future.value({'state': 'waiting', 'table_id': 'legacy'}),
+          Future.value({'state': 'waiting', 'remaining_ms': 10000}),
         );
       final flow = QuickPlayController(backend);
       await flow.start();
-      expect(flow.phase, QuickPlayPhase.error);
-      expect(flow.message, contains('sunucu güncellemesi'));
+      expect(flow.phase, QuickPlayPhase.finding);
+      await tester.pump(const Duration(seconds: 1));
+      expect(backend.calls, ['start', 'refresh']);
+      expect(flow.phase, QuickPlayPhase.ready);
       await tester.pump(const Duration(seconds: 20));
-      expect(backend.calls, ['start']);
-      backend.responses.add(Future.value({'state': 'cancelled'}));
-      await flow.cancel();
-      expect(flow.phase, QuickPlayPhase.cancelled);
+      expect(backend.calls, ['start', 'refresh']);
       flow.dispose();
     },
   );
-  for (final size in [const Size(568, 320), const Size(844, 390)]) {
+  testWidgets('cancellation stops waiting heartbeats', (tester) async {
+    final backend = FakeBackend()
+      ..responses.addAll([
+        Future.value({'state': 'waiting', 'remaining_ms': 10000}),
+        Future.value({'state': 'cancelled'}),
+      ]);
+    final flow = QuickPlayController(backend);
+    await flow.start();
+    await flow.cancel();
+    await tester.pump(const Duration(seconds: 12));
+    expect(backend.calls, ['start', 'cancel']);
+    expect(flow.phase, QuickPlayPhase.cancelled);
+    flow.dispose();
+  });
+  testWidgets('background cancels waiting and a committed race resumes once', (
+    tester,
+  ) async {
+    final backend = FakeBackend();
+    final pending = Completer<Map<String, dynamic>>();
+    backend.responses.addAll([
+      Future.value({'state': 'waiting', 'remaining_ms': 10000}),
+      pending.future,
+    ]);
+    final flow = QuickPlayController(backend);
+    var navigations = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              final result = await showDialog<Map<String, dynamic>>(
+                context: context,
+                builder: (_) => QuickPlayWaitDialog(
+                  controller: flow,
+                  leagueName: 'Tüm ligler',
+                ),
+              );
+              if (result != null) navigations++;
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Gerçek rakip aranıyor…'), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(backend.calls, ['start', 'cancel']);
+    pending.complete(ready);
+    await tester.pump();
+    expect(navigations, 0);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(navigations, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    flow.dispose();
+  });
+  testWidgets(
+    'deadline human-only rejection is shown without another bot request',
+    (tester) async {
+      final backend = FakeBackend()
+        ..responses.addAll([
+          Future.value({'state': 'waiting', 'remaining_ms': 100}),
+          Future.value({'state': 'error', 'code': 'HUMAN_ONLY_LEAGUE'}),
+        ]);
+      final flow = QuickPlayController(backend);
+      await flow.start();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(flow.phase, QuickPlayPhase.error);
+      expect(flow.message, contains('Ustalar ve Şampiyonlar'));
+      await tester.pump(const Duration(seconds: 20));
+      expect(backend.calls, ['start', 'refresh']);
+      flow.dispose();
+    },
+  );
+  for (final size in [
+    const Size(480, 270),
+    const Size(568, 320),
+    const Size(844, 390),
+  ]) {
     testWidgets(
-      'instant search panel fits landscape $size without waiting choices',
+      'search panel fits landscape $size without manual bot choices',
       (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
@@ -184,4 +269,38 @@ void main() {
       },
     );
   }
+  testWidgets('large text in a short landscape dialog keeps cancel visible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(480, 270);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final backend = FakeBackend()
+      ..responses.addAll([
+        Future.value({'state': 'waiting', 'remaining_ms': 10000}),
+        Future.value({'state': 'cancelled'}),
+      ]);
+    final flow = QuickPlayController(backend);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: QuickPlayWaitDialog(controller: flow, leagueName: 'Tüm ligler'),
+      ),
+    );
+    await tester.pump();
+    final cancel = find.widgetWithText(TextButton, 'Vazgeç');
+    final rect = tester.getRect(cancel);
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.bottom, lessThanOrEqualTo(270));
+    expect(cancel.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    flow.dispose();
+  });
 }

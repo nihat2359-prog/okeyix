@@ -72,8 +72,6 @@ class LobbyLeagueList extends StatelessWidget {
 
   Widget _card(Map<String, dynamic> league, int index, bool wide) {
     final metal = _metals[index], selected = league['id'] == selectedLeagueId;
-    final players = leagueActivePlayers[league['id']] ?? 0,
-        tables = leagueActiveTables[league['id']] ?? 0;
     final unlocked =
         userCoin >= ((league['min_coin'] as num?)?.toInt() ?? 0) &&
         userRating >= ((league['min_rating'] as num?)?.toInt() ?? 0);
@@ -87,7 +85,7 @@ class LobbyLeagueList extends StatelessWidget {
           selected: selected,
           button: true,
           label:
-              '${league['name']}, $players oyuncu, $tables masa, ${unlocked ? 'Açık' : 'Kilitli'}',
+              '${league['name']}, ${unlocked ? 'Açık' : 'Kilitli'}',
           child: Tooltip(
             message: unlocked
                 ? '${league['name']}'
@@ -129,94 +127,39 @@ class LobbyLeagueList extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Flexible(
-                                  flex: 3,
-                                  child: Row(
-                                    children: [
-                                      if (selected) ...[
-                                        Icon(
-                                          Icons.check_circle_rounded,
-                                          key: ValueKey(
-                                            'selected-league-${league['id']}',
-                                          ),
-                                          size: 15,
-                                          color: metal,
-                                        ),
-                                        const SizedBox(width: 4),
-                                      ],
-                                      Expanded(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(
-                                            league['name']?.toString() ?? '',
-                                            style: TextStyle(
-                                              color: const Color(0xFFFFF3DB),
-                                              fontSize: wide ? 20 : 17,
-                                              fontWeight: FontWeight.w700,
-                                              height: 1.15,
-                                              shadows: const [
-                                                Shadow(
-                                                  color: Colors.black,
-                                                  offset: Offset(0, 2),
-                                                  blurRadius: 2,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      if (!unlocked) ...[
-                                        const SizedBox(width: 3),
-                                        const Icon(
-                                          Icons.lock_outline_rounded,
-                                          size: 14,
-                                          color: Color(0xFFB8BEC2),
-                                        ),
-                                      ],
-                                    ],
+                                if (selected) ...[
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    key: ValueKey('selected-league-${league['id']}'),
+                                    size: 15,
+                                    color: metal,
                                   ),
-                                ),
-                                const SizedBox(height: 5),
-                                Flexible(
-                                  flex: 2,
+                                  const SizedBox(width: 4),
+                                ],
+                                Expanded(
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     alignment: Alignment.centerLeft,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.people_alt_outlined,
-                                          size: 14,
-                                          color: metal,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '$players',
-                                          style: const TextStyle(
-                                            color: Color(0xFFD6D0C3),
-                                            fontSize: 12,
+                                    child: Text(
+                                      league['name']?.toString() ?? '',
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        color: const Color(0xFFFFF3DB),
+                                        fontSize: wide ? 20 : 17,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.15,
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black,
+                                            offset: Offset(0, 2),
+                                            blurRadius: 2,
                                           ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Icon(
-                                          Icons.table_restaurant_outlined,
-                                          size: 14,
-                                          color: metal,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '$tables',
-                                          style: const TextStyle(
-                                            color: Color(0xFFD6D0C3),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),

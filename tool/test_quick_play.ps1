@@ -41,6 +41,25 @@ try {
   }
   & $psql -X -h 127.0.0.1 -p $port -U postgres -d okeyix_quick_play_test -v ON_ERROR_STOP=1 -f (Join-Path $workspace 'test\sql\quick_play_concurrency_check.sql')
   if ($LASTEXITCODE -ne 0) { throw 'Concurrency assertions failed' }
+  foreach ($relative in @('test\sql\quick_play_queue_policy_setup.sql','supabase\migrations\20261026000100_upper_leagues_human_players_only.sql','supabase\migrations\20261118000100_quick_play_queue.sql','test\sql\quick_play_queue_test.sql')) {
+    & $psql -X -h 127.0.0.1 -p $port -U postgres -d okeyix_quick_play_test -v ON_ERROR_STOP=1 -f (Join-Path $workspace $relative)
+    if ($LASTEXITCODE -ne 0) { throw "Queue SQL failed: $relative" }
+  }
+  foreach ($scenario in @('pair','cancel')) {
+    & $psql -X -h 127.0.0.1 -p $port -U postgres -d okeyix_quick_play_test -v ON_ERROR_STOP=1 -v scenario=$scenario -f (Join-Path $workspace 'test\sql\quick_play_queue_concurrency_setup.sql')
+    if ($LASTEXITCODE -ne 0) { throw 'Queue concurrency setup failed' }
+    $jobs = @()
+    foreach ($suffix in @('a','b')) {
+      $file = Join-Path $workspace "test\sql\quick_play_queue_${scenario}_$suffix.sql"
+      $jobs += Start-Process -FilePath $psql -ArgumentList @('-X','-h','127.0.0.1','-p',"$port",'-U','postgres','-d','okeyix_quick_play_test','-v','ON_ERROR_STOP=1','-f',"`"$file`"") -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $testRoot "$scenario-$suffix.log") -RedirectStandardError (Join-Path $testRoot "$scenario-$suffix-error.log")
+    }
+    foreach ($job in $jobs) {
+      $job.WaitForExit()
+      if ($null -ne $job.ExitCode -and $job.ExitCode -ne 0) { throw 'Concurrent queue SQL failed' }
+    }
+    & $psql -X -h 127.0.0.1 -p $port -U postgres -d okeyix_quick_play_test -v ON_ERROR_STOP=1 -v scenario=$scenario -f (Join-Path $workspace 'test\sql\quick_play_queue_concurrency_check.sql')
+    if ($LASTEXITCODE -ne 0) { throw 'Queue concurrency assertions failed' }
+  }
   Write-Output 'Local quick-play SQL checks passed; no remote database used.'
 } finally {
   if ($started) { & $pgCtl -D $dataPath -m fast stop *> (Join-Path $testRoot 'stop.log') }
