@@ -1,6 +1,7 @@
 import 'package:okeyix/ui/table_chat_membership_event.dart';
 import 'package:okeyix/ui/game_waiting_panel.dart';
 import 'package:okeyix/ui/game_finish_presentation.dart';
+import 'package:okeyix/services/app_review_service.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
 import 'package:okeyix/ui/table_session_score.dart';
 import 'package:okeyix/ui/game_settings_dialog.dart';
@@ -1709,6 +1710,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
     final userId = _myUserId;
     if (userId == null) return;
     _isLeavingTable = true;
+    final completed = _game.finishView;
+    final reviewRoundKey = completed != null && !completed.isSpectator && _lastFinishAt != null
+        ? '${widget.tableId}:${_lastFinishAt!.toIso8601String()}' : null;
 
     try {
       _tableChannel?.unsubscribe();
@@ -1725,6 +1729,9 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
       await _cleanupTableIfInactive();
 
+      if (reviewRoundKey != null) {
+        await AppReviewService.instance.recordCompletedGame(reviewRoundKey);
+      }
       _game.resetGameState();
 
       if (!mounted) return;

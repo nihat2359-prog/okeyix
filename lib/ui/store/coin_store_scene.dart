@@ -30,193 +30,202 @@ class CoinStoreScene extends StatelessWidget {
   static const gold = Color(0xFFE6C98B);
 
   @override
-  Widget build(BuildContext context) => StorePaintProbe(child: Scaffold(
-    backgroundColor: const Color(0xFF080D15),
-    body: Stack(
-      children: [
-        Positioned.fill(
-          child: Image.asset(
-            'assets/images/lobby/lobby.png',
-            fit: BoxFit.cover,
-            excludeFromSemantics: true,
+  Widget build(BuildContext context) => StorePaintProbe(
+    child: Scaffold(
+      backgroundColor: const Color(0xFF080D15),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/lobby/lobby.png',
+              fit: BoxFit.cover,
+              excludeFromSemantics: true,
+            ),
           ),
-        ),
-        const Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x77080D15),
-                  Color(0xB30A111A),
-                  Color(0xED080C13),
-                ],
-                stops: [0, .4, 1],
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x77080D15),
+                    Color(0xB30A111A),
+                    Color(0xED080C13),
+                  ],
+                  stops: [0, .4, 1],
+                ),
               ),
             ),
           ),
-        ),
-        SafeArea(
-          child: LayoutBuilder(
-            builder: (context, limits) {
-              StoreDiagnostics.once('scene_layout', {
-                'width': limits.maxWidth, 'height': limits.maxHeight,
-                'offers': offers.length,
-              });
-              final compact = limits.maxHeight < 370;
-              return Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 12 : 24,
-                  6,
-                  compact ? 12 : 24,
-                  10,
-                ),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: compact ? 48 : 62,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'OKEYIX  /  MAĞAZA',
-                                    style: TextStyle(
-                                      color: gold,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 2.1,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Coin Mağazası',
-                                    style: TextStyle(
-                                      color: const Color(0xFFF6EAD3),
-                                      fontSize: compact ? 23 : 29,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -.6,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: limits.maxWidth * .28,
-                            ),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.toll_rounded,
-                                    color: gold,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 7),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'BAKİYEN',
-                                        style: TextStyle(
-                                          color: Color(0xFF9EA8B4),
-                                          fontSize: 8,
-                                          letterSpacing: 1.5,
-                                        ),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, limits) {
+                StoreDiagnostics.once('scene_layout', {
+                  'width': limits.maxWidth,
+                  'height': limits.maxHeight,
+                  'offers': offers.length,
+                });
+                final compact = limits.maxHeight < 370;
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 12 : 24,
+                    6,
+                    compact ? 12 : 24,
+                    10,
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: compact ? 48 : 62,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'OKEYIX  /  MAĞAZA',
+                                      style: TextStyle(
+                                        color: gold,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2.1,
                                       ),
-                                      Text(
-                                        Format.balance(balance),
-                                        key: const ValueKey('store-balance'),
-                                        style: const TextStyle(
-                                          color: Color(0xFFF1E3C4),
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Coin Mağazası',
+                                      style: TextStyle(
+                                        color: const Color(0xFFF6EAD3),
+                                        fontSize: compact ? 23 : 29,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -.6,
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          IconButton(
-                            key: const ValueKey('store-close'),
-                            tooltip: 'Mağazayı kapat',
-                            onPressed: onClose,
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Color(0xFFC3CCD7),
-                              size: 24,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 1100,
-                            maxHeight: 440,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (
-                                var index = 0;
-                                index < offers.length;
-                                index++
-                              ) ...[
-                                if (index > 0)
-                                  SizedBox(width: compact ? 8 : 12),
-                                Expanded(
-                                  child: _Offer(
-                                    offer: offers[index],
-                                    tier: index,
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: limits.maxWidth * .28,
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.toll_rounded,
+                                      color: gold,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 7),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'BAKİYEN',
+                                          style: TextStyle(
+                                            color: Color(0xFF9EA8B4),
+                                            fontSize: 8,
+                                            letterSpacing: 1.5,
+                                          ),
+                                        ),
+                                        Text(
+                                          Format.balance(balance),
+                                          key: const ValueKey('store-balance'),
+                                          style: const TextStyle(
+                                            color: Color(0xFFF1E3C4),
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            IconButton(
+                              key: const ValueKey('store-close'),
+                              tooltip: 'Mağazayı kapat',
+                              onPressed: onClose,
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Color(0xFFC3CCD7),
+                                size: 24,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 1100,
+                              maxHeight: 440,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (
+                                  var index = 0;
+                                  index < offers.length;
+                                  index++
+                                ) ...[
+                                  if (index > 0)
+                                    SizedBox(width: compact ? 8 : 12),
+                                  Expanded(
+                                    child: CoinStoreOfferCard(
+                                      offer: offers[index],
+                                      tier: index,
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
-  ));
+  );
 }
 
-class _Offer extends StatelessWidget {
-  const _Offer({required this.offer, required this.tier});
+class CoinStoreOfferCard extends StatelessWidget {
+  const CoinStoreOfferCard({
+    super.key,
+    required this.offer,
+    required this.tier,
+  });
   final CoinStoreOffer offer;
   final int tier;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
       StoreDiagnostics.once('offer_layout_$tier', {
-        'width': bounds.maxWidth, 'height': bounds.maxHeight,
+        'width': bounds.maxWidth,
+        'height': bounds.maxHeight,
       });
       final small = bounds.maxHeight < 240;
+      final short = bounds.maxHeight < 190;
       final best = tier == 2;
       return Container(
         key: ValueKey('store-offer-${offer.id}'),
@@ -237,7 +246,11 @@ class _Offer extends StatelessWidget {
         child: Column(
           children: [
             SizedBox(
-              height: small ? 23 : 30,
+              height: short
+                  ? 18
+                  : small
+                  ? 23
+                  : 30,
               child: Center(
                 child: best
                     ? Container(
@@ -280,7 +293,11 @@ class _Offer extends StatelessWidget {
                   Format.coin(offer.coins),
                   style: TextStyle(
                     color: const Color(0xFFFFE7B7),
-                    fontSize: small ? 26 : 34,
+                    fontSize: short
+                        ? 21
+                        : small
+                        ? 26
+                        : 34,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -.7,
                   ),
@@ -310,7 +327,11 @@ class _Offer extends StatelessWidget {
                 small ? 8 : 12,
               ),
               child: SizedBox(
-                height: small ? 36 : 42,
+                height: short
+                    ? 30
+                    : small
+                    ? 36
+                    : 42,
                 width: double.infinity,
                 child: DecoratedBox(
                   decoration: BoxDecoration(

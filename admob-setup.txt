@@ -1,0 +1,58 @@
+Okeyix günlük ödüllü reklam kurulumu
+
+Mevcut günlük / 7 günlük hediyeler korunur. Reklam ödülü ayrı olarak günde
+bir kez 15.000 Coin verir. Gün sınırı sunucuda Europe/Istanbul 00:00'dır.
+Ödül teklifi lobi girişinde mevcut hediye akışından sonra gösterilir;
+kapatılınca bir sonraki lobi dönüşünde tekrar gösterilir. Tamamlanan video
+aynı sunucu günü için cihazda da kaydedilir; SSV gecikirken tekrar teklif
+gösterilmez. Yeni gün sunucu day_key değeriyle belirlenir.
+
+Varsayılan durum: açık. Android ve iOS kimlikleri kaynak koduna bağlandı.
+Debug derlemelerinde Google test birimleri, release derlemelerinde Okeyix
+birimleri kullanılır. Test birimleri gerçek coin ödemez. İstenirse
+--dart-define=ADMOB_REWARDS_ENABLED=false ile tamamen kapatılabilir.
+
+1. supabase/migrations/20261123000100_rewarded_ads.sql dosyasını uygulayın.
+2. admob-reward Edge Function'ını dağıtın. verify_jwt=false kalmalı;
+   bu endpoint Google ECDSA imzasını doğrular. Service role anahtarı uygulamaya konmaz.
+3. İzinli ödüllü reklam birimleri function içinde tanımlıdır:
+   Android: ca-app-pub-4157424138716357/2553824684
+   iOS: ca-app-pub-4157424138716357/3727305559
+   ADMOB_REWARDED_UNITS secret'ı verilirse bu listeyi değiştirir.
+4. AdMob ödüllü reklam birimlerinde SSV callback URL'sini ayarlayın:
+   https://esqpgtedmojrzoftchis.supabase.co/functions/v1/admob-reward
+   custom_data ve user_id uygulama tarafından otomatik atanır.
+5. Uygulama kimlikleri bağlandı:
+   Android: ca-app-pub-4157424138716357~1095991525
+   iOS: ca-app-pub-4157424138716357~9806336581
+6. AdMob Privacy & messaging mesajlarını yapılandırın. UMP reklam
+   isteğinden önce çalışır. Ödül ekranından gizlilik tercihlerine erişilebilir.
+7. Kimlikler için derleme parametresi gerekli değildir. İsteğe bağlı değişiklik:
+   --dart-define=ADMOB_REWARDS_ENABLED=true
+   --dart-define=ADMOB_REWARDED_ANDROID=ca-app-pub-.../...
+   --dart-define=ADMOB_REWARDED_IOS=ca-app-pub-.../...
+
+Önemli test detayı: Google örnek reklamları gerçek SSV coin ödemesi için
+kullanılmaz. Reklamı görmek ile sunucu doğrulamalı coin kazanmak ayrı
+kontrollerdir. İmzalı SSV entegrasyonunu kendi test cihazınız ve AdMob SSV
+test aracıyla kontrol edin. Üretim RPC'sinde istemci ödül bypass'ı yoktur.
+
+Reklam erken kapanırsa ödül verilmez. İstemci onUserEarnedReward olayı coin
+yazmaz; Google callback'i sabit 15.000 Coin'i tek transaction içinde yatırır.
+Geciken callback için tekrar dene aynı makbuzu sorgular, yeni video istemez.
+Uygulama kapansa bile geçerli callback coinleri hesaba ekler. Callback'in
+geldiği saat yerine reklam biletinin açıldığı gün esas alınır (24 saat süre).
+Gerçek cihazda Android/iOS reklam, UMP, arka plan, ağ kesintisi ve SSV
+uçtan uca testi yayın öncesi gereklidir.
+
+Sunucu dağıtımı: 23 Kasım 2026 tarihinde esqpgtedmojrzoftchis projesine
+20261123000100_rewarded_ads migration'ı uygulandı; admob-reward v1 ACTIVE.
+Diğer yerel migration'lar gönderilmedi. Canlı kontroller: imzasız callback
+403, POST callback 405, anonim status ve coin credit RPC çağrıları 401.
+Bu kontroller coin ödemez. AdMob panelindeki SSV URL ayarı ve gerçek
+cihazda imzalı callback ile 15.000 Coin ödeme testi henüz doğrulanmadı.
+
+Resmi kaynaklar:
+https://developers.google.com/admob/flutter/rewarded
+https://developers.google.com/admob/flutter/privacy
+https://developers.google.com/admob/android/ssv

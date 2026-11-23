@@ -6,6 +6,7 @@ class LobbySideMenu extends StatelessWidget {
   final bool open;
   final bool showDevelopmentDemos;
   final VoidCallback? onDailyReward;
+  final VoidCallback? onReview;
   final VoidCallback onClose,
       onSupport,
       onAnnouncements,
@@ -27,6 +28,7 @@ class LobbySideMenu extends StatelessWidget {
     required this.open,
     this.showDevelopmentDemos = kDebugMode,
     this.onDailyReward,
+    this.onReview,
     required this.onClose,
     required this.onSupport,
     required this.onAnnouncements,
@@ -116,6 +118,11 @@ class LobbySideMenu extends StatelessWidget {
                                             icon: Icons.redeem_rounded,
                                             label: 'Günlük Hediyeler',
                                             onTap: onDailyReward!,
+                                          ),
+                                          if (onReview != null) menuButtonBuilder(
+                                            icon: Icons.star_outline_rounded,
+                                            label: 'Okeyix’i değerlendir',
+                                            onTap: onReview!,
                                           ),
                                           menuButtonBuilder(
                                             icon: Icons.tune_rounded,

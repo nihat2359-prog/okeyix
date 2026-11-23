@@ -16,6 +16,8 @@ import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/presence_service.dart';
 import 'package:okeyix/services/profile_service.dart';
 import 'package:okeyix/services/daily_reward_service.dart';
+import 'package:okeyix/services/app_review_service.dart';
+import 'package:okeyix/services/rewarded_ad_service.dart';
 import 'package:okeyix/services/player_name_reminder.dart';
 import 'package:okeyix/ui/player_name_reminder_dialog.dart';
 import 'package:okeyix/services/user_state.dart';
@@ -91,6 +93,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool _lobbyLoopsRunning = false;
   bool _banScreenOpened = false;
   bool _rewardFlowRunning = false;
+  bool _reviewBlockedByPresentation = false;
+  RewardedAdService? _adRewards;
   bool _nameReminderShownThisSession = false;
   static const int _welcomeCoinAmount = 10000;
   static const int _dailyBonusCoinAmount = 2500;
@@ -423,6 +427,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _init() async {
+    await AppReviewService.instance.recordVisit();
     await FeedbackSettingsService.load();
     _soundEnabled = FeedbackSettingsService.soundEnabled;
     _vibrationEnabled = FeedbackSettingsService.vibrationEnabled;
@@ -451,6 +456,10 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (userId != null) {
       await loadMissedGifts(userId);
     }
+    await AppReviewService.instance.maybeRequest(canPresent: () => mounted &&
+      !_reviewBlockedByPresentation && !_rewardFlowRunning && !_isSideMenuOpen &&
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+      ModalRoute.of(context)?.isCurrent == true);
   }
 
   Future<void> _ensureTableInviteListener() async {
@@ -478,10 +487,16 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       var credited = false;
       var amount = 0;
+      var openRewardStore = false;
+      _reviewBlockedByPresentation = true;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (_) => DailyBonusDialog(
+          onStore: () {
+            openRewardStore = true;
+            Navigator.of(context, rootNavigator: true).pop();
+          },
           amount: weekly?.amount ?? _dailyBonusCoinAmount,
           rewardDay: weekly?.day,
           weeklyRewards: weekly?.rewards,
@@ -516,6 +531,10 @@ class _LobbyScreenState extends State<LobbyScreen>
       await _loadUser(
         rewardPresentation: credited ? amount : null,
       );
+      if (openRewardStore && mounted && supabase.auth.currentUser?.id == user.id) {
+        await openStoreScreen(context, initialCoin: UserState.userCoin);
+        if (mounted) await _loadUser();
+      }
     } catch (e) {
       debugPrint('REWARD FLOW ERROR: $e');
       if (manual && mounted && ModalRoute.of(context)?.isCurrent == true) {
@@ -532,8 +551,42 @@ class _LobbyScreenState extends State<LobbyScreen>
         ));
       }
     } finally {
+      if (!manual) await _offerRewardedVideo();
       _rewardFlowRunning = false;
     }
+  }
+
+  Future<void> _offerRewardedVideo() async {
+    final uid = supabase.auth.currentUser?.id;
+    if (!RewardedAdService.enabled || uid == null ||
+        !mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    try {
+      final service = _adRewards ??= RewardedAdService(supabase);
+      final preview = RewardedAdService.preview;
+      final status = preview ? {'available': true} : await service.status();
+      if (!mounted || supabase.auth.currentUser?.id != uid || status['available'] != true ||
+          ModalRoute.of(context)?.isCurrent != true) return;
+      var credited = false;
+      _reviewBlockedByPresentation = true;
+      await showDialog<void>(context: context, barrierDismissible: false,
+        builder: (_) => RewardedVideoDialog(
+          onPrivacy: preview ? null : RewardedAdService.privacyOptions,
+          onClaimWithProgress: preview ? null : (onProgress) async {
+            credited = await service.claim(onProgress: onProgress);
+            return credited;
+          },
+          onClaim: () async {
+            if (preview) {
+              throw StateError('Reklam kimlikleri bağlandığında video açılacak ve 15.000 Coin kazanabileceksin.');
+            }
+            credited = await service.claim();
+            return credited;
+          },
+        ));
+      if (mounted && supabase.auth.currentUser?.id == uid) {
+        await _loadUser(rewardPresentation: credited ? 15000 : null);
+      }
+    } catch (e) { debugPrint('AD REWARD OFFER ERROR: $e'); }
   }
 
   Future<void> _showPlayerNameReminder() async {
@@ -3207,6 +3260,14 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           LobbySideMenu(
             open: _isSideMenuOpen,
+            onReview: AppReviewService.supported ? () async {
+              _closeSideMenu();
+              try {
+                await AppReviewService.instance.openStoreReview();
+              } catch (_) {
+                if (mounted) _msg('Mağaza açılamadı. Lütfen yeniden dene.');
+              }
+            } : null,
             onDailyReward: () {
               _closeSideMenu();
               unawaited(_runRewardFlowIfNeeded(manual: true));

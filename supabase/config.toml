@@ -23,3 +23,7 @@ verify_jwt = false
 
 [functions.send_table_invite_push]
 verify_jwt = true
+
+[functions.admob-reward]
+# Public Google callback; ECDSA signature is verified before any credit.
+verify_jwt = false

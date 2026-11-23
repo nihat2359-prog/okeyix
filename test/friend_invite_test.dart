@@ -77,7 +77,7 @@ void main() {
         expect(
           message,
           contains(
-            'iPhone / iPad: https://apps.apple.com/tr/app/okeyix/id6761813938',
+            'iPhone / iPad: https://apps.apple.com/tr/app/okeyix/id6838298677',
           ),
         );
         expect(message, isNot(contains('\\&')));

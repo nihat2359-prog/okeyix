@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:okeyix/services/rewarded_ad_service.dart';
 import '../tile_themes_dialog.dart';
 
 const _gold = Color(0xFFE5C585);
@@ -349,6 +350,17 @@ class GameSettingsScene extends StatelessWidget {
                   ),
                 ),
               ),
+              if (RewardedAdService.enabled && !RewardedAdService.preview)
+                Expanded(child: TextButton.icon(
+                  icon: const Icon(Icons.privacy_tip_outlined, color: _gold, size: 18),
+                  label: const Text('Reklam gizliliği', style: TextStyle(color: _gold, fontSize: 11)),
+                  onPressed: () async {
+                    try { await RewardedAdService.privacyOptions(); } catch (_) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gizlilik seçenekleri şu anda açılamıyor.')));
+                    }
+                  },
+                )),
               if (showAccountActions) ...[
                 const SizedBox(width: 12),
                 Flexible(

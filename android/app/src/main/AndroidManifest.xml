@@ -11,6 +11,9 @@
         android:label="Okeyix"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Okeyix AdMob Android application ID. -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-4157424138716357~1095991525" />
         <provider
             android:name=".ComparisonFileProvider"
             android:authorities="${applicationId}.comparison_share"

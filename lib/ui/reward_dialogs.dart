@@ -4,8 +4,114 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:okeyix/services/reward_audio.dart';
 import 'package:okeyix/core/format.dart';
+import 'package:okeyix/core/rewarded_ad_phase.dart';
+import 'package:okeyix/ui/store/daily_reward_store_shelf.dart';
 
 const _gold = Color(0xFFFFDA83);
+
+class RewardedVideoDialog extends StatefulWidget {
+  const RewardedVideoDialog({
+    super.key,
+    required this.onClaim,
+    this.onClaimWithProgress,
+    this.onPrivacy,
+    this.onSound,
+  });
+  final Future<bool> Function() onClaim;
+  final Future<bool> Function(ValueChanged<RewardedAdPhase>)?
+  onClaimWithProgress;
+  final Future<void> Function()? onPrivacy;
+  final ValueChanged<RewardSound>? onSound;
+  @override
+  State<RewardedVideoDialog> createState() => _RewardedVideoDialogState();
+}
+
+class _RewardedVideoDialogState extends State<RewardedVideoDialog> {
+  bool _loading = false, _won = false;
+  String? _error;
+  RewardedAdPhase _phase = RewardedAdPhase.preparing;
+  Future<void> _claim() async {
+    if (_loading) return;
+    if (_won) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+      _phase = RewardedAdPhase.preparing;
+    });
+    try {
+      final won =
+          await (widget.onClaimWithProgress?.call((phase) {
+                if (mounted) setState(() => _phase = phase);
+              }) ??
+              widget.onClaim());
+      if (mounted)
+        setState(() {
+          _won = won;
+          if (!won) _error = 'Ödül şu anda alınamıyor. Yeniden dene.';
+        });
+    } catch (e) {
+      if (mounted)
+        setState(
+          () => _error = e is StateError
+              ? e.message.toString()
+              : 'Bağlantı kurulamadı. Lütfen yeniden dene.',
+        );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _RewardCard(
+    amount: 15000,
+    badge: _won ? 'ÖDÜL SENİN' : 'GÜNÜN ALTIN FIRSATI',
+    title: _won ? 'Harika! Kazandın.' : 'Günlük ödülünü al!',
+    message: _loading
+        ? _phase.message
+        : _won
+        ? '15.000 Coin hesabına eklendi. Masalar seni bekliyor!'
+        : 'Kısa bir ödüllü reklam izle, 15.000 Coin kazan. Her gün bir kez, tamamen senin seçiminle.',
+    button: _won
+        ? 'Masaya dön'
+        : _error != null
+        ? 'Tekrar dene'
+        : 'Videoyu izle • 15.000 Coin al',
+    loading: _loading,
+    loadingLabel: _phase.label,
+    success: _won,
+    error: _error,
+    onPressed: _claim,
+    onSound: widget.onSound,
+    floatingTreasure: true,
+    footer: widget.onPrivacy == null
+        ? null
+        : Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _loading
+                  ? null
+                  : () async {
+                      try {
+                        await widget.onPrivacy!();
+                      } catch (_) {
+                        if (mounted)
+                          setState(
+                            () => _error =
+                                'Gizlilik seçenekleri şu anda açılamıyor.',
+                          );
+                      }
+                    },
+              child: const Text(
+                'Reklam gizlilik tercihleri',
+                style: TextStyle(color: Color(0xFFE1CF9D), fontSize: 11),
+              ),
+            ),
+          ),
+  );
+}
 
 class WelcomeRewardDialog extends StatelessWidget {
   final int amount;
@@ -26,6 +132,7 @@ class WelcomeRewardDialog extends StatelessWidget {
 enum _ClaimState { ready, loading, success, alreadyClaimed, error }
 
 class DailyBonusDialog extends StatefulWidget {
+  final VoidCallback? onStore;
   final int amount;
   final int? rewardDay;
   final List<int>? weeklyRewards;
@@ -35,6 +142,7 @@ class DailyBonusDialog extends StatefulWidget {
   final Future<bool> Function() onClaim;
   final ValueChanged<RewardSound>? onSound;
   const DailyBonusDialog({
+    this.onStore,
     super.key,
     required this.amount,
     required this.onClaim,
@@ -81,13 +189,20 @@ class _DailyBonusDialogState extends State<DailyBonusDialog> {
     final success = _state == _ClaimState.success;
     final already = _state == _ClaimState.alreadyClaimed;
     return _RewardCard(
+      sidePanel: widget.onStore == null
+          ? null
+          : DailyRewardStoreShelf(
+              onOpen: _state == _ClaimState.loading ? null : widget.onStore,
+            ),
       amount: success
           ? (widget.creditedAmount?.call() ?? widget.amount)
           : widget.amount,
       treasureAsset: widget.rewardDay == null || widget.rewardDay == 7
           ? 'assets/images/coins/coins_huge.png'
-          : widget.rewardDay! <= 2 ? 'assets/images/coins/coins_small.png'
-          : widget.rewardDay! <= 4 ? 'assets/images/coins/coins_medium.png'
+          : widget.rewardDay! <= 2
+          ? 'assets/images/coins/coins_small.png'
+          : widget.rewardDay! <= 4
+          ? 'assets/images/coins/coins_medium.png'
           : 'assets/images/coins/coins_large.png',
       badge: success
           ? 'ÖDÜL SENİN'
@@ -236,6 +351,9 @@ class _SevenDayTrail extends StatelessWidget {
 }
 
 class _RewardCard extends StatefulWidget {
+  final Widget? sidePanel;
+  final String loadingLabel;
+  final bool floatingTreasure;
   final int amount;
   final String treasureAsset;
   final String title, message, badge, button;
@@ -245,6 +363,9 @@ class _RewardCard extends StatefulWidget {
   final ValueChanged<RewardSound>? onSound;
   final Widget? footer;
   const _RewardCard({
+    this.sidePanel,
+    this.loadingLabel = 'Alınıyor...',
+    this.floatingTreasure = false,
     required this.amount,
     this.treasureAsset = 'assets/images/coins/coins_huge.png',
     required this.title,
@@ -290,6 +411,10 @@ class _RewardCardState extends State<_RewardCard>
     vsync: this,
     duration: const Duration(milliseconds: 380),
   );
+  late final AnimationController _float = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 4),
+  );
   late final AnimationController _win = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 850),
@@ -304,6 +429,7 @@ class _RewardCardState extends State<_RewardCard>
         _entrance.value = 1;
       } else {
         _entrance.forward();
+        if (widget.floatingTreasure) _float.repeat();
       }
     }
   }
@@ -324,6 +450,7 @@ class _RewardCardState extends State<_RewardCard>
     WidgetsBinding.instance.removeObserver(this);
     _audio?.dispose();
     _entrance.dispose();
+    _float.dispose();
     _win.dispose();
     super.dispose();
   }
@@ -345,7 +472,10 @@ class _RewardCardState extends State<_RewardCard>
               child: ScaleTransition(
                 scale: Tween<double>(begin: .94, end: 1).animate(curve),
                 child: SizedBox(
-                  width: math.min(bounds.maxWidth, 980),
+                  width: math.min(
+                    bounds.maxWidth,
+                    widget.sidePanel == null ? 980 : 1180,
+                  ),
                   height: math.min(bounds.maxHeight, 520),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -353,7 +483,9 @@ class _RewardCardState extends State<_RewardCard>
                       children: [
                         Positioned.fill(
                           child: Image.asset(
-                            'assets/images/table.png',
+                            widget.sidePanel == null
+                                ? 'assets/images/table.png'
+                                : 'assets/images/lobby/lobby.png',
                             fit: BoxFit.cover,
                             excludeFromSemantics: true,
                           ),
@@ -407,132 +539,185 @@ class _RewardCardState extends State<_RewardCard>
                                 ),
                                 Expanded(
                                   child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      Expanded(flex: 5, child: _treasure()),
-                                      const SizedBox(width: 16),
                                       Expanded(
-                                        flex: 5,
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 8,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              Expanded(
-                                                child: SingleChildScrollView(
-                                                  key: const ValueKey(
-                                                    'reward-details',
+                                        flex: widget.sidePanel == null
+                                            ? 65
+                                            : 27,
+                                        child: widget.sidePanel != null
+                                            ? _weeklyHero()
+                                            : Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  Expanded(
+                                                    flex: 5,
+                                                    child: _treasure(),
                                                   ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const SizedBox(height: 6),
-                                                      CustomPaint(
-                                                        painter:
-                                                            const _Insignia(),
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.fromLTRB(
-                                                                20,
-                                                                6,
-                                                                8,
-                                                                6,
-                                                              ),
-                                                          child: Text(
-                                                            widget.badge,
-                                                            style:
-                                                                const TextStyle(
-                                                                  color: _gold,
-                                                                  fontSize: 10,
-                                                                  letterSpacing:
-                                                                      1.4,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
-                                                                ),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    flex: 5,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            right: 8,
                                                           ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(
-                                                        height: 12,
-                                                      ),
-                                                      Text(
-                                                        widget.title,
-                                                        style: const TextStyle(
-                                                          color: Color(
-                                                            0xFFFFF1D4,
-                                                          ),
-                                                          fontSize: 30,
-                                                          height: 1.06,
-                                                          fontWeight:
-                                                              FontWeight.w900,
-                                                          shadows: [
-                                                            Shadow(
-                                                              color:
-                                                                  Colors.black,
-                                                              offset: Offset(
-                                                                0,
-                                                                3,
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .stretch,
+                                                        children: [
+                                                          Expanded(
+                                                            child: SingleChildScrollView(
+                                                              key: const ValueKey(
+                                                                'reward-details',
                                                               ),
-                                                              blurRadius: 8,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(
-                                                        height: 12,
-                                                      ),
-                                                      Semantics(
-                                                        liveRegion: true,
-                                                        child: Text(
-                                                          widget.message,
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Color(
-                                                                  0xFFC2CEC8,
-                                                                ),
-                                                                fontSize: 13,
-                                                                height: 1.5,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      if (widget.error != null)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                top: 8,
-                                                              ),
-                                                          child: Semantics(
-                                                            liveRegion: true,
-                                                            child: Text(
-                                                              widget.error!,
-                                                              style:
-                                                                  const TextStyle(
-                                                                    color: Color(
-                                                                      0xFFFFC6B4,
-                                                                    ),
-                                                                    height: 1.3,
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  const SizedBox(
+                                                                    height: 6,
                                                                   ),
+                                                                  CustomPaint(
+                                                                    painter:
+                                                                        const _Insignia(),
+                                                                    child: Padding(
+                                                                      padding:
+                                                                          const EdgeInsets.fromLTRB(
+                                                                            20,
+                                                                            6,
+                                                                            8,
+                                                                            6,
+                                                                          ),
+                                                                      child: Text(
+                                                                        widget
+                                                                            .badge,
+                                                                        maxLines:
+                                                                            widget.sidePanel ==
+                                                                                null
+                                                                            ? null
+                                                                            : 1,
+                                                                        overflow:
+                                                                            TextOverflow.ellipsis,
+                                                                        style: const TextStyle(
+                                                                          color:
+                                                                              _gold,
+                                                                          fontSize:
+                                                                              10,
+                                                                          letterSpacing:
+                                                                              1.4,
+                                                                          fontWeight:
+                                                                              FontWeight.w800,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    height: 12,
+                                                                  ),
+                                                                  Text(
+                                                                    widget
+                                                                        .title,
+                                                                    style: TextStyle(
+                                                                      color: Color(
+                                                                        0xFFFFF1D4,
+                                                                      ),
+                                                                      fontSize:
+                                                                          widget.sidePanel ==
+                                                                              null
+                                                                          ? 30
+                                                                          : 22,
+                                                                      height:
+                                                                          1.06,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w900,
+                                                                      shadows: [
+                                                                        Shadow(
+                                                                          color:
+                                                                              Colors.black,
+                                                                          offset: Offset(
+                                                                            0,
+                                                                            3,
+                                                                          ),
+                                                                          blurRadius:
+                                                                              8,
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    height: 12,
+                                                                  ),
+                                                                  Semantics(
+                                                                    liveRegion:
+                                                                        true,
+                                                                    child: Text(
+                                                                      widget
+                                                                          .message,
+                                                                      style: const TextStyle(
+                                                                        color: Color(
+                                                                          0xFFC2CEC8,
+                                                                        ),
+                                                                        fontSize:
+                                                                            13,
+                                                                        height:
+                                                                            1.5,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  if (widget
+                                                                          .error !=
+                                                                      null)
+                                                                    Padding(
+                                                                      padding:
+                                                                          const EdgeInsets.only(
+                                                                            top:
+                                                                                8,
+                                                                          ),
+                                                                      child: Semantics(
+                                                                        liveRegion:
+                                                                            true,
+                                                                        child: Text(
+                                                                          widget
+                                                                              .error!,
+                                                                          style: const TextStyle(
+                                                                            color: Color(
+                                                                              0xFFFFC6B4,
+                                                                            ),
+                                                                            height:
+                                                                                1.3,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                ],
+                                                              ),
                                                             ),
                                                           ),
-                                                        ),
-                                                    ],
+                                                          const SizedBox(
+                                                            height: 12,
+                                                          ),
+                                                          _action(),
+                                                          const SizedBox(
+                                                            height: 4,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
+                                                ],
                                               ),
-                                              const SizedBox(height: 12),
-                                              _action(),
-                                              const SizedBox(height: 4),
-                                            ],
-                                          ),
-                                        ),
                                       ),
+                                      if (widget.sidePanel != null) ...[
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          flex: 73,
+                                          child: widget.sidePanel!,
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -556,6 +741,53 @@ class _RewardCardState extends State<_RewardCard>
     );
   }
 
+  Widget _weeklyHero() => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(18),
+      gradient: const RadialGradient(
+        center: Alignment(0, -.2),
+        radius: 1.2,
+        colors: [Color(0x663B3020), Color(0x88101A25)],
+      ),
+      border: Border.all(color: const Color(0x667C6944), width: .7),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.title,
+              style: const TextStyle(
+                color: _gold,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(child: _treasure()),
+          if (widget.error != null)
+            Flexible(
+              child: SingleChildScrollView(
+                child: Text(
+                  widget.error!,
+                  style: const TextStyle(
+                    color: Color(0xFFFFC6B4),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 5),
+          _action(),
+        ],
+      ),
+    ),
+  );
+
   Widget _treasure() => LayoutBuilder(
     builder: (context, bounds) => Stack(
       children: [
@@ -565,21 +797,36 @@ class _RewardCardState extends State<_RewardCard>
           top: 0,
           bottom: bounds.maxHeight * .25,
           child: AnimatedBuilder(
-            animation: _win,
-            builder: (context, child) => Transform.scale(
-              scale: 1 + math.sin(_win.value * math.pi) * .12,
-              child: child,
+            animation: Listenable.merge([_win, _float]),
+            builder: (context, child) => Transform.translate(
+              offset: Offset(0, math.sin(_float.value * math.pi * 2) * 5),
+              child: Transform.scale(
+                scale: 1 + math.sin(_win.value * math.pi) * .12,
+                child: child,
+              ),
             ),
-            child: LayoutBuilder(builder: (context, space) {
-              final side = math.min(space.maxWidth, space.maxHeight);
-              return Center(child: SizedBox.square(dimension: side,
-                child: CustomPaint(
-                  painter: _RewardDais(base: widget.treasureAsset.endsWith('coins_small.png') ? .68 : .76),
-                  child: Image.asset(widget.treasureAsset, fit: BoxFit.contain,
-                    excludeFromSemantics: true),
-                ),
-              ));
-            }),
+            child: LayoutBuilder(
+              builder: (context, space) {
+                final side = math.min(space.maxWidth, space.maxHeight);
+                return Center(
+                  child: SizedBox.square(
+                    dimension: side,
+                    child: CustomPaint(
+                      painter: _RewardDais(
+                        base: widget.treasureAsset.endsWith('coins_small.png')
+                            ? .68
+                            : .76,
+                      ),
+                      child: Image.asset(
+                        widget.treasureAsset,
+                        fit: BoxFit.contain,
+                        excludeFromSemantics: true,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
         Positioned(
@@ -669,7 +916,7 @@ class _RewardCardState extends State<_RewardCard>
       label: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
-          widget.loading ? 'Alınıyor...' : widget.button,
+          widget.loading ? widget.loadingLabel : widget.button,
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontWeight: FontWeight.w900,
@@ -808,7 +1055,8 @@ class _RewardDais extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RewardDais oldDelegate) => oldDelegate.base != base;
+  bool shouldRepaint(covariant _RewardDais oldDelegate) =>
+      oldDelegate.base != base;
 }
 
 class _WinParticles extends CustomPainter {

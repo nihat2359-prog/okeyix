@@ -73,6 +73,7 @@ Future<void> scene(
                   onProfileCard: () => calls.add('profile'),
                   onSettings: () => calls.add('settings'),
                   onDailyReward: () => calls.add('daily'),
+                  onReview: () => calls.add('review'),
                   onLogout: () => calls.add('logout'),
                   menuButtonBuilder: lobbySideMenuButton,
                   goldBorderColor: const Color(0xCCB07A1A),
@@ -86,11 +87,23 @@ Future<void> scene(
     ),
   );
   await tester.pumpAndSettle();
+  await tester.runAsync(() => precacheImage(
+    const AssetImage('assets/images/lobby/lobby.png'),
+    tester.element(find.byType(Scaffold)),
+  ));
+  await tester.pumpAndSettle();
   await tester.tap(find.byType(LobbyDockAction));
   await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets('review action opens its destination callback', (tester) async {
+    final calls = <String>[];
+    await scene(tester, sizes.first, 2, calls);
+    await tester.tap(find.text('Okeyix’i değerlendir'));
+    expect(calls, contains('review'));
+    expect(tester.takeException(), isNull);
+  });
   setUpAll(() async {
     await (FontLoader(
       'Montserrat',
