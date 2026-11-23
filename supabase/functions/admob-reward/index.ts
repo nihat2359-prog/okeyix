@@ -29,7 +29,10 @@ Deno.serve(async request => {
     const { error } = await client.rpc('okeyix_credit_ad_reward', {
       p_attempt: attempt, p_user: user, p_transaction: transaction,
     });
-    if (error) return new Response('Credit unavailable', { status: 500 });
+    if (error) {
+      console.warn('AdMob credit rejected:', error.code);
+      return new Response('Credit unavailable', { status: 500 });
+    }
     return new Response('OK');
   } catch (error) {
     console.warn('AdMob callback rejected:', error instanceof Error ? error.message : 'Unknown error');

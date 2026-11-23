@@ -52,6 +52,12 @@ Diğer yerel migration'lar gönderilmedi. Canlı kontroller: imzasız callback
 Bu kontroller coin ödemez. AdMob panelindeki SSV URL ayarı ve gerçek
 cihazda imzalı callback ile 15.000 Coin ödeme testi henüz doğrulanmadı.
 
+TestFlight hata düzeltmesi: 20261123000300_ad_reward_wallet_store uygulandı.
+Cüzdanın wallet_store_check kısıtı 'admob' kaynağını kabul etmiyordu.
+Reklam ödülü artık store='system', reason='rewarded_ad' olarak kaydedilir.
+İmza doğrulaması ve günlük tek ödeme sınırı korunur. Önceki başarısız deneme
+otomatik olarak ödüllendirilmedi; geçerli Google doğrulaması gereklidir.
+
 Resmi kaynaklar:
 https://developers.google.com/admob/flutter/rewarded
 https://developers.google.com/admob/flutter/privacy

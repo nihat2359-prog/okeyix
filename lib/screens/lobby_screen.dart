@@ -3260,14 +3260,6 @@ class _LobbyScreenState extends State<LobbyScreen>
 
           LobbySideMenu(
             open: _isSideMenuOpen,
-            onReview: AppReviewService.supported ? () async {
-              _closeSideMenu();
-              try {
-                await AppReviewService.instance.openStoreReview();
-              } catch (_) {
-                if (mounted) _msg('Mağaza açılamadı. Lütfen yeniden dene.');
-              }
-            } : null,
             onDailyReward: () {
               _closeSideMenu();
               unawaited(_runRewardFlowIfNeeded(manual: true));
@@ -4052,6 +4044,13 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Widget _settingsPanel() {
     return GameSettingsScene(
+      onReview: AppReviewService.supported ? () async {
+        try {
+          await AppReviewService.instance.openStoreReview();
+        } catch (_) {
+          if (mounted) _msg('Mağaza açılamadı. Lütfen yeniden dene.');
+        }
+      } : null,
       sound: _soundEnabled,
       vibration: _vibrationEnabled,
       colorBlind: _colorBlindMode,

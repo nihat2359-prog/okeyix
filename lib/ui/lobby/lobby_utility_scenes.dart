@@ -237,6 +237,7 @@ class GameSupportScene extends StatelessWidget {
 }
 
 class GameSettingsScene extends StatelessWidget {
+  final VoidCallback? onReview;
   final VoidCallback? onTileThemes;
   final bool showAccountActions;
   final bool sound, vibration, colorBlind, invites;
@@ -244,6 +245,7 @@ class GameSettingsScene extends StatelessWidget {
   final VoidCallback onClose, onDelete;
   const GameSettingsScene({
     super.key,
+    this.onReview,
     this.showAccountActions = true,
     this.onTileThemes,
     required this.sound,
@@ -360,6 +362,15 @@ class GameSettingsScene extends StatelessWidget {
                         const SnackBar(content: Text('Gizlilik seçenekleri şu anda açılamıyor.')));
                     }
                   },
+                )),
+              if (onReview != null)
+                Expanded(child: FittedBox(fit: BoxFit.scaleDown,
+                  child: TextButton.icon(
+                    key: const ValueKey('settings-review'),
+                    onPressed: onReview,
+                    icon: const Icon(Icons.star_outline_rounded, color: _gold, size: 18),
+                    label: const Text('Değerlendir', style: TextStyle(color: _gold, fontSize: 11)),
+                  ),
                 )),
               if (showAccountActions) ...[
                 const SizedBox(width: 12),

@@ -69,6 +69,7 @@ Future<void> scene(
                         onClose: () => calls.add('close'),
                       )
                     : GameSettingsScene(
+                        onReview: () => calls.add('review'),
                         sound: sound,
                         vibration: vibration,
                         colorBlind: colorBlind,
@@ -137,6 +138,10 @@ void main() {
             expect(calls, contains('send:Oyun hakkında destek istiyorum.'));
             await tester.tap(find.byKey(const ValueKey('utility-Vazgeç')));
           } else {
+            final review = find.byKey(const ValueKey('settings-review'));
+            expect(tester.getRect(review).bottom, lessThanOrEqualTo(size.height - 21));
+            await tester.tap(review);
+            expect(calls, contains('review'));
             for (final entry in {
               'Ses': 'sound:false',
               'Titreşim': 'vibration:true',
