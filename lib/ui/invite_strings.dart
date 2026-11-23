@@ -6,7 +6,7 @@ class InviteStrings {
   static const androidDownloadUrl =
       'https://play.google.com/store/apps/details?id=com.okeyix.game&hl=tr';
   static const iosDownloadUrl =
-      'https://apps.apple.com/tr/app/okeyix/id6838298677';
+      'https://apps.apple.com/tr/app/okeyix/id6761813938';
   InviteStrings(this.locale);
   final Locale locale;
   static InviteStrings of(BuildContext context) =>

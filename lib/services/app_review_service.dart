@@ -63,7 +63,7 @@ class AppReviewService {
 
   Future<void> openStoreReview() async {
     if (!supported) throw StateError('Değerlendirme mobil uygulamada kullanılabilir.');
-    await InAppReview.instance.openStoreListing(appStoreId: '6838298677')
+    await InAppReview.instance.openStoreListing(appStoreId: '6761813938')
         .timeout(const Duration(seconds: 10));
   }
 }
