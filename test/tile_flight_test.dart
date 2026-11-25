@@ -45,14 +45,41 @@ void main() {
     expect(real.position, Vector2(200, 100));
     expect(real.isRevealingDraw, isTrue);
     await tester.pump();
-    real.update(.079);
+    real.update(.039);
     await tester.pump();
     expect(real.isDrawCovered, isTrue);
     real.update(.002);
     expect(real.isDrawCovered, isFalse);
-    real.update(.079);
+    real.update(.039);
     expect(real.isRevealingDraw, isFalse);
   });
+
+  for (final dragged in [false, true]) {
+    testWidgets('confirmed joker stays face down without flipping (dragged: $dragged)', (tester) async {
+      final game = await mount(tester);
+      final preview = visual('__closed_draw_preview__', joker: true);
+      final real = visual('confirmed-joker', joker: true);
+      game.world.add(preview);
+      game.world.add(real);
+      await settle(tester, game);
+      preview.position.setZero();
+      preview.beginClosedDraw(Vector2(200, 100), dragged: dragged);
+      real.position.setFrom(preview.position);
+      real.inheritClosedDraw(preview);
+      real.update(.1);
+      expect(real.isDrawCovered, isTrue);
+      expect(real.isRevealingDraw, isFalse);
+      real.update(.3);
+      real.update(.001);
+      expect(real.position, Vector2(200, 100));
+      expect(real.isDrawCovered, isFalse);
+      expect(real.isRevealingDraw, isFalse);
+      expect(real.isFaceDown, isTrue);
+      real.update(.2);
+      expect(real.isRevealingDraw, isFalse);
+      expect(real.isFaceDown, isTrue);
+    });
+  }
 
   testWidgets('a late confirmation stays closed at rest and a drag settles exactly', (tester) async {
     final game = await mount(tester);

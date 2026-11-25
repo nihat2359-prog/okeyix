@@ -44,6 +44,7 @@ class TileComponent extends PositionComponent
         DragCallbacks,
         TapCallbacks,
         ActivityLifecycleObservation {
+  static const double _drawFlipDuration = .08;
   bool renderInDragOverlay = false;
   bool hideTileVisual = false;
   bool _paintingDragOverlay = false;
@@ -75,7 +76,7 @@ class TileComponent extends PositionComponent
     canvas.scale((1 + (_sourceHeld ? .12 : .09) * _dragLift) * _flightScale);
     final flip = _flipElapsed;
     if (flip != null) {
-      final t = (flip / .16).clamp(0.0, 1.0);
+      final t = (flip / _drawFlipDuration).clamp(0.0, 1.0);
       final radians = t < .5 ? math.pi * t : math.pi * (t - 1);
       final projection = flutter_math.Matrix4.identity()..setEntry(3, 2, .0015)..rotateY(radians);
       canvas.transform(projection.storage);
@@ -274,17 +275,25 @@ class TileComponent extends PositionComponent
     // Only a committed real tile can reveal, and only after its arrival.
     final wasFlipping = _flipElapsed != null;
     if (_drawConfirmed && _drawCovered && !isMovingOnRack && !wasFlipping) {
-      _flipElapsed = 0;
+      if (isJoker && !isFakeJoker) {
+        // The real joker already uses the back face; finish arrival without a flip.
+        _drawCovered = false;
+        isFaceDown = true;
+        removeAll(children);
+        _buildFace();
+      } else {
+        _flipElapsed = 0;
+      }
     }
     final flip = _flipElapsed;
     if (flip != null && wasFlipping) {
       _flipElapsed = flip + dt;
-      if (_drawCovered && _flipElapsed! >= .08) {
+      if (_drawCovered && _flipElapsed! >= _drawFlipDuration / 2) {
         _drawCovered = false;
         removeAll(children);
         _buildFace();
       }
-      if (_flipElapsed! >= .16) _flipElapsed = null;
+      if (_flipElapsed! >= _drawFlipDuration) _flipElapsed = null;
     }
     _liftElapsed += dt;
     final liftProgress = (_liftElapsed / (_dragHeld ? .12 : .22)).clamp(0.0, 1.0);
