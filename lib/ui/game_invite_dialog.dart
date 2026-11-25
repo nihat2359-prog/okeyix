@@ -148,18 +148,17 @@ class _GameInviteDialogState extends State<GameInviteDialog> {
               Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFFF5EFE2), fontSize: 13,
+                    style: const TextStyle(color: Color(0xFFF5EFE2), fontSize: 13, height: 1.2,
                       fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
-                    child: Text('${p['is_bot'] == true ? 'BOT · ' : ''}'
-                      'Seviye ${Format.rating(p['rating'])} · ${Format.balance(p['coins'] ?? 0)} Coin',
-                      style: const TextStyle(color: Color(0xFFD4C4A0), fontSize: 11))),
+                    child: Text('Seviye ${Format.rating(p['rating'])}',
+                      style: const TextStyle(color: Color(0xFFD4C4A0), fontSize: 11, height: 1.2))),
                   if (p['is_online'] != true) ...[
                     const SizedBox(height: 3),
                     Text(inviteLastSeenLabel(p['last_seen_at']), maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xFFADB5C1), fontSize: 10)),
+                      style: const TextStyle(color: Color(0xFFADB5C1), fontSize: 10, height: 1.2)),
                   ],
                 ])),
               const SizedBox(width: 6),

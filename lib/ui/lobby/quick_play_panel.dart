@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/quick_play_service.dart';
 import 'lobby_metal_surface.dart';
+import 'lobby_micro_motion.dart';
 
 class QuickPlayPanel extends StatelessWidget {
   final VoidCallback? onPlay;
@@ -20,7 +21,9 @@ class QuickPlayPanel extends StatelessWidget {
       return Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 490),
-          child: Material(
+          child: LobbyQuickPlayMotion(
+            enabled: onPlay != null,
+            child: Material(
             color: Colors.transparent,
             child: InkWell(
               key: const ValueKey('quick-play'),
@@ -89,7 +92,7 @@ class QuickPlayPanel extends StatelessWidget {
                               const Padding(
                                 padding: EdgeInsets.only(top: 6),
                                 child: Text(
-                                  'Gerçek rakip için en fazla 10 saniye ara.',
+                                  'Gerçek rakip için en fazla 5 saniye ara.',
                                   style: TextStyle(
                                     color: Color(0xFF8F9F9B),
                                     fontSize: 10,
@@ -109,7 +112,7 @@ class QuickPlayPanel extends StatelessWidget {
                 ),
               ),
             ),
-          ),
+          )),
         ),
       );
     },
@@ -245,7 +248,7 @@ class _QuickPlayWaitDialogState extends State<QuickPlayWaitDialog>
                           flow.message ??
                               (cancelling
                                   ? 'İşlem sunucuda doğrulanıyor.'
-                                  : 'En fazla 10 saniye gerçek rakip aranır. Bulunamazsa bot kullanımına izin verilen liglerde botla başlanır.'),
+                                  : 'En fazla 5 saniye gerçek rakip aranır. Bulunamazsa bot kullanımına izin verilen liglerde botla başlanır.'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFFBAC7C3),

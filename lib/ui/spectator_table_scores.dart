@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/format.dart';
-import 'bot_badge.dart';
 
 class SpectatorTableScores extends StatelessWidget {
   final List<Map<String, dynamic>> players;
@@ -69,8 +68,7 @@ class SpectatorPlayerCard extends StatelessWidget {
         Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Expanded(child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFF1F1E9)))),
-              if (isBot) ...[const SizedBox(width: 4), const BotBadge()]]),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFF1F1E9))))]),
             const SizedBox(height: 4),
             Row(children: [
               const Icon(Icons.monetization_on_outlined, size: 13, color: Color(0xFFE4C88D)),

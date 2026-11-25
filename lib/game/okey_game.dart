@@ -31,6 +31,7 @@ import 'package:okeyix/game/rack/tile_component.dart';
 import 'package:okeyix/game/stage.dart';
 import 'package:okeyix/main.dart';
 import 'package:okeyix/services/debug_event_service.dart';
+import 'package:okeyix/services/quality_conversion_service.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -3915,6 +3916,16 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     return '${winnerId ?? ''}|$finishTileId|${slotTileIds.join(',')}';
   }
 
+  void _recordQualityCompletion() {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null || !_playerSeatMap.values.any((p) =>
+        p['user_id'] == userId && p['is_bot'] != true && p['user']?['is_bot'] != true)) {
+      return;
+    }
+    unawaited(QualityConversionService.instance.recordCompletedRound(
+      tableId: tableId, round: _round));
+  }
+
   String? _finishIdFromTable(Map<String, dynamic> table) {
     final hasFinishData =
         table['last_winner_user_id'] != null &&
@@ -4016,6 +4027,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _lastHandledFinishId = finishId;
     _lastHandledFinishCore = finishCore;
     final winAmount = table['last_win_amount'] ?? 0;
+    _recordQualityCompletion();
     final isWinner = isMeWinner(winnerId);
 
     try {
@@ -5869,6 +5881,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
       if (res != null && res['ok'] == true) {
         // Show finish immediately on client; do not wait for table status roundtrip.
+        _recordQualityCompletion();
         _finishShown = true;
         _gameStarted = false;
         _finishedRoundGuard = _round;
@@ -6101,6 +6114,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
       if (res != null && res['ok'] == true) {
         _finishShown = true;
+        _recordQualityCompletion();
         _gameStarted = false;
         _finishedRoundGuard = _round;
         _handStateEpoch++;

@@ -4,6 +4,7 @@ import 'package:okeyix/screens/store_screen.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'lobby_table_listing_card.dart';
 import 'lobby_shimmer_loaders.dart';
+import 'lobby_micro_motion.dart';
 
 class LobbyTableWheel extends StatefulWidget {
   final List<Map<String, dynamic>> tables;
@@ -15,6 +16,7 @@ class LobbyTableWheel extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final bool loading;
   final String leagueName;
+  final int animationRevision;
 
   final bool isLocked;
   final dynamic lockedLeague;
@@ -34,6 +36,7 @@ class LobbyTableWheel extends StatefulWidget {
     required this.onRefresh,
     required this.loading,
     this.leagueName = '',
+    this.animationRevision = 0,
     this.isLocked = false, // ğŸ”¥ BURASI KRÄ°TÄ°K
     this.lockedLeague,
     required this.playerCoin,
@@ -114,7 +117,10 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               crossAxisSpacing: 8,
             ),
             itemCount: widget.tables.length,
-            itemBuilder: (context, index) => LobbyTableListingCard(
+            itemBuilder: (context, index) => LobbyTableEntrance(
+              key: ValueKey('entrance-${widget.leagueName}-${widget.animationRevision}-${widget.tables[index]['id']}'),
+              index: index,
+              child: LobbyTableListingCard(
               key: ValueKey(widget.tables[index]['id'].toString()),
               table: widget.tables[index],
               number: index + 1,
@@ -123,7 +129,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
               onSpectate: widget.onSpectate,
               canSpectateAll: widget.canSpectateAll,
               onUserTap: widget.onUserTap,
-            ),
+            )),
           ),
         );
       },

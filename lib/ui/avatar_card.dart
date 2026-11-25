@@ -4,7 +4,6 @@ import 'package:okeyix/core/format.dart';
 import 'avatar_preset.dart';
 import '../models/player_model.dart';
 import 'periodic_ui_builder.dart';
-import 'bot_badge.dart';
 
 enum AvatarPosition { bottom, top, left, right }
 
@@ -324,8 +323,6 @@ class AvatarCard extends StatelessWidget {
               child: SizedBox(width: 54, height: 54, child: _avatarImage()),
             ),
           ),
-          if (player.isBot)
-            const Positioned(bottom: 7, child: BotBadge()),
           if (player.isDoubleMode)
             Positioned(
               right: -2,

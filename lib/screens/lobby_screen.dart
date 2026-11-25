@@ -16,6 +16,7 @@ import 'package:okeyix/core/table_creation_options.dart';
 import 'package:okeyix/core/message_contacts.dart';
 import 'package:okeyix/core/league_player_counts.dart';
 import 'package:okeyix/core/lobby_league_selection.dart';
+import 'package:okeyix/core/lobby_table_presentation.dart';
 import 'package:okeyix/overlay/gift_overlay.dart';
 import 'package:okeyix/screens/spectator_screen.dart';
 import 'package:okeyix/services/celebration_service.dart';
@@ -66,6 +67,7 @@ import '../ui/lobby/lobby_right_panel.dart';
 import '../ui/lobby/lobby_social_scenes.dart';
 import '../ui/lobby/_ui_helpers.dart';
 import '../ui/lobby/lobby_table_listing_card.dart';
+import '../ui/lobby/lobby_micro_motion.dart';
 import '../ui/ambient/sky_planes_overlay.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:record/record.dart';
@@ -92,6 +94,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   final _audioPlayer = AudioPlayer();
   String? _playingMessageId;
   final supabase = Supabase.instance.client;
+  late final _readyTableService = ReadyTableService(supabase);
   List<CrossPromoGame> _publishedGames = const [];
 
   Future<void> _loadPublishedGames() async {
@@ -170,6 +173,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   bool loadingLeagues = true;
   bool loadingTables = true;
   bool _tablesInitialized = false;
+  int _tableAnimationRevision = 0;
   bool _isSideMenuOpen = false;
   bool _rightPanelLoading = false;
 
@@ -1602,13 +1606,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
 
     tables.removeWhere((t) => !newIds.contains(t['id'].toString()));
-    bool hasHuman(Map<String, dynamic> table) =>
-        ((table['_players'] as List?) ?? const []).any((p) => p['is_bot'] != true);
-    tables.sort((a, b) {
-      final humanOrder = (hasHuman(a) ? 0 : 1).compareTo(hasHuman(b) ? 0 : 1);
-      if (humanOrder != 0) return humanOrder;
-      return (b['created_at']?.toString() ?? '').compareTo(a['created_at']?.toString() ?? '');
-    });
+    tables.sort(compareLobbyTables);
   }
 
   Future<void> _cleanupOrphanTables(List<String> orphanTableIds) async {
@@ -1670,12 +1668,16 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       /// ---------------- REAL TABLES ----------------
 
-      final response = await supabase
+      final listing = await Future.wait<dynamic>([
+        supabase
           .from('tables')
           .select()
           .eq('league_id', league['id'])
           .inFilter('status', lobbyTableStatuses)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false),
+        _readyTableService.botPlayers(),
+      ]);
+      final response = listing[0];
 
       final fetchedRows = (response as List)
           .map((e) => Map<String, dynamic>.from(e))
@@ -1804,9 +1806,14 @@ class _LobbyScreenState extends State<LobbyScreen>
       if (!mounted || selectedLeague != requestedLeague || isLeagueLocked) return;
 
       setState(() {
-        _mergeTables(merged);
+        _mergeTables(completeLobbyTables(
+          realTables: merged,
+          league: league,
+          botPlayers: listing[1] as List<Map<String, dynamic>>,
+        ));
         loadingTables = false;
         _tablesInitialized = true;
+        _tableAnimationRevision++;
       });
       unawaited(_loadLeagueActivity());
     } catch (e) {
@@ -1876,7 +1883,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _joinTable(Map<String, dynamic> table) async {
     if (table['is_fake'] == true) {
-      _msg('Bu masa vitrin masasıdır. Katılım kapalı.');
+      _msg(showcaseTableMessage);
       return;
     }
     final user = supabase.auth.currentUser;
@@ -1903,7 +1910,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     var serverManaged = false;
     if (status == 'waiting' && createdBy != null && createdBy != user.id) {
       try {
-        serverManaged = await ReadyTableService(supabase).isManaged(tableId);
+        serverManaged = await _readyTableService.isManaged(tableId);
       } catch (_) {
         _msg('Masa bilgisi doğrulanamadı. Lütfen tekrar dene.');
         return;
@@ -2120,6 +2127,10 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _handleSpectateTap(Map<String, dynamic> table) async {
+    if (table['is_fake'] == true) {
+      _msg(showcaseTableMessage);
+      return;
+    }
     final tableId = table['id']?.toString();
     if (tableId == null || tableId.isEmpty) return;
     final status = table['status']?.toString() ?? 'waiting';
@@ -4497,7 +4508,8 @@ class _LobbyScreenState extends State<LobbyScreen>
     return Column(children: [
       SizedBox(height: 55, child: QuickPlayPanel(compact: true,
         leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay)),
-      const SizedBox(height: 4),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: LobbyLiveIndicator(tables: tables)),
       Expanded(child: _buildTablesPanelContents()),
     ]);
   }
@@ -4508,6 +4520,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (!useWebGrid || isLeagueLocked) {
       return LobbyTableWheel(
         leagueName: _selectedLeagueName,
+        animationRevision: _tableAnimationRevision,
         tables: tables,
         loading: loadingTables,
         blockedUserIds: UserState.blockedUserIds,
@@ -4562,7 +4575,10 @@ class _LobbyScreenState extends State<LobbyScreen>
             itemCount: tables.length,
             itemBuilder: (context, i) {
               final table = tables[i];
-              return LobbyTableListingCard(
+              return LobbyTableEntrance(
+                key: ValueKey('entrance-$selectedLeague-$_tableAnimationRevision-${table['id']}'),
+                index: i,
+                child: LobbyTableListingCard(
                 number: i + 1,
                 table: table,
                 blockedUserIds: UserState.blockedUserIds,
@@ -4578,7 +4594,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                     },
                   );
                 },
-              );
+              ));
             },
           );
         },

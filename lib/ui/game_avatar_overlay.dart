@@ -13,7 +13,6 @@ import '../models/player_model.dart';
 import 'avatar_card.dart';
 import 'avatar_preset.dart';
 import 'table_gift_layer.dart';
-import 'bot_badge.dart';
 import 'table_join_notice.dart';
 import 'package:okeyix/core/table_invite_policy.dart';
 

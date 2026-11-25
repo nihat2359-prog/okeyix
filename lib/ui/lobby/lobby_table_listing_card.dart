@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'lobby_avatar.dart';
-import '../bot_badge.dart';
 import '../display_okey_tile.dart';
+import 'lobby_micro_motion.dart';
 
 /// Two-seat table listing. Callbacks retain the lobby's server-side checks.
 class LobbyTableListingCard extends StatelessWidget {
@@ -42,11 +42,11 @@ class LobbyTableListingCard extends StatelessWidget {
     final fake = table['is_fake'] == true;
     final spectators = table['spectators_enabled'] != false;
     final canWatch = full && playing && !fake && spectators && canSpectateAll;
-    final canJoin = !full && table['status'] == 'waiting';
+    final canJoin = !fake && !full && table['status'] == 'waiting';
     return LayoutBuilder(
       builder: (context, bounds) {
         final width = bounds.maxWidth < 220 ? 220.0 : bounds.maxWidth;
-        return FittedBox(
+        return LobbyOpenSeatGlow(enabled: number == 1 && canJoin, child: FittedBox(
           fit: BoxFit.contain,
           child: SizedBox(
             width: width,
@@ -111,6 +111,8 @@ class LobbyTableListingCard extends StatelessWidget {
                                         ],
                                       ),
                                       const SizedBox(height: 2),
+                                      if (!starting)
+                                        _fit('${players.length}/2 ${playing ? 'Oynanıyor' : 'Bekliyor'}', 9),
                                       if (starting)
                                         const FittedBox(
                                           child: Text(
@@ -185,12 +187,21 @@ class LobbyTableListingCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (fake)
+                      Positioned.fill(child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          key: ValueKey('showcase-${table['id']}'),
+                          onTap: () => onJoin(table),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      )),
                   ],
                 ),
               ),
             ),
           ),
-        );
+        ));
       },
     );
   }
@@ -226,8 +237,6 @@ class LobbyTableListingCard extends StatelessWidget {
                       player['blocked'] == true ||
                       blockedUserIds.contains(player['user_id']?.toString()),
                 ),
-                if (player['is_bot'] == true)
-                  const Positioned(bottom: 0, child: BotBadge()),
               ],
             )
           else

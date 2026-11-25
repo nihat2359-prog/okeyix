@@ -75,7 +75,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('BOT'), findsOneWidget);
+      expect(find.text('BOT'), findsNothing);
       final button = find.ancestor(
         of: find.byIcon(Icons.add_rounded),
         matching: find.byType(AnimatedContainer),
