@@ -3,6 +3,30 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'lobby_metal_surface.dart';
 
+class LobbyDockDivider extends StatelessWidget {
+  const LobbyDockDivider({super.key});
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 11,
+    height: 40,
+    child: Center(
+      child: SizedBox(
+        width: 1,
+        height: 36,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x105E6F78), Color(0xAA8E9B9E), Color(0x105E6F78)],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class LobbyBottomDock extends StatelessWidget {
   final Widget left;
   final Widget center;
@@ -77,6 +101,7 @@ class LobbyDockAction extends StatelessWidget {
   final IconData? icon;
   final Widget? child;
   final LobbyDockEmblemKind? emblem;
+  final int? badgeCount;
   final VoidCallback onTap;
   const LobbyDockAction({
     super.key,
@@ -85,6 +110,7 @@ class LobbyDockAction extends StatelessWidget {
     this.icon,
     this.child,
     this.emblem,
+    this.badgeCount,
   });
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -100,40 +126,83 @@ class LobbyDockAction extends StatelessWidget {
           child: SizedBox(
             width: 48,
             height: 52,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: Center(
-                    child:
-                        child ??
-                        (emblem != null
-                            ? LobbyDockEmblem(kind: emblem!)
-                            : Icon(
-                                icon,
-                                size: 23,
-                                color: const Color(0xFFE6C990),
-                              )),
-                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Center(
+                        child:
+                            child ??
+                            (emblem != null
+                                ? LobbyDockEmblem(kind: emblem!)
+                                : Icon(
+                                    icon,
+                                    size: 23,
+                                    color: const Color(0xFFE6C990),
+                                  )),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 12,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            color: Color(0xFFBDCCBD),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: .2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: 12,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: Color(0xFFBDCCBD),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: .2,
+                if (badgeCount != null && badgeCount! > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 17,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8C779),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: const Color(0xFFFFE5B0),
+                            width: 1,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x66000000), blurRadius: 4),
+                          ],
+                        ),
+                        child: Text(
+                          badgeCount! > 99 ? '99+' : '$badgeCount',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF17251E),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -347,7 +416,10 @@ class _LobbyDockCreateState extends State<LobbyDockCreate> {
                     child: Text(
                       'MASA AÇ',
                       style: TextStyle(
-                        color: Color(0xFFEED8AB),
+                        color: Color(0xFFFFE7AC),
+                        shadows: [
+                          Shadow(color: Color(0x88E8B35A), blurRadius: 6),
+                        ],
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         letterSpacing: .8,
@@ -375,11 +447,18 @@ class _CreateMedallion extends CustomPainter {
     final bounds = Offset.zero & size;
     canvas.drawCircle(
       c,
+      r - 3,
+      Paint()
+        ..color = const Color(0x66F5C65B)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+    canvas.drawCircle(
+      c,
       r - 4,
       Paint()
         ..shader = const RadialGradient(
           center: Alignment(-.3, -.5),
-          colors: [Color(0xC0333A3C), Color(0xD9070B10)],
+          colors: [Color(0xFF167451), Color(0xFF073B2B)],
         ).createShader(bounds),
     );
     canvas.drawCircle(
@@ -400,10 +479,10 @@ class _CreateMedallion extends CustomPainter {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFE4CE9A),
-            Color(0xFFC99B48),
-            Color(0xFF72501F),
-            Color(0xFFAF8A49),
+            Color(0xFFFFF0BD),
+            Color(0xFFF1C562),
+            Color(0xFF9D702D),
+            Color(0xFFE8BC61),
           ],
           stops: [0, .4, .76, 1],
         ).createShader(bounds),
@@ -474,6 +553,7 @@ class _GameRail extends CustomPainter {
     canvas.translate(0, 16);
     const LobbyMetalPainter(
       flatBorder: true,
+      surfaceOpacity: 2,
       metal: Color(0xFF8D805F),
       radius: 20,
     ).paint(canvas, Size(size.width, size.height - 16));

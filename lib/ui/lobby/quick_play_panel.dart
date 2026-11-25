@@ -4,6 +4,99 @@ import '../../services/quick_play_service.dart';
 import 'lobby_metal_surface.dart';
 import 'lobby_micro_motion.dart';
 
+/// Lobby header; account linking has its own tap target beside matchmaking.
+class LobbyQuickPlayBar extends StatelessWidget {
+  final VoidCallback? onPlay;
+  final Widget? guestControl;
+  const LobbyQuickPlayBar({super.key, required this.onPlay, this.guestControl});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 40,
+    child: LobbyMetalSurface(
+      flatBorder: true,
+      radius: 17,
+      surfaceOpacity: 1.5,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 11,
+            child: LobbyQuickPlayMotion(
+              enabled: onPlay != null,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const ValueKey('quick-play'),
+                  onTap: onPlay,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Align(
+                    alignment: guestControl == null
+                        ? Alignment.center
+                        : Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFFFE7A4),
+                              ),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFFFFDE87), Color(0xFFB87F29)],
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.bolt_rounded,
+                              color: Color(0xFF30220C),
+                              size: 25,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'HIZLI OYNA',
+                            style: TextStyle(
+                              color: Color(0xFFFFE3A0),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: .5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (guestControl != null) ...[
+            const SizedBox(width: 8),
+            const SizedBox(
+              height: 24,
+              child: VerticalDivider(width: 1, color: Color(0x667F806C)),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              flex: 12,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(fit: BoxFit.scaleDown, child: guestControl!),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
 class QuickPlayPanel extends StatelessWidget {
   final VoidCallback? onPlay;
   final String leagueName;
@@ -24,95 +117,96 @@ class QuickPlayPanel extends StatelessWidget {
           child: LobbyQuickPlayMotion(
             enabled: onPlay != null,
             child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: const ValueKey('quick-play'),
-              onTap: onPlay,
-              borderRadius: BorderRadius.circular(20),
-              child: LobbyMetalSurface(
-                flatBorder: true,
-                surfaceOpacity: 1.7,
-                radius: 20,
-                padding: EdgeInsets.symmetric(
-                  horizontal: short ? 14 : 22,
-                  vertical: short ? 9 : 20,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: short ? 30 : 48,
-                      height: short ? 30 : 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF1D99E), Color(0xFFB78A3E)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFFE5BD6F,
-                            ).withValues(alpha: .12),
-                            blurRadius: 16,
+              color: Colors.transparent,
+              child: InkWell(
+                key: const ValueKey('quick-play'),
+                onTap: onPlay,
+                borderRadius: BorderRadius.circular(20),
+                child: LobbyMetalSurface(
+                  flatBorder: true,
+                  surfaceOpacity: 1.7,
+                  radius: 20,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: short ? 14 : 22,
+                    vertical: short ? 9 : 20,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: short ? 30 : 48,
+                        height: short ? 30 : 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF1D99E), Color(0xFFB78A3E)],
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.bolt_rounded,
-                        size: short ? 24 : 37,
-                        color: const Color(0xFF28220F),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'HIZLI OYNA',
-                            style: TextStyle(
-                              color: const Color(0xFFF2DBA5),
-                              fontSize: short ? 13 : 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .8,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFE5BD6F,
+                              ).withValues(alpha: .12),
+                              blurRadius: 16,
                             ),
-                          ),
-                          if (!compact) ...[
-                            const SizedBox(height: 5),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.bolt_rounded,
+                          size: short ? 24 : 37,
+                          color: const Color(0xFF28220F),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              'Tüm liglerde uygun masa ara',
-                              maxLines: 2,
-                              style: const TextStyle(
-                                color: Color(0xFFBDC8C5),
-                                fontSize: 11,
+                              'HIZLI OYNA',
+                              style: TextStyle(
+                                color: const Color(0xFFF2DBA5),
+                                fontSize: short ? 13 : 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: .8,
                               ),
                             ),
-                            if (!short)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 6),
-                                child: Text(
-                                  'Gerçek rakip için en fazla 5 saniye ara.',
-                                  style: TextStyle(
-                                    color: Color(0xFF8F9F9B),
-                                    fontSize: 10,
-                                  ),
+                            if (!compact) ...[
+                              const SizedBox(height: 5),
+                              Text(
+                                'Tüm liglerde uygun masa ara',
+                                maxLines: 2,
+                                style: const TextStyle(
+                                  color: Color(0xFFBDC8C5),
+                                  fontSize: 11,
                                 ),
                               ),
+                              if (!short)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    'Gerçek rakip için en fazla 5 saniye ara.',
+                                    style: TextStyle(
+                                      color: Color(0xFF8F9F9B),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: Color(0xFFE6C78A),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFFE6C78A),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          )),
+          ),
         ),
       );
     },

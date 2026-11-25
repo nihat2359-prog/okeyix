@@ -173,6 +173,7 @@ class FinishRackView extends PositionComponent with HasGameRef<FlameGame> {
   }
 
   Future<void> _playResultSound() async {
+    FeedbackSettingsService.triggerHaptic();
     if (!FeedbackSettingsService.soundEnabled) return;
     if (_isPlayingSound) return; // ğŸ”¥ Ã‡AKIÅMA ENGEL
 
@@ -191,7 +192,6 @@ class FinishRackView extends PositionComponent with HasGameRef<FlameGame> {
       _isPlayingSound = false;
     }
 
-    FeedbackSettingsService.triggerHaptic();
   }
 
   TileModel? _tileModelFromPayload(Map<String, dynamic> raw) {

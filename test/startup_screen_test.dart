@@ -30,7 +30,7 @@ void main() {
       final context = tester.element(find.byType(StartupScreen));
       await Future.wait([
         precacheImage(
-          const AssetImage('assets/images/login_lounge.png'),
+          const AssetImage('assets/images/login_lounge_lit.png'),
           context,
         ),
         precacheImage(

@@ -116,7 +116,7 @@ class LobbyLiveIndicator extends StatelessWidget {
           ]).animate(phase.drive(CurveTween(curve: Curves.easeInOut))), child: child)),
         const SizedBox(width: 6),
         Text('Şu an $players oyuncu masalarda', key: const ValueKey('lobby-live-count'),
-          style: const TextStyle(fontSize: 10, color: Color(0xFFADC8B7), height: 1.2)),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFE1EADD), height: 1.2)),
       ])),
     ));
   }

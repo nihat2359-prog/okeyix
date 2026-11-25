@@ -386,9 +386,11 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _guestBanner() {
-    return LobbyMetalSurface(
-      radius: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    return Container(
+      decoration: BoxDecoration(color: const Color(0xA6091119),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xCCCFAC68), width: .8)),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1520,7 +1522,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
     try {
       final activity = await Future.wait([
-        supabase.from('tables').select('id, league_id, status')
+        supabase.from('tables').select('id, league_id, status, max_players')
           .inFilter('status', lobbyTableStatuses),
         supabase.from('profiles').select('id,rating').eq('is_online', true),
       ]);
@@ -1546,14 +1548,17 @@ class _LobbyScreenState extends State<LobbyScreen>
 
       // Online users by league (based on rating ranges).
 
-      final tableCountByLeague = listedLeagueTableCounts(tableRows, seatedPlayers);
+      final tableCountByLeague = openLeagueTableCounts(tableRows, seatedPlayers);
+      final realTableCountByLeague = listedLeagueTableCounts(tableRows, seatedPlayers);
       final tablesResult = <String, int>{};
 
       for (final league in leagues) {
         final id = league['id']?.toString();
         if (id == null) continue;
 
-        tablesResult[id] = tableCountByLeague[id] ?? 0;
+        final showcaseCount = max(0,
+          lobbyTableDisplayTarget - (realTableCountByLeague[id] ?? 0));
+        tablesResult[id] = (tableCountByLeague[id] ?? 0) + showcaseCount;
       }
 
       final onlineProfiles = activity[1];
@@ -3341,8 +3346,8 @@ class _LobbyScreenState extends State<LobbyScreen>
             ),
           ),
           _rightPanelOverlay(),
-          if (_showGuestBanner)
-            Positioned(top: 12, right: 12, child: _guestBanner()),
+
+
         ],
       ),
     );
@@ -4402,8 +4407,8 @@ class _LobbyScreenState extends State<LobbyScreen>
                 child: Column(
                   children: [
                     const SizedBox(height: 2),
-                    const LobbyMotto(),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 40, child: LobbyMotto()),
+                    const SizedBox(height: 10),
                     /// ?? L?G L?STES?
                     Expanded(
                       child: Stack(
@@ -4501,19 +4506,17 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _buildTablesPanel() {
-    if (loadingTables) return QuickPlayPanel(
-      leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay);
-    if (tables.isEmpty && !isLeagueLocked) return QuickPlayPanel(
-      leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay);
-    return Column(children: [
-      SizedBox(height: 55, child: QuickPlayPanel(compact: true,
-        leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay)),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: LobbyLiveIndicator(tables: tables)),
-      Expanded(child: _buildTablesPanelContents()),
-    ]);
+    return Padding(padding: const EdgeInsets.only(top: 9, bottom: 8),
+      child: Column(children: [
+        LobbyQuickPlayBar(onPlay: _quickPlayBusy ? null : _quickPlay,
+          guestControl: _showGuestBanner ? _guestBanner() : null),
+        const SizedBox(height: 7),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 7),
+          child: LobbyLiveIndicator(tables: tables)),
+        const SizedBox(height: 3),
+        Expanded(child: _buildTablesPanelContents()),
+      ]));
   }
-
   Widget _buildTablesPanelContents() {
     final useWebGrid = kIsWeb && MediaQuery.of(context).size.width >= 1200;
 
@@ -4561,7 +4564,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          final crossAxisCount = width >= 1500 ? 3 : 2;
+          const crossAxisCount = 2;
           final sidePadding = width >= 1500 ? 18.0 : 12.0;
           return GridView.builder(
             padding: EdgeInsets.fromLTRB(sidePadding, 8, sidePadding, 16),
@@ -4853,7 +4856,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             active: _isSideMenuOpen,
           ),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 11),
         InkWell(
           onTap: () => ProfileService.showUserCard(
             {
@@ -4917,16 +4920,11 @@ class _LobbyScreenState extends State<LobbyScreen>
               ),
             ),
             const SizedBox(height: 5),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                statChip(Icons.star, UserState.userRating, false),
-                const SizedBox(width: 7),
-                statChip(Icons.monetization_on, UserState.userCoin, true),
-              ],
-            ),
+            statChip(Icons.star, UserState.userRating, false),
           ],
         ),
+        const SizedBox(width: 11),
+        statChip(Icons.monetization_on, UserState.userCoin, true),
       ],
     );
   }
@@ -4941,12 +4939,13 @@ class _LobbyScreenState extends State<LobbyScreen>
           LobbyDockAction(
             label: 'Oyunlarımız',
             icon: Icons.sports_esports_outlined,
+            badgeCount: _publishedGames.length,
             onTap: _openPublishedGames,
           ),
-          const SizedBox(width: 2),
+          const LobbyDockDivider(),
         ],
         _coinBuyDockButton(),
-        const SizedBox(width: 2),
+        const LobbyDockDivider(),
         LobbyDockAction(
           label: InviteStrings.of(context).t('Davet', 'Invite'),
           emblem: LobbyDockEmblemKind.invite,
@@ -4957,7 +4956,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             if (mounted) await _loadUser();
           },
         ),
-        const SizedBox(width: 2),
+        const LobbyDockDivider(),
         LobbyDockAction(
           label: 'Sıralama',
           emblem: LobbyDockEmblemKind.ranking,
@@ -4965,13 +4964,13 @@ class _LobbyScreenState extends State<LobbyScreen>
             _openLeaderboard();
           },
         ),
-        const SizedBox(width: 2),
+        const LobbyDockDivider(),
         LobbyDockAction(
           label: 'Arkadaşlar',
           emblem: LobbyDockEmblemKind.social,
           onTap: () => _openRightPanel(_RightPanelType.friends),
         ),
-        const SizedBox(width: 2),
+        const LobbyDockDivider(),
         LobbyDockAction(
           label: 'Mesajlar',
           onTap: () => _openRightPanel(_RightPanelType.messages),
@@ -5027,6 +5026,7 @@ class _LobbyScreenState extends State<LobbyScreen>
   Widget _coinBuyDockButton() => LobbyDockAction(
     label: 'Mağaza',
     emblem: LobbyDockEmblemKind.store,
+    badgeCount: 4,
     onTap: () async {
       final result = await openStoreScreen(
         context,

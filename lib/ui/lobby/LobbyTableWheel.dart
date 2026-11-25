@@ -102,7 +102,7 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
     }
     return LayoutBuilder(
       builder: (context, bounds) {
-        final cardHeight = ((bounds.maxHeight - 12) / 2).clamp(1.0, 140.0);
+        final cardHeight = ((bounds.maxHeight - 18) / 2).clamp(1.0, 190.0);
         return RefreshIndicator(
           onRefresh: widget.onRefresh,
           child: GridView.builder(
@@ -113,8 +113,8 @@ class _LobbyTableWheelState extends State<LobbyTableWheel> {
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               mainAxisExtent: cardHeight,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 10,
             ),
             itemCount: widget.tables.length,
             itemBuilder: (context, index) => LobbyTableEntrance(

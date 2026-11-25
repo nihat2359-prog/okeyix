@@ -113,6 +113,7 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
   }
 
   void _playResultSound() {
+    FeedbackSettingsService.triggerHaptic();
     if (!FeedbackSettingsService.soundEnabled) return;
 
     if (isSpectator || isWinner) {
@@ -124,7 +125,6 @@ class FinishRack extends PositionComponent with HasGameRef<OkeyGame> {
       _player.play(jo.AssetSource('sounds/lose.mp3'));
     }
 
-    FeedbackSettingsService.triggerHaptic();
   }
 
   TileColorType _stringToTileColor(String c) {

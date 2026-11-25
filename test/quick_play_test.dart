@@ -24,6 +24,21 @@ const ready = <String, dynamic>{
   'bot': false,
 };
 void main() {
+  testWidgets('linked account header has no guest separator or unused tap area', (tester) async {
+    var plays = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(
+      child: SizedBox(width: 360, child: LobbyQuickPlayBar(onPlay: () => plays++)),
+    ))));
+    await tester.pump();
+    expect(find.byType(VerticalDivider), findsNothing);
+    final button = find.byKey(const ValueKey('quick-play'));
+    final bounds = tester.getRect(button);
+    expect(bounds.width, 344);
+    final alignment = tester.widget<Align>(find.descendant(of: button, matching: find.byType(Align)).first);
+    expect(alignment.alignment, Alignment.center);
+    await tester.tapAt(Offset(bounds.right - 4, bounds.center.dy));
+    expect(plays, 1);
+  });
   test(
     'human-only league rejection explains the available human-table options',
     () async {

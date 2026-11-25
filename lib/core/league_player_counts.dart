@@ -1,5 +1,35 @@
 const lobbyTableStatuses = ['waiting', 'start', 'playing'];
 
+/// Only occupied waiting tables with a free seat can accept a player.
+Map<String, int> openLeagueTableCounts(
+  List<Map<String, dynamic>> tables,
+  List<Map<String, dynamic>> seats,
+) {
+  final occupants = <String, Set<String>>{};
+  for (final seat in seats) {
+    if (seat['table_id'] == null || seat['user_id'] == null) continue;
+    (occupants['${seat['table_id']}'] ??= {}).add('${seat['user_id']}');
+  }
+  final result = <String, int>{};
+  final seen = <String>{};
+  for (final table in tables) {
+    final id = table['id']?.toString();
+    final league = table['league_id']?.toString();
+    final count = occupants[id]?.length ?? 0;
+    final capacity = (table['max_players'] as num?)?.toInt() ?? 2;
+    if (id == null ||
+        league == null ||
+        table['status'] != 'waiting' ||
+        table['is_fake'] == true ||
+        count == 0 ||
+        count >= capacity ||
+        !seen.add(id))
+      continue;
+    result[league] = (result[league] ?? 0) + 1;
+  }
+  return result;
+}
+
 /// The league table count follows the list, including visible starting games.
 Map<String, int> listedLeagueTableCounts(
   List<Map<String, dynamic>> tables,

@@ -45,28 +45,15 @@ class SpectatorFinishNotice extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(30),
                         border: Border.all(
-                          color: const Color(0x55FFFFFF),
+                          color: const Color(0x447E745A),
                           width: 1,
                         ),
-                        gradient: const RadialGradient(
-                          center: Alignment(0, -.25),
-                          radius: 1.1,
-                          colors: [
-                            Color(0xA62A2A2A),
-                            Color(0xB3121212),
-                            Color(0xBD060606),
-                          ],
-                        ),
+                        color: const Color(0xB8101A20),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x66000000),
                             blurRadius: 40,
                             offset: Offset(0, 16),
-                          ),
-                          BoxShadow(
-                            color: Color(0x12FFFFFF),
-                            blurRadius: 24,
-                            spreadRadius: 1,
                           ),
                         ],
                       ),

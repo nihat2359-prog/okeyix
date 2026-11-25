@@ -241,8 +241,8 @@ class LobbyMotto extends StatelessWidget {
           'Adil Dağıtım · Gerçek Rekabet',
           style: TextStyle(
             color: Color(0xFFFFD782),
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
             letterSpacing: .4,
             shadows: [
               Shadow(color: Colors.black, offset: Offset(0, 2), blurRadius: 2),

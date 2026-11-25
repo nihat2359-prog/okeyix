@@ -44,7 +44,7 @@ Future<void> _initializeApp(
 ) async {
   report(.05, 'Oyun masası hazırlanıyor…');
   await Future.wait([
-    precacheImage(const AssetImage('assets/images/login_lounge.png'), context),
+    precacheImage(const AssetImage('assets/images/login_lounge_lit.png'), context),
     precacheImage(
       const AssetImage('assets/images/logo/okeyix_logo.png'),
       context,

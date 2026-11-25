@@ -36,7 +36,7 @@ class FeedbackSettingsService {
 
   static Future<void> triggerHaptic() async {
     if (!_vibrationEnabled) return;
-    await HapticFeedback.selectionClick();
+    await HapticFeedback.mediumImpact();
   }
 }
 

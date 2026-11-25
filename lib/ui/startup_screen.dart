@@ -82,7 +82,7 @@ class StartupScreen extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Image.asset(
-            'assets/images/login_lounge.png',
+            'assets/images/login_lounge_lit.png',
             fit: BoxFit.cover,
             excludeFromSemantics: true,
           ),

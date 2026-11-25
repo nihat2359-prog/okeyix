@@ -6,7 +6,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as flutter_math show Matrix4;
-import 'package:flutter/services.dart';
+import 'package:okeyix/services/feedback_settings_service.dart';
 import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/game/theme_flags.dart';
@@ -741,7 +741,7 @@ class TileComponent extends PositionComponent
     stopRackMotion();
     _setDragHeld(true);
     releaseVelocity.setZero();
-    HapticFeedback.selectionClick();
+    FeedbackSettingsService.triggerHaptic();
     if (gameRef.isGroupDragAnchor(this)) {
       priority = 100;
       gameRef.startActiveGroupDrag(this);

@@ -1,5 +1,7 @@
 import 'dart:math';
 
+const lobbyTableDisplayTarget = 8;
+
 const showcaseTableMessage =
     "Bu masa şu an dolu, üstteki açık masaya katılabilir veya Hemen Oyna'yı kullanabilirsiniz";
 
@@ -33,7 +35,7 @@ List<Map<String, dynamic>> completeLobbyTables({
   Random? random,
 }) {
   final tables = realTables.where((t) => t['is_fake'] != true).toList();
-  final missing = max(0, 8 - tables.length);
+  final missing = max(0, lobbyTableDisplayTarget - tables.length);
   if (missing == 0) return tables..sort(compareLobbyTables);
 
   final poolById = <String, Map<String, dynamic>>{};

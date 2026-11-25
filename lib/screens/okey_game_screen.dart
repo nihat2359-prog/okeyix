@@ -927,8 +927,6 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   DateTime? _lastTileSound;
 
   void _playTileSfx() {
-    if (!FeedbackSettingsService.soundEnabled) return;
-
     final now = DateTime.now();
 
     if (_lastTileSound != null &&
@@ -938,10 +936,11 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
     _lastTileSound = now;
 
-    _tileSfxPlayer.stop();
-    _tileSfxPlayer.play(jo.AssetSource('sounds/tile_wood_contact.wav'), volume: 0.50);
-
     FeedbackSettingsService.triggerHaptic();
+    if (FeedbackSettingsService.soundEnabled) {
+      _tileSfxPlayer.stop();
+      _tileSfxPlayer.play(jo.AssetSource('sounds/tile_wood_contact.wav'), volume: 0.50);
+    }
   }
 
   void _playStartGameSfx() {

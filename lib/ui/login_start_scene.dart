@@ -83,7 +83,7 @@ class _LoginStartSceneState extends State<LoginStartScene>
         fit: StackFit.expand,
         children: [
           Image.asset(
-            'assets/images/login_lounge.png',
+            'assets/images/login_lounge_lit.png',
             fit: BoxFit.cover,
             excludeFromSemantics: true,
           ),
@@ -263,7 +263,7 @@ class _StartButton extends StatelessWidget {
     final guest = id == 'guest';
     final foreground = guest
         ? const Color(0xFFEAD7B3)
-        : const Color(0xFF211B13);
+        : const Color(0xFFF3E7CD);
     final radius = BorderRadius.circular(22);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -273,10 +273,10 @@ class _StartButton extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: guest
               ? const [Color(0xBB293A2C), Color(0xBB0E2019)]
-              : const [Color(0xFFF6E5C5), Color(0xFFD8BC91)],
+              : const [Color(0xFF234A38), Color(0xFF10291F)],
         ),
         border: Border.all(
-          color: guest ? const Color(0xFFB7A583) : const Color(0xFFE4CDA6),
+          color: guest ? const Color(0xFFB7A583) : const Color(0xFFBFA56F),
           width: 1.2,
         ),
         boxShadow: const [

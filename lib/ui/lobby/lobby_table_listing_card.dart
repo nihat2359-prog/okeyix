@@ -45,163 +45,180 @@ class LobbyTableListingCard extends StatelessWidget {
     final canJoin = !fake && !full && table['status'] == 'waiting';
     return LayoutBuilder(
       builder: (context, bounds) {
-        final width = bounds.maxWidth < 220 ? 220.0 : bounds.maxWidth;
-        return LobbyOpenSeatGlow(enabled: number == 1 && canJoin, child: FittedBox(
-          fit: BoxFit.contain,
-          child: SizedBox(
-            width: width,
-            height:
-                142 +
-                (MediaQuery.textScalerOf(context).scale(48) - 48).clamp(0, 72),
-            child: Material(
-              color: Colors.transparent,
-              child: CustomPaint(
-                painter: _TableStagePainter(active: canJoin),
-                child: Stack(
-                  children: [
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 29,
-                      height: 34,
-                      child: IgnorePointer(
-                        child: ExcludeSemantics(
-                          child: CustomPaint(
-                            painter: OpeningOkeyTilesPainter(),
+        final height = 142.0 +
+            (MediaQuery.textScalerOf(context).scale(72) - 72).clamp(0, 144);
+        final proportionalWidth = bounds.maxHeight > 0
+            ? bounds.maxWidth * height / bounds.maxHeight
+            : bounds.maxWidth;
+        final width = proportionalWidth < 220 ? 220.0 : proportionalWidth;
+        return LobbyOpenSeatGlow(
+          enabled: number == 1 && canJoin,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: Material(
+                color: Colors.transparent,
+                child: CustomPaint(
+                  painter: _TableStagePainter(active: canJoin),
+                  child: Stack(
+                    children: [
+                      const Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 29,
+                        height: 34,
+                        child: IgnorePointer(
+                          child: ExcludeSemantics(
+                            child: CustomPaint(
+                              painter: OpeningOkeyTilesPainter(),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(13, 16, 13, 18),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 66,
-                                  child: _seat(seats[0], 22, 0, canJoin),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.monetization_on_rounded,
-                                            size: 15,
-                                            color: gold,
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Flexible(
-                                            child: _fit(
-                                              Format.coin(
-                                                (table['entry_coin'] as int?) ??
-                                                    0,
-                                              ),
-                                              21,
-                                              bold: true,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 2),
-                                      if (!starting)
-                                        _fit('${players.length}/2 ${playing ? 'Oynanıyor' : 'Bekliyor'}', 9),
-                                      if (starting)
-                                        const FittedBox(
-                                          child: Text(
-                                            'BAŞLIYOR',
-                                            style: TextStyle(
+                      Padding(
+                          padding: const EdgeInsets.fromLTRB(13, 14, 13, 18),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 66,
+                                    child: _seat(seats[0], 24, 0, canJoin),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.monetization_on_rounded,
+                                              size: 15,
                                               color: gold,
-                                              fontSize: 10,
                                             ),
-                                          ),
+                                            const SizedBox(width: 3),
+                                            Flexible(
+                                              child: _fit(
+                                                Format.coin(
+                                                  (table['entry_coin']
+                                                          as int?) ??
+                                                      0,
+                                                ),
+                                                21,
+                                                bold: true,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      if (canWatch)
-                                        SizedBox(
-                                          height: 24,
-                                          child: TextButton(
-                                            key: ValueKey(
-                                              'spectate-${table['id']}',
-                                            ),
-                                            onPressed: () => onSpectate(table),
-                                            style: TextButton.styleFrom(
-                                              padding: EdgeInsets.zero,
-                                              foregroundColor: gold,
-                                              minimumSize: Size.zero,
-                                            ),
-                                            child: const Text(
-                                              'İZLE',
+                                        const SizedBox(height: 2),
+                                        if (!starting)
+                                          _fit(
+                                            '${players.length}/2 ${playing ? 'Oynanıyor' : 'Bekliyor'}',
+                                            9,
+                                          ),
+                                        if (starting)
+                                          const FittedBox(
+                                            child: Text(
+                                              'BAŞLIYOR',
                                               style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w800,
+                                                color: gold,
+                                                fontSize: 10,
                                               ),
                                             ),
                                           ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                SizedBox(
-                                  width: 66,
-                                  child: _seat(seats[1], 22, 1, canJoin),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 21),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 7),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _detail(
-                                    Icons.emoji_events_outlined,
-                                    Format.coin(
-                                      (table['pot_amount'] as int?) ?? 0,
+                                        if (canWatch)
+                                          SizedBox(
+                                            height: 24,
+                                            child: TextButton(
+                                              key: ValueKey(
+                                                'spectate-${table['id']}',
+                                              ),
+                                              onPressed: () =>
+                                                  onSpectate(table),
+                                              style: TextButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                                foregroundColor: gold,
+                                                minimumSize: Size.zero,
+                                              ),
+                                              child: const Text(
+                                                'İZLE',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Flexible(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: _fit(
-                                      ((table['round_count'] as num?) ?? 0) > 0
-                                          ? '${table['round_count']}. el'
-                                          : '',
-                                      12,
+                                  const SizedBox(width: 4),
+                                  SizedBox(
+                                    width: 66,
+                                    child: _seat(seats[1], 24, 1, canJoin),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 21),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _detail(
+                                      Icons.emoji_events_outlined,
+                                      Format.coin(
+                                        (table['pot_amount'] as int?) ?? 0,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Flexible(
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: _fit(
+                                        ((table['round_count'] as num?) ?? 0) >
+                                                0
+                                            ? '${table['round_count']}. el'
+                                            : '',
+                                        12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (fake)
-                      Positioned.fill(child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          key: ValueKey('showcase-${table['id']}'),
-                          onTap: () => onJoin(table),
-                          borderRadius: BorderRadius.circular(20),
+                          ],
                         ),
-                      )),
-                  ],
+                      ),
+                      if (fake)
+                        Positioned.fill(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              key: ValueKey('showcase-${table['id']}'),
+                              onTap: () => onJoin(table),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ));
+        );
       },
     );
   }
@@ -248,19 +265,16 @@ class LobbyTableListingCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Tooltip(
                 message: player == null ? 'Boş yer' : name,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    player == null ? '' : name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFE2E5EB),
-                      fontSize: 12,
-                      height: 1.1,
-                      fontWeight: FontWeight.w600,
-                    ),
+                child: Text(
+                  player == null ? (canJoin ? 'Katıl' : '') : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFE2E5EB),
+                    fontSize: 12,
+                    height: 1.1,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -524,7 +538,7 @@ class _TableStagePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final top = _rim(size, 0, 0);
-    final felt = _rim(size, 6, 0);
+    final felt = _rim(size, 4, 0);
     // Keep every opaque rail, sidewall and shadow draw outside the felt.
     // Transparency must reveal the lobby, rather than a lower body layer.
     canvas.save();
@@ -586,8 +600,8 @@ class _TableStagePainter extends CustomPainter {
           center: const Alignment(-.3, -.55),
           radius: 1.2,
           colors: active
-              ? const [Color(0x80245A43), Color(0x990A241E)]
-              : const [Color(0x80244C3D), Color(0x990A201C)],
+              ? const [Color(0xFF124B34), Color(0xFF06271D)]
+              : const [Color(0xFF103C2D), Color(0xFF061F19)],
         ).createShader(rect),
     );
     canvas.drawPath(
@@ -626,5 +640,6 @@ class _TableStagePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _TableStagePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _TableStagePainter oldDelegate) =>
+      oldDelegate.active != active;
 }
