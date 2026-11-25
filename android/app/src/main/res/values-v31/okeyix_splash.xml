@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Separate from generated LaunchTheme so splash regeneration retains
+         the padded, full wordmark instead of restoring the launcher icon. -->
+    <style name="OkeyixSystemSplash" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/okeyix_splash_mark</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">#100E0B</item>
+        <item name="android:navigationBarColor">#100E0B</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

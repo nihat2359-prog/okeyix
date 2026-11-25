@@ -190,7 +190,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
       _leagueId = table['league_id']?.toString();
       _entryCoin = (table['entry_coin'] as int?) ?? 100;
       final tableTurnSeconds = table['turn_seconds'] as int?;
-      if (_leagueId != null) {
+      if (_leagueId != null && (tableTurnSeconds == null || tableTurnSeconds <= 0)) {
         try {
           final league = await _viewData.league(_leagueId!);
           if (!mounted) return;

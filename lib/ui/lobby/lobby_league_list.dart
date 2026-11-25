@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'lobby_shimmer_loaders.dart';
 import 'lobby_metal_surface.dart';
+import 'lobby_entrance.dart';
 
 class LobbyLeagueList extends StatelessWidget {
   final List<Map<String, dynamic>> leagues;
@@ -29,7 +30,7 @@ class LobbyLeagueList extends StatelessWidget {
   ];
   @override
   Widget build(BuildContext context) {
-    if (loading) return const LobbyLoading();
+    if (loading) return const LobbyShimmer(child: LobbyLeagueSkeleton());
     if (leagues.isEmpty) {
       return const Center(
         child: Text(
@@ -52,10 +53,15 @@ class LobbyLeagueList extends StatelessWidget {
                       if (col > 0) SizedBox(width: gap),
                       Expanded(
                         child: row * 2 + col < leagues.length
-                            ? _card(
+                            ? LobbyEntrance(
+                              key: ValueKey('league-entrance-${leagues[row * 2 + col]['id']}'),
+                              from: const Offset(-.07, 0),
+                              delay: Duration(milliseconds: (row * 2 + col) * 40),
+                              child: _card(
                                 leagues[row * 2 + col],
                                 row * 2 + col,
                                 row == 2,
+                              )
                               )
                             : const SizedBox.shrink(),
                       ),

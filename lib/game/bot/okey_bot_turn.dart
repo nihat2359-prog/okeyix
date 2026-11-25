@@ -119,6 +119,7 @@ extension _StrategicBotTurn on OkeyGame {
         canDeclarePairs: allowPairs && !_botPairsEndpointUnavailable,
       );
       if (hand.length == 14) {
+        List<dynamic>? drawnHand;
         final fromSeat = (seat - 1 + _maxPlayers) % _maxPlayers;
         final rawTop = await _fetchDiscardTopForSeat(fromSeat);
         if (!current()) return;
@@ -147,6 +148,11 @@ extension _StrategicBotTurn on OkeyGame {
           if (result is Map && result['ok'] == false) {
             throw StateError('BOT_DRAW_REJECTED');
           }
+          drawnHand = OkeyGame.committedDrawHand(result, tableId);
+          if (drawnHand != null && !hand.every((tile) =>
+              drawnHand!.any((raw) => raw['id'] == tile.id))) {
+            drawnHand = null;
+          }
         } catch (_) {
           if (!current()) return;
           // Re-read before recovery: a timed-out request may have committed.
@@ -174,7 +180,10 @@ extension _StrategicBotTurn on OkeyGame {
             rethrow;
           }
         }
-        row = await readHand();
+        // Old servers still return only ok; retain the authoritative read there.
+        row = drawnHand == null ? await readHand() : {
+          ...row, 'hand': drawnHand,
+        };
         if (!current() || row == null) return;
         hand = parseHand(row['hand']);
         await Future<void>.delayed(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'player_metadata_cache.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 typedef ViewRow = Map<String, dynamic>;
@@ -108,12 +109,23 @@ class GameViewDataSource {
           );
         }
       },
-      fetchUsers: (ids) async => rows(
-        await client
+      fetchUsers: (ids) async {
+        final viewer = client.auth.currentUser?.id;
+        final cached = <String, ViewRow>{};
+        for (final id in ids) {
+          final row = PlayerMetadataCache.get(viewer, id);
+          if (row != null) cached[id] = row;
+        }
+        final missing = ids.where((id) => !cached.containsKey(id)).toList();
+        final fetched = missing.isEmpty ? <ViewRow>[] : rows(await client
             .from('users')
             .select('id,username,email,avatar_url,is_bot')
-            .inFilter('id', ids),
-      ),
+            .inFilter('id', missing));
+        if (viewer == client.auth.currentUser?.id) {
+          PlayerMetadataCache.put(viewer, fetched);
+        }
+        return [...cached.values, ...fetched];
+      },
       fetchProfiles: (ids) async => rows(
         await client
             .from('profiles')

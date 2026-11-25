@@ -1,80 +1,136 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'lobby_columns.dart';
 
-class LobbyLoading extends StatefulWidget {
-  const LobbyLoading({super.key});
-
+/// One subdued sweep, shared by all placeholders in the opening scene.
+class LobbyShimmer extends StatefulWidget {
+  final Widget child;
+  const LobbyShimmer({super.key, required this.child});
   @override
-  State<LobbyLoading> createState() => _LobbyLoadingState();
+  State<LobbyShimmer> createState() => _LobbyShimmerState();
 }
 
-class _LobbyLoadingState extends State<LobbyLoading>
+class _LobbyShimmerState extends State<LobbyShimmer>
     with SingleTickerProviderStateMixin {
-  late final AnimationController controller;
+  late final AnimationController _sweep = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
 
   @override
-  void initState() {
-    super.initState();
-
-    controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 56,
-        height: 56,
-        child: AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            return CustomPaint(painter: _LoaderPainter(controller.value));
-          },
-        ),
-      ),
-    );
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _sweep.stop();
+    } else {
+      _sweep.repeat();
+    }
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    _sweep.dispose();
     super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: AnimatedBuilder(
+      animation: _sweep,
+      child: widget.child,
+      builder: (context, child) => ShaderMask(
+        blendMode: BlendMode.srcATop,
+        shaderCallback: (bounds) => LinearGradient(
+          begin: Alignment(-3 + _sweep.value * 6, -.3),
+          end: Alignment(-1 + _sweep.value * 6, .3),
+          colors: const [
+            Color(0x00E6D1A1),
+            Color(0x33E6D1A1),
+            Color(0x00E6D1A1),
+          ],
+          stops: const [0, .5, 1],
+        ).createShader(bounds),
+        child: child,
+      ),
+    ),
+  );
 }
 
-class _LoaderPainter extends CustomPainter {
-  final double progress;
-
-  _LoaderPainter(this.progress);
-
+class LobbySkeletonCard extends StatelessWidget {
+  const LobbySkeletonCard({super.key});
   @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: const Color(0x30263337),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0x447F765A)),
+    ),
+    child: const SizedBox.expand(),
+  );
+}
 
-    final paint = Paint()
-      ..color = const Color(0xFFE7C06A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    final glow = Paint()
-      ..color = const Color(0x55E7C06A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-
-    final start = progress * 2 * pi;
-    const sweep = pi * 1.4;
-
-    canvas.drawArc(rect.deflate(4), start, sweep, false, glow);
-    canvas.drawArc(rect.deflate(4), start, sweep, false, paint);
-  }
-
+class LobbyLeagueSkeleton extends StatelessWidget {
+  const LobbyLeagueSkeleton({super.key});
   @override
-  bool shouldRepaint(_LoaderPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (var row = 0; row < 3; row++) ...[
+        if (row > 0) const SizedBox(height: 6),
+        Expanded(
+          child: Row(
+            children: [
+              for (var col = 0; col < (row == 2 ? 1 : 2); col++) ...[
+                if (col > 0) const SizedBox(width: 6),
+                Expanded(
+                  child: LobbySkeletonCard(
+                    key: ValueKey('league-skeleton-${row * 2 + col}'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+class LobbyCardsReveal extends StatelessWidget {
+  final bool ready;
+  final Widget child;
+  const LobbyCardsReveal({super.key, required this.ready, required this.child});
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 240),
+    switchInCurve: Curves.easeOutCubic,
+    child: KeyedSubtree(
+      key: ValueKey(ready),
+      child: ready
+          ? child
+          : const LobbyShimmer(
+              child: LobbyColumns(
+                leagues: Padding(
+                  padding: EdgeInsets.fromLTRB(9, 38, 9, 8),
+                  child: LobbyLeagueSkeleton(),
+                ),
+                tables: Padding(
+                  padding: EdgeInsets.all(9),
+                  child: LobbySkeletonCard(),
+                ),
+              ),
+            ),
+    ),
+  );
+}
+
+/// Small placeholders for secondary refreshes; never an opening spinner.
+class LobbyLoading extends StatelessWidget {
+  const LobbyLoading({super.key});
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 160,
+    height: 64,
+    child: LobbyShimmer(child: LobbySkeletonCard()),
+  );
 }

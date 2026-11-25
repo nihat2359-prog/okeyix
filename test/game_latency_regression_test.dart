@@ -13,6 +13,7 @@ import 'package:okeyix/game/rack/preview_component.dart';
 import 'tile_visual_identity_test.dart' show mount, settle, payload, visual, VisualGame;
 import 'package:okeyix/game/rack/tile_component.dart';
 import 'package:okeyix/services/game_view_data_source.dart';
+import 'package:okeyix/services/player_metadata_cache.dart';
 import 'package:okeyix/ui/game_avatar_overlay.dart';
 import 'package:okeyix/ui/avatar_card.dart';
 import 'game_lifecycle_regression_test.dart' show TestClient;
@@ -648,7 +649,7 @@ void main() {
     expect(game.tileComponentMap.length, 15);
   });
 
-  testWidgets('preparation stays hidden then reveals on drop before commit without adding a playable tile', (tester) async {
+  testWidgets('even a prepared face stays hidden until draw commits', (tester) async {
     final game = await mount(tester);
     game.debugPrepareLatencyState(14);
     game.debugSyncVisualHand(hand.take(14).toList(), initial: true);
@@ -666,7 +667,7 @@ void main() {
       drawing = game.debugDrawCommittedHand(source: 'closed', preferredSlot: 14);
       await Future<void>.delayed(Duration.zero);
     });
-    expect(game.debugPendingDraw?.id, 'latency-14');
+    expect(game.debugPendingDraw?.id, '__closed_draw_preview__');
     expect(game.debugPendingDraw?.isLocked, isTrue);
     expect(game.tileComponentMap.length, 14);
     expect(game.debugActionInFlight, isTrue);
@@ -987,5 +988,20 @@ void main() {
     await tester.runAsync(() => syncing);
     await settle(tester, game);
     expect(tile.isMounted, isTrue);
+  });
+
+  test('lobby metadata reuses avatar URL without a game users request', () async {
+    final source = GameViewDataSource.supabase(Supabase.instance.client, 'visual-test');
+    PlayerMetadataCache.put(viewer, [{
+      'id': viewer, 'username': 'Cached player',
+      'avatar_url': 'assets/images/avatars/avatar1.png', 'is_bot': false,
+    }]);
+    expect((await source.users([viewer])).single['username'], 'Cached player');
+    expect(calls, isEmpty);
+    source.invalidateAll();
+    PlayerMetadataCache.invalidate(viewer);
+    await source.users([viewer]);
+    expect(calls, ['users']);
+    source.dispose();
   });
 }

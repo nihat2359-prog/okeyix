@@ -123,7 +123,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
   String? _lastBotTurnToken;
   Function()? onFinish;
   int? _hoverIndex;
-  Timer? _hoverTimer;
+  async.Timer? _hoverTimer;
   bool _uiLocked = false;
   bool _networkInFlight = false;
   DateTime? _lastDrawAttemptAt;
@@ -722,10 +722,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     final originalPos = tile.position.clone();
     final targetPos = getMyDiscardPosition(tile);
 
-    tile.add(
-      observeGameEffect(MoveEffect.to(
-        targetPos,
-        EffectController(duration: 0.18, curve: Curves.easeOut),
+    tile.flyTo(targetPos, duration: .22, curve: Curves.easeOutExpo,
         onComplete: () async {
           try {
             final success = await _serverDiscard(tile);
@@ -739,9 +736,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
             _isAnimatingRemoteMove = false;
             _uiLocked = false;
           }
-        },
-      ), activityProbe, 'okey_game.dart:1'),
-    );
+        });
   }
 
   Vector2 getMyDiscardPosition(TileComponent tile) {
@@ -777,7 +772,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     slot.currentTile = tile;
   }
 
-  void _showMyDiscardTopOptimistic(TileModel model) {
+  void _showMyDiscardTopOptimistic(TileModel model, {TileComponent? source}) {
     final mySeat = _mySeatIndexAbs;
     if (mySeat == null) return;
     final slotIndex = _slotIndexForAbsoluteSeat(mySeat);
@@ -789,9 +784,17 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       previousTop.removeFromParent();
     }
 
-    final visual = TileComponent(tile: model, position: slot.position.clone())
+    final visual = TileComponent(tile: model,
+        position: source?.position.clone() ?? slot.position.clone())
       ..priority = 50
       ..isLocked = true;
+
+    if (source != null && source.position.distanceToSquared(slot.position) > 1) {
+      visual.flyTo(slot.position, duration: .22, curve: Curves.easeOutExpo,
+          velocity: source.releaseVelocity.clone(), onComplete: visual.landOnDiscard);
+    } else {
+      visual.landOnDiscard();
+    }
 
     world.add(visual);
     _discardTopTilesBySeat[mySeat] = visual;
@@ -1152,11 +1155,14 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _startRequestInFlight = true;
     final supabase = Supabase.instance.client;
     try {
-      final tableRows = await supabase
-          .from('tables')
-          .select('status,max_players')
-          .eq('id', tableId)
-          .limit(1);
+      // Both are read-only prechecks; start_game still validates atomically.
+      // Start them together instead of paying two serial network round trips.
+      final precheck = await Future.wait<dynamic>([
+        supabase.from('tables').select('status,max_players')
+            .eq('id', tableId).limit(1),
+        supabase.from('table_players').select('id').eq('table_id', tableId),
+      ]);
+      final tableRows = precheck[0];
       if (tableRows is! List || tableRows.isEmpty) {
         debugPrint('START GAME PRECHECK ERROR: table not found');
         return false;
@@ -1166,10 +1172,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       final status = table['status']?.toString() ?? 'waiting';
       final maxPlayers = (table['max_players'] as int?) ?? _maxPlayers;
 
-      final playersRows = await supabase
-          .from('table_players')
-          .select('id')
-          .eq('table_id', tableId);
+      final playersRows = precheck[1];
       final playerCount = (playersRows as List).length;
 
       if (status == 'playing') {
@@ -2511,12 +2514,16 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         continue;
       }
 
-      final arrivalStart = _pendingDrawVisualTile?.position.clone() ?? _rackDrawArrivalStart?.clone();
+      final pendingArrival = _pendingDrawVisualTile;
+      final arrivalStart = pendingArrival?.position.clone() ?? _rackDrawArrivalStart?.clone();
       if (arrivalStart != null) _clearPendingDrawVisualTile();
       final tile = TileComponent(
         tile: model,
         position: arrivalStart ?? slotPositions[slotIndex].clone(),
       );
+      if (pendingArrival?.id == '__closed_draw_preview__') {
+        tile.inheritClosedDraw(pendingArrival!);
+      }
       tileComponentMap[model.id] = tile;
       world.add(tile);
 
@@ -3809,12 +3816,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     world.add(transient);
     _discardAnimationInFlightSeats.add(seat);
 
-    transient.add(
-      observeGameEffect(MoveEffect.to(
-        slot.position.clone(),
-        EffectController(duration: 0.28, curve: Curves.easeOutCubic),
-      ), activityProbe, 'okey_game.dart:10'),
-    );
+    transient.flyTo(slot.position, duration: .22, curve: Curves.easeOutExpo,
+        onComplete: transient.landOnDiscard);
 
     async.Timer(const Duration(milliseconds: 320), () {
       final previousTop = _discardTopTilesBySeat[seat];
@@ -4369,6 +4372,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
           tile: tileModel,
           position: slot.position.clone(),
         )..isLocked = true;
+        tile.landOnDiscard();
         tile.priority = 50;
         world.add(tile);
         _discardTopTilesBySeat[seat] = tile;
@@ -4505,16 +4509,14 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         drawEpoch == _handStateEpoch && drawRound == _round &&
         drawTurn == currentTurn && (drawTurnStartedAt == null ||
           drawTurnStartedAt == _turnStartedAt);
-    final prepared = source == 'closed' ? _preparedClosedDraw : null;
     _preparedClosedDraw = null;
-    final pendingPreview = _pendingDrawVisualTile;
-    if (prepared != null && pendingPreview != null) {
-      unawaited(prepared.then((model) {
-        if (model == null || !currentDraw() || !_actionInFlight ||
-            !identical(_pendingDrawVisualTile, pendingPreview)) return;
-        _revealPreparedDraw(model, pendingPreview);
-        latency.mark('prepared_face_queued');
-      }));
+    if (source == 'closed' && _pendingDrawVisualTile == null) {
+      final preview = _buildSourceDragTile(
+        startPosition: closedPileComponent?.position.clone() ?? Vector2.zero());
+      if (preview != null) {
+        world.add(preview);
+        _showPendingDrawVisualTile(preview);
+      }
     }
     try {
       Future<dynamic> callDraw({int? seat}) async {
@@ -4746,7 +4748,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     try {
       final mySeat = _resolveMySeatIndex();
       if (mySeat != null) {
-        _showMyDiscardTopOptimistic(tile.tile);
+        _showMyDiscardTopOptimistic(tile.tile, source: tile);
         _holdDiscardSeatSync(
           mySeat,
           duration: const Duration(milliseconds: 1200),
@@ -5378,19 +5380,16 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
 
     _hoverIndex = index;
 
-    // 🔥 gecikmeli shift
-    _hoverTimer = Timer(
-      0.14, // 🔥 140ms → sweet spot
-      onTick: () {
-        if (_hoverIndex == index) {
-          applyTemporaryShift(index);
-        }
-      },
-    )..start();
+    // Passing over a slot does not rearrange the rack; dwell to open a gap.
+    _hoverTimer = async.Timer(const Duration(milliseconds: 500), () {
+      if (_hoverIndex != index || !_lifecycleActive) return;
+      clearTemporaryShift();
+      applyTemporaryShift(index);
+    });
   }
 
   void _cancelHover() {
-    _hoverTimer?.stop();
+    _hoverTimer?.cancel();
     _hoverTimer = null;
     _hoverIndex = null;
   }
@@ -6211,7 +6210,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     _sourceDrawDragActive = true;
     _sourceDrawFromDiscardSlot = fromDiscardSlot;
     _preparedDrawGeneration++;
-    _preparedClosedDraw = fromDiscardSlot == null ? _prepareClosedDraw() : null;
+    _preparedClosedDraw = null;
     // Preparation is read-only; a drag must never consume a tile.
     // Hide the source tile while its draggable copy is under the finger.
     _dragHiddenDiscardTile = fromDiscardSlot?.currentTile;
@@ -6249,6 +6248,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       startPosition: _sourceDrawDragPosition!,
       fromDiscardSlot: fromDiscardSlot,
     );
+    if (fromDiscardSlot == null) activeDraggedTile?.holdSourceDraw();
     if (activeDraggedTile != null) {
       activeDraggedTile!.isLocked = true;
       activeDraggedTile!.priority = 130;
@@ -6406,7 +6406,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       _dragRevealedDiscardTile = null;
       _pendingPreferredDrawSlot = targetSlot;
       if (dragged != null) {
-        _showPendingDrawVisualTile(dragged, preferredSlot: targetSlot);
+        _showPendingDrawVisualTile(dragged, preferredSlot: targetSlot, dragged: true);
       }
       takeFromDiscardTap(fromDiscardSlot);
     } else {
@@ -6417,17 +6417,14 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
       _pendingPreferredDrawSlot = targetSlot;
       if (dragged != null) {
-        _showPendingDrawVisualTile(dragged, preferredSlot: targetSlot);
+        _showPendingDrawVisualTile(dragged, preferredSlot: targetSlot, dragged: true);
       }
       drawFromClosedPile();
     }
   }
 
-  void _showPendingDrawVisualTile(TileComponent tile, {int? preferredSlot}) {
+  void _showPendingDrawVisualTile(TileComponent tile, {int? preferredSlot, bool dragged = false}) {
     _clearPendingDrawVisualTile();
-    if (tile.id == '__closed_draw_preview__') {
-      tile.showAwaitingDrawConfirmation();
-    }
     var targetSlot = preferredSlot;
     if (targetSlot == null ||
         targetSlot < 0 ||
@@ -6443,7 +6440,11 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     tile.children.whereType<MoveEffect>().toList().forEach(
       (e) => e.removeFromParent(),
     );
-    tile.moveOnRack(slotPositions[targetSlot], allowLocked: true);
+    if (tile.id == '__closed_draw_preview__') {
+      tile.beginClosedDraw(slotPositions[targetSlot], dragged: dragged);
+    } else {
+      tile.moveOnRack(slotPositions[targetSlot], allowLocked: true);
+    }
     _pendingDrawVisualTile = tile;
   }
 
@@ -6470,22 +6471,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       // Older servers and failed preparation retain the normal draw path.
       return null;
     }
-  }
-
-  void _revealPreparedDraw(TileModel model, TileComponent preview) {
-    final start = preview.position.clone();
-    preview.hideTileVisual = true;
-    preview.removeFromParent();
-    final face = TileComponent(tile: model, position: start)
-      ..isLocked = true
-      ..priority = 125;
-    world.add(face);
-    _pendingDrawVisualTile = face;
-    final slot = _pendingPreferredDrawSlot;
-    if (slot != null && slot >= 0 && slot < slotPositions.length) {
-      face.moveOnRack(slotPositions[slot], allowLocked: true);
-    }
-    // This is still a preview, not a member of the authoritative rack maps.
   }
 
   @visibleForTesting

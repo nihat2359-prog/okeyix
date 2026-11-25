@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -7,7 +8,7 @@ import 'package:okeyix/services/analytics_service.dart';
 import 'package:okeyix/ui/login_start_scene.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'lobby_screen.dart';
+import 'lobby_entry.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? error;
-  const LoginScreen({super.key, this.error});
+  final bool preparingLobby;
+  const LoginScreen({super.key, this.error, this.preparingLobby = false});
 
   String _oauthRedirectTo() {
     if (!kIsWeb) return 'okeyix://login-callback';
@@ -35,27 +37,30 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _loading = false;
   bool _loadingGuest = false;
   String? _error;
+  bool _openingLobby = false;
+  StreamSubscription<AuthState>? _authSubscription;
+
+  void _openLobby() {
+    if (!mounted || _openingLobby) return;
+    _openingLobby = true;
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder<void>(transitionDuration: Duration.zero,
+          pageBuilder: (_, _, _) => const LobbyEntry()), (_) => false);
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAgeGate();
+      if (!widget.preparingLobby) _checkAgeGate();
     });
-    bool _navigated = false;
+    if (!widget.preparingLobby) {
+      _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+        final session = data.session;
 
-    supabase.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-
-      if (session != null && mounted && !_navigated) {
-        _navigated = true;
-
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LobbyScreen()),
-          (route) => false,
-        );
-      }
-    });
+        if (session != null) _openLobby();
+      });
+    }
 
     _error = widget.error;
     WidgetsBinding.instance.addObserver(this);
@@ -63,6 +68,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     emailController.dispose();
     passwordController.dispose();
@@ -99,11 +105,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       );
 
       if (res.user != null && mounted) {
-        await AnalyticsService.instance.logLogin(method: 'password');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LobbyScreen()),
-        );
+        unawaited(AnalyticsService.instance.logLogin(method: 'password'));
+        _openLobby();
         return;
       }
     } on AuthApiException catch (e) {
@@ -120,11 +123,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           );
 
           if (res.user != null && mounted) {
-            await AnalyticsService.instance.logLogin(method: 'password');
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const LobbyScreen()),
-            );
+            unawaited(AnalyticsService.instance.logLogin(method: 'password'));
+            _openLobby();
           }
         } on AuthException catch (e) {
           setState(() => _error = e.message);
@@ -279,13 +279,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => LoginStartScene(
-    onApple: _loginWithApple,
-    onGoogle: _loginWithGoogle,
-    onGuest: _playAsGuest,
-    loadingGuest: _loadingGuest,
-    error: _error,
-    legal: const OkeyixLegalBlock(),
+  Widget build(BuildContext context) => AbsorbPointer(
+    absorbing: widget.preparingLobby,
+    child: LoginStartScene(
+      onApple: _loginWithApple,
+      onGoogle: _loginWithGoogle,
+      onGuest: _playAsGuest,
+      loadingGuest: _loadingGuest,
+      error: _error,
+      legal: const OkeyixLegalBlock(),
+    ),
   );
   Future<void> _checkAgeGate() async {
     final prefs = await SharedPreferences.getInstance();
@@ -477,13 +480,6 @@ class OkeyixLegalBlock extends StatelessWidget {
     }
   }
 
-  Future<void> _openWebsite() async {
-    final uri = Uri.parse("https://www.okeyix.com");
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -502,7 +498,6 @@ class OkeyixLegalBlock extends StatelessWidget {
               height: 1.2,
             ),
             children: [
-              const TextSpan(text: 'Giriş yaparak '),
               TextSpan(
                 text: 'Gizlilik Politikası',
                 style: const TextStyle(
@@ -512,34 +507,14 @@ class OkeyixLegalBlock extends StatelessWidget {
                 ),
                 recognizer: TapGestureRecognizer()..onTap = _openPrivacy,
               ),
-              const TextSpan(text: '’nı kabul etmiş olursun.'),
             ],
-          ),
-        );
-        final website = GestureDetector(
-          onTap: _openWebsite,
-          child: const Text(
-            'www.okeyix.com',
-            style: TextStyle(
-              color: Color(0xFFCCD4C9),
-              fontSize: 11.5,
-              height: 1.2,
-              letterSpacing: .4,
-            ),
           ),
         );
         return FittedBox(
           fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              privacy,
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14),
-                child: Text('·', style: TextStyle(color: Color(0xFFE7C66A))),
-              ),
-              website,
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: privacy,
           ),
         );
       },

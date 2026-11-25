@@ -59,7 +59,7 @@ void visible(WidgetTester tester, Size size) {
     tester.getRect(find.byKey(const ValueKey('login-guest'))).bottom,
     lessThan(legal.top),
   );
-  expect(find.text('Sıradaki el senin.'), findsOneWidget);
+  expect(find.text('Adil Dağıtım · Gerçek Rekabet'), findsOneWidget);
   expect(find.text('Oyun başlasın.'), findsNothing);
   for (final id in ['apple', 'google', 'guest']) {
     final rect = tester.getRect(find.byKey(ValueKey('login-$id')));
@@ -76,9 +76,9 @@ void visible(WidgetTester tester, Size size) {
   final google = tester.getRect(find.byKey(const ValueKey('login-google')));
   final guest = tester.getRect(find.byKey(const ValueKey('login-guest')));
   expect(apple.width, closeTo(google.width, .01));
-  expect(apple.height, google.height);
-  expect(apple.top, google.top);
-  expect(apple.right, lessThan(google.left));
+  expect(apple.height, closeTo(google.height, .01));
+  expect(apple.left, google.left);
+  expect(apple.bottom, lessThan(google.top));
   expect(apple.bottom, lessThan(guest.top));
 }
 
@@ -195,11 +195,21 @@ void main() {
         );
       }
       final guestButton = find.byKey(const ValueKey('login-guest'));
-      expect(find.descendant(of: guestButton,
-        matching: find.text('Misafir olarak devam et')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: guestButton,
+          matching: find.text('Misafir olarak devam et'),
+        ),
+        findsOneWidget,
+      );
       if (provider != 'guest') {
-        expect(find.descendant(of: guestButton,
-          matching: find.byType(CircularProgressIndicator)), findsNothing);
+        expect(
+          find.descendant(
+            of: guestButton,
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsNothing,
+        );
       }
       expect(calls, [provider]);
       pending.complete();

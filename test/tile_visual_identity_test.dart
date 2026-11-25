@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/game/rack/tile_component.dart';
+import 'package:okeyix/game/rack/preview_component.dart';
 
 class LocalTurnGame extends OkeyGame {
   LocalTurnGame() : super(tableId: 'joker-guard', isCreator: false);
@@ -81,6 +82,62 @@ Future<void> settle(WidgetTester tester, VisualGame game) async {
 }
 
 void main() {
+  testWidgets('rack hover opens a gap only after dwelling and resets on target changes', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: Vector2(40, 60));
+    game.debugSyncVisualHand(List.generate(14, (i) => payload('hover-$i')), initial: true);
+    await settle(tester, game);
+    game.occupiedSlots.clear();
+    for (var i = 0; i < 14; i++) {
+      final tile = game.tileComponentMap['hover-$i']!;
+      final slot = i < 12 ? i : i + 1;
+      tile.stopRackMotion();
+      tile.currentSlotIndex = slot;
+      tile.position.setFrom(game.slotPositions[slot]);
+      game.occupySlot(slot, tile);
+    }
+    final slots = Map<int, TileComponent>.from(game.occupiedSlots);
+    for (final tile in slots.values) { tile.update(2); }
+    final positions = {
+      for (final tile in slots.values) tile: tile.position.clone(),
+    };
+    for (final index in [1, 4, 2, 7, 1]) {
+      game.updatePreview(game.slotPositions[index]);
+      await tester.pump(const Duration(milliseconds: 200));
+      for (final tile in slots.values) { tile.update(.3); }
+      expect(game.isTempShiftActive, isFalse);
+      expect(game.occupiedSlots, slots);
+      for (final tile in slots.values) {
+        expect(tile.position, positions[tile]);
+        expect(tile.isMovingOnRack, isFalse);
+      }
+    }
+    await tester.pump(const Duration(milliseconds: 299));
+    expect(game.isTempShiftActive, isFalse);
+    // Staying on the same target must not restart the dwell timer.
+    game.updatePreview(game.slotPositions[1]);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(game.isTempShiftActive, isTrue);
+    expect(game.tempShiftIndex, 1);
+    expect(game.occupiedSlots, slots);
+    expect(slots[1]!.isMovingOnRack, isTrue);
+    game.clearPreview();
+    game.clearTemporaryShift();
+    // Clearing the preview cancels a pending gap even before its delay elapses.
+    game.updatePreview(game.slotPositions[4]);
+    game.clearPreview();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(game.isTempShiftActive, isFalse);
+    // The original insertion still shifts neighbours after a committed drop.
+    final dragged = game.occupiedSlots[0]!;
+    game.freeSlot(0);
+    dragged.originalSlotIndex = 0;
+    dragged.currentSlotIndex = null;
+    game.insertIntoRow(1, dragged, playSound: false);
+    expect(dragged.currentSlotIndex, 1);
+    expect(game.occupiedSlots.values.toSet().length, 14);
+    expect(game.occupiedSlots[1], same(dragged));
+  });
   testWidgets('rack settling never overshoots and repeated targets do not restart it', (tester) async {
     final game = await mount(tester);
     final tile = visual('smooth-settle');

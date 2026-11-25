@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'display_okey_tile.dart';
 import 'package:flutter/material.dart';
 
 /// Presentation only: providers, redirects and account creation stay in LoginScreen.
@@ -73,268 +72,167 @@ class _LoginStartSceneState extends State<LoginStartScene>
 
   @override
   Widget build(BuildContext context) {
-    final reduced = MediaQuery.disableAnimationsOf(context);
-    final logo = _intro.drive(CurveTween(curve: Curves.easeOutCubic));
-    final controls = _intro.drive(
-      CurveTween(curve: const Interval(.15, 1, curve: Curves.easeOutCubic)),
-    );
     final error = _failure ?? widget.error;
     final busy = _active != null || widget.loadingGuest;
+    final fade = _intro.drive(CurveTween(curve: Curves.easeOutCubic));
     return Scaffold(
-      backgroundColor: const Color(0xFF06110F),
+      backgroundColor: const Color(0xFF081B15),
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/table.png',
-              fit: BoxFit.cover,
-              excludeFromSemantics: true,
-            ),
-          ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0x66081214),
-                    Color(0x440A1918),
-                    Color(0xE6081218),
-                  ],
-                  stops: [0, .40, 1],
-                ),
-              ),
-            ),
+          Image.asset(
+            'assets/images/login_lounge.png',
+            fit: BoxFit.cover,
+            excludeFromSemantics: true,
           ),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, bounds) {
-                final compact = bounds.maxHeight < 370;
+                final short = bounds.maxHeight < 330;
+                final gap = short ? 10.0 : 14.0;
+                final buttonHeight = (bounds.maxHeight * .13).clamp(44.0, 54.0);
                 return Padding(
                   padding: EdgeInsets.symmetric(
-                    horizontal: bounds.maxWidth < 700 ? 20 : 36,
-                    vertical: compact ? 8 : 24,
+                    horizontal: bounds.maxWidth * .035,
+                    vertical: short ? 8 : 18,
                   ),
-                  child: Column(
+                  child: Row(
                     children: [
                       Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              flex: 6,
-                              child: FadeTransition(
-                                opacity: logo,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(
-                                    begin: .94,
-                                    end: 1,
-                                  ).animate(logo),
-                                  child: Column(
-                                    children: [
-                                      Expanded(
-                                        flex: 4,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
+                        flex: 6,
+                        child: Align(
+                          alignment: const Alignment(.25, -.64),
+                          child: FractionallySizedBox(
+                            widthFactor: .77,
+                            child: FadeTransition(
+                              opacity: fade,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/images/logo/okeyix_logo.png',
+                                    height: bounds.maxHeight * .20,
+                                    fit: BoxFit.contain,
+                                    semanticLabel: 'Okeyix',
+                                  ),
+                                  const SizedBox(height: 5),
+                                  const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'Adil Dağıtım · Gerçek Rekabet',
+                                      style: TextStyle(
+                                        color: Color(0xFFE7CFA4),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: .5,
+                                        shadows: [
+                                          Shadow(
+                                            blurRadius: 6,
+                                            color: Colors.black,
                                           ),
-                                          child: Image.asset(
-                                            'assets/images/logo/okeyix_logo.png',
-                                            fit: BoxFit.contain,
-                                            filterQuality: FilterQuality.high,
-                                            semanticLabel: 'Okeyix',
-                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        margin: EdgeInsets.symmetric(
+                          vertical: bounds.maxHeight * .06,
+                        ),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x00D9C399),
+                              Color(0x88D9C399),
+                              Color(0x00D9C399),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: bounds.maxWidth * .035,
+                          ),
+                          child: FadeTransition(
+                            opacity: fade,
+                            child: Center(
+                              child: SizedBox(
+                                width: math.min(bounds.maxWidth, 310),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (final id in [
+                                      'apple',
+                                      'google',
+                                      'guest',
+                                    ]) ...[
+                                      if (id != 'apple') SizedBox(height: gap),
+                                      SizedBox(
+                                        height: buttonHeight,
+                                        child: _StartButton(
+                                          id: id,
+                                          label: switch (id) {
+                                            'apple' => 'Apple ile gir',
+                                            'google' => 'Google ile gir',
+                                            _ => 'Misafir olarak devam et',
+                                          },
+                                          loading:
+                                              _active == id ||
+                                              (id == 'guest' &&
+                                                  widget.loadingGuest),
+                                          enabled: !busy,
+                                          onPressed: () =>
+                                              _signIn(id, switch (id) {
+                                                'apple' => widget.onApple,
+                                                'google' => widget.onGoogle,
+                                                _ => widget.onGuest,
+                                              }),
                                         ),
                                       ),
+                                    ],
+                                    SizedBox(height: gap),
+                                    SizedBox(
+                                      height: 30,
+                                      child: Center(child: widget.legal),
+                                    ),
+                                    if (error != null) ...[
                                       const SizedBox(height: 4),
-                                      const FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          'ADİL DAĞITIM · GERÇEK REKABET',
-                                          style: TextStyle(
-                                            color: Color(0xFFE6D3A4),
-                                            fontSize: 12,
-                                            letterSpacing: .9,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      const Expanded(
-                                        flex: 6,
-                                        child: RepaintBoundary(
-                                          child: CustomPaint(
-                                            painter: OpeningOkeyTilesPainter(),
-                                            child: SizedBox.expand(),
-                                          ),
-                                        ),
-                                      ),
-                                      const FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          'Her el yeni bir hikâye.',
-                                          style: TextStyle(
-                                            color: Color(0xFFE1E5DC),
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: .9,
+                                      SizedBox(
+                                        height: short ? 30 : 40,
+                                        child: SingleChildScrollView(
+                                          child: Semantics(
+                                            liveRegion: true,
+                                            child: Text(
+                                              error,
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                color: Color(0xFFFFC9B9),
+                                                fontSize: 12,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ],
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),
-                            SizedBox(width: compact ? 24 : 48),
-                            Expanded(
-                              flex: 5,
-                              child: FadeTransition(
-                                opacity: controls,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(.04, 0),
-                                    end: Offset.zero,
-                                  ).animate(controls),
-                                  child: LayoutBuilder(
-                                    builder: (context, area) {
-                                      final buttonHeight =
-                                          (area.maxHeight * .22).clamp(
-                                            44.0,
-                                            48.0,
-                                          );
-                                      return Align(
-                                        alignment: Alignment.center,
-                                        child: SizedBox(
-                                          width: math.min(area.maxWidth, 310),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              const Padding(
-                                                padding: EdgeInsets.only(
-                                                  bottom: 14,
-                                                ),
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    'Sıradaki el senin.',
-                                                    style: TextStyle(
-                                                      color: Color(0xFFE0D1AE),
-                                                      fontSize: 17,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      letterSpacing: .4,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                height: buttonHeight,
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: _StartButton(
-                                                        id: 'apple',
-                                                        label: 'Apple ile gir',
-                                                        icon: const Icon(
-                                                          Icons.apple,
-                                                          size: 20,
-                                                          color: Colors.white,
-                                                        ),
-                                                        loading:
-                                                            _active == 'apple',
-                                                        enabled: !busy,
-                                                        reduced: reduced,
-                                                        onPressed: () =>
-                                                            _signIn(
-                                                              'apple',
-                                                              widget.onApple,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    Expanded(
-                                                      child: _StartButton(
-                                                        id: 'google',
-                                                        label: 'Google ile gir',
-                                                        icon: Image.asset(
-                                                          'assets/images/google.png',
-                                                          width: 18,
-                                                          height: 18,
-                                                          excludeFromSemantics:
-                                                              true,
-                                                        ),
-                                                        loading:
-                                                            _active == 'google',
-                                                        enabled: !busy,
-                                                        reduced: reduced,
-                                                        onPressed: () =>
-                                                            _signIn(
-                                                              'google',
-                                                              widget.onGoogle,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              SizedBox(
-                                                height: buttonHeight,
-                                                child: _StartButton(
-                                                  id: 'guest',
-                                                  label:
-                                                      'Misafir olarak devam et',
-                                                  loading:
-                                                      _active == 'guest' ||
-                                                      widget.loadingGuest,
-                                                  enabled: !busy,
-                                                  reduced: reduced,
-                                                  onPressed: () => _signIn(
-                                                    'guest',
-                                                    widget.onGuest,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (error != null) ...[
-                                                const SizedBox(height: 8),
-                                                SizedBox(
-                                                  height: 30,
-                                                  child: SingleChildScrollView(
-                                                    child: Semantics(
-                                                      liveRegion: true,
-                                                      child: Text(
-                                                        error,
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          color: Color(
-                                                            0xFFFFC9B9,
-                                                          ),
-                                                          fontSize: 12,
-                                                          height: 1.2,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(height: 28, child: Center(child: widget.legal)),
                     ],
                   ),
                 );
@@ -347,207 +245,93 @@ class _LoginStartSceneState extends State<LoginStartScene>
   }
 }
 
-class _StartButton extends StatefulWidget {
+class _StartButton extends StatelessWidget {
   final String id, label;
-  final Widget? icon;
-  final bool loading, enabled, reduced;
+  final bool loading, enabled;
   final VoidCallback onPressed;
   const _StartButton({
     required this.id,
     required this.label,
-    this.icon,
     required this.loading,
     required this.enabled,
-    required this.reduced,
     required this.onPressed,
   });
   @override
-  State<_StartButton> createState() => _StartButtonState();
-}
-
-class _StartButtonState extends State<_StartButton> {
-  bool _pressed = false;
-  bool _hover = false;
-  @override
   Widget build(BuildContext context) {
-    final guest = widget.id == 'guest';
-    const foreground = Color(0xFFF1EEE5);
-    if (guest) {
-      return TextButton(
-        key: const ValueKey('login-guest'),
-        onPressed: widget.enabled ? widget.onPressed : null,
+    final guest = id == 'guest';
+    final foreground = guest
+        ? const Color(0xFFEAD7B3)
+        : const Color(0xFF211B13);
+    final radius = BorderRadius.circular(22);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: guest
+              ? const [Color(0xBB293A2C), Color(0xBB0E2019)]
+              : const [Color(0xFFF6E5C5), Color(0xFFD8BC91)],
+        ),
+        border: Border.all(
+          color: guest ? const Color(0xFFB7A583) : const Color(0xFFE4CDA6),
+          width: 1.2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextButton(
+        key: ValueKey('login-$id'),
+        onPressed: enabled ? onPressed : null,
         style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFFEADAB5),
-          disabledForegroundColor: const Color(0xFFEADAB5),
-          backgroundColor: const Color(0x9920322C),
-          disabledBackgroundColor: const Color(0x9920322C),
-          side: const BorderSide(color: Color(0x887F9A7E)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          foregroundColor: foreground,
+          disabledForegroundColor: foreground.withValues(alpha: .65),
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (widget.loading) ...[
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
+              if (loading) ...[
+                SizedBox(
+                  width: 19,
+                  height: 19,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: foreground,
+                  ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
+              ] else if (!guest) ...[
+                if (id == 'apple')
+                  Icon(Icons.apple, size: 27, color: foreground)
+                else
+                  Image.asset(
+                    'assets/images/google.png',
+                    width: 23,
+                    height: 23,
+                    excludeFromSemantics: true,
+                  ),
+                const SizedBox(width: 14),
               ],
               Text(
-                widget.label,
-                style: const TextStyle(
-                  fontSize: 13,
+                label,
+                style: TextStyle(
+                  fontSize: guest ? 13 : 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
-      );
-    }
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: Listener(
-        onPointerDown: (_) {
-          if (widget.enabled) setState(() => _pressed = true);
-        },
-        onPointerUp: (_) => setState(() => _pressed = false),
-        onPointerCancel: (_) => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? .98 : 1,
-          duration: widget.reduced
-              ? Duration.zero
-              : const Duration(milliseconds: 100),
-          child: CustomPaint(
-            foregroundPainter: const _StartButtonTrim(),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(9),
-                color: guest ? null : const Color(0xD910191A),
-                gradient: guest
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFFFEAB1),
-                          Color(0xFFE4C075),
-                          Color(0xFFC3994D),
-                          Color(0xFFE2BF76),
-                        ],
-                        stops: [0, .38, .72, 1],
-                      )
-                    : null,
-                border: Border.all(
-                  color: _hover && widget.enabled
-                      ? const Color(0xFFFFE5A2)
-                      : guest
-                      ? const Color(0xFFF2D28B)
-                      : const Color(0xBBD5B676),
-                ),
-                boxShadow: [
-                  const BoxShadow(
-                    color: Color(0x66000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: TextButton(
-                key: ValueKey('login-${widget.id}'),
-                onPressed: widget.enabled ? widget.onPressed : null,
-                style: TextButton.styleFrom(
-                  foregroundColor: foreground,
-                  disabledForegroundColor: foreground.withValues(alpha: .6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                ),
-                child: SizedBox.expand(
-                  child: Row(
-                    children: [
-                      if (widget.loading)
-                        SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: foreground,
-                          ),
-                        )
-                      else if (widget.icon != null)
-                        widget.icon!
-                      else if (guest)
-                        const Icon(Icons.play_arrow_rounded, size: 23),
-                      if (widget.loading || widget.icon != null)
-                        const SizedBox(width: 6),
-                      Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.center,
-                          child: Text(
-                            widget.loading ? 'Bağlanıyor...' : widget.label,
-                            style: TextStyle(
-                              fontSize: guest ? 15 : 13,
-                              fontWeight: guest
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              letterSpacing: guest ? .5 : .1,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (guest)
-                        const Icon(Icons.chevron_right_rounded, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
-}
-
-class _StartButtonTrim extends CustomPainter {
-  const _StartButtonTrim();
-  @override
-  void paint(Canvas canvas, Size size) {
-    final inset = (Offset.zero & size).deflate(3);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(inset, const Radius.circular(6)),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = .6
-        ..color = const Color(0x887D5823),
-    );
-    canvas.drawLine(
-      Offset(12, 1.5),
-      Offset(size.width - 12, 1.5),
-      Paint()
-        ..color = const Color(0xBBFFF3D0)
-        ..strokeWidth = 1,
-    );
-    canvas.drawLine(
-      Offset(12, size.height - 1.5),
-      Offset(size.width - 12, size.height - 1.5),
-      Paint()
-        ..color = const Color(0x886B461B)
-        ..strokeWidth = 1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _StartButtonTrim oldDelegate) => false;
 }

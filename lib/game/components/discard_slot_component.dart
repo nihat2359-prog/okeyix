@@ -15,6 +15,8 @@ class DiscardSlotComponent extends PositionComponent
   TileComponent? currentTile;
   SpriteComponent? tileSprite;
   bool hidden = false;
+  bool dragHovered = false;
+  double _hoverGlow = 0;
   DateTime? _lastTapDownAt;
   async.Timer? _doubleTapResetTimer;
 
@@ -35,12 +37,22 @@ class DiscardSlotComponent extends PositionComponent
   void render(Canvas canvas) {
     if (hidden) return;
     super.render(canvas);
+    if (_hoverGlow > .001) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(-5, -5, size.x + 10, size.y + 10),
+            const Radius.circular(15)),
+        Paint()..color = const Color(0xFFFFD784).withValues(alpha: .34 * _hoverGlow)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+      );
+    }
   }
 
   @override
   void update(double dt) {
     if (hidden) return;
     super.update(dt);
+    _hoverGlow += ((dragHovered ? 1.0 : 0.0) - _hoverGlow) *
+        (dt * 16).clamp(0.0, 1.0);
   }
 
   void setHidden(bool value) {

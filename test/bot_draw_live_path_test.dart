@@ -14,6 +14,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   for (final scenario in [
     'run',
+    'committed_run',
     'set',
     'real',
     'fake',
@@ -102,7 +103,9 @@ void main() {
             } else {
               hand.add({'id': 'closed', 'color': 'black', 'number': 1});
             }
-            result = {'ok': true};
+            result = scenario == 'committed_run'
+              ? {'ok': true, 'table_id': 'table', 'hand': hand}
+              : {'ok': true};
           } else if (route == 'game_discard_fast') {
             final body = jsonDecode(request.body) as Map;
             expect(hand.any((t) => t['id'] == body['p_tile']['id']), true);
@@ -154,6 +157,12 @@ void main() {
         );
       }
       await game.debugRunBotTurn(seat: 0, startedAt: started);
+      if (scenario == 'run' || scenario == 'committed_run') {
+        final handReads = calls.where((call) => call == 'GET:table_players').length;
+        // Legacy fallback plus two pre-discard validations; modern skips only
+        // the read immediately after draw, preserving both validations.
+        expect(handReads, scenario == 'run' ? 4 : 3);
+      }
       if (scenario != 'production_runner') {
         expect(observed!.hand.length, 14);
         expect(observed!.hand.map((s) => s.id), original.map((s) => s.id));

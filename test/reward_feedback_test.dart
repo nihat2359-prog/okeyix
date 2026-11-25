@@ -110,7 +110,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(sounds, [RewardSound.opening]);
-      await tester.tap(find.text('Al'));
+      await tester.tap(find.text('Günlük bonusu al'));
       await tester.pump();
       expect(sounds, [RewardSound.opening]);
       if (outcome == 'error') {

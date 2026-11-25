@@ -1,0 +1,10 @@
+flutter_native_splash:
+  color: "#000000"
+  background_image: assets/images/login_lounge.png
+  android: true
+  ios: false
+  web: false
+  android_12:
+    color: "#100E0B"
+    color_dark: "#100E0B"
+  fullscreen: true

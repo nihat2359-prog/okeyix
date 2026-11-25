@@ -1,4 +1,11 @@
 import 'dart:async';
+import 'package:okeyix/ui/lobby/lobby_entrance.dart';
+import 'package:okeyix/services/lobby_data_cache.dart';
+import 'package:okeyix/ui/lobby/lobby_shimmer_loaders.dart';
+import 'package:okeyix/services/player_metadata_cache.dart';
+import 'package:okeyix/services/cross_promo_service.dart';
+import 'package:okeyix/ui/lobby/cross_promo_dialog.dart';
+import 'package:okeyix/ui/lobby/campaign_dialog.dart';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -75,6 +82,7 @@ class LobbyScreen extends StatefulWidget {
 
 class _LobbyScreenState extends State<LobbyScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  bool _initialLobbyLoading = true;
   static const Color _goldBorderColor = Color(0xCCB07A1A);
   static const Color _goldBorderDark = Color(0xFF8F6215);
   static const double _goldBorderWidth = 0.3;
@@ -84,6 +92,33 @@ class _LobbyScreenState extends State<LobbyScreen>
   final _audioPlayer = AudioPlayer();
   String? _playingMessageId;
   final supabase = Supabase.instance.client;
+  List<CrossPromoGame> _publishedGames = const [];
+
+  Future<void> _loadPublishedGames() async {
+    final games = await CrossPromoService.instance.publishedGames();
+    if (mounted) setState(() => _publishedGames = games);
+  }
+
+  void _openPublishedGames() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => CrossPromoDialog(
+        games: _publishedGames,
+        isClaimed: (game) => CrossPromoService.instance.claimed(userId, game),
+        onDownload: (game) async {
+          final amount = await CrossPromoService.instance.openAndReward(
+            game,
+            supabase,
+          );
+          if (mounted) await _loadUser();
+          return amount;
+        },
+      ),
+    );
+  }
+
   Timer? _leagueActivityTimer;
   Timer? _socialRefreshTimer;
   Timer? _tablesRefreshTimer;
@@ -225,6 +260,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   @override
   void initState() {
     super.initState();
+    _restoreLobbyCache();
+    unawaited(_loadPublishedGames());
     WidgetsBinding.instance.addObserver(this);
     _checkGuestWelcome();
     _audioPlayer.playerStateStream.listen((state) {
@@ -263,6 +300,37 @@ class _LobbyScreenState extends State<LobbyScreen>
     _startLobbyLoops();
 
     _initDevice();
+  }
+
+  void _restoreLobbyCache() {
+    final uid = supabase.auth.currentUser?.id;
+    if (uid == null) return;
+    final cached = LobbyDataCache.profile(uid);
+    if (cached != null) {
+      final row = Map<String, dynamic>.from(cached['row'] as Map);
+      final profile = Map<String, dynamic>.from(cached['profile'] as Map);
+      UserState.userId = uid;
+      UserState.userRowId = row['id']?.toString();
+      UserState.userName = (row['username'] as String?) ?? 'Oyuncu';
+      UserState.userCoin = (profile['coins'] as num).toInt();
+      UserState.userRating = (profile['rating'] as num).toInt();
+      UserState.userAvatarUrl = row['avatar_url'] as String?;
+      UserState.wins = (row['wins'] as num?)?.toInt() ?? 0;
+      UserState.losses = (row['losses'] as num?)?.toInt() ?? 0;
+      _allowGameInvites = (profile['allow_game_invites'] as bool?) ?? true;
+      _leagueProfileLoaded = true;
+      _coinDisplayValue = UserState.userCoin;
+      _ratingDisplayValue = UserState.userRating;
+    } else if (UserState.userId != uid) {
+      UserState.userId = uid;
+      UserState.userName = 'Oyuncu';
+      UserState.userAvatarUrl = null;
+      UserState.userCoin = 0;
+      UserState.userRating = 1200;
+    }
+    leagues = LobbyDataCache.leagues;
+    loadingLeagues = leagues.isEmpty;
+    _reconcileLeagueSelection();
   }
 
   Future<void> _initDevice() async {
@@ -389,7 +457,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     });
     _tablesRefreshTimer = Timer.periodic(
       const Duration(seconds: 25),
-      (_) => _loadTables(),
+      (_) => _refreshLobbyTables(),
     );
     _systemMessageTimer = Timer.periodic(
       const Duration(seconds: 45),
@@ -403,6 +471,14 @@ class _LobbyScreenState extends State<LobbyScreen>
       _ensureTableInviteListener();
       _ensureMessagesListener();
     });
+  }
+
+  Future<void> _refreshLobbyTables() async {
+    await Future.wait<void>([
+      if (!_leagueProfileLoaded) _loadUser().then<void>((_) {}),
+      if (leagues.isEmpty) _loadLeagues(),
+    ]);
+    if (mounted) await _loadTables();
   }
 
   void _stopLobbyLoops() {
@@ -427,6 +503,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _init() async {
+    final leaguesReady = _loadLeagues();
+    final userReady = _loadUser();
     await AppReviewService.instance.recordVisit();
     await FeedbackSettingsService.load();
     _soundEnabled = FeedbackSettingsService.soundEnabled;
@@ -435,19 +513,20 @@ class _LobbyScreenState extends State<LobbyScreen>
     _colorBlindMode = prefs.getBool('color_blind_mode') ?? false;
     UserState.colorBlindMode = _colorBlindMode;
 
-    final canContinue = await _loadUser();
-    if (!canContinue) return;
+    final canContinue = await userReady;
+    await leaguesReady;
+    if (_banScreenOpened || (!canContinue && !_leagueProfileLoaded)) return;
+    await _loadTables();
+    _initialLobbyLoading = false;
+    // These reads do not determine league eligibility or table presentation.
+    unawaited(_loadSocialData());
     await _ensureTableInviteListener();
     await _ensureMessagesListener();
     await _refreshGlobalSpectatorPassStatus();
     await _checkOnboarding();
-    await _loadSocialData();
     await _loadSystemMessages();
     await _restoreSeenSystemMessages();
     await _checkUnreadSystemMessages(showToast: false);
-    await _loadLeagues();
-    await _loadLeagueActivity();
-    await _loadTables();
     await _runRewardFlowIfNeeded();
     await _tryResumeActiveGame();
     await _showPlayerNameReminder();
@@ -1129,13 +1208,16 @@ class _LobbyScreenState extends State<LobbyScreen>
   Future<bool> _loadUser({int? rewardPresentation}) async {
     final user = supabase.auth.currentUser;
     if (user == null) return false;
-    await ProfileService.ensureUserRow();
     try {
-      final row = await ProfileService.findUserRow(
-        user,
-        columns:
-            'id,username,avatar_url,wins,losses,is_banned,ban_reason,ban_until',
-      );
+      final loaded = await LobbyDataCache.refreshProfile(supabase, user.id);
+      var fetchedRow = loaded[0] as Map<String, dynamic>?;
+
+      if (fetchedRow == null) {
+        await ProfileService.ensureUserRow();
+        fetchedRow = await ProfileService.findUserRow(user, columns:
+          'id,username,avatar_url,wins,losses,is_banned,ban_reason,ban_until');
+      }
+      final row = fetchedRow;
 
       if (row != null) {
         final isBanned = (row['is_banned'] as bool?) ?? false;
@@ -1174,11 +1256,7 @@ class _LobbyScreenState extends State<LobbyScreen>
       }
 
       // ? profiles'den coins ve rating al
-      final profileRows = await supabase
-          .from('profiles')
-          .select('coins,rating,allow_game_invites')
-          .eq('id', user.id)
-          .limit(1);
+      final profileRows = loaded[1] as List;
       final profile = (profileRows as List).isNotEmpty
           ? Map<String, dynamic>.from(profileRows.first)
           : null;
@@ -1189,6 +1267,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           (profile?['allow_game_invites'] as bool?) ?? true;
       final previousCoin = UserState.userCoin;
       final previousRating = _ratingDisplayValue;
+      final silentInitialRefresh = _initialLobbyLoading && rewardPresentation == null;
 
       if (!mounted) return false;
       if (row != null) {
@@ -1230,6 +1309,14 @@ class _LobbyScreenState extends State<LobbyScreen>
           rewardPresentation > 0 &&
           profile != null &&
           profileCoin >= rewardPresentation;
+      if (silentInitialRefresh) {
+        _coinCountController.stop();
+        _ratingCountController.stop();
+        setState(() {
+          _coinDisplayValue = profileCoin;
+          _ratingDisplayValue = profileRating;
+        });
+      }
       if (presentReward) {
         _animateCoinCount(
           profileCoin - rewardPresentation,
@@ -1238,17 +1325,22 @@ class _LobbyScreenState extends State<LobbyScreen>
         );
         _startRewardTransfer();
         _triggerCoinFx();
-      } else if (profileCoin != previousCoin) {
+      } else if (!silentInitialRefresh && profileCoin != previousCoin) {
         _animateCoinCount(previousCoin, profileCoin);
       }
-      if (profileRating != previousRating) {
+      if (!silentInitialRefresh && profileRating != previousRating) {
         _animateRatingCount(previousRating, profileRating);
       }
-      if (profileCoin > previousCoin && !presentReward) {
+      if (!silentInitialRefresh && profileCoin > previousCoin && !presentReward) {
         _triggerCoinFx();
       }
-      _leagueProfileLoaded = true;
-      if (_reconcileLeagueSelection()) unawaited(_loadTables());
+      setState(() => _leagueProfileLoaded = true);
+      if (row != null && profile != null) {
+        unawaited(LobbyDataCache.saveProfile(user.id, row, profile));
+      }
+      if (_reconcileLeagueSelection() && !_initialLobbyLoading) {
+        unawaited(_loadTables());
+      }
       return true;
     } catch (e) {
       debugPrint('USER LOAD ERROR: $e');
@@ -1398,12 +1490,9 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Future<void> _loadLeagues() async {
     if (!mounted) return;
-    setState(() => loadingLeagues = true);
+    if (leagues.isEmpty) setState(() => loadingLeagues = true);
     try {
-      final response = await supabase
-          .from('leagues')
-          .select()
-          .order('display_order', ascending: true);
+      final response = await LobbyDataCache.refreshLeagues(supabase);
 
       if (!mounted) return;
       setState(() {
@@ -1417,7 +1506,6 @@ class _LobbyScreenState extends State<LobbyScreen>
     } catch (e) {
       debugPrint('LEAGUE LOAD ERROR: $e');
       if (!mounted) return;
-      setState(() => leagues = []);
     } finally {
       if (mounted) setState(() => loadingLeagues = false);
     }
@@ -1427,10 +1515,12 @@ class _LobbyScreenState extends State<LobbyScreen>
     if (leagues.isEmpty) return;
 
     try {
-      final activeTables = await supabase
-          .from('tables')
-          .select('id, league_id, status')
-          .inFilter('status', lobbyTableStatuses);
+      final activity = await Future.wait([
+        supabase.from('tables').select('id, league_id, status')
+          .inFilter('status', lobbyTableStatuses),
+        supabase.from('profiles').select('id,rating').eq('is_online', true),
+      ]);
+      final activeTables = activity[0];
 
       final tableRows = (activeTables as List)
           .map((e) => Map<String, dynamic>.from(e))
@@ -1462,10 +1552,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         tablesResult[id] = tableCountByLeague[id] ?? 0;
       }
 
-      final onlineProfiles = await supabase
-          .from('profiles')
-          .select('id,rating')
-          .eq('is_online', true);
+      final onlineProfiles = activity[1];
 
       final onlineRows = (onlineProfiles as List)
           .map((e) => Map<String, dynamic>.from(e))
@@ -1644,14 +1731,19 @@ class _LobbyScreenState extends State<LobbyScreen>
       final isBotById = <String, bool>{};
 
       if (allUserIds.isNotEmpty) {
-        final users = await supabase
+        final usersRead = supabase
             .from('users')
             .select('id,username,avatar_url,is_bot')
             .inFilter('id', allUserIds.toList());
-        final profiles = await supabase
+        final profilesRead = supabase
             .from('profiles')
             .select('id,rating')
             .inFilter('id', allUserIds.toList());
+        final metadata = await Future.wait([usersRead, profilesRead]);
+        final users = metadata[0];
+        final profiles = metadata[1];
+        PlayerMetadataCache.put(supabase.auth.currentUser?.id,
+          (users as List).map((row) => Map<String, dynamic>.from(row)));
         for (final raw in (profiles as List)) {
           final row = Map<String, dynamic>.from(raw);
           final id = row['id']?.toString();
@@ -1716,8 +1808,7 @@ class _LobbyScreenState extends State<LobbyScreen>
         loadingTables = false;
         _tablesInitialized = true;
       });
-
-      await _loadLeagueActivity();
+      unawaited(_loadLeagueActivity());
     } catch (e) {
       debugPrint('TABLE LOAD ERROR: $e');
 
@@ -1909,11 +2000,10 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Future<void> _openGame(String tableId, bool isCreator) async {
-    await precacheImage(
-      const AssetImage('assets/images/lobby/lobby.png'),
-      context,
-    );
-    await precacheImage(const AssetImage('assets/images/table.png'), context);
+    await Future.wait([
+      precacheImage(const AssetImage('assets/images/lobby/lobby.png'), context),
+      precacheImage(const AssetImage('assets/images/table.png'), context),
+    ]);
     if (!mounted) return;
     Navigator.push(
       context,
@@ -2504,85 +2594,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (_) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Stack(
-            children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111A16),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xCCB07A1A),
-                    width: 1.8,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (title != null && title.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                          ),
-                        ),
-                      ),
-                    AspectRatio(
-                      aspectRatio: 1,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: imageUrl.startsWith('http')
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: const Color(0x3324362E),
-                                  alignment: Alignment.center,
-                                  child: const Text(
-                                    'Kampanya g\u00F6rseli y\u00FCklenemedi.',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                ),
-                              )
-                            : Container(
-                                color: const Color(0x3324362E),
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  'Kampanya g\u00F6rseli yok.',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () => Navigator.pop(context),
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(Icons.close_rounded, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => CampaignDialog(imageUrl: imageUrl, title: title),
     );
   }
 
@@ -3253,7 +3265,7 @@ class _LobbyScreenState extends State<LobbyScreen>
                   ),
                 ),
 
-                _bottomDock(),
+                LobbyEntrance(from: const Offset(0, .22), child: _bottomDock()),
               ],
             ),
           ),
@@ -4370,7 +4382,9 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _connectedLeagueAndTables() {
-    return LobbyColumns(
+    return LobbyCardsReveal(
+      ready: _leagueProfileLoaded && leagues.isNotEmpty,
+      child: LobbyColumns(
       leagues:
           Padding(
                 padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
@@ -4437,7 +4451,8 @@ class _LobbyScreenState extends State<LobbyScreen>
           ),
 
       /// ?? MASALAR
-      tables: _buildTablesPanel(),
+      tables: LobbyEntrance(from: const Offset(.07, 0), child: _buildTablesPanel()),
+      ),
     );
   }
 
@@ -4475,7 +4490,8 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget _buildTablesPanel() {
-    if (loadingTables) return _buildTablesPanelContents();
+    if (loadingTables) return QuickPlayPanel(
+      leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay);
     if (tables.isEmpty && !isLeagueLocked) return QuickPlayPanel(
       leagueName: _selectedLeagueName, onPlay: _quickPlayBusy ? null : _quickPlay);
     return Column(children: [
@@ -4521,9 +4537,7 @@ class _LobbyScreenState extends State<LobbyScreen>
     }
 
     if (loadingTables) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFFE7C66A)),
-      );
+      return const Center(child: LobbyLoading());
     }
 
     if (tables.isEmpty) {
@@ -4657,6 +4671,10 @@ class _LobbyScreenState extends State<LobbyScreen>
   }
 
   Widget statChip(IconData icon, int value, bool coin) {
+    if (!_leagueProfileLoaded) {
+      return const SizedBox(width: 86, height: 26,
+          child: LobbyShimmer(child: LobbySkeletonCard()));
+    }
     final t = _coinFxActive ? _coinFxController.value : 0.0;
     final spin = t * 6.28318;
     if (!coin) return LobbyLevelBadge(rating: _ratingDisplayValue);
@@ -4870,7 +4888,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 190),
               child: Text(
-                UserState.userName,
+                _leagueProfileLoaded ? UserState.userName : '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -4903,6 +4921,14 @@ class _LobbyScreenState extends State<LobbyScreen>
     final unreadTotal = _unreadTotal;
     return Row(
       children: [
+        if (_publishedGames.isNotEmpty) ...[
+          LobbyDockAction(
+            label: 'Oyunlarımız',
+            icon: Icons.sports_esports_outlined,
+            onTap: _openPublishedGames,
+          ),
+          const SizedBox(width: 2),
+        ],
         _coinBuyDockButton(),
         const SizedBox(width: 2),
         LobbyDockAction(

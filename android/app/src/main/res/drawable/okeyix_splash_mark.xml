@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android resizes the icon bounds independently of drawable intrinsic size.
+     Percentage insets scale with those bounds; fixed dp child sizes can clip.
+     The 60% x 20% wordmark keeps its 3:1 ratio within the circular safe area. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="20%" android:insetRight="20%"
+    android:insetTop="40%" android:insetBottom="40%">
+    <bitmap android:src="@drawable/okeyix_startup_wordmark"
+        android:gravity="fill" android:filter="true" />
+</inset>

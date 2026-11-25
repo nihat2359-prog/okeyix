@@ -242,7 +242,7 @@ class _DailyBonusDialogState extends State<DailyBonusDialog> {
           ? 'Devam et'
           : _state == _ClaimState.error
           ? 'Tekrar dene'
-          : 'Al',
+          : 'Günlük bonusu al',
       loading: _state == _ClaimState.loading,
       success: success,
       alreadyClaimed: already,
@@ -715,7 +715,18 @@ class _RewardCardState extends State<_RewardCard>
                                         const SizedBox(width: 12),
                                         Expanded(
                                           flex: 73,
-                                          child: widget.sidePanel!,
+                                          child: LayoutBuilder(
+                                            builder: (context, shelfBounds) =>
+                                                SingleChildScrollView(
+                                                  child: SizedBox(
+                                                    height: math.max(
+                                                      shelfBounds.maxHeight,
+                                                      160,
+                                                    ),
+                                                    child: widget.sidePanel!,
+                                                  ),
+                                                ),
+                                          ),
                                         ),
                                       ],
                                     ],
@@ -724,6 +735,14 @@ class _RewardCardState extends State<_RewardCard>
                                 if (widget.footer != null) ...[
                                   const SizedBox(height: 8),
                                   widget.footer!,
+                                ],
+                                if (widget.sidePanel != null) ...[
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    height: 48,
+                                    width: double.infinity,
+                                    child: _action(),
+                                  ),
                                 ],
                               ],
                             ),
@@ -781,8 +800,6 @@ class _RewardCardState extends State<_RewardCard>
                 ),
               ),
             ),
-          const SizedBox(height: 5),
-          _action(),
         ],
       ),
     ),
@@ -894,7 +911,10 @@ class _RewardCardState extends State<_RewardCard>
         shadowColor: Colors.transparent,
         foregroundColor: const Color(0xFF30220E),
         disabledForegroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: widget.sidePanel == null ? 14 : 8,
+        ),
         shape: const BeveledRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
         ),

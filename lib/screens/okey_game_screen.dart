@@ -490,10 +490,12 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
   }
 
   Future<void> _bootstrap() async {
-    await FeedbackSettingsService.load();
-    await _loadTable();
+    await Future.wait([
+      FeedbackSettingsService.load(),
+      _loadTable(),
+      _loadDiscardHistory(),
+    ]);
     await _loadPlayers();
-    await _loadDiscardHistory();
   }
 
   void _subscribeRealtime() {

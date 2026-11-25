@@ -1,4 +1,5 @@
 import 'package:okeyix/ui/incoming_friend_request_dialog.dart';
+import 'player_metadata_cache.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -773,6 +774,7 @@ class ProfileService {
           .limit(1);
 
       await supabase.from('profiles').upsert(payloadprofiles, onConflict: 'id');
+      PlayerMetadataCache.invalidate(targetId);
 
       if ((updated as List).isEmpty) {
         final email = user.email?.trim();

@@ -5,11 +5,14 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as flutter_math show Matrix4;
+import 'package:flutter/services.dart';
 import 'package:okeyix/engine/models/tile.dart';
 import 'package:okeyix/services/user_state.dart';
 import 'package:okeyix/game/theme_flags.dart';
 import '../okey_game.dart';
 import 'rack_config.dart';
+import 'tile_flight.dart';
 import '../components/cached_decoration.dart';
 import 'dart:math' as math;
 import 'dart:async' as async;
@@ -61,7 +64,25 @@ class TileComponent extends PositionComponent
   void renderTree(Canvas canvas) {
     if (hideTileVisual) return;
     if (renderInDragOverlay && !_paintingDragOverlay) return;
+    if (_dragLift == 0 && _dragTilt == 0 && _flightScale == 1 && _flipElapsed == null) {
+      super.renderTree(canvas);
+      return;
+    }
+    // Visual transforms preserve the existing hit areas and drag coordinates.
+    canvas.save();
+    canvas.translate(position.x, position.y);
+    canvas.rotate(_dragTilt);
+    canvas.scale((1 + (_sourceHeld ? .12 : .09) * _dragLift) * _flightScale);
+    final flip = _flipElapsed;
+    if (flip != null) {
+      final t = (flip / .16).clamp(0.0, 1.0);
+      final radians = t < .5 ? math.pi * t : math.pi * (t - 1);
+      final projection = flutter_math.Matrix4.identity()..setEntry(3, 2, .0015)..rotateY(radians);
+      canvas.transform(projection.storage);
+    }
+    canvas.translate(-position.x, -position.y);
     super.renderTree(canvas);
+    canvas.restore();
   }
 
   void paintOnDragOverlay(Canvas canvas) {
@@ -74,6 +95,112 @@ class TileComponent extends PositionComponent
   }
 
   final TileModel tile;
+
+  bool _dragHeld = false;
+  double _dragLift = 0;
+  double _liftStart = 0;
+  double _liftElapsed = 0;
+  double _dragTilt = 0;
+  double _tiltTarget = 0;
+  double _tiltIdle = 0;
+  bool _settlingDrag = false;
+  bool _sourceHeld = false;
+  bool _drawCovered = false;
+  bool _drawConfirmed = false;
+  double? _flipElapsed;
+  double _flightScale = 1;
+  double? _landingElapsed;
+  TileFlight? _flight;
+  void Function()? _onFlightComplete;
+  Vector2 releaseVelocity = Vector2.zero();
+
+  @visibleForTesting
+  bool get isDrawCovered => _drawCovered;
+  @visibleForTesting
+  bool get isRevealingDraw => _flipElapsed != null;
+  @visibleForTesting
+  double get presentationScale =>
+      (1 + (_sourceHeld ? .12 : .09) * _dragLift) * _flightScale;
+
+  void holdSourceDraw() {
+    _sourceHeld = true;
+    _setDragHeld(true);
+  }
+
+  void beginClosedDraw(Vector2 target, {required bool dragged}) {
+    _sourceHeld = false;
+    _setDragHeld(false);
+    _drawCovered = true;
+    if (isLoaded) { removeAll(children); _buildFace(); }
+    if (dragged) {
+      moveOnRack(target, allowLocked: true);
+      _rackMoveDuration = .22;
+      _rackMoveCurve = Curves.easeOutBack;
+    } else {
+      flyTo(target, duration: .28, curve: Curves.easeOutCubic);
+    }
+  }
+
+  void inheritClosedDraw(TileComponent preview) {
+    _drawCovered = true;
+    _drawConfirmed = true;
+    _flight = preview._flight?.copy();
+    _flightScale = preview._flightScale;
+    currentTarget = preview.currentTarget?.clone();
+    _rackMoveStart = preview._rackMoveStart?.clone();
+    _rackMoveElapsed = preview._rackMoveElapsed;
+    _rackMoveDelay = preview._rackMoveDelay;
+    _rackMoveDuration = preview._rackMoveDuration;
+    _rackMoveCurve = preview._rackMoveCurve;
+    _dragLift = preview._dragLift;
+    _liftStart = preview._liftStart;
+    _liftElapsed = preview._liftElapsed;
+    if (isLoaded) { removeAll(children); _buildFace(); }
+  }
+
+  void flyTo(Vector2 target, {required double duration, required Curve curve,
+      Vector2? velocity, void Function()? onComplete}) {
+    stopRackMotion();
+    currentTarget = target.clone();
+    _flight = TileFlight(start: position, end: target, duration: duration,
+        curve: curve, velocity: velocity);
+    _onFlightComplete = onComplete;
+  }
+
+  void landOnDiscard() {
+    angle = 0.0;
+    _landingElapsed = 0;
+    _flightScale = 1.05;
+  }
+
+  void _setDragHeld(bool held) {
+    _dragHeld = held;
+    _liftStart = _dragLift;
+    _liftElapsed = 0;
+    _settlingDrag = !held;
+    _tiltTarget = 0;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (_dragLift > .001) {
+      final shadow = BoxShadow(
+        color: Colors.black.withValues(alpha: .38 * _dragLift),
+        blurRadius: 18,
+        spreadRadius: 2,
+        offset: const Offset(0, 12),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.x, size.y)
+              .shift(shadow.offset).inflate(shadow.spreadRadius),
+          const Radius.circular(7),
+        ),
+        shadow.toPaint(),
+      );
+    }
+    super.render(canvas);
+  }
 
   late SpriteComponent baseSprite;
   late TextComponent numberText;
@@ -88,10 +215,13 @@ class TileComponent extends PositionComponent
   double _rackMoveDelay = 0;
   double _rackMoveDuration = .18;
   Curve _rackMoveCurve = Curves.easeOutCubic;
-  bool get isMovingOnRack => _rackMoveStart != null;
+  bool get isMovingOnRack => _rackMoveStart != null || _flight != null;
 
   void stopRackMotion() {
     _rackMoveStart = null;
+    _flight = null;
+    _onFlightComplete = null;
+    _flightScale = 1;
   }
 
   void moveOnRack(Vector2 target, {bool allowLocked = false}) {
@@ -107,8 +237,8 @@ class TileComponent extends PositionComponent
     _rackMoveStart = position.clone();
     _rackMoveElapsed = 0;
     _rackMoveDelay = 0;
-    _rackMoveDuration = .18;
-    _rackMoveCurve = Curves.easeOutCubic;
+    _rackMoveDuration = _settlingDrag ? .22 : .18;
+    _rackMoveCurve = _settlingDrag ? Curves.easeOutBack : Curves.easeOutCubic;
   }
 
   void dealOnRack(Vector2 target, {required double startDelay}) {
@@ -121,6 +251,50 @@ class TileComponent extends PositionComponent
   @override
   void update(double dt) {
     super.update(dt);
+    final previousLanding = _landingElapsed;
+    final flight = _flight;
+    if (flight != null) {
+      flight.elapsed += dt;
+      position.setFrom(flight.position);
+      _flightScale = 1 + .12 * math.sin(math.pi * flight.progress);
+      if (flight.completed) {
+        position.setFrom(flight.end);
+        final completed = _onFlightComplete;
+        stopRackMotion();
+        completed?.call();
+      }
+    }
+    final landing = _landingElapsed;
+    if (landing != null && previousLanding != null) {
+      _landingElapsed = landing + dt;
+      final t = (_landingElapsed! / .14).clamp(0.0, 1.0);
+      _flightScale = 1 + .05 * (1 - Curves.easeOutCubic.transform(t));
+      if (t >= 1) _landingElapsed = null;
+    }
+    // Only a committed real tile can reveal, and only after its arrival.
+    final wasFlipping = _flipElapsed != null;
+    if (_drawConfirmed && _drawCovered && !isMovingOnRack && !wasFlipping) {
+      _flipElapsed = 0;
+    }
+    final flip = _flipElapsed;
+    if (flip != null && wasFlipping) {
+      _flipElapsed = flip + dt;
+      if (_drawCovered && _flipElapsed! >= .08) {
+        _drawCovered = false;
+        removeAll(children);
+        _buildFace();
+      }
+      if (_flipElapsed! >= .16) _flipElapsed = null;
+    }
+    _liftElapsed += dt;
+    final liftProgress = (_liftElapsed / (_dragHeld ? .12 : .22)).clamp(0.0, 1.0);
+    _dragLift = _liftStart + ((_dragHeld ? 1.0 : 0.0) - _liftStart) *
+        Curves.easeOutCubic.transform(liftProgress);
+    _tiltIdle += dt;
+    if (_tiltIdle > .045) _tiltTarget = 0;
+    _dragTilt += (_tiltTarget - _dragTilt) * (1 - math.exp(-dt * 24));
+    if (_tiltTarget == 0 && _dragTilt.abs() < .0001) _dragTilt = 0;
+    if (!_dragHeld && liftProgress >= 1) _settlingDrag = false;
     final start = _rackMoveStart;
     final target = currentTarget;
     if (start == null || target == null) return;
@@ -210,7 +384,7 @@ class TileComponent extends PositionComponent
     backSprite.paint.colorFilter = TileThemeService.palette.filter;
     // Update only presentation paints. Keep children, cached ui.Pictures,
     // movement/scale effects, joker state and geometry intact.
-    if (!_awaitingDrawConfirmation && !isFakeJoker && !(isJoker && isFaceDown)) {
+    if (!_drawCovered && !_awaitingDrawConfirmation && !isFakeJoker && !(isJoker && isFaceDown)) {
       final ink = _getInkColor();
       final renderer = numberText.textRenderer as TextPaint;
       numberText.textRenderer = TextPaint(style: renderer.style.copyWith(color: ink,
@@ -239,6 +413,11 @@ class TileComponent extends PositionComponent
   void _buildFace() {
     _numberGlow = null;
     _gemBadge = null;
+    if (_drawCovered) {
+      add(backSprite);
+      add(backFrameFx);
+      return;
+    }
     if (_awaitingDrawConfirmation) {
       add(baseSprite);
       add(_DrawConfirmationProgress(
@@ -551,6 +730,9 @@ class TileComponent extends PositionComponent
     if (gameRef == null) return;
 
     stopRackMotion();
+    _setDragHeld(true);
+    releaseVelocity.setZero();
+    HapticFeedback.selectionClick();
     if (gameRef.isGroupDragAnchor(this)) {
       priority = 100;
       gameRef.startActiveGroupDrag(this);
@@ -579,6 +761,8 @@ class TileComponent extends PositionComponent
     final gameRef = _tryGame();
     if (gameRef == null) return;
     final zoom = gameRef.cameraComponent.viewfinder.zoom;
+    _tiltTarget = (event.localDelta.x / zoom * .006).clamp(-.08, .08);
+    _tiltIdle = 0;
 
     if (gameRef.isGroupDragAnchor(this)) {
       gameRef.updateActiveGroupDrag(this, event.localDelta / zoom);
@@ -586,6 +770,8 @@ class TileComponent extends PositionComponent
     }
 
     position += event.localDelta / zoom;
+    gameRef.bottomRightDiscard.dragHovered =
+        gameRef.isPointNearBottomDiscard(absolutePosition);
     gameRef.notifyDraggedTileMoved();
     gameRef.updatePreview(position);
     _tryActivateGroupByLiftHold(gameRef);
@@ -594,12 +780,17 @@ class TileComponent extends PositionComponent
   @override
   Future<void> onDragEnd(DragEndEvent event) async {
     super.onDragEnd(event);
+    _setDragHeld(false);
+    final owner = _tryGame();
+    if (owner != null) owner.bottomRightDiscard.dragHovered = false;
     _liftHoldTimer?.cancel();
     _liftHoldTimer = null;
     _liftHoldAnchor = null;
     try {
       final gameRef = _tryGame();
       if (gameRef == null) return;
+
+      releaseVelocity = event.velocity / gameRef.cameraComponent.viewfinder.zoom;
 
       if (gameRef.isGroupDragAnchor(this)) {
         gameRef.endActiveGroupDrag(this);
@@ -705,7 +896,7 @@ class TileComponent extends PositionComponent
 
   @override
   bool containsLocalPoint(Vector2 point) {
-    if (isLocked) return false;
+    if (isLocked || _drawCovered || _flipElapsed != null) return false;
     return super.containsLocalPoint(point);
   }
 

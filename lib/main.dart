@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:okeyix/services/lobby_data_cache.dart';
+import 'package:okeyix/ui/startup_screen.dart';
 import 'package:okeyix/overlay/app_overlay.dart';
 import 'package:okeyix/services/tile_theme_service.dart';
 
@@ -7,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:okeyix/firebase_options.dart';
 import 'package:okeyix/screens/login_screen.dart';
-import 'package:okeyix/screens/lobby_screen.dart';
+import 'package:okeyix/screens/lobby_entry.dart';
 import 'package:okeyix/screens/okey_game_screen.dart';
 import 'package:okeyix/services/device_registration_service.dart';
 import 'package:okeyix/services/gift_listener.dart';
@@ -26,7 +28,31 @@ const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+  runApp(StartupHost(initialize: _initializeApp, ready: (_) => const MyApp()));
+}
+
+Future<void> _initializeApp(
+  BuildContext context,
+  StartupProgress report,
+) async {
+  report(.05, 'Oyun masası hazırlanıyor…');
+  await Future.wait([
+    precacheImage(const AssetImage('assets/images/login_lounge.png'), context),
+    precacheImage(
+      const AssetImage('assets/images/logo/okeyix_logo.png'),
+      context,
+    ),
+  ]);
+  report(.25, 'Taşlar masaya diziliyor…');
   await TileThemeService.load();
+  report(.4, 'Oyun servisleri hazırlanıyor…');
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -36,21 +62,18 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('STARTUP FIREBASE INIT ERROR: $e');
   }
-  if (!kIsWeb) {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
+  report(.7, 'Oturum kontrol ediliyor…');
   await Supabase.initialize(
     url: _supabaseUrl.isEmpty ? _defaultSupabaseUrl : _supabaseUrl,
     anonKey: _supabaseAnonKey.isEmpty
         ? _defaultSupabaseAnonKey
         : _supabaseAnonKey,
   );
+  await LobbyDataCache.initialize();
 
-  runApp(const MyApp());
+  report(1, 'Masan hazır!');
+  // Allow the completed bar to paint before mounting authenticated services.
+  await Future<void>.delayed(const Duration(milliseconds: 350));
 }
 
 final supabase = Supabase.instance.client;
@@ -113,15 +136,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (supabase.auth.currentSession != null) {
       PresenceService.instance.startForCurrentUser();
       unawaited(
-        DeviceRegistrationService.registerCurrentDevice().then((_) {
-        }).catchError((e) {
-          final msg = e.toString();
-          if (msg.contains('apns-token-not-set')) {
-            _scheduleRegisterRetry();
-          } else {
-            debugPrint('REGISTER_DEVICE STARTUP ERROR: $e');
-          }
-        }),
+        DeviceRegistrationService.registerCurrentDevice()
+            .then((_) {})
+            .catchError((e) {
+              final msg = e.toString();
+              if (msg.contains('apns-token-not-set')) {
+                _scheduleRegisterRetry();
+              } else {
+                debugPrint('REGISTER_DEVICE STARTUP ERROR: $e');
+              }
+            }),
       );
     }
   }
@@ -321,10 +345,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       builder: (context, child) {
         return AppOverlay(
           overlayKey: overlayKey,
-          child: UpdateCheckHost(
-            navigatorKey: navigatorKey,
-            child: child!,
-          ),
+          child: UpdateCheckHost(navigatorKey: navigatorKey, child: child!),
         );
       },
 
@@ -528,6 +549,6 @@ class _AppRootState extends State<AppRoot> {
 
   @override
   Widget build(BuildContext context) {
-    return const LobbyScreen(); // senin ana ekranın
+    return const LobbyEntry(); // senin ana ekranın
   }
 }

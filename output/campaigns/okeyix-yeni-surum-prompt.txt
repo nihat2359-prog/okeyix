@@ -1,0 +1,10 @@
+Tool: built-in image_gen
+Format: square, opaque PNG; campaign image for current square popup.
+References: assets/images/lobby/lobby.png, assets/images/logo/okeyix_logo_new.png, assets/images/coins/coins_huge.png
+
+Create a polished square 1024x1024 Turkish mobile Okey game update announcement image for Okeyix, ready to upload as a campaign image. Use the three local reference images as visual references: Istanbul night lobby atmosphere, authentic OKEYIX gold-on-dark wooden plaque logo with ivory 1 and 3 tiles, and the glowing wooden gold reward chest. Preserve the brand logo appearance faithfully. This is a finished raster announcement, not a UI screenshot. Rich midnight navy and deep emerald felt, warm gold illumination, premium friendly game art, layered depth, restrained sparkles, subtle Istanbul Bosphorus night skyline in background. Composition optimized to remain legible at small display sizes: logo centered near top, large central typography, lower-right reward chest and ivory Okey tiles on a dark green game table, supporting instruction along bottom. Strong contrast and generous safe margins at least 8 percent. Keep the chest secondary to clear copy. No tiny text, no invented features or reward amounts, no app store badges, no fake clickable button, no close icon, no outer device frame. Render ONLY this exact Turkish text with accurate Turkish characters:
+Top logo: "OKEYIX"
+Large headline beneath logo: "YENİ SÜRÜM YAYINDA!"
+Main message in two very large clearly separated lines: "Daha hızlı oyun" and "Daha çok ödül"
+Bottom instruction in bold highly readable cream text over a quiet dark area, split across two lines if necessary: "App Store veya Google Play’den" and "oyunu güncelle, masaya katıl!"
+Typography premium bold readable sans serif, headline gold, benefits ivory and gold. Avoid paragraph text and overcrowding. Full bleed square art, opaque background.
