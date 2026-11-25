@@ -403,7 +403,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               snapshot.data?.session ?? supabase.auth.currentSession;
 
           if (session == null) {
-            return const LoginScreen();
+            // The auth stream owns this home swap; LoginScreen must not also
+            // push a second LobbyEntry for the same successful sign-in.
+            return const LoginScreen(authManagedExternally: true);
           }
 
           final user = session.user;

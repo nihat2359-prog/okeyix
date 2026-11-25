@@ -1,0 +1,384 @@
+{
+  "brand": "OKEYIX",
+  "languages": [
+    "tr",
+    "en"
+  ],
+  "orientation": "landscape",
+  "screenshotsPerDevice": 6,
+  "source": "Real Flutter widget fixtures; English marketing copy with Turkish in-app UI",
+  "files": [
+    {
+      "path": "app_store/tr/iphone/01-take-your-seat.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "da1b0c30bb53b17d16ffca06cf1475afa5f53fcdf96054b35187d99266fcf291"
+    },
+    {
+      "path": "app_store/tr/ipad/01-take-your-seat.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "83dace6ef67c8eb2317d761c433cf40746561fe8416586a249e7d83c39bc3ca3"
+    },
+    {
+      "path": "google_play/tr/phone/01-take-your-seat.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "94474cb20ce7bd0d6d4ddafb2058e0578a6d58904496b823a09ad77ded5daef9"
+    },
+    {
+      "path": "google_play/tr/tablet-7/01-take-your-seat.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "64b2b7efad3af88b6f77802a217f80bc42bf6cbd3efbf0cee7eef72247e6246e"
+    },
+    {
+      "path": "google_play/tr/tablet-10/01-take-your-seat.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "6cbb0ff736ea754de92fb315a311679cc71b6d0bf5b9925ea570b4b634e7eeed"
+    },
+    {
+      "path": "google_play/tr/feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "sha256": "ee6e42f4f080ba4ae33a313ea060335a3948f112a9f9d2cc1e5e9dff2249caf4"
+    },
+    {
+      "path": "app_store/tr/iphone/02-rise-through-leagues.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "ae5848f9137312f13115eb0de32daccdd2c15024f0b0fd197617fda5847af33c"
+    },
+    {
+      "path": "app_store/tr/ipad/02-rise-through-leagues.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "7683c16bf63df8b0d911173c53689d00ce7f29c9e04ba69afbbc9e1b0f2b2d6f"
+    },
+    {
+      "path": "google_play/tr/phone/02-rise-through-leagues.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "37ecd910c5177c806ea95afad0c4610d5e03e2fa1fbd2b414b443f5b44dbd8d2"
+    },
+    {
+      "path": "google_play/tr/tablet-7/02-rise-through-leagues.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "70a4df1af39487e466661b49999e23575012f0a6e61fe9f662c90d9a8839cd31"
+    },
+    {
+      "path": "google_play/tr/tablet-10/02-rise-through-leagues.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "db5967f9e21ac70ae3a4b6f6a87b34b82e809ed2e3b6c192fa1ae6c7ad24f715"
+    },
+    {
+      "path": "app_store/tr/iphone/03-your-table-your-rules.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "b707e95d4fa69c40f5685b8e5f8a03cbf95bc3ff648c7857bb597c5c7964130d"
+    },
+    {
+      "path": "app_store/tr/ipad/03-your-table-your-rules.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "c41c8df9225c9c0243747e4cc070baea2983f3953061d2ad38a5a366bb2c38f9"
+    },
+    {
+      "path": "google_play/tr/phone/03-your-table-your-rules.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "98891fb7e389ada0f69426addb70d12969be2bff31e08eb4964b7628f20d6dcc"
+    },
+    {
+      "path": "google_play/tr/tablet-7/03-your-table-your-rules.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "e87c3508e536af305bf3a6d23e8dcd93b9bde74d496264ee132c4984ea79f59d"
+    },
+    {
+      "path": "google_play/tr/tablet-10/03-your-table-your-rules.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "6e12483839a85df8d5ec17044ce62d5a1b69698bc5c0367be86c061a01dfce9b"
+    },
+    {
+      "path": "app_store/tr/iphone/04-friends-at-the-table.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "895d218bc4de54817fabdb2de896a5b18a72e2956095147ff4f1452a7ece12a6"
+    },
+    {
+      "path": "app_store/tr/ipad/04-friends-at-the-table.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "81e9685828ae934b4011e32f44eaf21263ef848eab78263528ee5449818fa2ce"
+    },
+    {
+      "path": "google_play/tr/phone/04-friends-at-the-table.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "04d12e0c1d0d581bac793f12fae24121ee80ea2e3991a635e76d7bb55f6d4086"
+    },
+    {
+      "path": "google_play/tr/tablet-7/04-friends-at-the-table.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "b6b265a7cf91bd6521d8b6b8ef7d15132eb78e2520249162187c78ce8ca03458"
+    },
+    {
+      "path": "google_play/tr/tablet-10/04-friends-at-the-table.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "fa02de5d165c0ea933975f61a10e22b40edd6e6640f4536492a4001c0cfafdc7"
+    },
+    {
+      "path": "app_store/tr/iphone/05-daily-rewards.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "98c5631031b1af557cb4d2139f36677a5a00bac017f318ccc9f663aa1b1118f4"
+    },
+    {
+      "path": "app_store/tr/ipad/05-daily-rewards.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "88a00b396604e2ae1d6e158634b7bea7f1fc62f7b4e069687628d166dad39c54"
+    },
+    {
+      "path": "google_play/tr/phone/05-daily-rewards.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "06a4ef4253ce1eed9b3f3f5874c32e980f682e610065c15a765a9547c5c0651b"
+    },
+    {
+      "path": "google_play/tr/tablet-7/05-daily-rewards.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "d238b5befa352e4baa81ce3d27e9e64c405b32885b4a36d11b0ffe489fc01f6e"
+    },
+    {
+      "path": "google_play/tr/tablet-10/05-daily-rewards.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "60b26ef670586ad4b7cc7a96a1fbf598a50ab078cc8fad6472341a360befcf3a"
+    },
+    {
+      "path": "app_store/en/iphone/01-take-your-seat.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "d4f0795e286035e4f7a6d0e19753517b6892fe20190e19ba0f7a03c5993806ba"
+    },
+    {
+      "path": "app_store/en/ipad/01-take-your-seat.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "005e3dd1fb99ca4be6de707955e22bf440e11b8d0de74b97ed99d4c485de6e30"
+    },
+    {
+      "path": "google_play/en/phone/01-take-your-seat.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "3f439daf6c9d0b8e6c20807f8dc29b3bb34fe1e70793897723dcf0ce3c2a38b6"
+    },
+    {
+      "path": "google_play/en/tablet-7/01-take-your-seat.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "db96b9566075a6fff7f05e069f2425b1dc98335e60db65a6db0b6378c2c008e5"
+    },
+    {
+      "path": "google_play/en/tablet-10/01-take-your-seat.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "0c51cea5fc0f04201b513e52133fb1fa43fd6c1fbf016763ae3bccb6dcc3bda1"
+    },
+    {
+      "path": "google_play/en/feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "sha256": "c80c1b921d1afa7cffb8ef4fd94e36a295d04670505d9ad0c43f8c38c8adcd57"
+    },
+    {
+      "path": "app_store/en/iphone/02-rise-through-leagues.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "e7387bf40b9a775d7eaa41311ad059922dd595cb238b7d91fc00f906674b03d3"
+    },
+    {
+      "path": "app_store/en/ipad/02-rise-through-leagues.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "2b879a7350770cfe75359cde2911fc438416a2fdcf4daee54b2d7780d3607200"
+    },
+    {
+      "path": "google_play/en/phone/02-rise-through-leagues.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "248ee52f54c614e1687a6d6b279eb14fb95fae4ace13e12a6d83bc16c01ec832"
+    },
+    {
+      "path": "google_play/en/tablet-7/02-rise-through-leagues.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "dd016079596fedd4703d551a9eb0ed3545a35fa71e4b2957c7bc3747ac134c94"
+    },
+    {
+      "path": "google_play/en/tablet-10/02-rise-through-leagues.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "03a077085995aebb2fcc5ea929823421598f4436f2cbd00414f4de3608b650e5"
+    },
+    {
+      "path": "app_store/en/iphone/03-your-table-your-rules.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "5be157f3f61839369b0cb8f5cdf1840dd411f806bdd4d0c9a36f3eed8f279c52"
+    },
+    {
+      "path": "app_store/en/ipad/03-your-table-your-rules.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "0c450f4a16c12c23de05e4116b3c63d81029a6915d0d235864157e435e5035a1"
+    },
+    {
+      "path": "google_play/en/phone/03-your-table-your-rules.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "387c9e4175ef9b85da603ab2133aa033de5b7308ba61e0d0ed9ae8f96dca1c85"
+    },
+    {
+      "path": "google_play/en/tablet-7/03-your-table-your-rules.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "74c09e85cc8b4dae4f96bb1eb520f20b24aec58af2e88e9672fe2c32b4cab82a"
+    },
+    {
+      "path": "google_play/en/tablet-10/03-your-table-your-rules.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "97ba0bfd3aff26c528a2542ce72688b1667b60dc613a4a30ca128569f6f67127"
+    },
+    {
+      "path": "app_store/en/iphone/04-friends-at-the-table.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "9bcac343c702dc40511fb502bd2906371adf915536d2de5f88700bc291601a4c"
+    },
+    {
+      "path": "app_store/en/ipad/04-friends-at-the-table.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "fc6529b12fadf585f3cd05713a11e09c41721a728bbdb60eb5c9198923401d7d"
+    },
+    {
+      "path": "google_play/en/phone/04-friends-at-the-table.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "f2d3d8f9579552e902ed9ca20ff0759ee3eb322928238fc2950df96c486ac9aa"
+    },
+    {
+      "path": "google_play/en/tablet-7/04-friends-at-the-table.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "0012fa72d0a6e79cb0ececb763dc8950e19e8f1f9125f77da6578935c53606b6"
+    },
+    {
+      "path": "google_play/en/tablet-10/04-friends-at-the-table.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "03f98b2ca8209562ccc306e15b7a93b4851de941fe21f8b542d925712ae881d1"
+    },
+    {
+      "path": "app_store/en/iphone/05-daily-rewards.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "51dc10d5b1b8701fcff429b32ed55a27b8f3e202c1327a8befc3fd1e59b41919"
+    },
+    {
+      "path": "app_store/en/ipad/05-daily-rewards.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "43ab5e94cefbad631a60e562b4327748abad761e24daf4ba1f076122ed1b93c0"
+    },
+    {
+      "path": "google_play/en/phone/05-daily-rewards.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "9e1b9c4aa9952033b20becc0cdb3e620140a46b7e0887353d07281aa1d79755b"
+    },
+    {
+      "path": "google_play/en/tablet-7/05-daily-rewards.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "de73ee0a8ca144b9431add1cd9b0146527d8ff770869d38fcee312578118dba4"
+    },
+    {
+      "path": "google_play/en/tablet-10/05-daily-rewards.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "c81bf5987fba0d8c96f2b7323598d43abcc0b0ed73ee78bf2f6c4a43d91caa88"
+    },
+    {
+      "path": "app_store/tr/iphone/06-play-in-your-style.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "758a5b23aa1684ecf4648e4edf58efa8a4c16607e3ba9a7454b98ce8c4c93703"
+    },
+    {
+      "path": "app_store/tr/ipad/06-play-in-your-style.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "27c2a1b75738186e481b9f5c3cb3d11c4338848c3f9c942c4b3d7e3aac8588e2"
+    },
+    {
+      "path": "google_play/tr/phone/06-play-in-your-style.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "9598e77955c5453f182b8c44351942e1274fd49aced3e9167dd3fb6a00cf7397"
+    },
+    {
+      "path": "google_play/tr/tablet-7/06-play-in-your-style.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "236dd6c1c6bfc4a59a5122eb54afced9159ec99c94e2404bb32daf34703308f8"
+    },
+    {
+      "path": "google_play/tr/tablet-10/06-play-in-your-style.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "d9798acb4f7f4e9b774ed49a0e3ffca232d1801d974056f7af93d9292b0f79a3"
+    },
+    {
+      "path": "app_store/en/iphone/06-play-in-your-style.png",
+      "width": 2622,
+      "height": 1206,
+      "sha256": "0895e877c4a221fa91ec0dbba4fb045428c171a9a9c9a9f082fe55ab37615be1"
+    },
+    {
+      "path": "app_store/en/ipad/06-play-in-your-style.png",
+      "width": 2752,
+      "height": 2064,
+      "sha256": "af55818bfa627b15e03993dc3901dee588fbac54d70a4a3d5d294466c316ce83"
+    },
+    {
+      "path": "google_play/en/phone/06-play-in-your-style.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b8156b5dce61228f8ea3bbc068e2e8089a961a56b2f70d253476fa341fbe54f4"
+    },
+    {
+      "path": "google_play/en/tablet-7/06-play-in-your-style.png",
+      "width": 1920,
+      "height": 1200,
+      "sha256": "9e11c6e04cd2eb8f1bcb7c5b464fc574cc0dedc4fa569b524f4ba4686c55cb0a"
+    },
+    {
+      "path": "google_play/en/tablet-10/06-play-in-your-style.png",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "4183cb967933061df9a43704e632c72e9b8a4d2da6676aa410a8494be8c73bf9"
+    }
+  ]
+}

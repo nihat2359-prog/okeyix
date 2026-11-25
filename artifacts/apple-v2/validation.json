@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "exportCount": 19,
+  "checks": [
+    "exact Apple pixel dimensions",
+    "PNG decoded",
+    "opaque RGB without alpha channel",
+    "complete source posters retained",
+    "uniform screenshot scaling",
+    "SHA256 recorded"
+  ],
+  "errors": []
+}

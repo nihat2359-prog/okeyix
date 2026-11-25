@@ -1,0 +1,210 @@
+﻿[
+    {
+        "path":  "screenshots/iphone-6.9/01_Oyun_Masasi.png",
+        "width":  1320,
+        "height":  2868,
+        "source":  "01_Oyun_Masasi.png",
+        "sourceBounds":  [
+                             0,
+                             260,
+                             1320,
+                             2347
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.5/01_Oyun_Masasi.png",
+        "width":  1284,
+        "height":  2778,
+        "source":  "01_Oyun_Masasi.png",
+        "sourceBounds":  [
+                             0,
+                             247,
+                             1284,
+                             2283
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.3/01_Oyun_Masasi.png",
+        "width":  1206,
+        "height":  2622,
+        "source":  "01_Oyun_Masasi.png",
+        "sourceBounds":  [
+                             0,
+                             239,
+                             1206,
+                             2144
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/ipad-13/01_Oyun_Masasi.png",
+        "width":  2064,
+        "height":  2752,
+        "source":  "01_Oyun_Masasi.png",
+        "sourceBounds":  [
+                             258,
+                             0,
+                             1548,
+                             2752
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.9/02_Ligler.png",
+        "width":  1320,
+        "height":  2868,
+        "source":  "02_Ligler.png",
+        "sourceBounds":  [
+                             0,
+                             260,
+                             1320,
+                             2347
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.5/02_Ligler.png",
+        "width":  1284,
+        "height":  2778,
+        "source":  "02_Ligler.png",
+        "sourceBounds":  [
+                             0,
+                             247,
+                             1284,
+                             2283
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.3/02_Ligler.png",
+        "width":  1206,
+        "height":  2622,
+        "source":  "02_Ligler.png",
+        "sourceBounds":  [
+                             0,
+                             239,
+                             1206,
+                             2144
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/ipad-13/02_Ligler.png",
+        "width":  2064,
+        "height":  2752,
+        "source":  "02_Ligler.png",
+        "sourceBounds":  [
+                             258,
+                             0,
+                             1548,
+                             2752
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.9/03_Karsilastirma.png",
+        "width":  1320,
+        "height":  2868,
+        "source":  "03_Karsilastirma.png",
+        "sourceBounds":  [
+                             0,
+                             260,
+                             1320,
+                             2347
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.5/03_Karsilastirma.png",
+        "width":  1284,
+        "height":  2778,
+        "source":  "03_Karsilastirma.png",
+        "sourceBounds":  [
+                             0,
+                             247,
+                             1284,
+                             2283
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.3/03_Karsilastirma.png",
+        "width":  1206,
+        "height":  2622,
+        "source":  "03_Karsilastirma.png",
+        "sourceBounds":  [
+                             0,
+                             239,
+                             1206,
+                             2144
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/ipad-13/03_Karsilastirma.png",
+        "width":  2064,
+        "height":  2752,
+        "source":  "03_Karsilastirma.png",
+        "sourceBounds":  [
+                             258,
+                             0,
+                             1548,
+                             2752
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.9/04_Gunluk_Hediyeler.png",
+        "width":  1320,
+        "height":  2868,
+        "source":  "04_Gunluk_Hediyeler.png",
+        "sourceBounds":  [
+                             0,
+                             260,
+                             1320,
+                             2347
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.5/04_Gunluk_Hediyeler.png",
+        "width":  1284,
+        "height":  2778,
+        "source":  "04_Gunluk_Hediyeler.png",
+        "sourceBounds":  [
+                             0,
+                             247,
+                             1284,
+                             2283
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/iphone-6.3/04_Gunluk_Hediyeler.png",
+        "width":  1206,
+        "height":  2622,
+        "source":  "04_Gunluk_Hediyeler.png",
+        "sourceBounds":  [
+                             0,
+                             239,
+                             1206,
+                             2144
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    },
+    {
+        "path":  "screenshots/ipad-13/04_Gunluk_Hediyeler.png",
+        "width":  2064,
+        "height":  2752,
+        "source":  "04_Gunluk_Hediyeler.png",
+        "sourceBounds":  [
+                             258,
+                             0,
+                             1548,
+                             2752
+                         ],
+        "method":  "uniform contain; complete original poster retained; emerald canvas extension"
+    }
+]

@@ -1,0 +1,32 @@
+OKEYIX — APPLE / ONAYLI ANDROID TASARIMLARINDAN UYARLAMA
+
+Dört orijinal tasarım kullanıldı: 01 Oyun Masası, 02 Ligler, 03 Karşılaştırma, 04 Günlük Hediyeler.
+Görseller ve sloganlar yeniden üretilmedi. Oyun panelleri değiştirilmedi. Tam poster oranı korunarak ölçeklendi; farklı Apple oranları için yalnızca çevredeki zümrüt fon genişletildi. iPhone'da üst/alt, iPad'de yan alanlar bulunur.
+
+YÜKLENECEK EKRAN GÖRSELLERİ (her klasörde 4):
+screenshots/iphone-6.9 — 1320x2868
+screenshots/iphone-6.5 — 1284x2778
+screenshots/iphone-6.3 — 1206x2622
+screenshots/ipad-13 — 2064x2752
+Bunlar tanıtım posterlerinin portrait sürümleridir; poster içindeki oyun ekranları yataydır.
+
+CREATIVE ALANLARI:
+creative/header-3840x1646.png — Product page header (21:9)
+creative/search-3840x2560.png — Search results (3:2), önerilen yüksek çözünürlük
+creative/search-1920x1280.png — Aynı search görselinin minimum boyut sürümü
+Header ve search ayrı Asset Library alanları içindir, screenshot kutularına yüklenmez.
+Header merkezindeki logo ve taşlar Apple güvenli alanına göre düzenlendi. Search içinde logo ve orijinal 01_Oyun_Masasi PNG'sinden alınan oyun paneli güvenli alanda bulunur. Search panelleri AI ile çizilmedi. Header ve search arka planı built-in Imagegen ile üretildi. Tam promptlar PROMPTS.txt dosyasındadır.
+
+review/ altındaki çizgili dosyalar yalnızca güvenli alan kontrolü içindir; mağazaya yüklenmez.
+Ölçü, RGB ve dosya bütünlüğü kontrolü: validation.json / manifest.json.
+Mevcut Android kaynakları sources/, yeni illüstrasyon kaynakları artwork-sources/ içindedir.
+Yayın veya mağaza yüklemesi yapılmadı.
+
+Resmi ölçüler:
+https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications
+https://developer.apple.com/help/app-store-connect/reference/app-information/creative-assets-specifications
+
+Yeniden üretme:
+powershell -ExecutionPolicy Bypass -File tool/apple_reference_exports.ps1
+powershell -ExecutionPolicy Bypass -File tool/apple_creative_exports.ps1
+node tool/apple_reference_package.cjs

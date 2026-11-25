@@ -17,7 +17,14 @@ import 'package:url_launcher/url_launcher.dart';
 class LoginScreen extends StatefulWidget {
   final String? error;
   final bool preparingLobby;
-  const LoginScreen({super.key, this.error, this.preparingLobby = false});
+  // The root auth stream handles navigation for the application's home login.
+  final bool authManagedExternally;
+  const LoginScreen({
+    super.key,
+    this.error,
+    this.preparingLobby = false,
+    this.authManagedExternally = false,
+  });
 
   String _oauthRedirectTo() {
     if (!kIsWeb) return 'okeyix://login-callback';
@@ -41,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
 
   void _openLobby() {
-    if (!mounted || _openingLobby) return;
+    if (!mounted || _openingLobby || widget.authManagedExternally) return;
     _openingLobby = true;
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder<void>(transitionDuration: Duration.zero,
@@ -54,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!widget.preparingLobby) _checkAgeGate();
     });
-    if (!widget.preparingLobby) {
+    if (!widget.preparingLobby && !widget.authManagedExternally) {
       _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
         final session = data.session;
 
@@ -282,6 +289,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) => AbsorbPointer(
     absorbing: widget.preparingLobby,
     child: LoginStartScene(
+      animateIntro: !widget.preparingLobby,
       onApple: _loginWithApple,
       onGoogle: _loginWithGoogle,
       onGuest: _playAsGuest,

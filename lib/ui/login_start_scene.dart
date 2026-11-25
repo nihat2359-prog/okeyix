@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class LoginStartScene extends StatefulWidget {
   final Future<void> Function() onApple, onGoogle, onGuest;
   final bool loadingGuest;
+  final bool animateIntro;
   final String? error;
   final Widget legal;
   const LoginStartScene({
@@ -14,6 +15,7 @@ class LoginStartScene extends StatefulWidget {
     required this.onGuest,
     required this.legal,
     this.loadingGuest = false,
+    this.animateIntro = true,
     this.error,
   });
 
@@ -36,7 +38,7 @@ class _LoginStartSceneState extends State<LoginStartScene>
     super.didChangeDependencies();
     if (!_started) {
       _started = true;
-      if (MediaQuery.disableAnimationsOf(context)) {
+      if (!widget.animateIntro || MediaQuery.disableAnimationsOf(context)) {
         _intro.value = 1;
       } else {
         _intro.forward();

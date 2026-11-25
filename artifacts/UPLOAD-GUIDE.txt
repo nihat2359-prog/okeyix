@@ -1,0 +1,28 @@
+OKEYIX STORE ASSETS — 2026-11-25
+
+All screenshots are LANDSCAPE RGB PNG (no transparency).
+TR and EN: six promotional screenshots per device.
+app_store/tr|en/iphone: 2622x1206
+app_store/tr|en/ipad: 2752x2064
+google_play/tr|en/phone: 1920x1080
+google_play/tr|en/tablet-7: 1920x1200
+google_play/tr|en/tablet-10: 2560x1600
+google_play/tr|en/feature-graphic-1024x500.png
+
+English artwork has English headlines and Turkish in-app UI. The app is not represented as fully English-localized.
+Sources are offline Flutter widget fixtures with sample player names, balances and table data. No real accounts or chats used. Lobby capture is a component fixture, not a complete production-session capture. League detail uses a crop preserving the 2-2-1 arrangement. Existing game trophies and coins are promotional foreground objects.
+
+Capture: flutter test tool/store_capture_test.dart --no-pub
+Export: node tool/store_assets.cjs
+Requires headless Chrome at CDP port 56681.
+Copy: copy.json; dimensions and SHA256: manifest.json; validation: validation.json.
+No store upload performed.
+
+Verified sizing references:
+https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications
+https://support.google.com/googleplay/android-developer/answer/9866151
+
+The opening table detail is a promotional fixture rendered with the real Stage, TileComponent, RackSlotGenerator and table artwork. It is not a live multiplayer session screenshot.
+
+Finalize RGB conversion, validation and contact sheets: node tool/store_package.cjs
+Create ZIPs: powershell -ExecutionPolicy Bypass -File tool/store_zip.ps1

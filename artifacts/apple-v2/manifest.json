@@ -1,0 +1,326 @@
+{
+  "brand": "OKEYIX",
+  "locale": "tr",
+  "approvedAndroidDesigns": 4,
+  "screenshotExports": 16,
+  "creativeExports": 3,
+  "files": [
+    {
+      "path": "screenshots/iphone-6.9/01_Oyun_Masasi.png",
+      "width": 1320,
+      "height": 2868,
+      "source": "01_Oyun_Masasi.png",
+      "sourceBounds": [
+        0,
+        260,
+        1320,
+        2347
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 5201391,
+      "sha256": "68d98cf0de9c794d1fe868014e70874ce27e69c3ff259301338e4f291e1313f6"
+    },
+    {
+      "path": "screenshots/iphone-6.5/01_Oyun_Masasi.png",
+      "width": 1284,
+      "height": 2778,
+      "source": "01_Oyun_Masasi.png",
+      "sourceBounds": [
+        0,
+        247,
+        1284,
+        2283
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4964911,
+      "sha256": "b9dd784c6827a13443fa1e3f22aeef03f554f156f59365e639ecc5cdb4248eb5"
+    },
+    {
+      "path": "screenshots/iphone-6.3/01_Oyun_Masasi.png",
+      "width": 1206,
+      "height": 2622,
+      "source": "01_Oyun_Masasi.png",
+      "sourceBounds": [
+        0,
+        239,
+        1206,
+        2144
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4494563,
+      "sha256": "5c29551a9779c6052276752cf70007ba514fddf3422edd50333da75263ed6cb2"
+    },
+    {
+      "path": "screenshots/ipad-13/01_Oyun_Masasi.png",
+      "width": 2064,
+      "height": 2752,
+      "source": "01_Oyun_Masasi.png",
+      "sourceBounds": [
+        258,
+        0,
+        1548,
+        2752
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 6576705,
+      "sha256": "df8e91293c8ed9bc793edba71d353a6f8f7903c94612ee9cef2d56cb8fd885cc"
+    },
+    {
+      "path": "screenshots/iphone-6.9/02_Ligler.png",
+      "width": 1320,
+      "height": 2868,
+      "source": "02_Ligler.png",
+      "sourceBounds": [
+        0,
+        260,
+        1320,
+        2347
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 5238709,
+      "sha256": "7f84d439b75583e476e8beaacd0290dc3d55a8993eea52c94b82785cc914021b"
+    },
+    {
+      "path": "screenshots/iphone-6.5/02_Ligler.png",
+      "width": 1284,
+      "height": 2778,
+      "source": "02_Ligler.png",
+      "sourceBounds": [
+        0,
+        247,
+        1284,
+        2283
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 5005605,
+      "sha256": "5ddf92f38d7e422cc81f9951bff64eff788166799eec86bb36f5e13b12dc3c56"
+    },
+    {
+      "path": "screenshots/iphone-6.3/02_Ligler.png",
+      "width": 1206,
+      "height": 2622,
+      "source": "02_Ligler.png",
+      "sourceBounds": [
+        0,
+        239,
+        1206,
+        2144
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4529779,
+      "sha256": "aa6f8be6b91f8a02cda0bad00fa094ff30f2daf5d979bc5e18b23e3a2ac5ff0f"
+    },
+    {
+      "path": "screenshots/ipad-13/02_Ligler.png",
+      "width": 2064,
+      "height": 2752,
+      "source": "02_Ligler.png",
+      "sourceBounds": [
+        258,
+        0,
+        1548,
+        2752
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 6574121,
+      "sha256": "6a6c7351684101bf30c65460ddd7b4bee9b7685b39f6e9898589f60c91ccbadd"
+    },
+    {
+      "path": "screenshots/iphone-6.9/03_Karsilastirma.png",
+      "width": 1320,
+      "height": 2868,
+      "source": "03_Karsilastirma.png",
+      "sourceBounds": [
+        0,
+        260,
+        1320,
+        2347
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4344775,
+      "sha256": "5d502d32012cc07533142ce305589173bd086ea7176f9c22d472e2121ad38a6c"
+    },
+    {
+      "path": "screenshots/iphone-6.5/03_Karsilastirma.png",
+      "width": 1284,
+      "height": 2778,
+      "source": "03_Karsilastirma.png",
+      "sourceBounds": [
+        0,
+        247,
+        1284,
+        2283
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4162046,
+      "sha256": "88aae90df81928861449bc66c50228bd5359c16312fe3f3700c61b5942bcea35"
+    },
+    {
+      "path": "screenshots/iphone-6.3/03_Karsilastirma.png",
+      "width": 1206,
+      "height": 2622,
+      "source": "03_Karsilastirma.png",
+      "sourceBounds": [
+        0,
+        239,
+        1206,
+        2144
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 3785938,
+      "sha256": "e35c605ef76489e0bfd824000585fc2bb3c5e8ea03ba655b013237974877092d"
+    },
+    {
+      "path": "screenshots/ipad-13/03_Karsilastirma.png",
+      "width": 2064,
+      "height": 2752,
+      "source": "03_Karsilastirma.png",
+      "sourceBounds": [
+        258,
+        0,
+        1548,
+        2752
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 5372592,
+      "sha256": "00a4fa6c973dad9b64879786b2574459735238d7d4968660842563450b44d084"
+    },
+    {
+      "path": "screenshots/iphone-6.9/04_Gunluk_Hediyeler.png",
+      "width": 1320,
+      "height": 2868,
+      "source": "04_Gunluk_Hediyeler.png",
+      "sourceBounds": [
+        0,
+        260,
+        1320,
+        2347
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4659952,
+      "sha256": "2ccd4e93995911acd1adc906955fbfa3d5ce67917c3cbf5375282c31af1e9fac"
+    },
+    {
+      "path": "screenshots/iphone-6.5/04_Gunluk_Hediyeler.png",
+      "width": 1284,
+      "height": 2778,
+      "source": "04_Gunluk_Hediyeler.png",
+      "sourceBounds": [
+        0,
+        247,
+        1284,
+        2283
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4455402,
+      "sha256": "ff80b4b798af5f5ce7c9111ab9c7d758f096b155145ea142c890ae212ac23df1"
+    },
+    {
+      "path": "screenshots/iphone-6.3/04_Gunluk_Hediyeler.png",
+      "width": 1206,
+      "height": 2622,
+      "source": "04_Gunluk_Hediyeler.png",
+      "sourceBounds": [
+        0,
+        239,
+        1206,
+        2144
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4041852,
+      "sha256": "b79e53cee41e262bd4f55ad301696623b51abb514f627b5586380064a2e08bf7"
+    },
+    {
+      "path": "screenshots/ipad-13/04_Gunluk_Hediyeler.png",
+      "width": 2064,
+      "height": 2752,
+      "source": "04_Gunluk_Hediyeler.png",
+      "sourceBounds": [
+        258,
+        0,
+        1548,
+        2752
+      ],
+      "method": "uniform contain; complete original poster retained; emerald canvas extension",
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 5906468,
+      "sha256": "d604d655eb8e7b97ce508ff841e26d13564e3234702e33914a4ab9722f897bf8"
+    },
+    {
+      "path": "creative/header-3840x1646.png",
+      "width": 3840,
+      "height": 1646,
+      "safeArea": [
+        1097,
+        493,
+        1646,
+        661
+      ],
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 9274243,
+      "sha256": "0a8c95f4547b62b5523c24e660ad0525bb193bb87d70d4e6536d2d7f94a95758"
+    },
+    {
+      "path": "creative/search-3840x2560.png",
+      "width": 3840,
+      "height": 2560,
+      "safeArea": [
+        836,
+        765,
+        2168,
+        1030
+      ],
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 14850571,
+      "sha256": "2ea84532c0a92f298f8f731c4f7df50aa1120cd962c826e0fa56d4b207ec1439"
+    },
+    {
+      "path": "creative/search-1920x1280.png",
+      "width": 1920,
+      "height": 1280,
+      "safeArea": [
+        418,
+        382.5,
+        1084,
+        515
+      ],
+      "color": "RGB",
+      "alpha": false,
+      "bytes": 4419018,
+      "sha256": "3b96992b615cfb04facfdf63900f8dde41c95f8ded5952053c2f688e15ae03ec"
+    }
+  ]
+}

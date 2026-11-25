@@ -51,3 +51,6 @@ app.*.map.json
 # Already tracked files remain tracked until explicitly removed from the index.
 /ios/Runner/GoogleService-Info.plist
 /ios/Runner/.GoogleService-Info.*
+
+# Local design export exceeds GitHub's file size limit.
+/artifacts/OKEYIX-Apple-Approved-Designs.zip

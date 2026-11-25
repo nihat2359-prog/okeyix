@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "exportCount": 62,
+  "checks": [
+    "PNG decode",
+    "exact dimensions",
+    "opaque RGB",
+    "landscape",
+    "SHA256",
+    "six per device and locale"
+  ],
+  "errors": []
+}
