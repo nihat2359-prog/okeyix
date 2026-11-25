@@ -868,11 +868,11 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
     dynamic res;
     try {
       res = await supabase.rpc('okeyix_full_table_state',
-        params: {'p_table_id': tableId});
+        params: {'p_table_id': tableId}).timeout(const Duration(seconds: 7));
     } on PostgrestException catch (error) {
       if (error.code != 'PGRST202') rethrow;
       res = await supabase.rpc('get_full_table_state',
-        params: {'p_table_id': tableId});
+        params: {'p_table_id': tableId}).timeout(const Duration(seconds: 7));
     }
 
     if (res == null || requestEpoch != _handStateEpoch) return;
@@ -1747,7 +1747,7 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
             'status,current_turn,deck,turn_started_at,pot_amount,round_count,last_finish_at',
           )
           .eq('id', tableId)
-          .limit(1);
+          .limit(1).timeout(const Duration(seconds: 7));
       if (!_lifecycleActive || pollEpoch != _handStateEpoch) return;
       if ((rows as List).isEmpty) return;
       final table = Map<String, dynamic>.from(rows.first);
@@ -1766,8 +1766,8 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
         _handStateEpoch++;
         _clearRenderedHand();
         changed = true;
-        // Yeni turun eli mutlaka sunucudan yeniden kurulmalı.
-        unawaited(_loadInitialState(forceHandSync: true));
+        // The playing-state recovery below loads the new hand once, guarded
+        // against overlapping syncs, and retries on the next poll if it fails.
       }
 
       if (newPot != null && newPot != _pot) {
@@ -1780,10 +1780,6 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       }
 
       final status = table['status']?.toString();
-      if (status == 'playing' && !_gameStarted) {
-        //await _loadInitialState();
-        return;
-      }
       if (status != 'playing') {
         // Avoid transient poll jitter from wiping discard visuals.
         // Table-state transitions are handled by _loadInitialState/_handleTableUpdate.
@@ -1793,11 +1789,15 @@ class OkeyGame extends FlameGame with TapDetector implements GameActivityProbeHo
       if (table['deck'] != null) {
         _syncDeckFromTable(table['deck']);
       }
-      if (_gameStarted && _myHandCount < 14 && !_stateSyncInFlight) {
+      if ((!_gameStarted || _myHandCount < 14) && !_stateSyncInFlight) {
         _stateSyncInFlight = true;
-        _loadInitialState(forceHandSync: true).whenComplete(() {
+        try {
+          // A missed Realtime event or unavailable first round snapshot must
+          // not leave the rack empty. Read only; never start/deal/pay again.
+          await _loadInitialState(forceHandSync: true);
+        } finally {
           _stateSyncInFlight = false;
-        });
+        }
       }
       await _validateCriticalInvariants('poll_live_table_state');
     } catch (_) {}

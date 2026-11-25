@@ -430,6 +430,48 @@ void main() {
     expect(game.tileComponentMap.length, 15);
   });
 
+  testWidgets('poll recovers a missed playing event without starting another game', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: game.size.clone());
+    fullState = snapshot(hand);
+    (fullState!['table'] as Map).remove('turn_started_at');
+    expect(game.gameStarted, isFalse);
+    await tester.runAsync(() => game.debugPollTurn());
+    await settle(tester, game);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(game.tileComponentMap.length, 15);
+    expect(game.isHandReadyForPlay, isTrue);
+    expect(calls.where((call) => call == 'okeyix_full_table_state').length, 1);
+    expect(calls, isNot(contains('start_game')));
+  });
+
+  testWidgets('next round retries an unavailable snapshot and deals only once', (tester) async {
+    final game = await mount(tester);
+    game.previewBox = PreviewComponent(size: game.size.clone());
+    hand = hand.take(14).toList();
+    tableRound = 2;
+    // First authoritative read is temporarily unavailable after the round event.
+    await tester.runAsync(() => game.debugPollTurn());
+    expect(game.tileComponentMap, isEmpty);
+    fullState = snapshot(hand);
+    (fullState!['table'] as Map)['round_count'] = 2;
+    (fullState!['table'] as Map).remove('turn_started_at');
+    await tester.runAsync(() => game.debugPollTurn());
+    await settle(tester, game);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(game.getRound(), 2);
+    expect(game.isHandReadyForPlay, isTrue);
+    final dealt = Map.of(game.tileComponentMap);
+    calls.clear();
+    await tester.runAsync(() => game.debugPollTurn());
+    expect(calls, isNot(contains('okeyix_full_table_state')));
+    for (final entry in dealt.entries) {
+      expect(game.tileComponentMap[entry.key], same(entry.value));
+    }
+  });
+
   testWidgets('poll-detected rounds two and three renew indicator before first draw', (tester) async {
     final game = await mount(tester);
     game.debugPrepareLatencyState(14);
