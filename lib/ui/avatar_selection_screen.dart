@@ -330,7 +330,10 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             Text(
               title,
@@ -342,7 +345,6 @@ class _AvatarSelectionScreenState extends State<AvatarSelectionScreen> {
                 fontSize: 14,
               ),
             ),
-            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(

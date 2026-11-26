@@ -1,4 +1,17 @@
 class UserState {
+  /// Only reuse lobby identity for the same authenticated account.
+  static Map<String, dynamic>? tableIdentityFor(String? authenticatedUserId) {
+    if (authenticatedUserId == null || userId != authenticatedUserId ||
+        userName.trim().isEmpty) {
+      return null;
+    }
+    return {
+      'id': authenticatedUserId,
+      'username': userName.trim(),
+      'avatar_url': userAvatarUrl?.trim() ?? '',
+      'is_bot': false,
+    };
+  }
   static String? userId;
   static int userCoin = 0;
   static String userName = 'Oyuncu';

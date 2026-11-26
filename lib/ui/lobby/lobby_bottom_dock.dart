@@ -222,6 +222,8 @@ class LobbyDockEmblem extends StatelessWidget {
   @override
   Widget build(BuildContext context) => RepaintBoundary(
     child: CustomPaint(
+      // Replace the cached render object when the emblem artwork is revised.
+      key: ValueKey('dock-emblem-outline-v4-${kind.name}'),
       size: const Size(32, 32),
       painter: _DockEmblemPainter(kind, active),
     ),
@@ -238,6 +240,7 @@ class _DockEmblemPainter extends CustomPainter {
     canvas.save();
     canvas.scale(size.width / 32, size.height / 32);
     final symbol = Path();
+    final coinDetail = Path();
     switch (kind) {
       case LobbyDockEmblemKind.invite:
         symbol.moveTo(5, 14);
@@ -263,15 +266,31 @@ class _DockEmblemPainter extends CustomPainter {
         }
         break;
       case LobbyDockEmblemKind.store:
-        // Treasure chest with a domed lid, bands and a central clasp.
-        symbol.addRRect(
-          RRect.fromRectAndRadius(
-            const Rect.fromLTWH(7, 12, 18, 12),
-            const Radius.circular(2),
-          ),
-        );
-        symbol.moveTo(7, 12);
-        symbol.cubicTo(7, 5, 25, 5, 25, 12);
+        // Tied gold pouch, sharing the dock's outline, light and shadow.
+        symbol.moveTo(13, 10);
+        symbol.lineTo(10, 5);
+        symbol.quadraticBezierTo(13, 4, 16, 6);
+        symbol.quadraticBezierTo(19, 4, 22, 5);
+        symbol.lineTo(19, 10);
+        symbol.close();
+        symbol.moveTo(13, 12);
+        symbol.cubicTo(10, 15, 6, 18, 6, 23);
+        symbol.cubicTo(6, 29, 26, 29, 26, 23);
+        symbol.cubicTo(26, 18, 22, 15, 19, 12);
+        symbol.close();
+        symbol.moveTo(12, 11);
+        symbol.lineTo(20, 11);
+        symbol.quadraticBezierTo(24, 11, 24, 14);
+        symbol.moveTo(20, 11);
+        symbol.lineTo(22, 16);
+        symbol.addOval(const Rect.fromLTWH(12, 17, 8, 8));
+        coinDetail.addOval(const Rect.fromLTWH(13.3, 18.3, 5.4, 5.4));
+        // A small minted diamond distinguishes the coin from an empty circle.
+        coinDetail.moveTo(16, 19.5);
+        coinDetail.lineTo(17, 21);
+        coinDetail.lineTo(16, 22.5);
+        coinDetail.lineTo(15, 21);
+        coinDetail.close();
         break;
       case LobbyDockEmblemKind.ranking:
         symbol.moveTo(10, 7);
@@ -338,21 +357,7 @@ class _DockEmblemPainter extends CustomPainter {
           colors: [Color(0xFFFFEAC0), Color(0xFFD0A354)],
         ).createShader(const Rect.fromLTWH(5, 6, 22, 20)),
     );
-    if (kind == LobbyDockEmblemKind.store) {
-      final detail = Paint()
-        ..color = const Color(0xFFEED29A)
-        ..strokeWidth = 1;
-      canvas.drawLine(const Offset(8, 15), const Offset(24, 15), detail);
-      canvas.drawLine(const Offset(11, 12), const Offset(11, 23), detail);
-      canvas.drawLine(const Offset(21, 12), const Offset(21, 23), detail);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(14, 14, 4, 5),
-          const Radius.circular(1),
-        ),
-        detail,
-      );
-    }
+    canvas.drawPath(coinDetail, ink..strokeWidth = .65);
     if (active) {
       canvas.drawLine(
         const Offset(10, 30),

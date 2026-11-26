@@ -4512,7 +4512,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           guestControl: _showGuestBanner ? _guestBanner() : null),
         const SizedBox(height: 7),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 7),
-          child: LobbyLiveIndicator(tables: tables)),
+          child: LobbyLiveIndicator(tables: tables, leagueName: _selectedLeagueName)),
         const SizedBox(height: 3),
         Expanded(child: _buildTablesPanelContents()),
       ]));

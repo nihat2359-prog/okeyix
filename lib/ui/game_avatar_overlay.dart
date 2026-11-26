@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/okey_game.dart';
 import 'package:okeyix/services/profile_service.dart';
+import 'package:okeyix/services/user_state.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/player_model.dart';
@@ -52,6 +53,7 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
   List<String>? _joinedNames;
 
   String? _myUserId;
+  Map<String, dynamic>? _initialSelfIdentity;
   int? _mySeatIndex;
   int _tableSize = 2;
   String _tableStatus = 'waiting';
@@ -77,6 +79,20 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     super.initState();
     _realtime = widget.realtimeClient ?? _supabase;
     _viewData = widget.viewData ?? GameViewDataSource.supabase(_supabase, widget.tableId);
+    _myUserId = _supabase.auth.currentUser?.id;
+    _initialSelfIdentity = UserState.tableIdentityFor(_myUserId);
+    // Creation has already inserted the owner in seat zero before navigation.
+    if (widget.game.isCreator && _initialSelfIdentity != null) {
+      final self = _seatPlayerFromRow(
+        {'seat_index': 0, 'user_id': _myUserId},
+        {_myUserId!: {'coins': UserState.userCoin, 'rating': UserState.userRating}},
+        {_myUserId!: _initialSelfIdentity!},
+      );
+      if (self != null) {
+        players = [self];
+        _mySeatIndex = 0;
+      }
+    }
     _loadPlayers();
     _subscribeTablePlayers();
     _subscribeTable();
@@ -379,7 +395,11 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
     }
 
     final profile = profileByUserId[userId];
-    final user = usersByUserId[userId];
+    final sessionSelf = userId == _supabase.auth.currentUser?.id &&
+            _initialSelfIdentity?['id'] == userId
+        ? _initialSelfIdentity
+        : null;
+    final user = sessionSelf ?? usersByUserId[userId];
 
     final username = user?['username']?.toString().trim().isNotEmpty == true
         ? user!['username'].toString().trim()
@@ -414,7 +434,9 @@ class _GameAvatarOverlayState extends State<GameAvatarOverlay> {
         id: userId,
         name: username,
         isBot: user?['is_bot'] == true,
-        avatarPath: _resolveAvatarPath(avatarRaw, seatIndex),
+        avatarPath: sessionSelf != null
+            ? (avatarRaw ?? '')
+            : _resolveAvatarPath(avatarRaw, seatIndex),
         coins: coins,
         rating: rating,
         isDoubleMode: isDoubleMode,

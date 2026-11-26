@@ -58,16 +58,13 @@ void main() {
         await Future.wait([
           precacheImage(const AssetImage('assets/images/table.png'), context),
           precacheImage(
-            const AssetImage('assets/images/coins/coins_small.png'),
-            context,
-          ),
-          precacheImage(
-            const AssetImage('assets/images/coins/coins_medium.png'),
+            const AssetImage('assets/images/coins/video_reward_coins_v2.png'),
             context,
           ),
         ]);
       });
       await tester.pumpAndSettle();
+      expect(find.image(const AssetImage('assets/images/coins/video_reward_coins_v2.png')), findsOneWidget);
       await tester.pump(const Duration(seconds: 9));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

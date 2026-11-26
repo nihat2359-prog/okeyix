@@ -1248,6 +1248,29 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
 
   Future<void> _loadTable() => _tableViewRefresh.run(_loadTableOnce);
 
+  bool _botSocialBusy = false;
+  bool _botSocialUnavailable = false;
+
+  Future<void> _tickBotSocial() async {
+    if (!mounted || _botSocialBusy || _botSocialUnavailable ||
+        _hideTopHudForFinish || _game.isFinishOpen ||
+        _supabase.auth.currentUser?.id != _myUserId) return;
+    _botSocialBusy = true;
+    try {
+      await _supabase.rpc('okeyix_bot_social_tick', params: {
+        'p_table_id': widget.tableId,
+        'p_closed_finish_at': _lastFinishAt?.toUtc().toIso8601String(),
+      });
+    } on PostgrestException catch (error) {
+      if (error.code == 'PGRST202') _botSocialUnavailable = true;
+      debugPrint('BOT SOCIAL: $error');
+    } catch (error) {
+      debugPrint('BOT SOCIAL: $error');
+    } finally {
+      _botSocialBusy = false;
+    }
+  }
+
   Future<void> _playTurnNotice() async {
     try {
       await _turnNoticePlayer.play(
@@ -1279,6 +1302,7 @@ class _OkeyGameScreenState extends State<OkeyGameScreen>
       _lastFinishAt = finishAt;
       _tableChatEnabled = chatEnabled;
       _tableSpectatorsEnabled = spectatorsEnabled;
+      unawaited(_tickBotSocial());
 
       // If a fresh game has started, clear any stale finish overlay state.
       if (_tableStatus == 'playing' && _game.isFinishOpen) {

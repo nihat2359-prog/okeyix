@@ -1,0 +1,37 @@
+{
+  "bronze": {
+    "width": 384,
+    "height": 384,
+    "bytes": 215628,
+    "cornerAlpha": 0,
+    "centerAlpha": 253
+  },
+  "silver": {
+    "width": 384,
+    "height": 384,
+    "bytes": 204111,
+    "cornerAlpha": 0,
+    "centerAlpha": 252
+  },
+  "gold": {
+    "width": 384,
+    "height": 384,
+    "bytes": 206055,
+    "cornerAlpha": 0,
+    "centerAlpha": 253
+  },
+  "amethyst": {
+    "width": 384,
+    "height": 384,
+    "bytes": 204566,
+    "cornerAlpha": 0,
+    "centerAlpha": 253
+  },
+  "emerald": {
+    "width": 384,
+    "height": 384,
+    "bytes": 205866,
+    "cornerAlpha": 0,
+    "centerAlpha": 253
+  }
+}

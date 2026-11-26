@@ -1,0 +1,203 @@
+{
+  "count": 32,
+  "dimensions": "256x256",
+  "originalBytes": 45960444,
+  "totalBytes": 3082796,
+  "maximumBytes": 111344,
+  "presetRegistryUnchanged": true,
+  "botImagesUnchanged": true,
+  "files": [
+    {
+      "id": "kadin_01",
+      "path": "assets/images/avatars/avatar13.png",
+      "sha256": "967eb146a1cf937261873245e245e916a7e83afacb874ed6c19cef5bd4eda5a3",
+      "bytes": 92726
+    },
+    {
+      "id": "kadin_02",
+      "path": "assets/images/avatars/avatar6.png",
+      "sha256": "3a71de33dc559a0f27c3a446d105602f80f1e216de3efa816342b9c6bb845901",
+      "bytes": 94756
+    },
+    {
+      "id": "kadin_03",
+      "path": "assets/images/avatars/avatar7.png",
+      "sha256": "2a151e05dee79c1792a197657ea2cb0bd5a0c6b97d1b5921fc589d176b73322b",
+      "bytes": 103590
+    },
+    {
+      "id": "kadin_04",
+      "path": "assets/images/avatars/avatar12.png",
+      "sha256": "6ade5057ed3e5724724082fb2ee6e684aee3e3f2776e93a3fad6dc1a6cee4bcd",
+      "bytes": 100987
+    },
+    {
+      "id": "kadin_05",
+      "path": "assets/images/avatars/avatar15.png",
+      "sha256": "15a99dea7e992603617c7426dd972ea7765c91f5b22152c91664bea266931046",
+      "bytes": 73315
+    },
+    {
+      "id": "kadin_06",
+      "path": "assets/images/avatars/avatar5.png",
+      "sha256": "0bece20c08d44af9462e6a96d2617e8340b8fe68fef4a02851f9eb4ad96664c6",
+      "bytes": 96855
+    },
+    {
+      "id": "kadin_07",
+      "path": "assets/images/avatars/avatar17.png",
+      "sha256": "39d52b94965b81c6a92834aac65a4c036c279b3d0921cc77e984f8324a3bb2e2",
+      "bytes": 96550
+    },
+    {
+      "id": "kadin_08",
+      "path": "assets/images/avatars/avatar18.png",
+      "sha256": "edf9858183d588c8845c0d746c45d0cdeff065e84dab14ab5da076ae72e1ae3a",
+      "bytes": 97658
+    },
+    {
+      "id": "kadin_09",
+      "path": "assets/images/avatars/avatar19.png",
+      "sha256": "9ac8444001373e10f1cc7edd0b39cf4965ddac8029580953433fa6a9a5bb3697",
+      "bytes": 109455
+    },
+    {
+      "id": "kadin_10",
+      "path": "assets/images/avatars/avatar20.png",
+      "sha256": "84f539e7a24aff1d4f1e2cbd45bb151d00e0df3670b58fd486a0cab1dd70aa1d",
+      "bytes": 87691
+    },
+    {
+      "id": "kadin_11",
+      "path": "assets/images/avatars/avatar21.png",
+      "sha256": "e5bce9614e85aa7ee1c680804ea305f158182c6241de3bba623a0733e03ad369",
+      "bytes": 106080
+    },
+    {
+      "id": "kadin_12",
+      "path": "assets/images/avatars/avatar22.png",
+      "sha256": "7f777b9ceae1fc2f85811adef4b340fc9b76af1c37ecc955fe5741c106bbc8fa",
+      "bytes": 110862
+    },
+    {
+      "id": "erkek_01",
+      "path": "assets/images/avatars/avatar8.png",
+      "sha256": "22f6aada30630d2dd6b5fa5a8e025fe0f20faafd6a4983fc1f13bf9fb1e1066a",
+      "bytes": 84999
+    },
+    {
+      "id": "erkek_02",
+      "path": "assets/images/avatars/avatar11.png",
+      "sha256": "a09a54506100fe9c6777eb958ae0850e9362decd6d72693dbbac31aaf113fa19",
+      "bytes": 96642
+    },
+    {
+      "id": "erkek_03",
+      "path": "assets/images/avatars/avatar10.png",
+      "sha256": "a2db14810caf4855757d4cd8f1afa44d5cdd3112713205f928223b1fd4efcff7",
+      "bytes": 88072
+    },
+    {
+      "id": "erkek_04",
+      "path": "assets/images/avatars/avatar2.png",
+      "sha256": "8431296e4d603150b2b62db54c28003465b691e6bb4ebb44977e39da8704934f",
+      "bytes": 103719
+    },
+    {
+      "id": "erkek_05",
+      "path": "assets/images/avatars/avatar3.png",
+      "sha256": "fa8a3aa3ad88c1e731c2bc0519d9d7b446f6820e9ecbf351a5f2acfe812d6015",
+      "bytes": 91342
+    },
+    {
+      "id": "erkek_06",
+      "path": "assets/images/avatars/avatar1.png",
+      "sha256": "8d7a0b81e3aff069d1ab44ccb33718e34e7edc54eb41c632c63b8cbe3c9798b3",
+      "bytes": 92999
+    },
+    {
+      "id": "erkek_07",
+      "path": "assets/images/avatars/avatar9.png",
+      "sha256": "5981dd14b90c7a3aa7c9c6fb9cd364e491125a21e1e565507075ca6e3bde1dbd",
+      "bytes": 91809
+    },
+    {
+      "id": "erkek_08",
+      "path": "assets/images/avatars/avatar4.png",
+      "sha256": "862028349e492203070bad2332f866a0e6660a63f09618675d625d3123d9a3a2",
+      "bytes": 95560
+    },
+    {
+      "id": "erkek_09",
+      "path": "assets/images/avatars/avatar14.png",
+      "sha256": "f6feb1b44a3d12301a84d09c5e3c37296f56844416a38b64b35845514e1144a6",
+      "bytes": 92613
+    },
+    {
+      "id": "erkek_10",
+      "path": "assets/images/avatars/avatar16.png",
+      "sha256": "53db9e6287817cd9a7bf35ee6707b392390104f3b5bd77c2244c35617750960f",
+      "bytes": 87262
+    },
+    {
+      "id": "erkek_11",
+      "path": "assets/images/avatars/avatar23.png",
+      "sha256": "681ea0dbfd72f88a78f24085695c356d577fffbbe19df44039ede70f6267a15f",
+      "bytes": 111344
+    },
+    {
+      "id": "erkek_12",
+      "path": "assets/images/avatars/avatar24.png",
+      "sha256": "ca899fab3a93f6f09d6c96d53cdba0601a70a413b8bd21bfaf22e83b76fb443e",
+      "bytes": 108672
+    },
+    {
+      "id": "premium_kadin_01",
+      "path": "assets/images/avatars/premium/premium_kadin_01.png",
+      "sha256": "b9dee6bc5f0fa244e4409751c51ace87c7b37e48518fde428cf3ab32b437c1f0",
+      "bytes": 84701
+    },
+    {
+      "id": "premium_kadin_02",
+      "path": "assets/images/avatars/premium/premium_kadin_02.png",
+      "sha256": "2ce708e4ea93960a66d5e4119f257db552bb1ab93b1224008f0ad4d35df29288",
+      "bytes": 102451
+    },
+    {
+      "id": "premium_kadin_03",
+      "path": "assets/images/avatars/premium/premium_kadin_03.png",
+      "sha256": "c2a6a0f69675b86d8ec80f9783496bb46091e905b3ce4f27889eec63a7bf4089",
+      "bytes": 101609
+    },
+    {
+      "id": "premium_kadin_04",
+      "path": "assets/images/avatars/premium/premium_kadin_04.png",
+      "sha256": "fe9d058d21411a419c4832e35364f46461e5ff835af78d422ada9cfef22fef48",
+      "bytes": 93071
+    },
+    {
+      "id": "premium_erkek_01",
+      "path": "assets/images/avatars/premium/premium_erkek_01.png",
+      "sha256": "3893fa081b35aabb909c47813f0da4989b705b1d4abdefc8eccd77157065d40f",
+      "bytes": 91789
+    },
+    {
+      "id": "premium_erkek_02",
+      "path": "assets/images/avatars/premium/premium_erkek_02.png",
+      "sha256": "f428009de0b27a2b6825835ada1970ca9135d955c171de7f05ab2631a112458b",
+      "bytes": 90515
+    },
+    {
+      "id": "premium_erkek_03",
+      "path": "assets/images/avatars/premium/premium_erkek_03.png",
+      "sha256": "ef239f4afa0d8e0a326c1fe10269694682b30184b29228412cb2d7011cfc2e96",
+      "bytes": 99616
+    },
+    {
+      "id": "premium_erkek_04",
+      "path": "assets/images/avatars/premium/premium_erkek_04.png",
+      "sha256": "1f29584d025845bb19b9a19f2ae004329dbd7e50c7c1583afbc1e18ef7e903f3",
+      "bytes": 103486
+    }
+  ]
+}

@@ -243,6 +243,42 @@ const List<AvatarPreset> avatarPresets = <AvatarPreset>[
     isPremium: false,
     unlockCost: 0,
   ),
+  AvatarPreset(
+    id: 'erkek_komik_01',
+    label: 'Şaşkın Bıyık',
+    imageUrl: 'assets/images/avatars/erkek_komik_01.png',
+    gender: 'male',
+  ),
+  AvatarPreset(
+    id: 'erkek_komik_02',
+    label: 'Neşeli Şapşal',
+    imageUrl: 'assets/images/avatars/erkek_komik_02.png',
+    gender: 'male',
+  ),
+  AvatarPreset(
+    id: 'erkek_komik_03',
+    label: 'Muzip Dede',
+    imageUrl: 'assets/images/avatars/erkek_komik_03.png',
+    gender: 'male',
+  ),
+  AvatarPreset(
+    id: 'kadin_komik_01',
+    label: 'Muzip Gülüş',
+    imageUrl: 'assets/images/avatars/kadin_komik_01.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_komik_02',
+    label: 'Muzip Hanım',
+    imageUrl: 'assets/images/avatars/kadin_komik_02.png',
+    gender: 'female',
+  ),
+  AvatarPreset(
+    id: 'kadin_komik_03',
+    label: 'Şaşkın Nine',
+    imageUrl: 'assets/images/avatars/kadin_komik_03.png',
+    gender: 'female',
+  ),
 ];
 
 final List<String> avatarPresetIds = <String>[

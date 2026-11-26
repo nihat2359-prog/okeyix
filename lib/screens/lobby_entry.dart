@@ -5,6 +5,7 @@ import '../services/lobby_data_cache.dart';
 import 'login_screen.dart';
 import 'lobby_screen.dart';
 import '../ui/lobby/lobby_entrance.dart';
+import '../ui/lobby/lobby_league_list.dart';
 
 class LobbyEntry extends StatefulWidget {
   const LobbyEntry({super.key});
@@ -30,12 +31,11 @@ class _LobbyEntryState extends State<LobbyEntry> {
               const AssetImage('assets/images/lobby/lobby.png'),
               context,
             ),
-            precacheImage(
-              const AssetImage(
-                'assets/images/lobby/leagues/trophy_atlas_v2.png',
+            for (final asset in LeagueEmblem.assets)
+              precacheImage(
+                ResizeImage(AssetImage(asset), width: 256),
+                context,
               ),
-              context,
-            ),
           ])
           .then<void>((_) {})
           .timeout(const Duration(milliseconds: 1200), onTimeout: () {});

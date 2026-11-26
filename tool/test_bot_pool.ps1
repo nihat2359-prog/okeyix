@@ -1,4 +1,4 @@
-param([string]$PgBin = 'C:\Program Files\PostgreSQL\16\bin')
+param([string]$PgBin = 'C:\Program Files\PostgreSQL\16\bin', [switch]$TestNaturalNames)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
 $testRoot = Join-Path $workspace ('.dart_tool\bot-pool-' + [guid]::NewGuid().ToString('N'))
@@ -63,6 +63,16 @@ try {
   Invoke-Sql "UPDATE public.profiles SET coins=12345,rating=555 WHERE id='b0251125-0150-4000-8000-000000000001';"
   Invoke-SqlFile $migration
   Invoke-Sql "SELECT public.fixture_assert((SELECT coins=12345 AND rating=555 FROM public.profiles WHERE id='b0251125-0150-4000-8000-000000000001'),'rerun preserves played balances'); SELECT public.fixture_assert((SELECT count(*)=150 FROM okeyix_bot_wallet_private.topups),'rerun no duplicate funding');"
+  if ($TestNaturalNames) {
+    Invoke-SqlFile (Join-Path $workspace 'test\sql\bot_names_setup.sql')
+    $namesMigration = Join-Path $workspace 'supabase\migrations\20261126000100_natural_bot_usernames.sql'
+    Invoke-SqlFile $namesMigration
+    Invoke-SqlFile (Join-Path $workspace 'test\sql\bot_names_assertions.sql')
+    Invoke-Sql 'CREATE TABLE public.fixture_renamed AS SELECT id,username FROM public.users;'
+    Invoke-SqlFile $namesMigration
+    Invoke-Sql "SELECT public.fixture_assert(NOT EXISTS(SELECT 1 FROM public.users u JOIN public.fixture_renamed r USING(id) WHERE u.username<>r.username),'stable rename rerun');"
+    Write-Output 'ALL BOT NAME TESTS PASSED (40/30/20/10, collisions, human/Auth exclusion, username-only changes, stable rerun)'
+  }
   Write-Output 'ALL BOT POOL TESTS PASSED (150 inserts, original 10 unchanged, trigger-created profiles, name collision rollback, rerun preservation)'
 } finally {
   if ($started) { & $pgCtl -D $dataPath stop -m fast }

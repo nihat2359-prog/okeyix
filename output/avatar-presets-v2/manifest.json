@@ -1,0 +1,367 @@
+{
+  "registry_sha256": "fc564f3247f835e7e64d85d5abf8fb21a69f242e8d31fb7c95bc830f072d7240",
+  "untouched_bot_assets": [
+    {
+      "target": "assets/images/avatars/bot1.png",
+      "sha256": "54fa73101bc100d14f17d598f79248c236c932d90e2e12a52f797914a481f61e"
+    },
+    {
+      "target": "assets/images/avatars/bot2.png",
+      "sha256": "787d16c22cc937182aabb8137d15159e7973e965e08764a2c335dd08481f52e9"
+    }
+  ],
+  "entries": [
+    {
+      "id": "kadin_01",
+      "label": "Kadin Genc",
+      "target": "assets/images/avatars/avatar13.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 26, long chestnut hair, black sunglasses, small silver earrings, elegant black blouse, relaxed confident smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 26, long chestnut hair, black sunglasses, small silver earrings, elegant black blouse, relaxed confident smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "6f0728a6df7d7cba6fed8f24481526f62541451d7b0ca9a450706b016d1394e3",
+      "original_bytes": 1740689
+    },
+    {
+      "id": "kadin_02",
+      "label": "Kadin Havali",
+      "target": "assets/images/avatars/avatar6.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 25, loose wavy dark-brown hair, warm smile, red casual blouse, warm olive complexion",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 25, loose wavy dark-brown hair, warm smile, red casual blouse, warm olive complexion. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "03145cdd5196aa3e905af96298c0b18d5f92a9d991d4b7ba0030876825bc34c0",
+      "original_bytes": 446946
+    },
+    {
+      "id": "kadin_03",
+      "label": "Kadin Sik",
+      "target": "assets/images/avatars/avatar7.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 30, shoulder-length wavy dark-brown hair, blue denim jacket over a cream top, open friendly smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 30, shoulder-length wavy dark-brown hair, blue denim jacket over a cream top, open friendly smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "c6894cb590269da93ade7aa02790a84acccee11e4c1b51760559408e3c1dfdd6",
+      "original_bytes": 353483
+    },
+    {
+      "id": "kadin_04",
+      "label": "Kadin Olgun",
+      "target": "assets/images/avatars/avatar12.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "mature woman aged 58, short blonde-gray bob, elegant thin glasses, ivory blazer, pearl necklace, expressive gentle smile and natural age lines",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult mature woman aged 58, short blonde-gray bob, elegant thin glasses, ivory blazer, pearl necklace, expressive gentle smile and natural age lines. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "1a25211f94a5f53713fdada80ce307ccc207200be99b0974158ec25191db4021",
+      "original_bytes": 1801204
+    },
+    {
+      "id": "kadin_05",
+      "label": "Kadin Ortulu",
+      "target": "assets/images/avatars/avatar15.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 32 wearing a fully covering black hijab with absolutely no hair visible, dark tailored blouse, calm friendly expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 32 wearing a fully covering black hijab with absolutely no hair visible, dark tailored blouse, calm friendly expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "d6b8c351e786507c6ab523b404ca0ea782063a3acd63e64bb77e3d821f90142b",
+      "original_bytes": 1583249
+    },
+    {
+      "id": "kadin_06",
+      "label": "Kadin Modern",
+      "target": "assets/images/avatars/avatar5.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 30, long dark hair tied loosely back, dark sunglasses, black modern leather jacket, tiny gold hoop earrings, confident expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 30, long dark hair tied loosely back, dark sunglasses, black modern leather jacket, tiny gold hoop earrings, confident expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "ac5560d3c1fc98050d659721118553a89b9f8c1c15a16c4613d8da2f67e03e0d",
+      "original_bytes": 421843
+    },
+    {
+      "id": "kadin_07",
+      "label": "Kadin Ortulu",
+      "target": "assets/images/avatars/avatar17.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 30 wearing a fully covering cream hijab with a subtle small botanical pattern, no hair visible, ivory blouse, gentle smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 30 wearing a fully covering cream hijab with a subtle small botanical pattern, no hair visible, ivory blouse, gentle smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "5f8fd5e506aa3e33a999fc3f34ac418893e206f1684230ae85654c0d0de16762",
+      "original_bytes": 1933328
+    },
+    {
+      "id": "kadin_08",
+      "label": "Kadin Ortulu",
+      "target": "assets/images/avatars/avatar18.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 35 wearing a fully covering muted burgundy patterned headscarf, no hair visible, modest burgundy blouse, understated traditional Anatolian embroidered trim, warm expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 35 wearing a fully covering muted burgundy patterned headscarf, no hair visible, modest burgundy blouse, understated traditional Anatolian embroidered trim, warm expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "eb0f287607675dd8a9f8d9ff0868bae297a69247fb941444fb4011c00e72a53e",
+      "original_bytes": 2152048
+    },
+    {
+      "id": "kadin_09",
+      "label": "Kadin Olgun Modern",
+      "target": "assets/images/avatars/avatar19.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "mature woman aged 55 wearing a fully covering brown floral headscarf, no hair visible, warm knitted cardigan, natural age lines, warm dignified smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult mature woman aged 55 wearing a fully covering brown floral headscarf, no hair visible, warm knitted cardigan, natural age lines, warm dignified smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "f8146367301abe190f2a87b09b0beac4cefb50d5445df14abcb5b2e57a8a1aba",
+      "original_bytes": 2338328
+    },
+    {
+      "id": "kadin_10",
+      "label": "Kadin Olgun Modern",
+      "target": "assets/images/avatars/avatar20.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 45, warm brown complexion, curly dark hair in a loose high bun, black blouse, subtle gold necklace, expressive adult features",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 45, warm brown complexion, curly dark hair in a loose high bun, black blouse, subtle gold necklace, expressive adult features. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "49d58a0d2ee5ebffdc74030b3d57e8836658b08640078b32f9823ff4d5b49964",
+      "original_bytes": 1919605
+    },
+    {
+      "id": "kadin_11",
+      "label": "Kadin Sarışın",
+      "target": "assets/images/avatars/avatar21.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "woman aged 28, long softly wavy blonde hair, cream blouse with small blue floral accents, friendly composed expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 28, long softly wavy blonde hair, cream blouse with small blue floral accents, friendly composed expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "05d087031ddc5694e6214783e4bb11d4b0b09c2d03bd2c664840616e06413406",
+      "original_bytes": 2361572
+    },
+    {
+      "id": "kadin_12",
+      "label": "Kadin Anadolu",
+      "target": "assets/images/avatars/avatar22.png",
+      "gender": "female",
+      "premium": false,
+      "subject": "elderly Anatolian woman aged 67 wearing a fully covering muted olive patterned headscarf, no hair visible, traditional woven dark vest over a modest blouse, natural wrinkles, warm dignified expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult elderly Anatolian woman aged 67 wearing a fully covering muted olive patterned headscarf, no hair visible, traditional woven dark vest over a modest blouse, natural wrinkles, warm dignified expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "65af477e7f861a4672569cce016744358288dd5648e40775e4affad19c5bc1b5",
+      "original_bytes": 1975517
+    },
+    {
+      "id": "erkek_01",
+      "label": "Erkek Genc",
+      "target": "assets/images/avatars/avatar8.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 25, short swept-up chestnut hair, clean-shaven, dark teal casual shirt, relaxed friendly smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 25, short swept-up chestnut hair, clean-shaven, dark teal casual shirt, relaxed friendly smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "e08c4e99ef600314a6446fb8ad6dd18f58caa0a6ad3e87edd7b03ff4fddeb8a0",
+      "original_bytes": 260345
+    },
+    {
+      "id": "erkek_02",
+      "label": "Erkek Havali",
+      "target": "assets/images/avatars/avatar11.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 31, medium-length wavy dark-brown hair, light stubble, charcoal leather jacket, confident relaxed smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 31, medium-length wavy dark-brown hair, light stubble, charcoal leather jacket, confident relaxed smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "c8d78f72d5955b0d102940aae8746ca418c5db85ea678b82d57ba7d48112a19b",
+      "original_bytes": 1735606
+    },
+    {
+      "id": "erkek_03",
+      "label": "Erkek Sik",
+      "target": "assets/images/avatars/avatar10.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 34, short dark hair, neatly trimmed dark beard, black sunglasses, dark tailored suit and pale shirt, warm confident smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 34, short dark hair, neatly trimmed dark beard, black sunglasses, dark tailored suit and pale shirt, warm confident smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "136714fe1765fa286285ed4a38cb34811a9a2694da6a60f7c8f2faf2b67c6957",
+      "original_bytes": 1628879
+    },
+    {
+      "id": "erkek_04",
+      "label": "Erkek Olgun",
+      "target": "assets/images/avatars/avatar2.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "elderly man aged 68, swept-back silver hair, full neatly groomed white beard, textured brown turtleneck, natural wrinkles, warm dignified smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult elderly man aged 68, swept-back silver hair, full neatly groomed white beard, textured brown turtleneck, natural wrinkles, warm dignified smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "1317cf656858744b83c9e819a612d4bba5ef28a556a6a070b544fb6ceb3055d9",
+      "original_bytes": 496225
+    },
+    {
+      "id": "erkek_05",
+      "label": "Erkek Enerjik",
+      "target": "assets/images/avatars/avatar3.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 40 with a shaved bald head and prominent neat dark moustache, tan blazer and open-neck white shirt, lively warm expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 40 with a shaved bald head and prominent neat dark moustache, tan blazer and open-neck white shirt, lively warm expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "746f051195fc7e0a17f7d7bbc00e2917999d57f5e6f7e83ab368ecc4d9faafb2",
+      "original_bytes": 293099
+    },
+    {
+      "id": "erkek_06",
+      "label": "Erkek Modern",
+      "target": "assets/images/avatars/avatar1.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 45, dark side-parted hair and thick neat moustache, charcoal suit and navy tie, olive skin, composed self-assured expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 45, dark side-parted hair and thick neat moustache, charcoal suit and navy tie, olive skin, composed self-assured expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "1ce474bc4261da183829ef47fd207acb3a27e9d91733c98d9a4706d0555f76a0",
+      "original_bytes": 432675
+    },
+    {
+      "id": "erkek_07",
+      "label": "Erkek Cool",
+      "target": "assets/images/avatars/avatar9.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 28, dark shoulder-length hair, clean-shaven, charcoal hooded jacket with hood up, warm olive skin, calm focused expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 28, dark shoulder-length hair, clean-shaven, charcoal hooded jacket with hood up, warm olive skin, calm focused expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "d59b061d02eaa0c1f98157d24d1a714fb63d062a957da9680befd19f11e5491e",
+      "original_bytes": 273376
+    },
+    {
+      "id": "erkek_08",
+      "label": "Erkek Yasli",
+      "target": "assets/images/avatars/avatar4.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "older man aged 60 with dark brown skin, close-cropped salt-and-pepper hair and a neatly groomed gray beard, charcoal suit and warm gold tie, natural age lines, dignified warm expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult older man aged 60 with dark brown skin, close-cropped salt-and-pepper hair and a neatly groomed gray beard, charcoal suit and warm gold tie, natural age lines, dignified warm expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "59d9554d24a9ba204e415ce63b76364290fa67e615863bb9e7cd13308f6a77bd",
+      "original_bytes": 308602
+    },
+    {
+      "id": "erkek_09",
+      "label": "Erkek Karizmatik",
+      "target": "assets/images/avatars/avatar14.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 42, short neatly styled dark hair, trimmed stubble, charcoal jacket and ivory shirt, subtle patterned tie, welcoming confident smile",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 42, short neatly styled dark hair, trimmed stubble, charcoal jacket and ivory shirt, subtle patterned tie, welcoming confident smile. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "2c22724bc17ed6553aeb1e5e5ccf0a5c897da778cda506b7eb0361edf0933732",
+      "original_bytes": 1774453
+    },
+    {
+      "id": "erkek_10",
+      "label": "Erkek Karizmatik",
+      "target": "assets/images/avatars/avatar16.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "man aged 38 with medium brown skin, short curly dark hair, trimmed beard, charcoal suit and ivory shirt, modern composed friendly expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 38 with medium brown skin, short curly dark hair, trimmed beard, charcoal suit and ivory shirt, modern composed friendly expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "b57e4b15c1126018ef376a6b849412801f90e56c6872efd3fc29c7cd5db540ec",
+      "original_bytes": 1692621
+    },
+    {
+      "id": "erkek_11",
+      "label": "Erkek Anadolu",
+      "target": "assets/images/avatars/avatar23.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "Anatolian man aged 48, dark wavy hair and thick moustache, loosely draped olive patterned traditional head wrap, ivory collarless shirt and textured dark vest, natural age lines, warm thoughtful expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult Anatolian man aged 48, dark wavy hair and thick moustache, loosely draped olive patterned traditional head wrap, ivory collarless shirt and textured dark vest, natural age lines, warm thoughtful expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "6e793e51a5f607bd8ede10d26edb00780ab6a8f3939d3a4f16be05a69806e6dc",
+      "original_bytes": 2395204
+    },
+    {
+      "id": "erkek_12",
+      "label": "Erkek Anadolu",
+      "target": "assets/images/avatars/avatar24.png",
+      "gender": "male",
+      "premium": false,
+      "subject": "Anatolian man aged 58, gray-brown flat cap, salt-and-pepper moustache, textured brown jacket and knitted waistcoat over an ivory shirt, natural age lines, warm friendly expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult Anatolian man aged 58, gray-brown flat cap, salt-and-pepper moustache, textured brown jacket and knitted waistcoat over an ivory shirt, natural age lines, warm friendly expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Standard collection: warm clean approachable styling, refined but restrained detail. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "629bf0f050b094da0932fdd5c05c5a8801deab8cef583a28b0441b8789e399d3",
+      "original_bytes": 2197029
+    },
+    {
+      "id": "premium_kadin_01",
+      "label": "Premium Kadin 1",
+      "target": "assets/images/avatars/premium/premium_kadin_01.png",
+      "gender": "female",
+      "premium": true,
+      "subject": "woman aged 32 wearing a fully covering black hijab with no hair visible, refined black leather jacket, small gold earrings, elegant confident adult expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 32 wearing a fully covering black hijab with no hair visible, refined black leather jacket, small gold earrings, elegant confident adult expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "bfa5a140f1e53dd263ddb1845bb569529abe707f063a8ba8e02f7428c1ce5559",
+      "original_bytes": 998711
+    },
+    {
+      "id": "premium_kadin_02",
+      "label": "Premium Kadin 2",
+      "target": "assets/images/avatars/premium/premium_kadin_02.png",
+      "gender": "female",
+      "premium": true,
+      "subject": "woman aged 34, blonde hair in a loose swept-back updo, refined black sunglasses, dark leather jacket, delicate gold necklace, confident friendly adult expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 34, blonde hair in a loose swept-back updo, refined black sunglasses, dark leather jacket, delicate gold necklace, confident friendly adult expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "7ca2a9790f3daf6abb1b40a7c57bb1d1223715bab7b9e208c81ca7df8609bf09",
+      "original_bytes": 2063476
+    },
+    {
+      "id": "premium_kadin_03",
+      "label": "Premium Kadin 3",
+      "target": "assets/images/avatars/premium/premium_kadin_03.png",
+      "gender": "female",
+      "premium": true,
+      "subject": "woman aged 30, shoulder-length vibrant auburn-red hair, refined burgundy leather jacket, small understated pendant necklace, confident friendly adult expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 30, shoulder-length vibrant auburn-red hair, refined burgundy leather jacket, small understated pendant necklace, confident friendly adult expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "21b41aec8ce6bcfad002ded847560aa5fba379e49f9909f4a1efd3fbe6165732",
+      "original_bytes": 1946813
+    },
+    {
+      "id": "premium_kadin_04",
+      "label": "Premium Kadin 4",
+      "target": "assets/images/avatars/premium/premium_kadin_04.png",
+      "gender": "female",
+      "premium": true,
+      "subject": "woman aged 38 wearing a fully covering taupe hijab with no hair visible, elegant camel blazer over an ivory blouse, polished modest styling, warm confident adult expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult woman aged 38 wearing a fully covering taupe hijab with no hair visible, elegant camel blazer over an ivory blouse, polished modest styling, warm confident adult expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. Head covering must fully conceal all hair, respect the specified modest outfit.",
+      "original_sha256": "338fdaa5cec2ef3338a9349164baf7ab43d9c93be945ab3cd94e0b789cd35c23",
+      "original_bytes": 1805700
+    },
+    {
+      "id": "premium_erkek_01",
+      "label": "Premium Erkek 1",
+      "target": "assets/images/avatars/premium/premium_erkek_01.png",
+      "gender": "male",
+      "premium": true,
+      "subject": "man aged 33, short swept-back chestnut hair, neatly groomed beard, tailored charcoal suit, ivory shirt and deep burgundy silk tie, warm confident adult expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 33, short swept-back chestnut hair, neatly groomed beard, tailored charcoal suit, ivory shirt and deep burgundy silk tie, warm confident adult expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "f7edc344bb1069bad670934c8040d7c4f067561347805778424d5e87e342a64e",
+      "original_bytes": 1875906
+    },
+    {
+      "id": "premium_erkek_02",
+      "label": "Premium Erkek 2",
+      "target": "assets/images/avatars/premium/premium_erkek_02.png",
+      "gender": "male",
+      "premium": true,
+      "subject": "man aged 37, side-parted dark-brown hair, trimmed beard, tailored navy suit, pale blue shirt and blue striped tie, confident friendly adult expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult man aged 37, side-parted dark-brown hair, trimmed beard, tailored navy suit, pale blue shirt and blue striped tie, confident friendly adult expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "cbe305bf1c2df4e1a942764b9b6e6d7d7e4911ce007798d2dd03ac86881cc4bb",
+      "original_bytes": 1678082
+    },
+    {
+      "id": "premium_erkek_03",
+      "label": "Premium Erkek 3",
+      "target": "assets/images/avatars/premium/premium_erkek_03.png",
+      "gender": "male",
+      "premium": true,
+      "subject": "elderly man aged 68, swept-back silver hair and full neat silver beard, elegant slim blue glasses, tailored charcoal suit, white shirt and burgundy tie, natural wrinkles, warm dignified expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult elderly man aged 68, swept-back silver hair and full neat silver beard, elegant slim blue glasses, tailored charcoal suit, white shirt and burgundy tie, natural wrinkles, warm dignified expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "8cc63754c1be501d24081746855461c7a536fddb61d242d4fd2dc8de6159293f",
+      "original_bytes": 1553116
+    },
+    {
+      "id": "premium_erkek_04",
+      "label": "Premium Erkek 4",
+      "target": "assets/images/avatars/premium/premium_erkek_04.png",
+      "gender": "male",
+      "premium": true,
+      "subject": "elderly man aged 65, swept-back silver hair and neat silver beard, refined black sunglasses, premium charcoal leather jacket over a black shirt, mature natural age lines, confident warm expression",
+      "prompt": "Create ONE original professional modern 2D illustrated mobile tabletop-game profile avatar. Subject: a fictional adult elderly man aged 65, swept-back silver hair and neat silver beard, refined black sunglasses, premium charcoal leather jacket over a black shirt, mature natural age lines, confident warm expression. Style: elegant contemporary character illustration, confident clean contour shapes, controlled layered cel shading, restrained sophisticated color palette, subtly angular shadow planes, excellent anatomical drawing and distinct facial features. Clearly drawn 2D illustration, NOT a photograph, photorealistic render, glossy 3D toy or corporate icon. Real adult facial proportions, natural-sized eyes, appropriate age, no baby face. Head and upper shoulders, eye-level near-front three-quarter portrait, face large and centered, entire hairstyle or head covering comfortably inside center 80% circular crop safe area. Simple dark forest-green to muted teal softly graded backdrop, restrained warm champagne rim light, natural skin tones. Premium collection: refined material accents, rich charcoal and burgundy fabrics, subtle warm gold detail and especially polished dramatic lighting; no crown, frame or badge. Same cohesive art direction as a premium illustrated Turkish okey game, distinct adult identity. Full square image to edges, no circle mask, border, ring, text, logo, watermark, symbols, UI or contact sheet. Bust portrait only, no hands. Readable at 48 pixels. ",
+      "original_sha256": "7151b3917ba616b827c4f850c3a49eed7e67052b70005578478cd8cc7d49c0db",
+      "original_bytes": 1522714
+    }
+  ]
+}

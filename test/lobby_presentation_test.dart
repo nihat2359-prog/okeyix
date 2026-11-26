@@ -202,15 +202,31 @@ Future<void> lobby(
 }
 
 void main() {
-  testWidgets('selected league marker and table labels follow the league', (
+  testWidgets('selected league border and table labels follow the league', (
     tester,
   ) async {
     await lobby(tester, const Size(640, 360), 1, [], selected: 'l0');
-    expect(find.byKey(const ValueKey('selected-league-l0')), findsOneWidget);
-    expect(find.text('Acemiler · 1'), findsOneWidget);
-    await lobby(tester, const Size(640, 360), 1, [], selected: 'l2', state: 'empty');
-    expect(find.byKey(const ValueKey('selected-league-l0')), findsNothing);
-    expect(find.byKey(const ValueKey('selected-league-l2')), findsOneWidget);
+    BorderSide leagueBorder(String id) =>
+        (tester.widget<Material>(find.byKey(ValueKey('league-$id'))).shape!
+                as RoundedRectangleBorder)
+            .side;
+    expect(leagueBorder('l0').width, 1.4);
+    expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+    final nameBox = find.text('Acemiler');
+    final nameWidth = tester.getSize(nameBox).width;
+    expect(find.text('Deniz'), findsOneWidget);
+    await lobby(
+      tester,
+      const Size(640, 360),
+      1,
+      [],
+      selected: 'l2',
+      state: 'empty',
+    );
+    expect(leagueBorder('l0'), BorderSide.none);
+    expect(leagueBorder('l2').width, 1.4);
+    expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+    expect(tester.getSize(nameBox).width, nameWidth);
     expect(find.text('Kalfalar liginde açık masa yok'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -483,9 +499,15 @@ void main() {
     expect(calls, isNot(contains('join-fake')));
 
     await tester.pumpAndSettle();
-    await tester.drag(find.byKey(const ValueKey('vertical-tables')), const Offset(0, 400));
+    await tester.drag(
+      find.byKey(const ValueKey('vertical-tables')),
+      const Offset(0, 400),
+    );
     await tester.pumpAndSettle();
-    await tester.drag(find.byKey(const ValueKey('vertical-tables')), const Offset(0, 400));
+    await tester.drag(
+      find.byKey(const ValueKey('vertical-tables')),
+      const Offset(0, 400),
+    );
     await tester.pumpAndSettle();
     expect(calls, contains('refresh'));
     expect(tester.takeException(), isNull);
@@ -537,6 +559,25 @@ void main() {
           (i) => table(i.isEven ? 'waiting' : 'playing')..['id'] = 'preview-$i',
         ),
       );
+      final context = tester.element(find.byKey(const ValueKey('capture')));
+      await tester.runAsync(
+        () => Future.wait([
+          precacheImage(
+            const AssetImage('assets/images/avatars/avatar1.png'),
+            context,
+          ),
+          for (final widget in tester.widgetList<Image>(find.byType(Image)))
+            precacheImage(widget.image, context),
+          precacheImage(
+            const AssetImage('assets/images/lobby/lobby.png'),
+            context,
+          ),
+          for (final asset in LeagueEmblem.assets)
+            precacheImage(ResizeImage(AssetImage(asset), width: 256), context),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(LeagueEmblem), findsNWidgets(5));
       await expectLater(
         find.byKey(const ValueKey('capture')),
         matchesGoldenFile(

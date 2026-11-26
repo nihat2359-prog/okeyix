@@ -4,71 +4,233 @@ import '../../services/quick_play_service.dart';
 import 'lobby_metal_surface.dart';
 import 'lobby_micro_motion.dart';
 
-/// Lobby header; account linking has its own tap target beside matchmaking.
-class LobbyQuickPlayBar extends StatelessWidget {
+/// Compact gold table action; account linking remains a separate tap target.
+class LobbyQuickPlayBar extends StatefulWidget {
   final VoidCallback? onPlay;
   final Widget? guestControl;
   const LobbyQuickPlayBar({super.key, required this.onPlay, this.guestControl});
+
+  @override
+  State<LobbyQuickPlayBar> createState() => _LobbyQuickPlayBarState();
+}
+
+class _LobbyQuickPlayBarState extends State<LobbyQuickPlayBar> {
+  bool _pressed = false;
+  VoidCallback? get onPlay => widget.onPlay;
+  Widget? get guestControl => widget.guestControl;
+
+  void _press(bool pressed) {
+    if (_pressed == pressed || (pressed && onPlay == null)) return;
+    setState(() => _pressed = pressed);
+  }
+
+  @override
+  void didUpdateWidget(covariant LobbyQuickPlayBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (onPlay == null) _pressed = false;
+  }
+
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 40,
-    child: LobbyMetalSurface(
-      flatBorder: true,
-      radius: 17,
-      surfaceOpacity: 1.5,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    height: 44,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
           Expanded(
-            flex: 11,
+            flex: 14,
             child: LobbyQuickPlayMotion(
               enabled: onPlay != null,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  key: const ValueKey('quick-play'),
-                  onTap: onPlay,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Align(
-                    alignment: guestControl == null
-                        ? Alignment.center
-                        : Alignment.centerLeft,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFFFFE7A4),
+              borderRadius: BorderRadius.circular(13),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: AnimatedContainer(
+                  key: const ValueKey('quick-play-key-depth'),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 90),
+                  curve: Curves.easeOutCubic,
+                  transform: Matrix4.translationValues(0, _pressed ? 3 : 0, 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(13),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        offset: Offset(0, _pressed ? 3 : 6),
+                        blurRadius: 4,
+                      ),
+                      BoxShadow(
+                        color: onPlay != null
+                            ? const Color(0xFF8C5808)
+                            : const Color(0xFF4C5945),
+                        offset: Offset(0, _pressed ? 1 : 4),
+                        blurRadius: 0,
+                      ),
+                      if (onPlay != null)
+                        const BoxShadow(
+                          color: Color(0x38E9AD40),
+                          blurRadius: 14,
+                          spreadRadius: 1,
+                        ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      side: BorderSide(
+                        color: onPlay != null
+                            ? const Color(0xFFFFDF8B)
+                            : const Color(0xFF77867A),
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(13),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: onPlay != null
+                              ? const [
+                                  Color(0xFFFFE07D),
+                                  Color(0xFFF5B027),
+                                  Color(0xFFC9820B),
+                                ]
+                              : const [
+                                  Color(0xFFB5B7A0),
+                                  Color(0xFF929C87),
+                                  Color(0xFF71836E),
+                                ],
+                          stops: const [0, .48, 1],
+                        ),
+                      ),
+                      child: InkWell(
+                        key: const ValueKey('quick-play'),
+                        onTap: onPlay,
+                        onTapDown: onPlay == null ? null : (_) => _press(true),
+                        onTapUp: (_) => _press(false),
+                        onTapCancel: () => _press(false),
+                        splashColor: const Color(0x44FFFFFF),
+                        highlightColor: const Color(0x22FFFFFF),
+                        child: LayoutBuilder(
+                          builder: (context, bounds) => Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Positioned(
+                                top: 1,
+                                left: 12,
+                                right: 12,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    height: 1,
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color(0x00FFFFFF),
+                                          Color(0xCCFFFFFF),
+                                          Color(0x00FFFFFF),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFFFFDE87), Color(0xFFB87F29)],
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: bounds.maxWidth > 240 ? 25 : 8,
+                                  vertical: 4,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.center,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 29,
+                                          height: 29,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(0xFF244D3B),
+                                                Color(0xFF10271E),
+                                              ],
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFFFE6A5),
+                                            ),
+                                            boxShadow: const [
+                                              BoxShadow(
+                                                color: Color(0x4480521D),
+                                                offset: Offset(0, 1),
+                                                blurRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: onPlay != null
+                                                ? const Icon(
+                                                    Icons.bolt_rounded,
+                                                    color: Color(0xFFFFDA80),
+                                                    size: 23,
+                                                  )
+                                                : const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 1.7,
+                                                          color: Color(
+                                                            0xFFFFDA80,
+                                                          ),
+                                                        ),
+                                                  ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 9),
+                                        Text(
+                                          onPlay != null
+                                              ? 'HIZLI OYNA'
+                                              : 'MASA ARANIYOR',
+                                          style: const TextStyle(
+                                            color: Color(0xFF2C2412),
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1,
+                                            shadows: [
+                                              Shadow(
+                                                color: Color(0x77FFF3CC),
+                                                offset: Offset(0, 1),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: const Icon(
-                              Icons.bolt_rounded,
-                              color: Color(0xFF30220C),
-                              size: 25,
-                            ),
+                              if (bounds.maxWidth > 240 && onPlay != null)
+                                const Positioned(
+                                  right: 8,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: IgnorePointer(
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 22,
+                                      color: Color(0xFF76501F),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'HIZLI OYNA',
-                            style: TextStyle(
-                              color: Color(0xFFFFE3A0),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .5,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -77,14 +239,9 @@ class LobbyQuickPlayBar extends StatelessWidget {
             ),
           ),
           if (guestControl != null) ...[
-            const SizedBox(width: 8),
-            const SizedBox(
-              height: 24,
-              child: VerticalDivider(width: 1, color: Color(0x667F806C)),
-            ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Flexible(
-              flex: 12,
+              flex: 10,
               child: Align(
                 alignment: Alignment.centerRight,
                 child: FittedBox(fit: BoxFit.scaleDown, child: guestControl!),

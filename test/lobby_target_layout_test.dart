@@ -114,7 +114,7 @@ void main() {
                                     ),
                                   ),
                                   const SizedBox(height: 7),
-                                  LobbyLiveIndicator(tables: tables),
+                                  LobbyLiveIndicator(tables: tables, leagueName: 'Şampiyonlar'),
                                   const SizedBox(height: 3),
                                   Expanded(
                                     child: LobbyTableWheel(

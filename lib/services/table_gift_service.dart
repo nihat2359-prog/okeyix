@@ -172,6 +172,15 @@ class TableGiftController extends ChangeNotifier {
                       .indexOf(a.id)
                       .compareTo(TableGiftItem.catalogIds.indexOf(b.id)),
                 );
+          // A snapshot can have been taken before a live receipt arrived. Keep
+          // newer verified state and its presentation receipt during reconnect.
+          final sameIdentity = ready && _readyIdentity == identity;
+          final snapshotCursor = (data['cursor'] as num).toInt();
+          final newer = sameIdentity
+              ? Map<String, TableLastGift>.fromEntries(
+                  latest.entries.where((e) => e.value.seq > snapshotCursor),
+                )
+              : <String, TableLastGift>{};
           latest.clear();
           for (final raw in data['last_gifts'] as List) {
             final row = Map<String, dynamic>.from(raw as Map);
@@ -184,8 +193,15 @@ class TableGiftController extends ChangeNotifier {
               row['gift_id'] as String,
             );
           }
-          _cursor = (data['cursor'] as num).toInt();
-          _earlyReceipts.clear();
+          latest.addAll(newer);
+          _cursor = sameIdentity && _cursor > snapshotCursor
+              ? _cursor
+              : snapshotCursor;
+          if (sameIdentity) {
+            _earlyReceipts.removeWhere((seq) => seq <= _cursor);
+          } else {
+            _earlyReceipts.clear();
+          }
           _readyIdentity = identity;
           balance = (data['balance'] as num?)?.toInt();
           ready = true;

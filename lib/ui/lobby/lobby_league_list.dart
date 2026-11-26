@@ -22,11 +22,11 @@ class LobbyLeagueList extends StatelessWidget {
     required this.loading,
   });
   static const _metals = [
-    Color(0xFFD08B43),
-    Color(0xFF9BC6E2),
-    Color(0xFFEBC34D),
-    Color(0xFFB56FE7),
-    Color(0xFF4DD69C),
+    Color(0xFFB18A60),
+    Color(0xFFADB8BD),
+    Color(0xFFD0B078),
+    Color(0xFF9983AC),
+    Color(0xFF73A68C),
   ];
   @override
   Widget build(BuildContext context) {
@@ -42,6 +42,47 @@ class LobbyLeagueList extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, bounds) {
         final gap = (bounds.maxHeight * .027).clamp(4.0, 8.0);
+        final cardHeight = (bounds.maxHeight - gap * 2) / 3;
+        // The four compact cards share a size; the full-width final has emphasis.
+        var labelSize = 19.0;
+        var wideLabelSize = 24.0;
+        final inheritedStyle = DefaultTextStyle.of(context).style;
+        for (var i = 0; i < leagues.length && i < 5; i++) {
+          final wide = i == 4;
+          final width = wide ? bounds.maxWidth : (bounds.maxWidth - gap) / 2;
+          final emblem = _emblemSize(width, cardHeight, wide);
+          final available = (width - emblem - 27).clamp(1.0, double.infinity);
+          final painter = TextPainter(
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          );
+          var low = 1.0, high = wide ? wideLabelSize : labelSize;
+          for (var step = 0; step < 12; step++) {
+            final candidate = (low + high) / 2;
+            painter.text = TextSpan(
+              text: leagues[i]['name']?.toString() ?? '',
+              style: inheritedStyle.copyWith(
+                fontSize: candidate,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+              ),
+            );
+            painter.layout();
+            if (painter.width <= available &&
+                painter.height <= cardHeight - 12) {
+              low = candidate;
+            } else {
+              high = candidate;
+            }
+          }
+          if (wide) {
+            wideLabelSize = low;
+          } else {
+            labelSize = low;
+          }
+          painter.dispose();
+        }
         return Column(
           children: [
             for (var row = 0; row < 3; row++) ...[
@@ -65,6 +106,7 @@ class LobbyLeagueList extends StatelessWidget {
                                   leagues[row * 2 + col],
                                   row * 2 + col,
                                   row == 2,
+                                  row == 2 ? wideLabelSize : labelSize,
                                 ),
                               )
                             : const SizedBox.shrink(),
@@ -80,17 +122,22 @@ class LobbyLeagueList extends StatelessWidget {
     );
   }
 
-  Widget _card(Map<String, dynamic> league, int index, bool wide) {
+  static double _emblemSize(double width, double height, bool wide) =>
+      (height * .72).clamp(20.0, width * (wide ? .25 : .32));
+
+  Widget _card(
+    Map<String, dynamic> league,
+    int index,
+    bool wide,
+    double labelSize,
+  ) {
     final metal = _metals[index], selected = league['id'] == selectedLeagueId;
     final unlocked =
         userCoin >= ((league['min_coin'] as num?)?.toInt() ?? 0) &&
         userRating >= ((league['min_rating'] as num?)?.toInt() ?? 0);
     return LayoutBuilder(
       builder: (context, box) {
-        final cup = (box.maxHeight * .82).clamp(
-          20.0,
-          box.maxWidth * (wide ? 0.25 : 0.37),
-        );
+        final emblem = _emblemSize(box.maxWidth, box.maxHeight, wide);
         return Semantics(
           selected: selected,
           button: true,
@@ -122,55 +169,35 @@ class LobbyLeagueList extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(9, 6, 30, 6),
+                          padding: const EdgeInsets.fromLTRB(9, 6, 10, 6),
                           child: Row(
                             children: [
-                              SizedBox(
-                                width: cup,
-                                height: box.maxHeight - 12,
-                                child: FractionallySizedBox(
-                                  widthFactor: .96,
-                                  heightFactor: .93,
-                                  child: LeagueTrophy(index: index),
-                                ),
+                              SizedBox.square(
+                                dimension: emblem,
+                                child: LeagueEmblem(index: index),
                               ),
-                              const SizedBox(width: 5),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    if (selected) ...[
-                                      Icon(
-                                        Icons.check_circle_rounded,
-                                        key: ValueKey(
-                                          'selected-league-${league['id']}',
-                                        ),
-                                        size: 15,
-                                        color: metal,
-                                      ),
-                                      const SizedBox(width: 4),
-                                    ],
                                     Expanded(
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          league['name']?.toString() ?? '',
-                                          maxLines: 1,
-                                          softWrap: false,
-                                          style: TextStyle(
-                                            color: const Color(0xFFFFF3DB),
-                                            fontSize: wide ? 24 : 19,
-                                            fontWeight: FontWeight.w800,
-                                            height: 1.15,
-                                            shadows: const [
-                                              Shadow(
-                                                color: Colors.black,
-                                                offset: Offset(0, 2),
-                                                blurRadius: 2,
-                                              ),
-                                            ],
-                                          ),
+                                      child: Text(
+                                        league['name']?.toString() ?? '',
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: TextStyle(
+                                          color: const Color(0xFFFFF3DB),
+                                          fontSize: labelSize,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.15,
+                                          shadows: const [
+                                            Shadow(
+                                              color: Colors.black,
+                                              offset: Offset(0, 2),
+                                              blurRadius: 2,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -231,29 +258,24 @@ class LobbyLeagueList extends StatelessWidget {
   }
 }
 
-/// Five transparent rendered trophies share one decoded texture.
-class LeagueTrophy extends StatelessWidget {
+/// Matched metal medallions remain crisp without stretching or atlas cropping.
+class LeagueEmblem extends StatelessWidget {
   final int index;
-  const LeagueTrophy({super.key, required this.index});
+  const LeagueEmblem({super.key, required this.index});
+  static const assets = [
+    'assets/images/lobby/leagues/emblem_bronze_v1.png',
+    'assets/images/lobby/leagues/emblem_silver_v1.png',
+    'assets/images/lobby/leagues/emblem_gold_v1.png',
+    'assets/images/lobby/leagues/emblem_amethyst_v1.png',
+    'assets/images/lobby/leagues/emblem_emerald_v1.png',
+  ];
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => ClipRect(
-      child: OverflowBox(
-        alignment: Alignment(-1 + index * .5, 0),
-        minWidth: box.maxWidth * 5,
-        maxWidth: box.maxWidth * 5,
-        minHeight: box.maxHeight * 1.4,
-        maxHeight: box.maxHeight * 1.4,
-        child: Image.asset(
-          'assets/images/lobby/leagues/trophy_atlas_v2.png',
-          cacheWidth: 1536,
-          width: box.maxWidth * 5,
-          height: box.maxHeight * 1.4,
-          fit: BoxFit.fill,
-          filterQuality: FilterQuality.high,
-          excludeFromSemantics: true,
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => Image.asset(
+    assets[index],
+    key: ValueKey('league-emblem-$index'),
+    cacheWidth: 256,
+    fit: BoxFit.contain,
+    filterQuality: FilterQuality.high,
+    excludeFromSemantics: true,
   );
 }

@@ -24,6 +24,40 @@ const ready = <String, dynamic>{
   'bot': false,
 };
 void main() {
+  testWidgets('game key sinks 3px, shrinks its base and restores on release or cancel', (tester) async {
+    var plays = 0;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(
+      child: SizedBox(width: 360, child: LobbyQuickPlayBar(onPlay: () => plays++)),
+    ))));
+    final button = find.byKey(const ValueKey('quick-play'));
+    final depth = find.byKey(const ValueKey('quick-play-key-depth'));
+    double displacement() => tester.widget<Transform>(find.descendant(
+      of: depth, matching: find.byType(Transform)).first).transform.storage[13];
+    double baseDepth() => (tester.widget<AnimatedContainer>(depth).decoration! as BoxDecoration)
+      .boxShadow![1].offset.dy;
+    expect(displacement(), 0);
+    expect(baseDepth(), 4);
+    final gesture = await tester.startGesture(tester.getCenter(button));
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(displacement(), 3);
+    expect(baseDepth(), 1);
+    expect(plays, 0);
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(displacement(), 0);
+    expect(baseDepth(), 4);
+    expect(plays, 1);
+    final cancelled = await tester.startGesture(tester.getCenter(button));
+    await tester.pump(const Duration(milliseconds: 150));
+    await cancelled.cancel();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(displacement(), 0);
+    expect(plays, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('linked account header has no guest separator or unused tap area', (tester) async {
     var plays = 0;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(

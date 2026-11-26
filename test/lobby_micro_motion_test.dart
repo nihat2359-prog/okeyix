@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okeyix/ui/lobby/lobby_micro_motion.dart';
 
 void main() {
-  testWidgets('button breath repeats at 3500ms without rebuilding its content', (tester) async {
+  testWidgets('button breath repeats at 3000ms without rebuilding its content', (tester) async {
     var builds = 0;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: LobbyQuickPlayMotion(
       enabled: true, child: Builder(builder: (_) {
@@ -15,24 +15,26 @@ void main() {
       of: find.byType(LobbyQuickPlayMotion), matching: find.byType(ScaleTransition))).scale.value;
     expect(scale(), 1);
     await tester.pump(const Duration(milliseconds: 900));
-    expect(scale(), closeTo(1.025, .0001));
+    expect(scale(), closeTo(1.03, .0001));
     await tester.pump(const Duration(milliseconds: 900));
     expect(scale(), 1);
-    await tester.pump(const Duration(milliseconds: 1700));
+    await tester.pump(const Duration(milliseconds: 1200));
     await tester.pump(const Duration(milliseconds: 900));
-    expect(scale(), closeTo(1.025, .0001));
+    expect(scale(), closeTo(1.03, .0001));
     expect(builds, 1);
     await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('live counter includes displayed real and showcase seats', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: Scaffold(body: LobbyLiveIndicator(
+      leagueName: 'Acemiler',
       tables: [
         {'_players': [{'user_id': 'human'}]},
         {'is_fake': true, '_players': [{'user_id': 'a'}, {'user_id': 'b'}]},
       ],
     ))));
     expect(find.text('Şu an 3 oyuncu masalarda'), findsOneWidget);
+    expect(find.text('Acemiler'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

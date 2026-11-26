@@ -1,5 +1,4 @@
 import 'package:flame/game.dart';
-import 'package:flame/components.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -148,7 +147,56 @@ class HeldFeedGiftFake extends GiftFake {
       gate ?? super.events(tableId, after);
 }
 
+class HeldSnapshotGiftFake extends GiftFake {
+  HeldSnapshotGiftFake(super.store, super.identity);
+  Future<Map<String, dynamic>>? gate;
+  @override
+  Future<Map<String, dynamic>> snapshot(String tableId) =>
+      gate ?? super.snapshot(tableId);
+}
+
 void main() {
+  for (final feedBeforeRestore in [false, true]) {
+    test('stale reconnect snapshot cannot replay or reverse a received gift; '
+        'feedBeforeRestore=$feedBeforeRestore', () async {
+      final store = GiftStore();
+      final service = HeldSnapshotGiftFake(store, 'a');
+      final sender = GiftFake(store, 'b');
+      final c = TableGiftController(
+        tableId: 'table',
+        service: service,
+        spectator: false,
+      );
+      addTearDown(c.dispose);
+      final flights = <TableGiftEvent>[];
+      c.onEvents = flights.addAll;
+      c.start();
+      await c.restore();
+      final stale = await service.snapshot('table');
+      if (feedBeforeRestore) {
+        await sender.buy('table', 'a', 'cay', 'incoming');
+        await c.sync();
+      }
+      final gate = Completer<Map<String, dynamic>>();
+      service.gate = gate.future;
+      final restoration = c.restore();
+      if (!feedBeforeRestore) {
+        await sender.buy('table', 'a', 'cay', 'incoming');
+        service.immediate!(TableGiftEvent.fromJson(store.events.single));
+      }
+      expect(flights, hasLength(1));
+      gate.complete(stale);
+      await restoration;
+      await c.sync();
+      service.immediate!(TableGiftEvent.fromJson(store.events.single));
+      await c.sync();
+      expect(flights, hasLength(1));
+      expect(flights.single.senderId, 'b');
+      expect(flights.single.recipientId, 'a');
+      expect(c.latest['a']?.seq, 1);
+      expect(c.latest['b'], isNull);
+    });
+  }
   test(
     'new gifts follow coffee and retired gift stays out of selectable catalog',
     () async {
@@ -179,21 +227,26 @@ void main() {
       }
     },
   );
-  test('new gift PNGs decode at 512px with transparent backgrounds', () async {
-    for (final id in ['emzik', 'soguk_su', 'sigara']) {
-      final bytes = await File('assets/images/hediyeler/$id.png').readAsBytes();
-      final codec = await ui.instantiateImageCodec(bytes);
-      final image = (await codec.getNextFrame()).image;
-      expect(image.width, 512);
-      expect(image.height, 512);
-      final rgba = (await image.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
-      ))!;
-      expect(rgba.getUint8(3), 0);
-      image.dispose();
-      codec.dispose();
-    }
-  });
+  test(
+    'catalog gift PNGs decode at 512px with transparent backgrounds',
+    () async {
+      for (final id in TableGiftItem.catalogIds) {
+        final bytes = await File(
+          'assets/images/hediyeler/$id.png',
+        ).readAsBytes();
+        final codec = await ui.instantiateImageCodec(bytes);
+        final image = (await codec.getNextFrame()).image;
+        expect(image.width, 512);
+        expect(image.height, 512);
+        final rgba = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        expect(rgba.getUint8(3), 0);
+        image.dispose();
+        codec.dispose();
+      }
+    },
+  );
   test(
     'catalog has 16 choices and retains the retired gift asset for history',
     () {
@@ -366,7 +419,7 @@ void main() {
         final bounds = t.getRect(find.byKey(entry.$1));
         expect(
           t.getCenter(find.byKey(ValueKey(entry.$2))),
-          Offset(bounds.right - 16, bounds.top + 14),
+          Offset(bounds.right - 22, bounds.top + 20),
         );
       }
       expect(find.byType(GameWidget<TableGiftFlightGame>), findsNothing);
@@ -452,6 +505,120 @@ void main() {
       expect(next.latest, isEmpty);
     },
   );
+  for (final recipientAtBottom in [true, false]) {
+    testWidgets(
+      'incoming gift lands once at recipient; recipientAtBottom=$recipientAtBottom',
+      (t) async {
+        t.view.physicalSize = const Size(480, 270);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
+        final store = GiftStore();
+        final service = GiftFake(store, recipientAtBottom ? 'a' : 'b');
+        final sender = GiftFake(store, 'b');
+        final a = GlobalKey(),
+            b = GlobalKey(),
+            originA = GlobalKey(),
+            originB = GlobalKey();
+        Widget seat(GlobalKey key, GlobalKey origin, double top) => Positioned(
+          left: 100,
+          top: top,
+          child: SizedBox(
+            key: key,
+            width: 180,
+            height: 56,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(key: origin, width: 40, height: 40),
+            ),
+          ),
+        );
+        await t.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.fromLTRB(23, 11, 17, 7),
+                child: Stack(
+                  children: [
+                    seat(a, originA, recipientAtBottom ? 130 : 12),
+                    seat(b, originB, recipientAtBottom ? 12 : 130),
+                    Positioned.fill(
+                      child: TableGiftLayer(
+                        tableId: 'table',
+                        service: service,
+                        anchors: [
+                          TableGiftAnchor('a', 'A', a, originKey: originA),
+                          TableGiftAnchor('b', 'B', b, originKey: originB),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        await t.runAsync(
+          () => precacheImage(
+            const AssetImage('assets/images/hediyeler/cay.png'),
+            t.element(find.byType(TableGiftLayer)),
+          ),
+        );
+        final start = t.getCenter(find.byKey(originB));
+        final recipientBounds = t.getRect(find.byKey(a));
+        final landing = Offset(
+          recipientBounds.right - 22,
+          recipientBounds.top + 20,
+        );
+        await sender.buy('table', 'a', 'cay', 'incoming-flight');
+        final event = TableGiftEvent.fromJson(store.events.single);
+        service.immediate!(event);
+        service.immediate!(event);
+        service.change!();
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 16));
+        final visual = find.byKey(const ValueKey('last-gift:a:1'));
+        expect(visual, findsOneWidget);
+        final originalImage = t.element(visual);
+        expect((t.getCenter(visual) - start).distance, lessThan(2));
+        await t.pump(const Duration(milliseconds: 700));
+        expect(t.element(visual), same(originalImage));
+        final displacement = landing - start;
+        final travel = t.getCenter(visual) - start;
+        expect(
+          travel.dx * displacement.dx + travel.dy * displacement.dy,
+          greaterThan(0),
+        );
+        // Check the actual handoff frames rather than skipping past arrival.
+        await t.pump(const Duration(milliseconds: 284));
+        expect(t.element(visual), same(originalImage));
+        expect((t.getCenter(visual) - landing).distance, lessThan(1));
+        await t.pump(const Duration(milliseconds: 50));
+        await t.pump();
+        expect(t.element(visual), same(originalImage));
+        expect(find.byKey(const ValueKey('last-gift:a:1')), findsOneWidget);
+        expect(find.byKey(const ValueKey('last-gift:b:1')), findsNothing);
+        expect(t.getCenter(visual), landing);
+        expect(t.getSize(visual), const Size(48, 48));
+        for (var frame = 0; frame < 12; frame++) {
+          await t.pump(const Duration(milliseconds: 16));
+          expect(t.getCenter(visual), landing);
+          expect(t.getSize(visual), const Size(48, 48));
+          expect(t.element(visual), same(originalImage));
+        }
+        service.immediate!(event);
+        service.reconnect!();
+        await t.pumpAndSettle();
+        expect(t.element(visual), same(originalImage));
+        expect(t.getCenter(visual), landing);
+        expect(find.byKey(const ValueKey('last-gift:a:1')), findsOneWidget);
+        expect(t.takeException(), isNull);
+        await t.pumpWidget(const SizedBox());
+        await t.pump();
+      },
+    );
+  }
   for (final size in [const Size(480, 270), const Size(844, 390)]) {
     testWidgets('avatar targets and right gift catalog fit $size', (t) async {
       t.view.physicalSize = size;
@@ -513,33 +680,26 @@ void main() {
       expect(find.text('Hediyeler'), findsOneWidget);
       expect(t.takeException(), isNull);
       service.insufficient = false;
-      final game = t
-          .widget<GameWidget<TableGiftFlightGame>>(
-            find.byType(GameWidget<TableGiftFlightGame>),
-          )
-          .game!;
-      await t.runAsync(() async {
-        await game.images.load('hediyeler/cay.png');
-      });
       await t.tap(find.text('Çay'));
       await t.pump();
       await t.pump(const Duration(milliseconds: 250));
       await t.pump(const Duration(milliseconds: 100));
       expect(find.text('Hediyeler'), findsNothing);
-      expect(game.children.whereType<SpriteComponent>(), isNotEmpty);
-      for (final sprite in game.children.whereType<SpriteComponent>()) {
-        expect(sprite.angle, 0);
-      }
+      final flying = find.byKey(const ValueKey('last-gift:b:1'));
+      expect(flying, findsOneWidget);
+      final imageElement = t.element(flying);
+      expect(t.getSize(flying).width, greaterThan(48));
       await t.pump(const Duration(seconds: 2));
       await t.pumpAndSettle();
       expect(find.byKey(const ValueKey('last-gift:b:1')), findsOneWidget);
       final delivered = find.byKey(const ValueKey('last-gift:b:1'));
+      expect(t.element(delivered), same(imageElement));
       expect(t.getSize(delivered), const Size(48, 48));
       expect(t.getCenter(delivered), landingPoint);
       expect(find.byIcon(Icons.card_giftcard_rounded), findsOneWidget);
       await t.pump(const Duration(seconds: 20));
       expect(find.byKey(const ValueKey('last-gift:b:1')), findsOneWidget);
-      expect(game.paused, isTrue);
+      expect(t.element(delivered), same(imageElement));
       await t.tap(delivered);
       await t.pumpAndSettle();
       expect(find.textContaining('Alıcı:'), findsNothing);

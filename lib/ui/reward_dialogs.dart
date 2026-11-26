@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:okeyix/services/reward_audio.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/core/rewarded_ad_phase.dart';
@@ -47,18 +46,20 @@ class _RewardedVideoDialogState extends State<RewardedVideoDialog> {
                 if (mounted) setState(() => _phase = phase);
               }) ??
               widget.onClaim());
-      if (mounted)
+      if (mounted) {
         setState(() {
           _won = won;
           if (!won) _error = 'Ödül şu anda alınamıyor. Yeniden dene.';
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = e is StateError
               ? e.message.toString()
               : 'Bağlantı kurulamadı. Lütfen yeniden dene.',
         );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -67,25 +68,26 @@ class _RewardedVideoDialogState extends State<RewardedVideoDialog> {
   @override
   Widget build(BuildContext context) => _RewardCard(
     amount: 15000,
-    badge: _won ? 'ÖDÜL SENİN' : 'GÜNÜN ALTIN FIRSATI',
+    badge: _won ? 'ÖDÜL SENİN' : 'GÜNLÜK VİDEO ÖDÜLÜ',
     title: _won ? 'Harika! Kazandın.' : 'Günlük ödülünü al!',
     message: _loading
         ? _phase.message
         : _won
-        ? '15.000 Coin hesabına eklendi. Masalar seni bekliyor!'
-        : 'Kısa bir ödüllü reklam izle, 15.000 Coin kazan. Her gün bir kez, tamamen senin seçiminle.',
+        ? '${Format.coin(15000)} Coin hesabına eklendi. Masalar seni bekliyor!'
+        : 'Kısa bir ödüllü reklam izle, ${Format.coin(15000)} Coin kazan. Her gün bir kez, tamamen senin seçiminle.',
     button: _won
         ? 'Masaya dön'
         : _error != null
         ? 'Tekrar dene'
-        : 'Videoyu izle • 15.000 Coin al',
+        : 'Videoyu izle • ${Format.coin(15000)} Coin al',
     loading: _loading,
     loadingLabel: _phase.label,
     success: _won,
     error: _error,
     onPressed: _claim,
     onSound: widget.onSound,
-    floatingTreasure: true,
+    treasureAsset: 'assets/images/coins/video_reward_coins_v2.png',
+    groundedCoins: true,
     footer: widget.onPrivacy == null
         ? null
         : Align(
@@ -97,11 +99,12 @@ class _RewardedVideoDialogState extends State<RewardedVideoDialog> {
                       try {
                         await widget.onPrivacy!();
                       } catch (_) {
-                        if (mounted)
+                        if (mounted) {
                           setState(
                             () => _error =
                                 'Gizlilik seçenekleri şu anda açılamıyor.',
                           );
+                        }
                       }
                     },
               child: const Text(
@@ -197,13 +200,8 @@ class _DailyBonusDialogState extends State<DailyBonusDialog> {
       amount: success
           ? (widget.creditedAmount?.call() ?? widget.amount)
           : widget.amount,
-      treasureAsset: widget.rewardDay == null || widget.rewardDay == 7
-          ? 'assets/images/coins/coins_huge.png'
-          : widget.rewardDay! <= 2
-          ? 'assets/images/coins/coins_small.png'
-          : widget.rewardDay! <= 4
-          ? 'assets/images/coins/coins_medium.png'
-          : 'assets/images/coins/coins_large.png',
+      treasureAsset: 'assets/images/coins/video_reward_coins_v2.png',
+      groundedCoins: true,
       badge: success
           ? 'ÖDÜL SENİN'
           : already
@@ -353,7 +351,7 @@ class _SevenDayTrail extends StatelessWidget {
 class _RewardCard extends StatefulWidget {
   final Widget? sidePanel;
   final String loadingLabel;
-  final bool floatingTreasure;
+  final bool groundedCoins;
   final int amount;
   final String treasureAsset;
   final String title, message, badge, button;
@@ -365,7 +363,7 @@ class _RewardCard extends StatefulWidget {
   const _RewardCard({
     this.sidePanel,
     this.loadingLabel = 'Alınıyor...',
-    this.floatingTreasure = false,
+    this.groundedCoins = false,
     required this.amount,
     this.treasureAsset = 'assets/images/coins/coins_huge.png',
     required this.title,
@@ -411,10 +409,6 @@ class _RewardCardState extends State<_RewardCard>
     vsync: this,
     duration: const Duration(milliseconds: 380),
   );
-  late final AnimationController _float = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 4),
-  );
   late final AnimationController _win = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 850),
@@ -429,7 +423,6 @@ class _RewardCardState extends State<_RewardCard>
         _entrance.value = 1;
       } else {
         _entrance.forward();
-        if (widget.floatingTreasure) _float.repeat();
       }
     }
   }
@@ -450,7 +443,6 @@ class _RewardCardState extends State<_RewardCard>
     WidgetsBinding.instance.removeObserver(this);
     _audio?.dispose();
     _entrance.dispose();
-    _float.dispose();
     _win.dispose();
     super.dispose();
   }
@@ -814,16 +806,37 @@ class _RewardCardState extends State<_RewardCard>
           top: 0,
           bottom: bounds.maxHeight * .25,
           child: AnimatedBuilder(
-            animation: Listenable.merge([_win, _float]),
-            builder: (context, child) => Transform.translate(
-              offset: Offset(0, math.sin(_float.value * math.pi * 2) * 5),
-              child: Transform.scale(
-                scale: 1 + math.sin(_win.value * math.pi) * .12,
-                child: child,
-              ),
-            ),
+            animation: _win,
+            builder: (context, child) => widget.groundedCoins
+                ? ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      Color.fromRGBO(
+                        255,
+                        240,
+                        199,
+                        math.sin(_win.value * math.pi) * .12,
+                      ),
+                      BlendMode.srcATop,
+                    ),
+                    child: child,
+                  )
+                : Transform.scale(
+                    scale: 1 + math.sin(_win.value * math.pi) * .12,
+                    child: child,
+                  ),
             child: LayoutBuilder(
               builder: (context, space) {
+                if (widget.groundedCoins) {
+                  return Image.asset(
+                    widget.treasureAsset,
+                    key: const ValueKey('video-reward-art'),
+                    width: space.maxWidth,
+                    height: space.maxHeight,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    excludeFromSemantics: true,
+                  );
+                }
                 final side = math.min(space.maxWidth, space.maxHeight);
                 return Center(
                   child: SizedBox.square(
@@ -860,13 +873,15 @@ class _RewardCardState extends State<_RewardCard>
                   label: '${widget.amount} coin',
                   excludeSemantics: true,
                   child: Text(
-                    '+ ${NumberFormat.decimalPattern('tr').format(widget.amount)}',
-                    style: const TextStyle(
+                    '+ ${Format.coin(widget.amount)}',
+                    style: TextStyle(
                       color: _gold,
-                      fontSize: 54,
+                      fontSize: widget.groundedCoins ? 44 : 54,
                       height: 1,
-                      fontWeight: FontWeight.w900,
-                      shadows: [
+                      fontWeight: widget.groundedCoins
+                          ? FontWeight.w800
+                          : FontWeight.w900,
+                      shadows: const [
                         Shadow(color: Color(0xFF382205), offset: Offset(0, 3)),
                         Shadow(color: Color(0xAA000000), blurRadius: 12),
                       ],
@@ -891,11 +906,12 @@ class _RewardCardState extends State<_RewardCard>
             ),
           ),
         ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(painter: _WinParticles(_win)),
+        if (!widget.groundedCoins)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _WinParticles(_win)),
+            ),
           ),
-        ),
       ],
     ),
   );

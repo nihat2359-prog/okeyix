@@ -20,9 +20,9 @@ class TableGiftFlightGame extends FlameGame {
     required bool self,
   }) async {
     final sprite = await loadSprite('hediyeler/$gift.png');
+    final component = _GiftFlight(sprite, from, to, self);
     if (!isMounted) return;
     resumeEngine();
-    final component = _GiftFlight(sprite, from, to, self);
     await add(component);
     await component.removed;
     pauseEngine();
@@ -44,14 +44,41 @@ class _GiftFlight extends SpriteComponent {
   void update(double dt) {
     super.update(dt);
     elapsed += dt;
-    final t = (elapsed / (self ? .55 : 1.05)).clamp(0.0, 1.0);
-    final eased = Curves.easeInOutCubic.transform(t);
-    final point = Offset.lerp(from, to, eased)!;
-    position.setValues(
-      point.dx,
-      point.dy - (self ? 10 : 32) * 4 * eased * (1 - eased),
-    );
-    scale = Vector2.all(1 - (1 - 48 / 84) * Curves.easeOutCubic.transform(t));
-    if (t >= 1) removeFromParent();
+    _advanceFlight(this, from, to, self, elapsed);
   }
+}
+
+void _advanceFlight(
+  PositionComponent component,
+  Offset from,
+  Offset to,
+  bool self,
+  double elapsed,
+) {
+  final t = (elapsed / (self ? .55 : 1.05)).clamp(0.0, 1.0);
+  final point = tableGiftFlightPoint(from, to, t, self: self);
+  component.position.setValues(point.dx, point.dy);
+  component.scale = Vector2.all(
+    1 - (1 - 48 / 84) * Curves.easeOutCubic.transform(t),
+  );
+  if (t >= 1) component.removeFromParent();
+}
+
+/// Bend across the travel direction, never backwards into the sender's avatar.
+/// A fixed upward arc can reverse short downward flights on landscape screens.
+Offset tableGiftFlightPoint(
+  Offset from,
+  Offset to,
+  double progress, {
+  bool self = false,
+}) {
+  final t = progress.clamp(0.0, 1.0);
+  final eased = Curves.easeInOutCubic.transform(t);
+  final point = Offset.lerp(from, to, eased)!;
+  final delta = to - from;
+  final distance = delta.distance;
+  if (distance < .001) return point;
+  final normal = Offset(delta.dy / distance, -delta.dx / distance);
+  final bend = math.min(self ? 10.0 : 32.0, distance * .22);
+  return point + normal * (bend * 4 * eased * (1 - eased));
 }

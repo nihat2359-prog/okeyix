@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:collection';
-import 'package:flame/game.dart' show GameWidget;
 import 'package:flutter/material.dart';
 import 'package:okeyix/core/format.dart';
 import 'package:okeyix/game/table_gift_flight.dart';
 import 'package:okeyix/models/table_gift.dart';
 import 'package:okeyix/services/table_gift_service.dart';
+import 'table_gift_art.dart';
 
 const _gold = Color(0xFFE8CA8C);
 
@@ -17,7 +17,7 @@ class TableGiftAnchor {
 }
 
 /// Positioned over the existing avatars. Only gift buttons receive touches;
-/// all Flame flight pixels and persistent gift images ignore game input.
+/// The same image flies and stays at its destination, without a renderer swap.
 class TableGiftLayer extends StatefulWidget {
   const TableGiftLayer({
     super.key,
@@ -37,13 +37,15 @@ class TableGiftLayer extends StatefulWidget {
 }
 
 class _TableGiftLayerState extends State<TableGiftLayer>
-    with WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TableGiftController _gifts;
-  final _flightGame = TableGiftFlightGame();
+  late final AnimationController _flight;
+  Offset _flightFrom = Offset.zero;
   final _root = GlobalKey();
   final Map<String, Rect> _rects = {};
   final Map<String, Offset> _origins = {};
   final Queue<TableGiftEvent> _queue = Queue();
+  final Set<int> _seenSequences = {};
   TableGiftEvent? _flying;
   bool _panel = false;
   int? _lastBalance;
@@ -55,6 +57,10 @@ class _TableGiftLayerState extends State<TableGiftLayer>
   @override
   void initState() {
     super.initState();
+    _flight = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1050),
+    );
     WidgetsBinding.instance.addObserver(this);
     _gifts = TableGiftController(
       tableId: widget.tableId,
@@ -63,7 +69,7 @@ class _TableGiftLayerState extends State<TableGiftLayer>
     );
     _gifts.addListener(_changed);
     _gifts.onEvents = (events) {
-      _queue.addAll(events);
+      _queue.addAll(events.where((e) => _seenSequences.add(e.seq)));
       _drain();
     };
     _gifts.start();
@@ -97,6 +103,7 @@ class _TableGiftLayerState extends State<TableGiftLayer>
     WidgetsBinding.instance.removeObserver(this);
     _gifts.removeListener(_changed);
     _gifts.dispose();
+    _flight.dispose();
     super.dispose();
   }
 
@@ -124,12 +131,13 @@ class _TableGiftLayerState extends State<TableGiftLayer>
 
   void _measure({bool drain = true}) {
     final root = _root.currentContext?.findRenderObject();
-    if (root is! RenderBox || !root.hasSize) return;
+    if (root is! RenderBox || !root.hasSize || !root.attached) return;
     final next = <String, Rect>{};
+    final origins = <String, Offset>{};
     for (final a in widget.anchors) {
       final origin = a.originKey?.currentContext?.findRenderObject();
       if (origin is RenderBox && origin.hasSize && origin.attached) {
-        _origins[a.userId] = root.globalToLocal(
+        origins[a.userId] = root.globalToLocal(
           origin.localToGlobal(origin.size.center(Offset.zero)),
         );
       }
@@ -139,6 +147,9 @@ class _TableGiftLayerState extends State<TableGiftLayer>
             root.globalToLocal(box.localToGlobal(Offset.zero)) & box.size;
       }
     }
+    _origins
+      ..clear()
+      ..addAll(origins);
     if (next.length != _rects.length ||
         next.entries.any((e) => _rects[e.key] != e.value)) {
       if (mounted) {
@@ -161,27 +172,31 @@ class _TableGiftLayerState extends State<TableGiftLayer>
         widget.spectator ||
         _panel ||
         _flying != null ||
-        _queue.isEmpty ||
-        !_flightGame.isMounted) {
+        _queue.isEmpty) {
       return;
     }
     _measure(drain: false);
-    final e = _queue.removeFirst();
+    final e = _queue.first;
     final from = _rects[e.senderId], to = _rects[e.recipientId];
     if (from == null || to == null) {
-      if (_queue.isNotEmpty) unawaited(_drain());
+      final members = widget.anchors.map((a) => a.userId).toSet();
+      if (!members.contains(e.senderId) || !members.contains(e.recipientId)) {
+        _queue.removeFirst();
+        if (_queue.isNotEmpty) unawaited(_drain());
+      }
       return;
     }
     final root = _root.currentContext?.findRenderObject();
-    if (root is! RenderBox) return;
+    if (root is! RenderBox || !root.hasSize || !root.attached) return;
+    _queue.removeFirst();
+    _flightFrom = _origins[e.senderId] ?? from.center;
+    _flight.duration = Duration(
+      milliseconds: e.senderId == e.recipientId ? 550 : 1050,
+    );
+    _flight.value = 0;
     setState(() => _flying = e);
     try {
-      await _flightGame.fly(
-        gift: e.giftId,
-        from: _origins[e.senderId] ?? from.center,
-        to: _slot(to, root.size),
-        self: e.senderId == e.recipientId,
-      );
+      await _flight.forward().orCancel;
     } catch (_) {
       /* The confirmed persistent state remains visible if art fails. */
     } finally {
@@ -190,6 +205,49 @@ class _TableGiftLayerState extends State<TableGiftLayer>
         unawaited(_drain());
       }
     }
+  }
+
+  Widget? _giftVisual(TableGiftAnchor anchor, Size size) {
+    final moving = _flying?.recipientId == anchor.userId ? _flying : null;
+    final gift = moving != null
+        ? TableLastGift(moving.seq, moving.giftId)
+        : _gifts.latest[anchor.userId];
+    if (gift == null ||
+        (moving == null && _queue.any((e) => e.seq == gift.seq))) {
+      return null;
+    }
+    final destination = _slot(_rects[anchor.userId]!, size);
+    final progress = moving == null ? 1.0 : _flight.value;
+    final center = moving == null
+        ? destination
+        : tableGiftFlightPoint(
+            _flightFrom,
+            destination,
+            progress,
+            self: moving.senderId == moving.recipientId,
+          );
+    final extent = 84 - 36 * Curves.easeOutCubic.transform(progress);
+    return Positioned(
+      key: ValueKey('gift-visual:${anchor.userId}'),
+      left: center.dx - extent / 2,
+      top: center.dy - extent / 2,
+      child: IgnorePointer(
+        ignoring: widget.spectator || moving != null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.spectator ? null : () => _open(anchor),
+          child: Tooltip(
+            message: '${_t('Hediye', 'Gift')} · ${anchor.name}',
+            child: TableGiftArt(
+              key: ValueKey('last-gift:${anchor.userId}:${gift.seq}'),
+              giftId: gift.giftId,
+              width: extent,
+              height: extent,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _open(TableGiftAnchor recipient) async {
@@ -244,79 +302,55 @@ class _TableGiftLayerState extends State<TableGiftLayer>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, bounds) {
-        if (_measuredSize != bounds.biggest) {
-          _measuredSize = bounds.biggest;
-          _scheduleMeasure();
-        }
-        return SizedBox.expand(
-          key: _root,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              if (!widget.spectator)
-                Positioned.fill(
-                  child: IgnorePointer(child: GameWidget(game: _flightGame)),
-                ),
-              for (final a in widget.anchors)
-                if (_rects[a.userId] != null) ...[
-                  if (_gifts.latest[a.userId] case final TableLastGift gift)
-                    if (_flying?.seq != gift.seq &&
-                        !_queue.any((e) => e.seq == gift.seq))
+    return AnimatedBuilder(
+      animation: _flight,
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, bounds) {
+          if (_measuredSize != bounds.biggest) {
+            _measuredSize = bounds.biggest;
+            _scheduleMeasure();
+          }
+          return SizedBox.expand(
+            key: _root,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final a in widget.anchors)
+                  if (_rects[a.userId] != null) ...[
+                    if (_giftVisual(a, bounds.biggest) case final Widget visual)
+                      visual,
+                    if (!widget.spectator &&
+                        !_gifts.latest.containsKey(a.userId))
                       Positioned(
-                        left: _slot(_rects[a.userId]!, bounds.biggest).dx - 24,
-                        top: _slot(_rects[a.userId]!, bounds.biggest).dy - 24,
-                        child: IgnorePointer(
-                          ignoring: widget.spectator,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: widget.spectator ? null : () => _open(a),
+                        left: _slot(_rects[a.userId]!, bounds.biggest).dx - 12,
+                        top: _slot(_rects[a.userId]!, bounds.biggest).dy - 12,
+                        child: Material(
+                          color: Colors.transparent,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => _open(a),
                             child: Tooltip(
                               message: '${_t('Hediye', 'Gift')} · ${a.name}',
-                              child: Image.asset(
-                                gift.asset,
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.contain,
-                                key: ValueKey(
-                                  'last-gift:${a.userId}:${gift.seq}',
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: const Icon(
+                                  Icons.card_giftcard_rounded,
+                                  size: 14,
+                                  color: _gold,
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                  if (!widget.spectator && !_gifts.latest.containsKey(a.userId))
-                    Positioned(
-                      left: _slot(_rects[a.userId]!, bounds.biggest).dx - 12,
-                      top: _slot(_rects[a.userId]!, bounds.biggest).dy - 12,
-                      child: Material(
-                        color: Colors.transparent,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => _open(a),
-                          child: Tooltip(
-                            message: '${_t('Hediye', 'Gift')} · ${a.name}',
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: const Icon(
-                                Icons.card_giftcard_rounded,
-                                size: 14,
-                                color: _gold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-            ],
-          ),
-        );
-      },
+                  ],
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -455,12 +489,7 @@ class _GiftPanelState extends State<_GiftPanel> {
                                 padding: const EdgeInsets.all(3),
                                 child: Column(
                                   children: [
-                                    Expanded(
-                                      child: Image.asset(
-                                        g.asset,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
+                                    Expanded(child: TableGiftArt(giftId: g.id)),
                                     Text(
                                       _t(g.nameTr, g.nameEn),
                                       maxLines: 1,

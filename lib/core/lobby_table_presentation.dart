@@ -80,7 +80,15 @@ List<Map<String, dynamic>> completeLobbyTables({
   return tables..sort(compareLobbyTables);
 }
 
-const _fallbackNames = ['Emre K.', 'Selin Y.', 'Murat T.', 'Zeynep A.',
-  'Kerem B.', 'Elif D.', 'Mert S.', 'İrem G.', 'Burak E.', 'Ece M.',
-  'Onur A.', 'Ceren K.', 'Arda Y.', 'Derya T.', 'Hakan S.', 'Pelin B.'];
-const _fallbackAvatars = [8, 13, 11, 6, 10, 7, 2, 12, 3, 15, 1, 5, 9, 17, 4, 18];
+// 20 identities keep the same 40/30/20/10 mix as the database bot pool.
+const _fallbackNames = [
+  'MaviBoncuk', 'merve_ist', '★Yıldız★', 'Ahmet Yılmaz',
+  'GeceKuşu', 'burak', 'Kral34', 'ツPapatyaツ',
+  'DemliÇay', 'elif35', 'SonTaş', '♡Maviş♡',
+  'ahmet34', 'GönülDostu', 'Zeynep Kaya', 'seda',
+  'EgeRüzgarı', '✿GülKurusu✿', 'onur06', 'YorgunKaptan',
+];
+const _fallbackAvatars = [
+  8, 13, 11, 6, 10, 7, 2, 12, 3, 15,
+  1, 5, 9, 17, 4, 18, 14, 19, 16, 20,
+];
